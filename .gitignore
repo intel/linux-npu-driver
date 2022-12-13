@@ -1,0 +1,64 @@
+# Generic purpose files
+*.orig
+*.rej
+.DS_store
+.checkpatch-camelcase.git.
+tmp/
+.cache/
+
+# Build directory
+**/build*/
+artifacts/
+
+# CMake
+**/CMakeFiles/*
+/.local.cmake
+
+# Tags - etags, ctags, gtags and cscope
+TAGS
+.TAGS
+!TAGS/
+tags
+.tags
+!tags/
+gtags.files
+GTAGS
+GRTAGS
+GPATH
+GSYMS
+cscope.files
+cscope.out
+cscope.in.out
+cscope.po.out
+
+# Emacs
+*~
+\#*\#
+*.elc
+auto-save-list
+tramp
+.\#*
+/eshell/history
+/eshell/lastdir
+/elpa/
+*.rel
+.cask/
+dist/
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+Session.vim
+Sessionx.vim
+
+# VSCode
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+compile_commands.json
