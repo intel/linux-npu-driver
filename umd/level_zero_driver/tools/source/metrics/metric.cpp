@@ -80,11 +80,13 @@ ze_result_t Metric::getProperties(zet_metric_properties_t *pProperties) {
 MetricGroup::MetricGroup(zet_metric_group_properties_t &propertiesInput,
                          size_t allocationSizeInput,
                          std::vector<std::shared_ptr<Metric>> &metricsInput,
-                         uint32_t groupIndexInput)
+                         uint32_t groupIndexInput,
+                         size_t numberOfMetricGroupsInput)
     : properties(propertiesInput)
     , allocationSize(allocationSizeInput)
     , metrics(metricsInput)
-    , groupIndex(groupIndexInput) {}
+    , groupIndex(groupIndexInput)
+    , numberOfMetricGroups(numberOfMetricGroupsInput) {}
 
 ze_result_t MetricGroup::getProperties(zet_metric_group_properties_t *pProperties) {
     if (pProperties == nullptr) {
@@ -238,21 +240,22 @@ void MetricGroup::calculateMaxMetricValues(const uint8_t *pRawData,
     }
 }
 
-void MetricContext::deactivateMetricGroups(const uint32_t contextId) {
+void MetricContext::deactivateMetricGroups(const int vpuFd) {
     activatedMetricGroups.erase(std::remove_if(activatedMetricGroups.begin(),
                                                activatedMetricGroups.end(),
-                                               [&contextId](auto &x) {
-                                                   if (x.second.second == contextId) {
+                                               [&vpuFd](auto &x) {
+                                                   if (x.second.second == vpuFd) {
                                                        x.second.first->setActivationStatus(false);
                                                        return true;
                                                    }
                                                    return false;
                                                }),
                                 activatedMetricGroups.end());
-    LOG_I("All Metric Groups activated by context %u have been deactivated!", contextId);
+    LOG_I("All Metric Groups activated by context with file descriptor %d have been deactivated!",
+          vpuFd);
 }
 
-bool MetricContext::activateMetricGroup(const uint32_t contextId,
+bool MetricContext::activateMetricGroup(const int vpuFd,
                                         const zet_metric_group_handle_t hMetricGroup) {
     auto metricGroup = MetricGroup::fromHandle(hMetricGroup);
 
@@ -276,7 +279,7 @@ bool MetricContext::activateMetricGroup(const uint32_t contextId,
         // Checks if domain already exists in activatedMetricGroups map
         if (domainIt.first == domain) {
             // Checks if the metric group passed in was the one already activated
-            if (domainIt.second.first == metricGroup && domainIt.second.second == contextId) {
+            if (domainIt.second.first == metricGroup && domainIt.second.second == vpuFd) {
                 LOG_I("Metric Group (%p) already activated beforehand.", metricGroup);
                 return true;
             }
@@ -287,15 +290,18 @@ bool MetricContext::activateMetricGroup(const uint32_t contextId,
     }
 
     metricGroup->setActivationStatus(true);
-    activatedMetricGroups.push_back(std::make_pair(domain, std::make_pair(metricGroup, contextId)));
-    LOG_I("Metric Group (%p) from domain (%u) has been activated by context %u!",
-          metricGroup,
-          domain,
-          contextId);
+    activatedMetricGroups.push_back(std::make_pair(domain, std::make_pair(metricGroup, vpuFd)));
+
+    LOG_I(
+        "Metric Group (%p) from domain (%u) has been activated by context with file descriptor %d!",
+        metricGroup,
+        domain,
+        vpuFd);
+
     return true;
 }
 
-ze_result_t MetricContext::activateMetricGroups(uint32_t contextId,
+ze_result_t MetricContext::activateMetricGroups(int vpuFd,
                                                 uint32_t count,
                                                 zet_metric_group_handle_t *phMetricGroups) {
     if (device == nullptr || !device->isMetricsLoaded()) {
@@ -312,15 +318,15 @@ ze_result_t MetricContext::activateMetricGroups(uint32_t contextId,
         }
 
         // Deactivate all metric groups first and re-activate those passed into phMetricGroups
-        deactivateMetricGroups(contextId);
+        deactivateMetricGroups(vpuFd);
         for (uint32_t i = 0; i < count; i++) {
-            if (!activateMetricGroup(contextId, phMetricGroups[i])) {
+            if (!activateMetricGroup(vpuFd, phMetricGroups[i])) {
                 LOG_E("Invalid Metric Group (%p) was passed in.", phMetricGroups[i]);
                 result = ZE_RESULT_ERROR_INVALID_ARGUMENT;
             }
         }
     } else if (phMetricGroups == nullptr) {
-        deactivateMetricGroups(contextId);
+        deactivateMetricGroups(vpuFd);
     }
 
     return result;

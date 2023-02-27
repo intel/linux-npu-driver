@@ -7,6 +7,7 @@
 
 #include "umd_common.hpp"
 
+#include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/source/utilities/timer.hpp"
 #include "vpu_driver/source/command/vpu_job.hpp"
@@ -18,7 +19,7 @@
 #include <chrono>
 #include <thread>
 #include <vector>
-#include <uapi/drm/ivpu_drm.h>
+#include <uapi/drm/ivpu_accel.h>
 
 namespace VPU {
 
@@ -79,8 +80,8 @@ static int64_t getAbsoluteTimeoutNanoseconds(int64_t timeout) {
 
 bool waitForSignal(uint64_t timeout,
                    const std::vector<std::shared_ptr<VPUJob>> &jobs,
-                   DeviceInfo devInfo) {
-    if (devInfo.deviceId == MTL_VPU_PCI_DEVICE_ID && devInfo.platformType != 0) {
+                   VPUHwInfo devInfo) {
+    if (devInfo.deviceId == mtlHwInfo.deviceId && devInfo.platformType != 0) {
         return timeBoundSignalCheck(timeout, [&jobs]() {
             for (auto const &job : jobs)
                 if (!job->waitForCompletion(0))

@@ -36,6 +36,9 @@ void Driver::initializeEnvVariables() {
 
     env = getenv("VPU_DRV_UMD_LOGLEVEL");
     envVariables.umdLogLevel = env == nullptr ? "" : env;
+
+    env = getenv("VPU_DRV_CID_LOGLEVEL");
+    envVariables.cidLogLevel = env == nullptr ? "" : env;
 }
 
 ze_result_t Driver::getInitStatus() {
@@ -47,6 +50,7 @@ void Driver::driverInit(ze_init_flags_t flags) {
     std::call_once(this->initDriverOnce, [&]() {
         initializeEnvVariables();
         VPU::setLogLevel(envVariables.umdLogLevel);
+        Compiler::setCidLogLevel(envVariables.cidLogLevel);
 
         if (osInfc == nullptr) {
             LOG_V("OS interface updated.");

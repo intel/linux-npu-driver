@@ -37,23 +37,16 @@ struct MetricQuery : _zet_metric_query_handle_t {
 
     uint32_t getIndex() const { return index; }
     uint32_t getMetricGroupMask() const { return metricGroupMask; }
-    uint64_t *getMetricAddrPtr() { return &metricQuery->groupArray[0]; }
+
+    // metricQueryPtr is a CPU address to table with VPU addresses for metric query command
+    uint64_t *getMetricAddrPtr() { return metricQueryPtr; }
+
     bool isGroupActivated() const { return metricGroup.isActivated(); }
     bool isInitialized() const { return initialized; }
 
   protected:
-    /*
-    TODO: Stop using a hardcoded value for the address table groupArray size
-          (EISW-62050)
-    */
-    struct MetricData {
-        std::array<uint64_t, 8> groupArray;
-        uint8_t data[1];
-    };
-
-    static_assert(offsetof(MetricData, data) % 64 == 0, "Data field is not aligned to 64 bytes");
-
-    MetricData *metricQuery = nullptr;
+    uint64_t dataAddress = 0u;
+    uint64_t *metricQueryPtr = nullptr;
     MetricGroup &metricGroup;
 
   private:
@@ -76,7 +69,7 @@ struct MetricQueryPool : _zet_metric_query_pool_handle_t {
 
     ze_result_t destroy();
     bool isInitialized() const { return initialized; }
-    size_t getQueryArraySize() const { return queryArraySize; }
+    size_t getAddressTableSize() const { return addressTableSize; }
 
     void removeQuery(MetricQuery *metricQuery);
     ze_result_t createMetricQuery(uint32_t index, zet_metric_query_handle_t *phMetricQuery);
@@ -86,7 +79,7 @@ struct MetricQueryPool : _zet_metric_query_pool_handle_t {
 
     VPU::VPUDeviceContext *ctx;
     MetricGroup *metricGroup = nullptr;
-    size_t queryArraySize = getFwDataCacheAlign(sizeof(uint64_t) * 8);
+    size_t addressTableSize = 0u;
 
     /**
      * Query allocation map <index, MetricQuery pointer>

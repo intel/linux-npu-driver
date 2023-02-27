@@ -5,9 +5,9 @@
  *
  */
 
-#include "vpu_driver/source/device/devicelist.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
 
+#include <exception>
 #include <limits>
 #include <memory>
 #include <string>
@@ -22,7 +22,8 @@ MockVPUDevice::MockVPUDevice(std::string devnode, MockOsInterfaceImp &mockOSInf)
 std::unique_ptr<MockVPUDevice>
 MockVPUDevice::createWithDefaultHardwareInfo(MockOsInterfaceImp &mockOSInf) {
     auto device = std::make_unique<MockVPUDevice>(FAKE_TEST_DEV_NODE, mockOSInf);
-    device->init();
+    if (!device->init())
+        throw std::runtime_error("Failed to initialize MockVPUDevice");
     return device;
 };
 

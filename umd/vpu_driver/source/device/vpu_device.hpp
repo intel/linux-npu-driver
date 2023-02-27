@@ -7,12 +7,13 @@
 
 #pragma once
 
-#include "vpu_driver/source/device/device_info.hpp"
+#include "vpu_driver/source/device/hw_info.hpp"
+#include "vpu_driver/source/device/metric_info.hpp"
 #include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
 #include "vpu_driver/source/command/vpu_job.hpp"
 
 #include <memory>
-#include <uapi/drm/ivpu_drm.h>
+#include <uapi/drm/ivpu_accel.h>
 
 namespace VPU {
 
@@ -25,8 +26,9 @@ class VPUDevice {
     VPUDevice(std::string devnode, OsInterface &osInfc);
     virtual ~VPUDevice() = default;
 
-    const DeviceInfo &getDeviceInfo() const;
+    const VPUHwInfo &getHwInfo() const;
     const std::vector<GroupInfo> getMetricGroupsInfo() const;
+    uint32_t getCapMetricStreamer() const;
     virtual std::unique_ptr<VPUDeviceContext> createDeviceContext();
 
     size_t getNumberOfEngineGroups(void) const;
@@ -45,10 +47,12 @@ class VPUDevice {
 
   private:
     virtual bool initializeCaps(VPUDriverApi *drvApi);
+    virtual bool initializeMetricGroups(VPUDriverApi *drvApi);
 
   protected:
-    DeviceInfo deviceInfo = {};
-    std::vector<uint8_t> metricGroupsInfo = {};
+    VPUHwInfo hwInfo = {};
+    std::vector<GroupInfo> groupsInfo = {};
+    uint32_t capMetricStreamer = 0u;
 
   private:
     std::string devnode;

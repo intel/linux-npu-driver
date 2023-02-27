@@ -4,8 +4,7 @@
 # SPDX-License-Identifier: MIT
 #
 
-set(VPU_COMMANDS
-    ${CMAKE_CURRENT_SOURCE_DIR}/kmd_commit_command.hpp
+target_sources(${TARGET_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/vpu_command.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vpu_command.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vpu_command_buffer.hpp
@@ -29,5 +28,3 @@ set(VPU_COMMANDS
     ${CMAKE_CURRENT_SOURCE_DIR}/vpu_query_command.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vpu_query_command.cpp
 )
-
-set_property(GLOBAL PROPERTY VPU_COMMANDS ${VPU_COMMANDS})

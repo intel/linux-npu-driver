@@ -45,7 +45,7 @@ ze_result_t Fence::hostSynchronize(uint64_t timeout) {
     if (vpuDevice == nullptr)
         return ZE_RESULT_ERROR_DEVICE_LOST;
 
-    bool allSignaled = waitForSignal(timeout, trackedJobs, vpuDevice->getDeviceInfo());
+    bool allSignaled = waitForSignal(timeout, trackedJobs, vpuDevice->getHwInfo());
     if (!allSignaled) {
         LOG_W("Commands execution is not finished");
         return ZE_RESULT_NOT_READY;

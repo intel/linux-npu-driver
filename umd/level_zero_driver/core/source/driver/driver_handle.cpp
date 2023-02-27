@@ -9,6 +9,7 @@
 #include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/core/source/driver/driver.hpp"
 #include "level_zero_driver/core/source/context/context.hpp"
+#include "level_zero_driver/api/ext/ze_graph.hpp"
 
 #include "driver_version_l0.h"
 #include "vpu_driver/source/device/vpu_device.hpp"
@@ -193,8 +194,34 @@ ze_result_t DriverHandle::getExtensionFunctionAddress(const char *name, void **p
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    LOG_E("The name of extension is unknown: %s", name);
-    return ZE_RESULT_ERROR_UNKNOWN;
+    if (strncmp(name, ZE_GRAPH_EXT_NAME, strlen(ZE_GRAPH_EXT_NAME)) == 0) {
+        static ze_graph_dditable_ext_t table;
+        table.pfnCreate = L0::zeGraphCreate;
+        table.pfnDestroy = L0::zeGraphDestroy;
+        table.pfnGetNativeBinary = L0::zeGraphGetNativeBinary;
+        table.pfnGetProperties = L0::zeGraphGetProperties;
+        table.pfnGetArgumentProperties = L0::zeGraphGetArgumentProperties;
+        table.pfnSetArgumentValue = L0::zeGraphSetArgumentValue;
+        table.pfnAppendGraphInitialize = L0::zeAppendGraphInitialize;
+        table.pfnAppendGraphExecute = L0::zeAppendGraphExecute;
+        table.pfnDeviceGetGraphProperties = L0::zeDeviceGetGraphProperties;
+        *ppFunctionAddress = reinterpret_cast<void *>(&table);
+    } else if (strncmp(name, ZE_PROFILING_DATA_EXT_NAME, strlen(ZE_PROFILING_DATA_EXT_NAME)) == 0) {
+        static ze_graph_profiling_dditable_ext_t table;
+        table.pfnProfilingPoolCreate = L0::zeGraphProfilingPoolCreate;
+        table.pfnProfilingPoolDestroy = L0::zeGraphProfilingPoolDestroy;
+        table.pfnProfilingQueryCreate = L0::zeGraphProfilingQueryCreate;
+        table.pfnProfilingQueryDestroy = L0::zeGraphProfilingQueryDestroy;
+        table.pfnProfilingQueryGetData = L0::zeGraphProfilingQueryGetData;
+        table.pfnDeviceGetProfilingDataProperties = L0::zeDeviceGetProfilingDataProperties;
+        *ppFunctionAddress = reinterpret_cast<void *>(&table);
+    } else {
+        LOG_E("The name of extension is unknown: %s", name);
+        return ZE_RESULT_ERROR_UNKNOWN;
+    }
+
+    LOG_I("Return DDI table for extension: %s", name);
+    return ZE_RESULT_SUCCESS;
 }
 
 } // namespace L0

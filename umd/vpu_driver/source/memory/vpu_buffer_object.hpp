@@ -16,14 +16,11 @@
 #include <map>
 #include <memory>
 
-#include <uapi/drm/ivpu_drm.h>
-#include <firmware/vpu_jsm_job_cmd_api.h>
-
+#include <uapi/drm/ivpu_accel.h>
+#include <api/vpu_jsm_job_cmd_api.h>
 
 enum CopyDirection : uint16_t {
     COPY_LOCAL_TO_LOCAL = VPU_CMD_COPY_LOCAL_TO_LOCAL,
-    COPY_LOCAL_TO_SYSTEM = VPU_CMD_COPY_LOCAL_TO_SYSTEM,
-    COPY_SYSTEM_TO_LOCAL = VPU_CMD_COPY_SYSTEM_TO_LOCAL,
     COPY_SYSTEM_TO_SYSTEM = VPU_CMD_COPY_SYSTEM_TO_SYSTEM,
     COPY_INVALID = 0x1111
 };

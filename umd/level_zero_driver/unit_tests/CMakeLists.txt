@@ -10,6 +10,9 @@ if (SKIP_UNIT_TESTS)
     return()
 endif()
 
+# build umd unit tests with sanitizers
+umd_sanitizer_flags()
+
 set(TARGET_NAME ${TARGET_NAME_L0}_tests)
 
 add_executable(${TARGET_NAME}
@@ -19,6 +22,7 @@ add_executable(${TARGET_NAME}
 add_subdirectories()
 
 target_link_libraries(${TARGET_NAME} pthread
+                      fw_vpu_api_headers
                       ${TARGET_NAME_L0}
 )
 
@@ -29,5 +33,4 @@ target_sources(${TARGET_NAME} PRIVATE
 )
 
 add_subdirectory_unique(source/core)
-add_subdirectory_unique(source/ext)
 add_subdirectory_unique(source/tools)

@@ -5,6 +5,7 @@
 #
 
 add_subdirectory(core)
+add_subdirectory(ext)
 add_subdirectory(tools)
 
 set(L0_API_SOURCE "")

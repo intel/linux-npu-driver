@@ -7,6 +7,7 @@
 
 #include "level_zero_driver/tools/source/metrics/metric.hpp"
 #include "level_zero_driver/tools/source/metrics/metric_query.hpp"
+#include "level_zero_driver/tools/source/metrics/metric_streamer.hpp"
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
 
 #include <level_zero/zet_api.h>
@@ -67,6 +68,46 @@ ze_result_t zetContextActivateMetricGroups(zet_context_handle_t hContext,
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
     return L0::Context::fromHandle(hContext)->activateMetricGroups(hDevice, count, phMetricGroups);
+}
+
+ze_result_t zetMetricStreamerOpen(zet_context_handle_t hContext,
+                                  zet_device_handle_t hDevice,
+                                  zet_metric_group_handle_t hMetricGroup,
+                                  zet_metric_streamer_desc_t *pDesc,
+                                  ze_event_handle_t hNotificationEvent,
+                                  zet_metric_streamer_handle_t *phMetricStreamer) {
+    if (hContext == nullptr) {
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+    }
+    return L0::Context::fromHandle(hContext)->metricStreamerOpen(hDevice,
+                                                                 hMetricGroup,
+                                                                 pDesc,
+                                                                 hNotificationEvent,
+                                                                 phMetricStreamer);
+}
+
+ze_result_t zetCommandListAppendMetricStreamerMarker(ze_command_list_handle_t hCommandList,
+                                                     zet_metric_streamer_handle_t hMetricStreamer,
+                                                     uint32_t value) {
+    return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+}
+
+ze_result_t zetMetricStreamerClose(zet_metric_streamer_handle_t hMetricStreamer) {
+    if (hMetricStreamer == nullptr) {
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+    }
+    return L0::MetricStreamer::fromHandle(hMetricStreamer)->close();
+}
+
+ze_result_t zetMetricStreamerReadData(zet_metric_streamer_handle_t hMetricStreamer,
+                                      uint32_t maxReportCount,
+                                      size_t *pRawDataSize,
+                                      uint8_t *pRawData) {
+    if (hMetricStreamer == nullptr) {
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+    }
+    return L0::MetricStreamer::fromHandle(hMetricStreamer)
+        ->readData(maxReportCount, pRawDataSize, pRawData);
 }
 
 ze_result_t zetMetricQueryPoolCreate(zet_context_handle_t hContext,
@@ -202,19 +243,24 @@ zetMetricStreamerOpen(zet_context_handle_t hContext,
                       zet_metric_streamer_desc_t *pDesc,
                       ze_event_handle_t hNotificationEvent,
                       zet_metric_streamer_handle_t *phMetricStreamer) {
-    return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    return L0::zetMetricStreamerOpen(hContext,
+                                     hDevice,
+                                     hMetricGroup,
+                                     pDesc,
+                                     hNotificationEvent,
+                                     phMetricStreamer);
 }
 
 ZE_APIEXPORT ze_result_t ZE_APICALL
 zetCommandListAppendMetricStreamerMarker(ze_command_list_handle_t hCommandList,
                                          zet_metric_streamer_handle_t hMetricStreamer,
                                          uint32_t value) {
-    return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    return L0::zetCommandListAppendMetricStreamerMarker(hCommandList, hMetricStreamer, value);
 }
 
 ZE_APIEXPORT ze_result_t ZE_APICALL
 zetMetricStreamerClose(zet_metric_streamer_handle_t hMetricStreamer) {
-    return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    return L0::zetMetricStreamerClose(hMetricStreamer);
 }
 
 ZE_APIEXPORT ze_result_t ZE_APICALL
@@ -222,7 +268,7 @@ zetMetricStreamerReadData(zet_metric_streamer_handle_t hMetricStreamer,
                           uint32_t maxReportCount,
                           size_t *pRawDataSize,
                           uint8_t *pRawData) {
-    return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    return L0::zetMetricStreamerReadData(hMetricStreamer, maxReportCount, pRawDataSize, pRawData);
 }
 
 ZE_DLLEXPORT ze_result_t ZE_APICALL

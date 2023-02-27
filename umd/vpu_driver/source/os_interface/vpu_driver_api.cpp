@@ -14,7 +14,7 @@
 #include <memory>
 #include <sys/mman.h>
 #include <thread>
-#include <uapi/drm/ivpu_drm.h>
+#include <uapi/drm/ivpu_accel.h>
 #include <vector>
 
 #include <boost/numeric/conversion/cast.hpp>
@@ -125,12 +125,12 @@ bool VPUDriverApi::isVpuDevice() const {
     return true;
 }
 
-int VPUDriverApi::submitCommandBuffer(drm_ivpu_submit *submitParams) const {
-    return doIoctl(DRM_IOCTL_IVPU_SUBMIT, submitParams);
+int VPUDriverApi::submitCommandBuffer(drm_ivpu_submit *arg) const {
+    return doIoctl(DRM_IOCTL_IVPU_SUBMIT, arg);
 }
 
-int VPUDriverApi::getDeviceParam(drm_ivpu_param *deviceParam) const {
-    return doIoctl(DRM_IOCTL_IVPU_GET_PARAM, deviceParam);
+int VPUDriverApi::getDeviceParam(drm_ivpu_param *arg) const {
+    return doIoctl(DRM_IOCTL_IVPU_GET_PARAM, arg);
 }
 
 bool VPUDriverApi::checkDeviceStatus() const {
@@ -139,10 +139,6 @@ bool VPUDriverApi::checkDeviceStatus() const {
 
 size_t VPUDriverApi::getPageSize() const {
     return osInfc.osiGetSystemPageSize();
-}
-
-int VPUDriverApi::createBufferFromUserPointer(drm_ivpu_bo_userptr *userPtrParams) const {
-    return doIoctl(DRM_IOCTL_IVPU_BO_USERPTR, userPtrParams);
 }
 
 int VPUDriverApi::wait(void *args) const {
@@ -217,6 +213,22 @@ void *VPUDriverApi::mmap(size_t size, uint64_t offset) const {
 
 int VPUDriverApi::unmap(void *ptr, size_t size) const {
     return osInfc.osiMunmap(ptr, size);
+}
+
+int VPUDriverApi::metricStreamerStart(drm_ivpu_metric_streamer_start *startData) const {
+    return doIoctl(DRM_IOCTL_IVPU_METRIC_STREAMER_START, startData);
+}
+
+int VPUDriverApi::metricStreamerStop(drm_ivpu_metric_streamer_stop *stopData) const {
+    return doIoctl(DRM_IOCTL_IVPU_METRIC_STREAMER_STOP, stopData);
+}
+
+int VPUDriverApi::metricStreamerGetData(drm_ivpu_metric_streamer_get_data *data) const {
+    return doIoctl(DRM_IOCTL_IVPU_METRIC_STREAMER_GET_DATA, data);
+}
+
+int VPUDriverApi::metricStreamerGetInfo(drm_ivpu_metric_streamer_get_data *data) const {
+    return doIoctl(DRM_IOCTL_IVPU_METRIC_STREAMER_GET_INFO, data);
 }
 
 } // namespace VPU

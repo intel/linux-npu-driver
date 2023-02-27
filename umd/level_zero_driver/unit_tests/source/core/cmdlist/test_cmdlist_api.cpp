@@ -15,7 +15,8 @@
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
 
 #include <level_zero/ze_api.h>
-#include <firmware/vpu_jsm_job_cmd_api.h>
+#include <level_zero/ze_graph_ext.h>
+#include <api/vpu_jsm_job_cmd_api.h>
 
 namespace L0 {
 namespace ult {
@@ -101,7 +102,69 @@ struct CommandListFixture : CommandQueueFixture {
     uint64_t *ptrAlloc2 = nullptr;
 };
 
+struct CommandListMetricFixture : CommandListFixture {
+    void SetUp() override {
+        CommandListFixture::SetUp();
+
+        ASSERT_EQ(device->metricGroupGet(&metricGroupCount, nullptr), ZE_RESULT_SUCCESS);
+        ASSERT_GT(metricGroupCount, 0u);
+
+        metricGroups.resize(metricGroupCount);
+        ASSERT_EQ(device->metricGroupGet(&metricGroupCount, metricGroups.data()),
+                  ZE_RESULT_SUCCESS);
+        ASSERT_NE(*metricGroups.data(), nullptr);
+
+        // Activate 1st metric group
+        ASSERT_EQ(context->activateMetricGroups(device->toHandle(), 1, &metricGroups[0]),
+                  ZE_RESULT_SUCCESS);
+
+        ASSERT_EQ(context->createMetricQueryPool(device->toHandle(),
+                                                 metricGroups[0],
+                                                 &desc,
+                                                 &hMetricQueryPool),
+                  ZE_RESULT_SUCCESS);
+        ASSERT_NE(hMetricQueryPool, nullptr);
+
+        ASSERT_EQ(
+            MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(0u, &hMetricQuery),
+            ZE_RESULT_SUCCESS);
+        ASSERT_NE(hMetricQuery, nullptr);
+    }
+
+    void TearDown() override {
+        if (context != nullptr && device != nullptr) {
+            if (hMetricQuery) {
+                ASSERT_EQ(MetricQuery::fromHandle(hMetricQuery)->destroy(), ZE_RESULT_SUCCESS);
+            }
+
+            if (hMetricQueryPool) {
+                ASSERT_EQ(MetricQueryPool::fromHandle(hMetricQueryPool)->destroy(),
+                          ZE_RESULT_SUCCESS);
+            }
+
+            // Deactivate all metric groups previously activated
+            ASSERT_EQ(context->activateMetricGroups(device->toHandle(), 0, nullptr),
+                      ZE_RESULT_SUCCESS);
+        }
+
+        CommandListFixture::TearDown();
+    }
+
+    uint32_t metricGroupCount = 0;
+    std::vector<zet_metric_group_handle_t> metricGroups;
+    std::vector<zet_metric_group_properties_t> groupProperties;
+
+    zet_metric_query_pool_handle_t hMetricQueryPool = nullptr;
+    zet_metric_query_pool_desc_t desc = {.stype = ZET_STRUCTURE_TYPE_METRIC_QUERY_POOL_DESC,
+                                         .pNext = nullptr,
+                                         .type = ZET_METRIC_QUERY_POOL_TYPE_PERFORMANCE,
+                                         .count = 1u};
+
+    zet_metric_query_handle_t hMetricQuery = nullptr;
+};
+
 using CommandListApiTest = Test<CommandListFixture>;
+using CommandListMetricsApiTest = Test<CommandListMetricFixture>;
 
 TEST_F(CommandListApiTest, whenCalledCloseSuccessIsReturned) {
     auto result = commandList->close();
@@ -250,6 +313,39 @@ TEST_F(CommandListApiTest, whenCalledAppendMetricQueryBeginEndWithoutProperInitF
 
     result = commandList->appendMetricQueryEnd(nullptr, nullptr, 0u, nullptr);
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE, result);
+}
+
+TEST_F(CommandListMetricsApiTest,
+       whenCalledAppendMetricQueryBeginEndWithDeactivatedGroupsFailureIsReturned) {
+    // Deactivate all metric groups previously activated
+    ASSERT_EQ(context->activateMetricGroups(device->toHandle(), 0, nullptr), ZE_RESULT_SUCCESS);
+
+    ze_result_t result = commandList->appendMetricQueryBegin(hMetricQuery);
+    EXPECT_EQ(ZE_RESULT_ERROR_DEPENDENCY_UNAVAILABLE, result);
+
+    result = commandList->appendMetricQueryEnd(hMetricQuery, nullptr, 0u, nullptr);
+    EXPECT_EQ(ZE_RESULT_ERROR_DEPENDENCY_UNAVAILABLE, result);
+
+    EXPECT_EQ(0UL, commandList->getNumCommands());
+}
+
+TEST_F(CommandListMetricsApiTest,
+       whenCalledAppendMetricQueryBeginEndWithInitializedQuerySuccessIsReturned) {
+    ze_result_t result = commandList->appendMetricQueryBegin(hMetricQuery);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+
+    result = commandList->appendMetricQueryEnd(hMetricQuery, nullptr, 1u, nullptr);
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_SIZE, result);
+
+    result = commandList->appendMetricQueryEnd(hMetricQuery, nullptr, 0u, nullptr);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+
+    EXPECT_EQ(2UL, commandList->getNumCommands());
+}
+
+TEST_F(CommandListApiTest, whenCalledAppendGraphInitializeWithoutInitGraphFailureIsReturned) {
+    auto result = commandList->appendGraphInitialize(nullptr, nullptr, 0u, nullptr);
+    EXPECT_EQ(ZE_RESULT_ERROR_UNINITIALIZED, result);
 }
 
 struct CommandListEventApiTest : Test<CommandListFixture> {

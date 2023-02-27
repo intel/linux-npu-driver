@@ -7,7 +7,8 @@
 
 #include "umd_common.hpp"
 
-#include "vpu_driver/source/device/devicelist.hpp"
+#include "vpu_driver/source/command/vpu_copy_command.hpp"
+#include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_device.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
@@ -21,14 +22,9 @@
 
 namespace VPU {
 
-VPUDeviceContext::VPUDeviceContext(std::unique_ptr<VPUDriverApi> drvApi,
-                                   uint32_t contextId,
-                                   uint16_t pciDevId,
-                                   uint64_t baseAddress)
+VPUDeviceContext::VPUDeviceContext(std::unique_ptr<VPUDriverApi> drvApi, VPUHwInfo *info)
     : drvApi(std::move(drvApi))
-    , contextId(contextId)
-    , pciDevId(pciDevId)
-    , vpuLowBaseAddress(baseAddress) {
+    , hwInfo(info) {
     LOG_I("VPUDeviceContext is created");
 }
 
@@ -148,27 +144,16 @@ CopyDirection VPUDeviceContext::getCopyDirection(void *dstPtr, const void *srcPt
               static_cast<int>(dstLoc),
               static_cast<int>(srcLoc));
 
-        CopyDirection copyDir = COPY_INVALID;
-
-        if (srcLoc == VPUBufferObject::Location::Device ||
-            srcLoc == VPUBufferObject::Location::Shared) {
-            if (dstLoc == VPUBufferObject::Location::Device ||
-                dstLoc == VPUBufferObject::Location::Shared) {
-                copyDir = COPY_LOCAL_TO_LOCAL;
-            } else if (dstLoc == VPUBufferObject::Location::Host) {
-                copyDir = COPY_LOCAL_TO_SYSTEM;
-            }
-        } else if (srcLoc == VPUBufferObject::Location::Host) {
-            if (dstLoc == VPUBufferObject::Location::Device ||
-                dstLoc == VPUBufferObject::Location::Shared) {
-                copyDir = COPY_SYSTEM_TO_LOCAL;
-            } else if (dstLoc == VPUBufferObject::Location::Host) {
-                copyDir = COPY_SYSTEM_TO_SYSTEM;
-            }
+        if ((srcLoc == VPUBufferObject::Location::Device ||
+             srcLoc == VPUBufferObject::Location::Shared) &&
+            (dstLoc == VPUBufferObject::Location::Device ||
+             dstLoc == VPUBufferObject::Location::Shared)) {
+            return COPY_LOCAL_TO_LOCAL;
         }
 
-        return copyDir;
+        return COPY_SYSTEM_TO_SYSTEM;
     }
+
     LOG_E("Buffer objects invalid.");
     return COPY_INVALID;
 }
@@ -185,6 +170,8 @@ uint64_t VPUDeviceContext::getBufferVPUAddress(const void *ptr) const {
 
     uint64_t offset =
         reinterpret_cast<uint64_t>(ptr) - reinterpret_cast<uint64_t>(bo->getBasePointer());
+
+    LOG_V("CPU address %p mapped to VPU address %#lx", ptr, bo->getVPUAddr() + offset);
 
     return bo->getVPUAddr() + offset;
 }
@@ -231,6 +218,27 @@ bool VPUDeviceContext::submitJob(const VPUJob *job) {
 
     LOG_V("Buffer execution successfully triggered.");
     return true;
+}
+
+bool VPUDeviceContext::getCopyCommandDescriptor(const void *src,
+                                                void *dst,
+                                                size_t size,
+                                                VPUDescriptor &desc) {
+    if (hwInfo->getCopyCommand == nullptr) {
+        LOG_E("Failed to get copy descriptor");
+        return false;
+    }
+
+    return hwInfo->getCopyCommand(this, src, dst, size, desc);
+}
+
+void VPUDeviceContext::printCopyDescriptor(void *desc, vpu_cmd_header_t *cmd) {
+    if (hwInfo->printCopyDescriptor == nullptr) {
+        LOG_W("Failed to print copy descriptor");
+        return;
+    }
+
+    hwInfo->printCopyDescriptor(desc, cmd);
 }
 
 } // namespace VPU

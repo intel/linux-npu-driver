@@ -6,15 +6,14 @@
 
 set(TARGET_NAME vpu_driver)
 
+add_library(${TARGET_NAME} STATIC)
+set_property(TARGET ${TARGET_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
+target_link_libraries(${TARGET_NAME} fw_vpu_api_headers)
+
 add_subdirectories()
 
-append_sources_from_properties(CORE_SOURCES
-                               VPU_CORE_DEVICE
-                               VPU_CORE_MEMORY
-                               VPU_CORE_OS_INTERFACE
-                               VPU_CORE_UTILITIES
-                               VPU_COMMANDS
-)
-
-add_library(${TARGET_NAME} STATIC ${CORE_SOURCES})
-set_property(TARGET ${TARGET_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
+if(ENABLE_VPUX_COMPILER)
+  add_dependencies(${TARGET_NAME} vpux_compiler)
+  target_link_libraries(${TARGET_NAME}
+                        ${CMAKE_BINARY_DIR}/lib/libVPUXCompilerL0.so)
+endif()

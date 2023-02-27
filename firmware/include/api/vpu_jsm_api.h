@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright © 2020-2022 Intel Corporation
+ * Copyright © 2020-2023 Intel Corporation
  */
 
 /**
@@ -17,17 +17,17 @@
 /*
  * Major version changes that break backward compatibility
  */
-#define VPU_JSM_API_VER_MAJOR 2
+#define VPU_JSM_API_VER_MAJOR 3
 
 /*
  * Minor version changes when API backward compatibility is preserved.
  */
-#define VPU_JSM_API_VER_MINOR 10
+#define VPU_JSM_API_VER_MINOR 7
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
  */
-#define VPU_JSM_API_VER_PATCH 1
+#define VPU_JSM_API_VER_PATCH 0
 
 /*
  * Index in the API version table
@@ -103,10 +103,24 @@
 /*
  * Max length (including trailing NULL char) of a dyndbg command.
  *
- * NOTE: 112 is used so that the size of 'struct vpu_ipc_msg' in the JSM API is
+ * NOTE: 96 is used so that the size of 'struct vpu_ipc_msg' in the JSM API is
  * 128 bytes (multiple of 64 bytes, the cache line size).
  */
-#define VPU_DYNDBG_CMD_MAX_LEN 112
+#define VPU_DYNDBG_CMD_MAX_LEN 96
+
+/*
+ * For HWS command queue scheduling, we can prioritise command queues inside the
+ * same process with a relative in-process priority. Valid values for relative
+ * priority are given below - max and min.
+ */
+#define VPU_HWS_COMMAND_QUEUE_MAX_IN_PROCESS_PRIORITY 7
+#define VPU_HWS_COMMAND_QUEUE_MIN_IN_PROCESS_PRIORITY -7
+
+/*
+ * For HWS priority scheduling, we can have multiple realtime priority bands.
+ * They are numbered 0 to a MAX.
+ */
+#define VPU_HWS_MAX_REALTIME_PRIORITY_LEVEL 31U
 
 /*
  * Job format.
@@ -119,7 +133,7 @@ struct vpu_job {
     volatile uint64_t root_page_table_update_counter; /**< Page tables update events counter */
     volatile uint64_t preemption_buffer_address;      /**< Address of the preemption buffer to use for this job */
     volatile uint64_t preemption_buffer_size;         /**< Size of the preemption buffer to use for this job */
-    uint8_t reserved[VPU_JOB_RESERVED_BYTES];
+    uint8_t reserved_0[VPU_JOB_RESERVED_BYTES];
 };
 typedef struct vpu_job vpu_job_t;
 
@@ -130,7 +144,7 @@ struct vpu_job_queue_header {
     volatile uint32_t engine_idx;
     uint32_t head;
     volatile uint32_t tail;
-    uint8_t reserved[VPU_JOB_QUEUE_RESERVED_BYTES];
+    uint8_t reserved_0[VPU_JOB_QUEUE_RESERVED_BYTES];
 };
 typedef struct vpu_job_queue_header vpu_job_queue_header_t;
 
@@ -153,6 +167,44 @@ enum vpu_trace_entity_type {
     VPU_TRACE_ENTITY_TYPE_DESTINATION = 1,
     /** Loggable HW component (HW entity that can be logged). */
     VPU_TRACE_ENTITY_TYPE_HW_COMPONENT = 2,
+};
+
+/*
+ * HWS specific log buffer header details.
+ * Total size is 32 bytes.
+ */
+struct vpu_hws_log_buffer_header {
+    /* Written by VPU after adding a log entry. Initialised by host to 0. */
+    uint32_t first_free_entry_index;
+    /* Incremented by VPU every time the VPU overwrites the 0th entry; initialised by host to 0. */
+    uint32_t wraparound_count;
+    /*
+     * This is the number of buffers that can be stored in the log buffer provided by the host.
+     * It is written by host before passing buffer to VPU. VPU should consider it read-only.
+     */
+    uint64_t num_of_entries;
+    uint64_t reserved[2];
+};
+
+/*
+ * HWS specific log buffer entry details.
+ * Total size is 32 bytes.
+ */
+struct vpu_hws_log_buffer_entry {
+    /* VPU timestamp must be an invariant timer tick (not impacted by DVFS) */
+    uint64_t vpu_timestamp;
+    /*
+     * Operation type:
+     *     0 - context state change
+     *     1 - queue new work
+     *     2 - queue unwait sync object
+     *     3 - queue no more work
+     *     4 - queue wait sync object
+     */
+    uint32_t operation_type;
+    uint32_t reserved;
+    /* Operation data depends on operation type */
+    uint64_t operation_data[2];
 };
 
 /*
@@ -231,6 +283,17 @@ enum vpu_ipc_msg_type {
      * deallocated or reassigned to another context.
      */
     VPU_IPC_MSG_HWS_REGISTER_DB = 0x1117,
+    /** Control command: Log buffer setting */
+    VPU_IPC_MSG_HWS_SET_SCHEDULING_LOG = 0x1118,
+    /* Control command: Suspend command queue. */
+    VPU_IPC_MSG_HWS_SUSPEND_CMDQ = 0x1119,
+    /* Control command: Resume command queue */
+    VPU_IPC_MSG_HWS_RESUME_CMDQ = 0x111a,
+    /**
+     * Dump VPU state. To be used for debug purposes only.
+     * NOTE: Please introduce new ASYNC commands before this one. *
+     */
+    VPU_IPC_MSG_STATE_DUMP = 0x11FF,
     /* IPC Host -> Device, General commands */
     VPU_IPC_MSG_GENERAL_CMD = 0x1200,
     VPU_IPC_MSG_BLOB_DEINIT = VPU_IPC_MSG_GENERAL_CMD,
@@ -307,6 +370,19 @@ enum vpu_ipc_msg_type {
     VPU_IPC_MSG_DESTROY_CMD_QUEUE_RSP = 0x2216,
     /** Response to control command: Set context scheduling properties */
     VPU_IPC_MSG_SET_CONTEXT_SCHED_PROPERTIES_RSP = 0x2217,
+    /** Response to control command: Log buffer setting */
+    VPU_IPC_MSG_HWS_SET_SCHEDULING_LOG_RSP = 0x2218,
+    /* IPC Device -> Host, HWS notify index entry of log buffer written */
+    VPU_IPC_MSG_HWS_SCHEDULING_LOG_NOTIFICATION = 0x2219,
+    /* IPC Device -> Host, HWS completion of a context suspend request */
+    VPU_IPC_MSG_HWS_SUSPEND_CMDQ_DONE = 0x221a,
+    /* Response to control command: Resume command queue */
+    VPU_IPC_MSG_HWS_RESUME_CMDQ_RSP = 0x221b,
+    /**
+     * Response to state dump control command.
+     * NOTE: Please introduce new ASYNC responses before this one. *
+     */
+    VPU_IPC_MSG_STATE_DUMP_RSP = 0x22FF,
     /* IPC Device -> Host, General command completion */
     VPU_IPC_MSG_GENERAL_CMD_DONE = 0x2300,
     VPU_IPC_MSG_BLOB_DEINIT_DONE = VPU_IPC_MSG_GENERAL_CMD_DONE,
@@ -324,6 +400,8 @@ typedef enum vpu_ipc_msg_status vpu_ipc_msg_status_t;
 struct vpu_ipc_msg_payload_engine_reset {
     /* Engine to be reset. */
     uint32_t engine_idx;
+    /* Reserved */
+    uint32_t reserved_0;
 };
 typedef struct vpu_ipc_msg_payload_engine_reset vpu_ipc_msg_payload_engine_reset_t;
 
@@ -343,6 +421,8 @@ typedef struct vpu_ipc_msg_payload_engine_preempt vpu_ipc_msg_payload_engine_pre
 struct vpu_ipc_msg_payload_register_db {
     /* Index of the doorbell to register. */
     uint32_t db_idx;
+    /* Reserved */
+    uint32_t reserved_0;
     /* Virtual address in Global GTT pointing to the start of job queue. */
     uint64_t jobq_base;
     /* Size of the job queue in bytes. */
@@ -360,12 +440,16 @@ typedef struct vpu_ipc_msg_payload_register_db vpu_ipc_msg_payload_register_db_t
 struct vpu_ipc_msg_payload_unregister_db {
     /* Index of the doorbell to unregister. */
     uint32_t db_idx;
+    /* Reserved */
+    uint32_t reserved_0;
 };
 typedef struct vpu_ipc_msg_payload_unregister_db vpu_ipc_msg_payload_unregister_db_t;
 
 struct vpu_ipc_msg_payload_query_engine_hb {
     /* Engine to return heartbeat value. */
     uint32_t engine_idx;
+    /* Reserved */
+    uint32_t reserved_0;
 };
 typedef struct vpu_ipc_msg_payload_query_engine_hb vpu_ipc_msg_payload_query_engine_hb_t;
 
@@ -381,12 +465,16 @@ struct vpu_ipc_msg_payload_power_level {
      * considered to be valid.
      */
     uint32_t power_level;
+    /* Reserved */
+    uint32_t reserved_0;
 };
 typedef struct vpu_ipc_msg_payload_set_power_level vpu_ipc_msg_payload_set_power_level_t;
 
 struct vpu_ipc_msg_payload_ssid_release {
     /* Host sub-stream ID for the context to be released. */
     uint32_t host_ssid;
+    /* Reserved */
+    uint32_t reserved_0;
 };
 typedef struct vpu_ipc_msg_payload_ssid_release vpu_ipc_msg_payload_ssid_release_t;
 
@@ -437,7 +525,6 @@ struct vpu_jsm_metric_streamer_start {
     uint64_t next_buffer_size;
 };
 typedef struct vpu_jsm_metric_streamer_start vpu_jsm_metric_streamer_start_t;
-static_assert(sizeof(struct vpu_jsm_metric_streamer_start) % 8 == 0, "vpu_jsm_metric_streamer_start is misaligned");
 
 /**
  * @brief Metric streamer stop command structure.
@@ -448,7 +535,6 @@ struct vpu_jsm_metric_streamer_stop {
     uint64_t metric_group_mask;
 };
 typedef struct vpu_jsm_metric_streamer_stop vpu_jsm_metric_streamer_stop_t;
-static_assert(sizeof(struct vpu_jsm_metric_streamer_stop) % 8 == 0, "vpu_jsm_metric_streamer_stop is misaligned");
 
 /**
  * Provide VPU FW with buffers to write metric data.
@@ -481,7 +567,6 @@ struct vpu_jsm_metric_streamer_update {
     uint64_t next_buffer_size;
 };
 typedef struct vpu_jsm_metric_streamer_update vpu_jsm_metric_streamer_update_t;
-static_assert(sizeof(struct vpu_jsm_metric_streamer_update) % 8 == 0, "vpu_jsm_metric_streamer_update is misaligned");
 
 struct vpu_ipc_msg_payload_blob_deinit {
     /* 64-bit unique ID for the blob to be de-initialized. */
@@ -501,7 +586,7 @@ struct vpu_ipc_msg_payload_job_done {
     /* Host SSID */
     uint32_t host_ssid;
     /* Zero Padding */
-    uint32_t reserved;
+    uint32_t reserved_0;
     /* Command queue id */
     uint64_t cmdq_id;
 };
@@ -511,7 +596,7 @@ struct vpu_jsm_engine_reset_context {
     /* Host SSID */
     uint32_t host_ssid;
     /* Zero Padding */
-    uint32_t reserved;
+    uint32_t reserved_0;
     /* Command queue id */
     uint64_t cmdq_id;
     /* Flags: 0: cause of hang; 1: collateral damage of reset */
@@ -545,6 +630,8 @@ typedef struct vpu_ipc_msg_payload_engine_preempt_done vpu_ipc_msg_payload_engin
 struct vpu_ipc_msg_payload_register_db_done {
     /* Index of the registered doorbell. */
     uint32_t db_idx;
+    /* Reserved */
+    uint32_t reserved_0;
 };
 typedef struct vpu_ipc_msg_payload_register_db_done vpu_ipc_msg_payload_register_db_done_t;
 
@@ -556,12 +643,16 @@ typedef struct vpu_ipc_msg_payload_register_db_done vpu_ipc_msg_payload_register
 struct vpu_ipc_msg_payload_unregister_db_done {
     /* Index of the unregistered doorbell. */
     uint32_t db_idx;
+    /* Reserved */
+    uint32_t reserved_0;
 };
 typedef struct vpu_ipc_msg_payload_unregister_db_done vpu_ipc_msg_payload_unregister_db_done_t;
 
 struct vpu_ipc_msg_payload_query_engine_hb_done {
     /* Engine returning heartbeat value. */
     uint32_t engine_idx;
+    /* Reserved */
+    uint32_t reserved_0;
     /* Heartbeat value. */
     uint64_t heartbeat;
 };
@@ -574,6 +665,8 @@ struct vpu_ipc_msg_payload_get_power_level_count_done {
      * implementations.
      */
     uint32_t power_level_count;
+    /* Reserved */
+    uint32_t reserved_0;
     /**
      * Power consumption limit for each supported power level in
      * [0-100%] range relative to power level 0.
@@ -594,7 +687,7 @@ struct vpu_ipc_msg_payload_hws_priority_band_setup {
      * Grace period in 100ns units when preempting another priority band for
      * this priority band
      */
-    uint64_t grace_period[VPU_HWS_NUM_PRIORITY_BANDS];
+    uint32_t grace_period[VPU_HWS_NUM_PRIORITY_BANDS];
     /*
      * Default quantum in 100ns units for scheduling across processes
      * within a priority band
@@ -610,6 +703,8 @@ struct vpu_ipc_msg_payload_hws_priority_band_setup {
      * in situations when it's starved by the focus band.
      */
     uint32_t normal_band_percentage;
+    /* Reserved */
+    uint32_t reserved_0;
 };
 
 /* HWS create command queue request */
@@ -626,6 +721,8 @@ struct vpu_ipc_msg_payload_hws_create_cmdq {
     uint64_t cmdq_base;
     /* Command queue size */
     uint32_t cmdq_size;
+    /* Reserved */
+    uint32_t reserved_0;
 };
 
 /* HWS create command queue response */
@@ -663,7 +760,7 @@ struct vpu_ipc_msg_payload_hws_set_context_sched_properties {
     /* Inside realtime band assigns a further priority */
     uint32_t realtime_priority_level;
     /* Priority relative to other contexts in the same process */
-    uint32_t in_process_priority;
+    int32_t in_process_priority;
     /* Zero padding / Reserved */
     uint32_t reserved_1;
     /* Context quantum relative to other contexts of same priority in the same process */
@@ -694,6 +791,108 @@ struct vpu_jsm_hws_register_db {
     uint64_t cmdq_base;
     /* Size of the command queue in bytes. */
     uint64_t cmdq_size;
+};
+
+/*
+ * @brief Structure to set another buffer to be used for scheduling-related logging.
+ * The size of the logging buffer and the number of entries is defined as part of the
+ * buffer itself as described next.
+ * The log buffer received from the host is made up of;
+ *   - header:     32 bytes in size, as shown in 'struct vpu_hws_log_buffer_header'.
+ *                 The header contains the number of log entries in the buffer.
+ *   - log entry:  0 to n-1, each log entry is 32 bytes in size, as shown in
+ *                 'struct vpu_hws_log_buffer_entry'.
+ *                 The entry contains the VPU timestamp, operation type and data.
+ * The host should provide the notify index value of log buffer to VPU. This is a
+ * value defined within the log buffer and when written to will generate the
+ * scheduling log notification.
+ * The host should set engine_idx and vpu_log_buffer_va to 0 to disable logging
+ * for a particular engine.
+ * VPU will handle one log buffer for each of supported engines.
+ * @see VPU_IPC_MSG_HWS_SET_SCHEDULING_LOG
+ * @see VPU_IPC_MSG_HWS_SET_SCHEDULING_LOG_RSP
+ * @see VPU_IPC_MSG_HWS_SCHEDULING_LOG_NOTIFICATION
+ */
+struct vpu_ipc_msg_payload_hws_set_scheduling_log {
+    /* Engine ordinal */
+    uint32_t engine_idx;
+    /* Zero Padding */
+    uint32_t reserved_0;
+    /*
+     * VPU log buffer virtual address.
+     * Set to 0 to disable logging for this engine.
+     */
+    uint64_t vpu_log_buffer_va;
+    /*
+     * Notify index of log buffer. VPU_IPC_MSG_HWS_SCHEDULING_LOG_NOTIFICATION
+     * is generated when an event log is written to this index.
+     */
+    uint64_t notify_index;
+};
+
+/*
+ * @brief The scheduling log notification is generated by VPU when it writes
+ * an event into the log buffer at the notify_index. VPU notifies host with
+ * VPU_IPC_MSG_HWS_SCHEDULING_LOG_NOTIFICATION. This is an asynchronous
+ * message from VPU to host.
+ * @see VPU_IPC_MSG_HWS_SCHEDULING_LOG_NOTIFICATION
+ * @see VPU_IPC_MSG_HWS_SET_SCHEDULING_LOG
+ */
+struct vpu_ipc_msg_payload_hws_scheduling_log_notification {
+    /* Engine ordinal */
+    uint32_t engine_idx;
+    /* Zero Padding */
+    uint32_t reserved_0;
+};
+
+/*
+ * @brief HWS suspend command queue request and done structure.
+ * Host will request the suspend of contexts and VPU will;
+ *   - Suspend all work on this context
+ *   - Preempt any running work
+ *   - Asynchronously perform the above and return success immediately once
+ *     all items above are started successfully
+ *   - Notify the host of completion of these operations via
+ *     VPU_IPC_MSG_HWS_SUSPEND_CMDQ_DONE
+ *   - Reject any other context operations on a context with an in-flight
+ *     suspend request running
+ * Same structure used when VPU notifies host of completion of a context suspend
+ * request. The ids and suspend fence value reported in this command will match
+ * the one in the request from the host to suspend the context. Once suspend is
+ * complete, VPU will not access any data relating to this command queue until
+ * it is resumed.
+ * @see VPU_IPC_MSG_HWS_SUSPEND_CMDQ
+ * @see VPU_IPC_MSG_HWS_SUSPEND_CMDQ_DONE
+ */
+struct vpu_ipc_msg_payload_hws_suspend_cmdq {
+    /* Host SSID */
+    uint32_t host_ssid;
+    /* Zero Padding */
+    uint32_t reserved_0;
+    /* Command queue id */
+    uint64_t cmdq_id;
+    /*
+     * Suspend fence value - reported by the VPU suspend context
+     * completed once suspend is complete.
+     */
+    uint64_t suspend_fence_value;
+};
+
+/*
+ * @brief HWS Resume command queue request / response structure.
+ * Host will request the resume of a context;
+ *  - VPU will resume all work on this context
+ *  - Scheduler will allow this context to be scheduled
+ * @see VPU_IPC_MSG_HWS_RESUME_CMDQ
+ * @see VPU_IPC_MSG_HWS_RESUME_CMDQ_RSP
+ */
+struct vpu_ipc_msg_payload_hws_resume_cmdq {
+    /* Host SSID */
+    uint32_t host_ssid;
+    /* Zero Padding */
+    uint32_t reserved_0;
+    /* Command queue id */
+    uint64_t cmdq_id;
 };
 
 /**
@@ -823,7 +1022,6 @@ struct vpu_jsm_metric_streamer_done {
     uint64_t bytes_written;
 };
 typedef struct vpu_jsm_metric_streamer_done vpu_jsm_metric_streamer_done_t;
-static_assert(sizeof(struct vpu_jsm_metric_streamer_done) % 8 == 0, "vpu_jsm_metric_streamer_done is misaligned");
 
 /**
  * Metric group description placed in the metric buffer after successful completion
@@ -864,14 +1062,13 @@ struct vpu_jsm_metric_group_descriptor {
     uint32_t name_string_size;
     /** Counter description string size, @see name_string_size */
     uint32_t description_string_size;
-    uint32_t reserved_0[2];
+    uint64_t reserved_0;
     /**
      * Right after this structure, the VPU writes name and description of
      * the metric group.
      */
 };
 typedef struct vpu_jsm_metric_group_descriptor vpu_jsm_metric_group_descriptor_t;
-static_assert(sizeof(struct vpu_jsm_metric_group_descriptor) % 8 == 0, "vpu_jsm_metric_group_descriptor is misaligned");
 
 /**
  * Metric counter description, placed in the buffer after vpu_jsm_metric_group_descriptor.
@@ -909,15 +1106,13 @@ struct vpu_jsm_metric_counter_descriptor {
     uint32_t component_string_size;
     /** Counter string size, @see name_string_size */
     uint32_t units_string_size;
-    uint32_t reserved_0[2];
+    uint64_t reserved_0;
     /**
      * Right after this structure, the VPU writes name, description
      * component and unit strings.
      */
 };
 typedef struct vpu_jsm_metric_counter_descriptor vpu_jsm_metric_counter_descriptor_t;
-static_assert(sizeof(struct vpu_jsm_metric_counter_descriptor) % 8 == 0,
-              "vpu_jsm_metric_counter_descriptor is misaligned");
 
 /**
  * Payload for VPU_IPC_MSG_DYNDBG_CONTROL requests.
@@ -982,6 +1177,10 @@ union vpu_ipc_msg_payload {
     struct vpu_ipc_msg_payload_hws_create_cmdq_rsp hws_create_cmdq_rsp;
     struct vpu_ipc_msg_payload_hws_destroy_cmdq hws_destroy_cmdq;
     struct vpu_ipc_msg_payload_hws_set_context_sched_properties hws_set_context_sched_properties;
+    struct vpu_ipc_msg_payload_hws_set_scheduling_log hws_set_scheduling_log;
+    struct vpu_ipc_msg_payload_hws_scheduling_log_notification hws_scheduling_log_notification;
+    struct vpu_ipc_msg_payload_hws_suspend_cmdq hws_suspend_cmdq;
+    struct vpu_ipc_msg_payload_hws_resume_cmdq hws_resume_cmdq;
 };
 typedef union vpu_ipc_msg_payload vpu_ipc_msg_payload_t;
 
@@ -992,6 +1191,8 @@ typedef union vpu_ipc_msg_payload vpu_ipc_msg_payload_t;
  * to allow proper handling of VPU cache operations.
  */
 struct vpu_ipc_msg {
+    /* Reserved */
+    uint64_t reserved_0;
     /* Message type, see vpu_ipc_msg_type enum. */
     uint32_t type;
     /* Buffer status, see vpu_ipc_msg_status enum. */
@@ -1003,6 +1204,7 @@ struct vpu_ipc_msg {
     uint32_t request_id;
     /* Request return code set by the VPU, see VPU_JSM_STATUS_* defines. */
     uint32_t result;
+    uint64_t reserved_1;
     /* Message payload depending on message type, see vpu_ipc_msg_payload union. */
     union vpu_ipc_msg_payload payload;
 };

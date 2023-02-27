@@ -14,7 +14,7 @@
 #include <string>
 #include <memory>
 #include <cstdint>
-#include <uapi/drm/ivpu_drm.h>
+#include <uapi/drm/ivpu_accel.h>
 
 namespace VPU {
 
@@ -36,16 +36,16 @@ class VPUDriverApi final {
 
     static std::unique_ptr<VPUDriverApi> openDriverApi(std::string devnode, OsInterface &osInfc);
 
+    int getFd() const { return vpuFd; }
     bool isVpuDevice() const;
-    int submitCommandBuffer(drm_ivpu_submit *submitParams) const;
-    int getDeviceParam(drm_ivpu_param *deviceParam) const;
+    int submitCommandBuffer(drm_ivpu_submit *arg) const;
+    int getDeviceParam(drm_ivpu_param *arg) const;
     bool checkDeviceStatus() const;
     size_t getPageSize() const;
 
     void *alloc(size_t size) const;
     int free(void *ptr) const;
 
-    int createBufferFromUserPointer(drm_ivpu_bo_userptr *userPtrParams) const;
     int wait(void *args) const;
     int closeBuffer(uint32_t handle) const;
 
@@ -53,6 +53,11 @@ class VPUDriverApi final {
     int getBufferInfo(uint32_t handle, uint64_t &mmap_offset) const;
     void *mmap(size_t size, uint64_t offset) const;
     int unmap(void *ptr, size_t size) const;
+
+    int metricStreamerStart(drm_ivpu_metric_streamer_start *startData) const;
+    int metricStreamerStop(drm_ivpu_metric_streamer_stop *stopData) const;
+    int metricStreamerGetData(drm_ivpu_metric_streamer_get_data *data) const;
+    int metricStreamerGetInfo(drm_ivpu_metric_streamer_get_data *data) const;
 
   private:
     bool openDevice();

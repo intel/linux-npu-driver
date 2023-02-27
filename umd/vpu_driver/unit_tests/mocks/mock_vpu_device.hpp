@@ -14,7 +14,7 @@
 
 #include <string>
 #include <memory>
-#include <uapi/drm/ivpu_drm.h>
+#include <uapi/drm/ivpu_accel.h>
 
 // MOCK CAPS.
 #define FAKE_TEST_DEV_NODE "dev/node/test"

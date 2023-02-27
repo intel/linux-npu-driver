@@ -10,7 +10,7 @@
 
 #include <memory>
 #include <gtest/gtest.h>
-#include <uapi/drm/ivpu_drm.h>
+#include <uapi/drm/ivpu_accel.h>
 
 #define FAKE_TEST_DEV_NODE "dev/node/fake"
 
@@ -74,14 +74,6 @@ TEST_F(VPUDriverApiIoctlTest, submitCommandBufferTest) {
     EXPECT_EQ(DRM_IOCTL_IVPU_SUBMIT, mockOsInfc.ioctlLastCommand);
 }
 
-TEST_F(VPUDriverApiIoctlTest, memAllocTest) {
-    struct drm_ivpu_bo_userptr params = {};
-    EXPECT_EQ(0, driverApi->createBufferFromUserPointer(&params));
-
-    EXPECT_EQ(1u, mockOsInfc.callCntIoctl);
-    EXPECT_EQ(DRM_IOCTL_IVPU_BO_USERPTR, mockOsInfc.ioctlLastCommand);
-}
-
 TEST_F(VPUDriverApiIoctlTest, ioctlError) {
     mockOsInfc.kmdIoctlRetCode = EINVAL;
 
@@ -94,8 +86,4 @@ TEST_F(VPUDriverApiIoctlTest, ioctlError) {
 
     struct drm_ivpu_bo_wait args = {};
     EXPECT_EQ(-1, driverApi->wait(&args));
-
-    mockOsInfc.kmdIoctlRetCode = ENOMEM;
-    struct drm_ivpu_bo_userptr pin = {};
-    EXPECT_EQ(-1, driverApi->createBufferFromUserPointer(&pin));
 }

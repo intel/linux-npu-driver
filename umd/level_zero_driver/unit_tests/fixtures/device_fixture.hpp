@@ -24,7 +24,6 @@ struct DeviceFixture {
         driver.setMetrics(enableMetrics);
         ASSERT_EQ(ZE_RESULT_SUCCESS, zeInit(0));
 
-        osInfc.pciDevId = pciDevId;
         auto vpuDevice = VPU::MockVPUDevice::createWithDefaultHardwareInfo(osInfc);
         mockVpuDevice = vpuDevice.get();
         std::vector<std::unique_ptr<VPU::VPUDevice>> devices;
@@ -43,7 +42,6 @@ struct DeviceFixture {
 
     VPU::MockVPUDevice *mockVpuDevice = nullptr;
     VPU::MockOsInterfaceImp osInfc;
-    uint16_t pciDevId = MTL_VPU_PCI_DEVICE_ID;
     bool enableMetrics = true;
 };
 

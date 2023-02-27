@@ -1,0 +1,12 @@
+/*
+ * Copyright (C) 2022-2023 Intel Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ */
+
+#pragma once
+
+#cmakedefine VPU_VERSION "0.2"
+
+const char vpu_drv_version_str[] = "VPU version: " VPU_VERSION;

@@ -46,6 +46,15 @@ struct CommandList : _ze_command_list_handle_t {
                                            ze_event_handle_t hSignalEvent,
                                            uint32_t numWaitEvents,
                                            ze_event_handle_t *phWaitEvents);
+    ze_result_t appendGraphInitialize(ze_graph_handle_t hGraph,
+                                      ze_event_handle_t hSignalEvent,
+                                      uint32_t numWaitEvents,
+                                      ze_event_handle_t *phWaitEvents);
+    ze_result_t appendGraphExecute(ze_graph_handle_t hGraph,
+                                   ze_graph_profiling_query_handle_t hProfilingQuery,
+                                   ze_event_handle_t hSignalEvent,
+                                   uint32_t numWaitEvents,
+                                   ze_event_handle_t *phWaitEvents);
     ze_result_t appendSignalEvent(ze_event_handle_t hEvent);
     ze_result_t appendWaitOnEvents(uint32_t numEvents, ze_event_handle_t *phEvent);
     ze_result_t appendEventReset(ze_event_handle_t hEvent);

@@ -81,7 +81,7 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetCommandListProcAddrTable(
 
     ze_result_t result = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnAppendMetricStreamerMarker = zetCommandListAppendMetricStreamerMarker;
+    pDdiTable->pfnAppendMetricStreamerMarker = L0::zetCommandListAppendMetricStreamerMarker;
 
     pDdiTable->pfnAppendMetricQueryBegin = L0::zetCommandListAppendMetricQueryBegin;
 
@@ -323,11 +323,11 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetMetricStreamerProcAddrTable(
 
     ze_result_t result = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnOpen = zetMetricStreamerOpen;
+    pDdiTable->pfnOpen = L0::zetMetricStreamerOpen;
 
-    pDdiTable->pfnClose = zetMetricStreamerClose;
+    pDdiTable->pfnClose = L0::zetMetricStreamerClose;
 
-    pDdiTable->pfnReadData = zetMetricStreamerReadData;
+    pDdiTable->pfnReadData = L0::zetMetricStreamerReadData;
 
     return result;
 }

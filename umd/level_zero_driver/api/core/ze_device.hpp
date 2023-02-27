@@ -41,7 +41,10 @@ ze_result_t zeDeviceGetProperties(ze_device_handle_t hDevice,
 
 ze_result_t zeDeviceGetComputeProperties(ze_device_handle_t hDevice,
                                          ze_device_compute_properties_t *pComputeProperties) {
-    return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    if (hDevice == nullptr) {
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+    }
+    return L0::Device::fromHandle(hDevice)->getDeviceComputeProperties(pComputeProperties);
 }
 
 ze_result_t zeDeviceGetModuleProperties(ze_device_handle_t hDevice,

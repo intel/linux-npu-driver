@@ -65,8 +65,6 @@ struct DeviceContextTest : public ::testing::Test {
                               ->timestamp_address;
                 EXPECT_GT(vpuAddr, 0) << "Invalid timestamp address in VPU_CMD_TIMESTAMP";
                 break;
-            case VPU_CMD_COPY_SYSTEM_TO_LOCAL:
-            case VPU_CMD_COPY_LOCAL_TO_SYSTEM:
             case VPU_CMD_COPY_SYSTEM_TO_SYSTEM:
             case VPU_CMD_COPY_LOCAL_TO_LOCAL:
                 offset = reinterpret_cast<const vpu_cmd_copy_buffer_t *>(cmd->getCommitStream())
@@ -184,52 +182,6 @@ TEST_F(DeviceContextTest, getVPUAddressUsingNotTrackedBufferExpectFailure) {
 
     uint64_t var = 0u;
     EXPECT_EQ(0u, ctx->getBufferVPUAddress(&var));
-}
-
-TEST_F(DeviceContextTest, commandsInitializedProperlyShouldReturnProperIsComputeJobBoolean) {
-    // Allocate Memory
-    auto timestamp1 = ctx->createSharedMemAlloc(allocSize);
-    auto sharedMemSrc = ctx->createSharedMemAlloc(allocSize);
-    auto sharedMemDest = ctx->createSharedMemAlloc(allocSize);
-    auto hostMemSrc = ctx->createHostMemAlloc(allocSize);
-    auto hostMemDest = ctx->createHostMemAlloc(allocSize);
-
-    // Timestamp (Compute Job)
-    std::shared_ptr<VPUCommand> tsCmd1 =
-        VPUTimeStampCommand::create(ctx, static_cast<uint64_t *>(timestamp1));
-    ASSERT_NE(tsCmd1, nullptr);
-    EXPECT_FALSE(tsCmd1->isComputeCommand());
-    EXPECT_FALSE(tsCmd1->isCopyCommand());
-
-    // L2L Copy (Compute Job)
-    std::shared_ptr<VPUCommand> copyCmd1 =
-        VPUCopyCommand::create(ctx, sharedMemSrc, sharedMemDest, allocSize);
-    ASSERT_NE(copyCmd1, nullptr);
-    EXPECT_TRUE(copyCmd1->isComputeCommand());
-
-    // L2S Copy (Copy Job)
-    std::shared_ptr<VPUCommand> copyCmd2 =
-        VPUCopyCommand::create(ctx, sharedMemSrc, hostMemDest, allocSize);
-    ASSERT_NE(copyCmd2, nullptr);
-    EXPECT_FALSE(copyCmd2->isComputeCommand());
-
-    // S2L Copy (Copy Job)
-    std::shared_ptr<VPUCommand> copyCmd3 =
-        VPUCopyCommand::create(ctx, hostMemSrc, sharedMemDest, allocSize);
-    ASSERT_NE(copyCmd3, nullptr);
-    EXPECT_FALSE(copyCmd3->isComputeCommand());
-
-    // S2S Copy (Copy Job)
-    std::shared_ptr<VPUCommand> copyCmd4 =
-        VPUCopyCommand::create(ctx, hostMemSrc, hostMemDest, allocSize);
-    ASSERT_NE(copyCmd4, nullptr);
-    EXPECT_FALSE(copyCmd4->isComputeCommand());
-
-    EXPECT_TRUE(ctx->freeMemAlloc(timestamp1));
-    EXPECT_TRUE(ctx->freeMemAlloc(sharedMemSrc));
-    EXPECT_TRUE(ctx->freeMemAlloc(hostMemSrc));
-    EXPECT_TRUE(ctx->freeMemAlloc(sharedMemDest));
-    EXPECT_TRUE(ctx->freeMemAlloc(hostMemDest));
 }
 
 TEST_F(DeviceContextTest,
@@ -690,8 +642,6 @@ TEST_F(DeviceContextTest, checkForCorrectReturnMemTypeInHeap) {
     EXPECT_NE(sharedPtr, hostPtr);
 
     EXPECT_EQ(COPY_LOCAL_TO_LOCAL, ctx->getCopyDirection(sharedPtr, sharedPtr));
-    EXPECT_EQ(COPY_LOCAL_TO_SYSTEM, ctx->getCopyDirection(hostPtr, sharedPtr));
-    EXPECT_EQ(COPY_SYSTEM_TO_LOCAL, ctx->getCopyDirection(sharedPtr, hostPtr));
     EXPECT_EQ(COPY_SYSTEM_TO_SYSTEM, ctx->getCopyDirection(hostPtr, hostPtr));
 
     // Checking with invalid mem type

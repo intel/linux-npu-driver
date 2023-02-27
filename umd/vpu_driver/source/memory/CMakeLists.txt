@@ -4,9 +4,7 @@
 # SPDX-License-Identifier: MIT
 #
 
-set(VPU_CORE_MEMORY
+target_sources(${TARGET_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/vpu_buffer_object.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vpu_buffer_object.hpp
 )
-
-set_property(GLOBAL PROPERTY VPU_CORE_MEMORY ${VPU_CORE_MEMORY})

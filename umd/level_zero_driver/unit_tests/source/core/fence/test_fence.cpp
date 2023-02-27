@@ -54,8 +54,6 @@ struct FenceTest : public ContextFixture, public testing::Test {
 
     // Command queue.
     CommandQueue *cmdQue;
-
-    uint32_t contextId = MOCKCAP_FAKE_VALUE;
 };
 
 TEST_F(FenceTest, zeroTimoutShouldReturnTheSameAsQueryStatus) {

@@ -13,7 +13,8 @@
 #include <cstdint>
 #include <vector>
 #include <optional>
-#include <uapi/drm/ivpu_drm.h>
+#include <uapi/drm/ivpu_accel.h>
+#include <any>
 
 namespace VPU {
 
@@ -21,7 +22,7 @@ class VPUDeviceContext;
 
 struct VPUDescriptor {
     std::vector<char> data = {};
-    uint32_t *commandOffset = nullptr;
+    uint64_t *commandOffset = nullptr;
 };
 
 class VPUCommand {
@@ -57,17 +58,28 @@ class VPUCommand {
     /**
      * Returns size of the actual commit struct.
      */
-    virtual size_t getCommitSize() const = 0;
+    virtual size_t getCommitSize() const {
+        const vpu_cmd_header_t *hdr = this->getHeader();
+        if (!hdr)
+            return 0;
+        return hdr->size;
+    }
 
     /**
      * Return the commiting struct data in byte stream.
      */
-    virtual const uint8_t *getCommitStream() const = 0;
-
+    virtual const uint8_t *getCommitStream() const {
+        return reinterpret_cast<const uint8_t *>(this->getHeader());
+    }
     /**
      * Return the command's type
      */
-    virtual vpu_cmd_type getCommandType() const = 0;
+    virtual vpu_cmd_type getCommandType() const {
+        const vpu_cmd_header_t *hdr = this->getHeader();
+        if (!hdr)
+            return VPU_CMD_UNKNOWN;
+        return static_cast<vpu_cmd_type>(hdr->type);
+    }
 
     /**
      * Return size of descriptor
@@ -152,11 +164,13 @@ class VPUCommand {
      */
     void appendAssociateBufferObject(VPUBufferObject *bo);
     void setDescriptor(VPUDescriptor &&d) { descriptor = std::move(d); }
+    virtual const vpu_cmd_header_t *getHeader() const { return nullptr; }
+
+    std::any command = {};
 
   private:
     EngineSupport engineSupport;
     std::vector<VPUBufferObject *> bufferObjects = {};
     std::optional<VPUDescriptor> descriptor = {};
 };
-
 } // namespace VPU

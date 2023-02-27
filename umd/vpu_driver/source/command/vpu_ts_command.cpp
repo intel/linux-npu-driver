@@ -31,25 +31,15 @@ std::shared_ptr<VPUTimeStampCommand> VPUTimeStampCommand::create(VPUDeviceContex
 
 VPUTimeStampCommand::VPUTimeStampCommand(VPUDeviceContext *ctx, uint64_t *dstPtr)
     : VPUCommand(EngineSupport::Backward) {
-    commitCmd.cmd.header.type = VPU_CMD_TIMESTAMP;
-    commitCmd.cmd.header.size = sizeof(commitCmd.cmd);
-    commitCmd.cmd.timestamp_address = 0u;
-    commitCmd.cmd.timestamp_address = ctx->getBufferVPUAddress(dstPtr);
+    vpu_cmd_timestamp_t cmd = {};
 
-    LOG_I("Timestamp Command successfully created!");
+    cmd.header.type = VPU_CMD_TIMESTAMP;
+    cmd.header.size = sizeof(vpu_cmd_timestamp_t);
+    cmd.timestamp_address = 0u;
+    cmd.timestamp_address = ctx->getBufferVPUAddress(dstPtr);
+    command.emplace<vpu_cmd_timestamp_t>(cmd);
     appendAssociateBufferObject(ctx, dstPtr);
-}
-
-size_t VPUTimeStampCommand::getCommitSize() const {
-    return commitCmd.getKMDCommitSize();
-}
-
-const uint8_t *VPUTimeStampCommand::getCommitStream() const {
-    return commitCmd.getKMDCommitStream();
-}
-
-vpu_cmd_type VPUTimeStampCommand::getCommandType() const {
-    return commitCmd.getKMDCommandType();
+    LOG_I("Timestamp Command successfully created!");
 }
 
 } // namespace VPU

@@ -44,12 +44,14 @@ VPUEventCommand::VPUEventCommand(VPUDeviceContext *ctx,
                                  KMDEventDataType *eventHeapPtr,
                                  const KMDEventDataType eventState)
     : VPUCommand(engType) {
-    commitCmd.cmd.header.type = cmdType;
-    commitCmd.cmd.header.size = sizeof(commitCmd.cmd);
-    commitCmd.cmd.offset = boost::numeric_cast<uint32_t>(ctx->getBufferVPUAddress(eventHeapPtr) -
-                                                         ctx->getVPULowBaseAddress());
-    commitCmd.cmd.value = eventState;
+    vpu_cmd_fence_t cmd = {};
 
+    cmd.header.type = cmdType;
+    cmd.header.size = sizeof(vpu_cmd_fence_t);
+    cmd.offset = boost::numeric_cast<uint32_t>(ctx->getBufferVPUAddress(eventHeapPtr) -
+                                               ctx->getVPULowBaseAddress());
+    cmd.value = eventState;
+    command.emplace<vpu_cmd_fence_t>(cmd);
     appendAssociateBufferObject(ctx, eventHeapPtr);
 }
 
@@ -59,9 +61,12 @@ VPUEventCommand::VPUEventCommand(const EngineSupport engType,
                                  uint8_t intEventIndex)
     : VPUCommand(engType)
     , internalEventIndex(intEventIndex) {
-    commitCmd.cmd.header.type = cmdType;
-    commitCmd.cmd.header.size = sizeof(commitCmd.cmd);
-    commitCmd.cmd.value = eventState;
+    vpu_cmd_fence_t cmd = {};
+
+    cmd.header.type = cmdType;
+    cmd.header.size = sizeof(vpu_cmd_fence_t);
+    cmd.value = eventState;
+    command.emplace<vpu_cmd_fence_t>(cmd);
 }
 
 bool VPUEventCommand::updateInternalEventOffsets(VPUDeviceContext *ctx,
@@ -76,10 +81,10 @@ bool VPUEventCommand::updateInternalEventOffsets(VPUDeviceContext *ctx,
         LOG_E("Event pointer %p is not allocated within context %p", eventHeapPtr, ctx);
         return false;
     }
-
-    commitCmd.cmd.offset = boost::numeric_cast<uint32_t>(ctx->getBufferVPUAddress(eventHeapPtr) -
-                                                         ctx->getVPULowBaseAddress());
-    LOG_I("Event offset is set to %u.", commitCmd.cmd.offset);
+    auto cmd = std::any_cast<vpu_cmd_fence_t>(&command);
+    cmd->offset = boost::numeric_cast<uint32_t>(ctx->getBufferVPUAddress(eventHeapPtr) -
+                                                ctx->getVPULowBaseAddress());
+    LOG_I("Event offset is set to %lu.", cmd->offset);
 
     appendAssociateBufferObject(ctx, eventHeapPtr);
 
