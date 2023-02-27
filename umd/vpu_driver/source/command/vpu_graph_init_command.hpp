@@ -8,7 +8,6 @@
 #pragma once
 
 #include "vpu_driver/source/command/vpu_command.hpp"
-#include "vpu_driver/source/command/kmd_commit_command.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -37,9 +36,6 @@ class VPUGraphInitCommand : public VPUCommand {
                         size_t scratchSize = 0,
                         size_t metadataSize = 0);
     ~VPUGraphInitCommand();
-    size_t getCommitSize() const override;
-    const uint8_t *getCommitStream() const override;
-    vpu_cmd_type getCommandType() const override;
 
     static std::shared_ptr<VPUGraphInitCommand> create(VPUDeviceContext *ctx,
                                                        uint64_t umdBlobId,
@@ -50,6 +46,10 @@ class VPUGraphInitCommand : public VPUCommand {
                                                        const void *kernelData = nullptr,
                                                        const size_t kernelDataSize = 0u);
 
+    const vpu_cmd_header_t *getHeader() const {
+        return reinterpret_cast<const vpu_cmd_header_t *>(
+            std::any_cast<vpu_cmd_ov_blob_initialize_t>(&command));
+    }
     static const int bufferCount = 4;
 
   private:
@@ -57,8 +57,6 @@ class VPUGraphInitCommand : public VPUCommand {
 
   private:
     VPUDeviceContext *ctx = nullptr;
-    KMDCommitCommand<vpu_cmd_ov_blob_initialize_t> commitCmd;
-
     VPUBufferObject *kernelBuffer = nullptr;
     VPUBufferObject *scratchBuffer = nullptr;
     VPUBufferObject *metadataBuffer = nullptr;

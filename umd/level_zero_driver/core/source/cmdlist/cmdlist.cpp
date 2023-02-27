@@ -199,6 +199,125 @@ ze_result_t CommandList::appendWriteGlobalTimestamp(uint64_t *dstptr,
                                                              dstptr);
 }
 
+ze_result_t CommandList::appendGraphInitialize(ze_graph_handle_t hGraph,
+                                               ze_event_handle_t hSignalEvent,
+                                               uint32_t numWaitEvents,
+                                               ze_event_handle_t *phWaitEvents) {
+    ze_result_t result = checkCommandAppendCondition();
+    if (result != ZE_RESULT_SUCCESS)
+        return result;
+
+    if (numWaitEvents > 0) {
+        if (phWaitEvents == nullptr) {
+            LOG_E("Invalid wait event input. phWaitEvents: %p, numWaitEvents: %u",
+                  phWaitEvents,
+                  numWaitEvents);
+            return ZE_RESULT_ERROR_INVALID_SIZE;
+        }
+
+        result = appendWaitOnEvents(numWaitEvents, phWaitEvents);
+        if (result != ZE_RESULT_SUCCESS) {
+            LOG_E("Failed to add %u wait on events.", numWaitEvents);
+            return result;
+        }
+    }
+
+    Graph *graph = Graph::fromHandle(hGraph);
+    if (graph == nullptr) {
+        LOG_E("Graph object is NULL.");
+        return ZE_RESULT_ERROR_UNINITIALIZED;
+    }
+
+    auto cmd = graph->allocateGraphInitCommand(ctx);
+    if (cmd == nullptr) {
+        LOG_E("Graph-Initialize Command failed to be initialized!");
+        return ZE_RESULT_ERROR_UNINITIALIZED;
+    }
+
+    if (!vpuJob->appendCommand(cmd)) {
+        LOG_E("Failed to push Graph-Initialize command to list!");
+        return ZE_RESULT_ERROR_UNKNOWN;
+    }
+
+    if (hSignalEvent != nullptr) {
+        result = appendSignalEvent(hSignalEvent);
+        if (result != ZE_RESULT_SUCCESS) {
+            LOG_E("Failed to append signal event command (handle: %p, error: %#x).",
+                  hSignalEvent,
+                  result);
+            return result;
+        }
+    }
+
+    LOG_V("Successfully appended graph initialize command to CommandList.");
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t CommandList::appendGraphExecute(ze_graph_handle_t hGraph,
+                                            ze_graph_profiling_query_handle_t hProfilingQuery,
+                                            ze_event_handle_t hSignalEvent,
+                                            uint32_t numWaitEvents,
+                                            ze_event_handle_t *phWaitEvents) {
+    ze_result_t result = checkCommandAppendCondition();
+    if (result != ZE_RESULT_SUCCESS)
+        return result;
+
+    if (numWaitEvents > 0) {
+        if (phWaitEvents == nullptr) {
+            LOG_E("Invalid wait event input. phWaitEvents: %p, numWaitEvents: %u",
+                  phWaitEvents,
+                  numWaitEvents);
+            return ZE_RESULT_ERROR_INVALID_SIZE;
+        }
+
+        result = appendWaitOnEvents(numWaitEvents, phWaitEvents);
+        if (result != ZE_RESULT_SUCCESS) {
+            LOG_E("Failed to add %u wait on events.", numWaitEvents);
+            return result;
+        }
+    }
+
+    Graph *graph = Graph::fromHandle(hGraph);
+    if (graph == nullptr) {
+        LOG_E("Invalid graph handle.");
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+    }
+
+    void *profilingQueryPtr = nullptr;
+    if (graph->getProfilingOutputSize()) {
+        auto *profilingQuery = GraphProfilingQuery::fromHandle(hProfilingQuery);
+        if (!profilingQuery) {
+            LOG_E("Invalid profiling query handle.");
+            return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        }
+        profilingQueryPtr = profilingQuery->getQueryPtr();
+    }
+
+    auto cmd = graph->allocateGraphExecuteCommand(ctx, profilingQueryPtr);
+    if (cmd == nullptr) {
+        LOG_E("Graph-Execute Command failed to be initialized!");
+        return ZE_RESULT_ERROR_UNINITIALIZED;
+    }
+
+    if (!vpuJob->appendCommand(cmd)) {
+        LOG_E("Failed to push Graph-Execute command to list!");
+        return ZE_RESULT_ERROR_UNKNOWN;
+    }
+
+    if (hSignalEvent != nullptr) {
+        result = appendSignalEvent(hSignalEvent);
+        if (result != ZE_RESULT_SUCCESS) {
+            LOG_E("Failed to append signal event command (handle: %p, error: %#x).",
+                  hSignalEvent,
+                  result);
+            return result;
+        }
+    }
+
+    LOG_V("Successfully appended graph execute command to CommandList.");
+    return ZE_RESULT_SUCCESS;
+}
+
 ze_result_t CommandList::appendSignalEvent(ze_event_handle_t hEvent) {
     ze_result_t result = checkCommandAppendCondition();
     if (result != ZE_RESULT_SUCCESS)

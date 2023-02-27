@@ -82,10 +82,8 @@ TEST_F(VPUCommandTest, copyCommandShouldReturnExpectedProperties) {
     EXPECT_EQ(copyCmdAssocVec.at(1), bo);
 
     // Compare command stream return value in byte wise.
-    vpu_cmd_copy_buffer_t expKMDCopyCmd{
-        {VPU_CMD_COPY_LOCAL_TO_LOCAL, sizeof(vpu_cmd_copy_buffer_t)},
-        0u,
-        1u};
+    vpu_cmd_copy_buffer_t
+        expKMDCopyCmd{{VPU_CMD_COPY_LOCAL_TO_LOCAL, sizeof(vpu_cmd_copy_buffer_t)}, 0u, 0u, 1u, 0u};
     uint8_t *exp = reinterpret_cast<uint8_t *>(&expKMDCopyCmd);
 
     EXPECT_EQ(memcmp(exp, copyCmd->getCommitStream(), copyCmd->getCommitSize()), 0);
@@ -114,11 +112,12 @@ TEST_F(VPUCommandTest, graphInitCommandWithoutGraphShouldReturnExpectedPropertie
     vpu_cmd_ov_blob_initialize_t expKMDGraphInitCmd{
         {VPU_CMD_OV_BLOB_INITIALIZE, sizeof(vpu_cmd_ov_blob_initialize_t)},
         blobSize,
-        0,
+        0ul, // kernel_offset
         boost::numeric_cast<uint32_t>(2 * sizeof(vpu_cmd_resource_descriptor_table_t) +
                                       2 * sizeof(vpu_cmd_resource_descriptor_t) *
                                           VPUGraphInitCommand::bufferCount),
-        0u,
+        0u,  // reserved_0
+        0ul, // desc_table_offset
         blobId};
     uint8_t *exp = reinterpret_cast<uint8_t *>(&expKMDGraphInitCmd);
 
@@ -233,7 +232,7 @@ TEST_F(VPUCommandTest, barrierCommandShouldReturnExpectedProperties) {
     EXPECT_TRUE(barrierCmd->isBackwardCommand());
 
     // Compare command stream return value in byte wise.
-    vpu_cmd_barrier_t expKMDBarrierCmd{VPU_CMD_BARRIER, sizeof(vpu_cmd_barrier_t)};
+    vpu_cmd_barrier_t expKMDBarrierCmd{{VPU_CMD_BARRIER, sizeof(vpu_cmd_barrier_t)}, 0};
     uint8_t *exp = reinterpret_cast<uint8_t *>(&expKMDBarrierCmd);
 
     EXPECT_EQ(memcmp(exp, barrierCmd->getCommitStream(), barrierCmd->getCommitSize()), 0);
@@ -284,7 +283,7 @@ struct VPUEventCommandTest : public VPUCommandTest {
         VPUCommandTest::SetUp();
 
         eventBuffer = ctx->createInternalBufferObject(4096, VPUBufferObject::Type::CachedLow);
-        ASSERT_NE(eventBuffer, nullptr);
+        ASSERT_TRUE(eventBuffer);
 
         cmdBufferHeader.fence_heap_base_address = ctx->getVPULowBaseAddress();
         eventHeapPtr = reinterpret_cast<decltype(eventHeapPtr)>(eventBuffer->getBasePointer());

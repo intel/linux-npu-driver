@@ -87,7 +87,7 @@ TEST_F(VPUCommandBufferTest, allocateCommandBufferWithCopyCommand) {
 
     VPUBufferObject *descHeap = ctx->createInternalBufferObject(cmds.back()->getDescriptorSize(),
                                                                 VPUBufferObject::Type::CachedLow);
-    ASSERT_NE(nullptr, descHeap);
+    ASSERT_TRUE(descHeap);
 
     void *descTail = descHeap->getBasePointer();
     void *descEnd = descHeap->getBasePointer() + descHeap->getAllocSize();
@@ -168,7 +168,7 @@ TEST_F(VPUCommandBufferTest, allocateCommandBufferWithInitAndExecuteGraphCommand
 
     VPUBufferObject *descHeap =
         ctx->createInternalBufferObject(descSize, VPUBufferObject::Type::CachedLow);
-    ASSERT_NE(nullptr, descHeap);
+    ASSERT_TRUE(descHeap);
 
     void *descTail = descHeap->getBasePointer();
     void *descEnd = descHeap->getBasePointer() + descHeap->getAllocSize();

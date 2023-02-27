@@ -9,6 +9,8 @@ set(L0_TOOLS_SOURCE
     ${CMAKE_CURRENT_SOURCE_DIR}/metrics/metric.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/metrics/metric_query.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/metrics/metric_query.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/metrics/metric_streamer.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/metrics/metric_streamer.cpp
 )
 
 # Make our source files visible to parent

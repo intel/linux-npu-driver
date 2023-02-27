@@ -10,7 +10,8 @@
 #include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/tools/source/metrics/metric.hpp"
 #include "level_zero_driver/tools/source/metrics/metric_query.hpp"
-#include "vpu_driver/source/device/device_info.hpp"
+#include "level_zero_driver/tools/source/metrics/metric_streamer.hpp"
+#include "vpu_driver/source/device/hw_info.hpp"
 
 namespace L0 {
 namespace ult {
@@ -36,6 +37,18 @@ class MockMetricQuery : public L0::MetricQuery {
                     uint32_t indexInput,
                     uint64_t *queryPtrInput)
         : L0::MetricQuery(metricGroupInput, ctx, poolInput, indexInput, queryPtrInput) {}
+    void injectDummyData();
+};
+
+class MockMetricStreamer : public L0::MetricStreamer {
+  public:
+    MockMetricStreamer(MetricGroup *metricGroupInput,
+                       uint32_t notifyNReport,
+                       VPU::VPUDeviceContext *ctxInput,
+                       Device *deviceInput,
+                       ze_event_handle_t hNotifyEvent)
+        : L0::MetricStreamer(metricGroupInput, notifyNReport, ctxInput, deviceInput, hNotifyEvent) {
+    }
     void injectDummyData();
 };
 

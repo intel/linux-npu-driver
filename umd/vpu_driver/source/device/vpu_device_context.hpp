@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include "vpu_driver/source/command/vpu_command.hpp"
+#include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_device.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 
@@ -18,10 +20,7 @@ namespace VPU {
 
 class VPUDeviceContext {
   public:
-    VPUDeviceContext(std::unique_ptr<VPUDriverApi> drvApi,
-                     uint32_t contextId,
-                     uint16_t pciDevId,
-                     uint64_t baseAddress);
+    VPUDeviceContext(std::unique_ptr<VPUDriverApi> drvApi, VPUHwInfo *info);
     virtual ~VPUDeviceContext() = default;
 
     VPUDeviceContext(VPUDeviceContext const &) = delete;
@@ -107,11 +106,7 @@ class VPUDeviceContext {
      */
     VPUBufferObject *createInternalBufferObject(size_t size, VPUBufferObject::Type type);
 
-    /**
-     * Return assigned host_ssid aka contextId
-     */
-    uint32_t getContextId() const { return contextId; }
-
+    int getFd() const { return drvApi->getFd(); }
     /**
      * Return assigned VPUDriverApi
      */
@@ -120,17 +115,20 @@ class VPUDeviceContext {
     /**
      * Return value of VPU Device ID
      */
-    inline uint16_t getPciDevId() const { return pciDevId; }
+    inline uint32_t getPciDevId() const { return hwInfo->deviceId; }
 
     /**
      * Return the lowest VPU address from VPU low range that is accessible by firmware device
      */
-    uint64_t getVPULowBaseAddress() const { return vpuLowBaseAddress; }
+    uint64_t getVPULowBaseAddress() const { return hwInfo->baseLowAddres; }
 
     /**
      * Return number of currently tracking buffer objects in the structure
      */
     size_t getBuffersCount() const { return trackedBuffers.size(); }
+
+    bool getCopyCommandDescriptor(const void *src, void *dst, size_t size, VPUDescriptor &desc);
+    void printCopyDescriptor(void *desc, vpu_cmd_header_t *cmd);
 
   private:
     /**
@@ -148,9 +146,7 @@ class VPUDeviceContext {
 
   private:
     std::unique_ptr<VPUDriverApi> drvApi;
-    const uint32_t contextId;
-    uint16_t pciDevId;
-    uint64_t vpuLowBaseAddress;
+    VPUHwInfo *hwInfo;
 
     std::map<const void *, std::unique_ptr<VPUBufferObject>, std::greater<const void *>>
         trackedBuffers;

@@ -9,20 +9,25 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/mman.h>
-#include <uapi/drm/ivpu_drm.h>
+
+#include <api/vpu_jsm_api.h>
+#include <uapi/drm/ivpu_accel.h>
 
 #include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
-#include "vpu_driver/include/firmware/vpu_jsm_api.h"
 
 namespace VPU {
 
-MockOsInterfaceImp::MockOsInterfaceImp(uint16_t pciDevId)
+MockOsInterfaceImp::MockOsInterfaceImp(uint32_t pciDevId)
     : pciDevId(pciDevId) {}
 
 int MockOsInterfaceImp::osiOpen(const char *pathname, int flags, mode_t mode) {
-    if (openSuccessful)
-        return 0;
+    if (openSuccessful) {
+        int vpuFd = fd;
+        fd++;
+        LOG_I("Returning file descriptor %d", vpuFd);
+        return vpuFd;
+    }
 
     return -EACCES;
 }
@@ -71,21 +76,19 @@ int MockOsInterfaceImp::osiIoctl(int fd, unsigned long request, void *data) {
         case DRM_IVPU_PARAM_NUM_CONTEXTS:
             args->value = 64ULL;
             break;
-        case DRM_IVPU_PARAM_CONTEXT_ID:
-            args->value = host_ssid++;
-            break;
         case DRM_IVPU_PARAM_CONTEXT_BASE_ADDRESS:
             args->value = deviceLowBaseAddress;
+            break;
+        case DRM_IVPU_PARAM_CAPABILITIES:
+            if (args->index == DRM_IVPU_CAP_METRIC_STREAMER) {
+                args->value = 1ULL;
+            }
             break;
         case DRM_IVPU_PARAM_UNIQUE_INFERENCE_ID:
             args->value = unique_id++;
         default:
             break;
         }
-    } else if (request == DRM_IOCTL_IVPU_BO_USERPTR) {
-        struct drm_ivpu_bo_userptr *args = static_cast<struct drm_ivpu_bo_userptr *>(data);
-        args->vpu_addr = deviceAddress;
-        deviceAddress += ALIGN(args->user_size, osiGetSystemPageSize());
     } else if (request == DRM_IOCTL_IVPU_BO_CREATE) {
         if (failNextAlloc) {
             failNextAlloc = false;
@@ -114,6 +117,73 @@ int MockOsInterfaceImp::osiIoctl(int fd, unsigned long request, void *data) {
             args->job_status = DRM_IVPU_JOB_STATUS_SUCCESS;
         }
         jobFailed >>= 1;
+    } else if (request == DRM_IOCTL_IVPU_METRIC_STREAMER_GET_INFO) {
+        drm_ivpu_metric_streamer_get_data *args =
+            static_cast<struct drm_ivpu_metric_streamer_get_data *>(data);
+        if (args->size == 0) {
+            /*
+            size = sizeof(vpu_jsm_metric_group_descriptor) +
+                   group_desc->name_string_size +
+                   group_desc->description_string_size +
+                   sizeof(vpu_jsm_metric_counter_descriptor) +
+                   counter_desc->name_string_size +
+                   counter_desc->description_string_size +
+                   counter_desc->component_string_size +
+                   counter_desc->units_string_size
+            */
+            args->size = sizeof(vpu_jsm_metric_group_descriptor) + 80 +
+                         sizeof(vpu_jsm_metric_counter_descriptor) + 80;
+        } else {
+            vpu_jsm_metric_counter_descriptor *counter_desc = nullptr;
+
+            vpu_jsm_metric_group_descriptor *group_desc =
+                reinterpret_cast<vpu_jsm_metric_group_descriptor *>(args->buffer_ptr);
+            group_desc->next_metric_group_info_offset = 0;
+            group_desc->next_metric_counter_info_offset = 120;
+            group_desc->group_id = 3;
+            group_desc->num_counters = 1;
+            group_desc->metric_group_data_size = 128;
+            group_desc->domain = 1;
+            group_desc->name_string_size = 16;
+            group_desc->description_string_size = 64;
+
+            strncpy(reinterpret_cast<char *>(reinterpret_cast<uint64_t>(group_desc) +
+                                             sizeof(vpu_jsm_metric_group_descriptor)),
+                    "NOC",
+                    group_desc->name_string_size);
+
+            strncpy(reinterpret_cast<char *>(reinterpret_cast<uint64_t>(group_desc) +
+                                             sizeof(vpu_jsm_metric_group_descriptor) +
+                                             group_desc->name_string_size),
+                    "NOC",
+                    group_desc->description_string_size);
+
+            counter_desc = reinterpret_cast<vpu_jsm_metric_counter_descriptor *>(
+                reinterpret_cast<uint64_t>(group_desc) +
+                group_desc->next_metric_counter_info_offset);
+
+            counter_desc->next_metric_counter_info_offset = 0;
+            counter_desc->metric_data_offset = 21696;
+            counter_desc->metric_data_size = 128;
+            counter_desc->tier = 0;
+            counter_desc->metric_type = 1;
+            counter_desc->metric_value_type = 1;
+            counter_desc->name_string_size = 16;
+            counter_desc->description_string_size = 64;
+            counter_desc->component_string_size = 0;
+            counter_desc->units_string_size = 0;
+
+            strncpy(reinterpret_cast<char *>(reinterpret_cast<uint64_t>(counter_desc) +
+                                             sizeof(vpu_jsm_metric_counter_descriptor)),
+                    "noc",
+                    counter_desc->name_string_size);
+
+            strncpy(reinterpret_cast<char *>(reinterpret_cast<uint64_t>(counter_desc) +
+                                             sizeof(vpu_jsm_metric_counter_descriptor) +
+                                             counter_desc->name_string_size),
+                    "noc",
+                    counter_desc->description_string_size);
+        }
     }
 
     if (!kmdIoctlRetCode)

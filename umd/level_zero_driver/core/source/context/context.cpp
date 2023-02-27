@@ -11,6 +11,7 @@
 #include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/core/source/event/eventpool.hpp"
 #include "level_zero_driver/tools/source/metrics/metric_query.hpp"
+#include "level_zero_driver/tools/source/metrics/metric_streamer.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 namespace L0 {
@@ -99,7 +100,7 @@ ze_result_t Context::activateMetricGroups(zet_device_handle_t hDevice,
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
 
-    return L0::Device::fromHandle(hDevice)->activateMetricGroups(ctx.get()->getContextId(),
+    return L0::Device::fromHandle(hDevice)->activateMetricGroups(ctx->getFd(),
                                                                  count,
                                                                  phMetricGroups);
 }
@@ -155,6 +156,85 @@ ze_result_t Context::createMetricQueryPool(zet_device_handle_t hDevice,
     }
 
     *phMetricQueryPool = metricQueryPool->toHandle();
+
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t Context::metricStreamerOpen(zet_device_handle_t hDevice,
+                                        zet_metric_group_handle_t hMetricGroup,
+                                        zet_metric_streamer_desc_t *desc,
+                                        ze_event_handle_t hNotificationEvent,
+                                        zet_metric_streamer_handle_t *phMetricStreamer) {
+    if (hDevice == nullptr || hMetricGroup == nullptr) {
+        LOG_E("Device(%p) / MetricGroup(%p) handle is NULL.", hDevice, hMetricGroup);
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+    }
+
+    if (desc == nullptr || phMetricStreamer == nullptr) {
+        LOG_E("Desc(%p) / MetricStreamer(%p) handle is NULL.", desc, phMetricStreamer);
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    auto device = Device::fromHandle(hDevice);
+
+    if (!device->isMetricsLoaded()) {
+        LOG_E("Device metrics is not initialized.");
+        return ZE_RESULT_ERROR_UNINITIALIZED;
+    }
+
+    auto metricGroup = MetricGroup::fromHandle(hMetricGroup);
+    if (!metricGroup->isActivated()) {
+        LOG_E("MetricGroup (%p) is not activated.", metricGroup);
+        return ZE_RESULT_NOT_READY;
+    }
+
+    auto metricContext = device->getMetricContext().get();
+    if (metricContext->getMetricStreamer() != nullptr) {
+        LOG_E("Device already has a MetricStreamer opened.");
+        return ZE_RESULT_ERROR_HANDLE_OBJECT_IN_USE;
+    }
+
+    auto pMetricStreamer = new MetricStreamer(metricGroup,
+                                              desc->notifyEveryNReports,
+                                              ctx.get(),
+                                              device,
+                                              hNotificationEvent);
+    if (pMetricStreamer == nullptr) {
+        LOG_E("Failed to create metric streamer.");
+        return ZE_RESULT_ERROR_NOT_AVAILABLE;
+    }
+
+    if (!pMetricStreamer->isInitialized()) {
+        LOG_E("MetricStreamer not initialized correctly. Closing instance.");
+        pMetricStreamer->close();
+        return ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY;
+    }
+
+    metricContext->setMetricStreamer(pMetricStreamer);
+
+    drm_ivpu_metric_streamer_start startData = {};
+    startData.metric_group_mask = 0x1 << metricGroup->getGroupIndex();
+
+    if (desc->samplingPeriod < L0::MetricContext::MIN_SAMPLING_RATE_NS) {
+        LOG_E("Sampling rate is too low.");
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    // Sampling rate expressed in nanoseconds
+    startData.sampling_rate_ns = desc->samplingPeriod;
+
+    startData.read_rate = desc->notifyEveryNReports;
+
+    const VPU::VPUDriverApi &drvApi = ctx->getDriverApi();
+
+    if (drvApi.metricStreamerStart(&startData) < 0) {
+        LOG_E("Failed to start metric streamer.");
+        return ZE_RESULT_ERROR_UNKNOWN;
+    }
+
+    metricContext->sampleSize = startData.sample_size;
+
+    *phMetricStreamer = pMetricStreamer->toHandle();
 
     return ZE_RESULT_SUCCESS;
 }

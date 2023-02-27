@@ -8,9 +8,8 @@
 #pragma once
 
 #include "vpu_driver/source/command/vpu_command.hpp"
-#include "vpu_driver/source/command/kmd_commit_command.hpp"
 
-#include <uapi/drm/ivpu_drm.h>
+#include <uapi/drm/ivpu_accel.h>
 #include <memory>
 
 namespace VPU {
@@ -31,21 +30,6 @@ class VPUEventCommand : public VPUCommand {
         uint64_t reserved[7]; /**< Unused */
     };
     static_assert(sizeof(JsmEventData) % 64 == 0, "JsmEventData is misaligned");
-
-    /**
-     * Returns size of the actual commit struct.
-     */
-    size_t getCommitSize() const override { return commitCmd.getKMDCommitSize(); }
-
-    /**
-     * Return the commiting struct data in byte stream.
-     */
-    const uint8_t *getCommitStream() const override { return commitCmd.getKMDCommitStream(); }
-
-    /**
-     * Return the command's type
-     */
-    vpu_cmd_type getCommandType() const override { return commitCmd.getKMDCommandType(); }
 
     /**
      * Set internal event buffer previously inserted with index
@@ -73,11 +57,9 @@ class VPUEventCommand : public VPUCommand {
                     const vpu_cmd_type cmdType,
                     const KMDEventDataType eventState,
                     uint8_t intEventIndex = 0);
-
-    /**
-     * KMD submitting fence command.
-     */
-    KMDCommitCommand<vpu_cmd_fence_t> commitCmd;
+    const vpu_cmd_header_t *getHeader() const {
+        return reinterpret_cast<const vpu_cmd_header_t *>(std::any_cast<vpu_cmd_fence_t>(&command));
+    }
 
   private:
     static const char *getEventCommandStr(const vpu_cmd_type cmdType,

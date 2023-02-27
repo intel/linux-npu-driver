@@ -26,6 +26,17 @@ User-mode driver (UMD) allows user to get information about device and push
 workload to kernel driver. UMD implements Level Zero API Driver that standardize
 user interface.
 
+## Building
+
+UMD driver depends on OpenVino and VPUX plugin, recommended configuration for
+building is: Ubuntu20.04 and cmake version 3.22 (need to be upgraded from
+default Ubuntu20.04 cmake version).
+To build driver execute:
+mkdir build
+cd build
+cmake ../
+make -j`nproc`
+
 ## License
 
 The Intel(R) Versatile Processing Unit Driver is distributed under the MIT License.

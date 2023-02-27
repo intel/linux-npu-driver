@@ -7,7 +7,6 @@
 
 #pragma once
 #include "vpu_driver/source/command/vpu_command.hpp"
-#include "vpu_driver/source/command/kmd_commit_command.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -21,15 +20,13 @@ class VPUMemoryFillCommand : public VPUCommand {
                          const void *pattern,
                          size_t patternSize,
                          size_t size);
-    size_t getCommitSize() const override;
-    const uint8_t *getCommitStream() const override;
-    vpu_cmd_type getCommandType() const override;
 
     static std::shared_ptr<VPUMemoryFillCommand>
     create(VPUDeviceContext *ctx, void *ptr, const void *pattern, size_t patternSize, size_t size);
-
-  private:
-    KMDCommitCommand<vpu_cmd_memory_fill_t> commitCmd;
+    const vpu_cmd_header_t *getHeader() const {
+        return reinterpret_cast<const vpu_cmd_header_t *>(
+            std::any_cast<vpu_cmd_memory_fill_t>(&command));
+    }
 };
 
 } // namespace VPU

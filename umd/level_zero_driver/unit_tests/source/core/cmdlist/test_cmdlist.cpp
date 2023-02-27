@@ -8,8 +8,7 @@
 #include "gtest/gtest.h"
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
-#include "vpu_driver/source/device/device_info.hpp"
-#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
+#include "vpu_driver/source/device/hw_info.hpp"
 
 #include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"

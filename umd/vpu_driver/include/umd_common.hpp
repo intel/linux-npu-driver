@@ -7,14 +7,8 @@
 
 #pragma once
 
-#include <stdint.h>
 #include <linux/kernel.h>
 #include <stdexcept>
-
-// VPU PCI Device ID definition
-constexpr uint16_t MTL_VPU_PCI_DEVICE_ID = 0x7D1D;
-
-constexpr uint16_t INTEL_PCI_VENDOR_ID = 0x8086;
 
 template <class To, class From>
 To safe_cast(From x) {

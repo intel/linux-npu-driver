@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "level_zero_driver/tools/source/metrics/metric_streamer.hpp"
 #include "level_zero_driver/core/source/device/device.hpp"
 #include <level_zero/zet_api.h>
 
@@ -41,7 +42,8 @@ struct MetricGroup : _zet_metric_group_handle_t {
     MetricGroup(zet_metric_group_properties_t &propertiesInput,
                 size_t allocationSizeInput,
                 std::vector<std::shared_ptr<Metric>> &metricsInput,
-                uint32_t groupIndexInput);
+                uint32_t groupIndexInput,
+                size_t numberOfMetricGroupsInput);
     ~MetricGroup() = default;
 
     inline zet_metric_group_handle_t toHandle() { return this; }
@@ -68,6 +70,7 @@ struct MetricGroup : _zet_metric_group_handle_t {
 
     size_t getAllocationSize() const { return allocationSize; }
     uint32_t getGroupIndex() const { return groupIndex; }
+    size_t getNumberOfMetricGroups() const { return numberOfMetricGroups; }
 
   private:
     bool activated = false;
@@ -75,15 +78,19 @@ struct MetricGroup : _zet_metric_group_handle_t {
     size_t allocationSize = 0u;
     std::vector<std::shared_ptr<Metric>> metrics;
     uint32_t groupIndex;
+    size_t numberOfMetricGroups;
 };
 
 struct MetricContext {
     MetricContext(Device *deviceInput)
         : device(deviceInput) {}
     ~MetricContext() = default;
-    ze_result_t activateMetricGroups(uint32_t contextId,
-                                     uint32_t count,
-                                     zet_metric_group_handle_t *phMetricGroups);
+    ze_result_t
+    activateMetricGroups(int vpuFd, uint32_t count, zet_metric_group_handle_t *phMetricGroups);
+    MetricStreamer *getMetricStreamer() const { return pMetricStreamer; }
+    void setMetricStreamer(MetricStreamer *metricStreamerInput) {
+        pMetricStreamer = metricStreamerInput;
+    }
 
     // Value from FW - 10 [ms]
     constexpr static uint32_t MIN_SAMPLING_RATE_NS = 10'000'000;
@@ -92,24 +99,25 @@ struct MetricContext {
 
   protected:
     /**
-       A container for keeping activated metric groups and their associated context id.
-       Content: <domain number, pair<metric group, context id>>
+       A container for keeping activated metric groups and their associated file descriptor
+       returned during context creation.
+       Content: <domain number, pair<metric group, vpuFd>>
      */
-    std::vector<std::pair<uint32_t, std::pair<MetricGroup *, uint32_t>>> activatedMetricGroups;
+    std::vector<std::pair<uint32_t, std::pair<MetricGroup *, int>>> activatedMetricGroups;
 
   private:
     Device *device = nullptr;
+    MetricStreamer *pMetricStreamer = nullptr;
 
     /**
        Deactivate all metric groups in activatedMetricGroups map.
      */
-    void deactivateMetricGroups(const uint32_t contextId);
+    void deactivateMetricGroups(const int vpuFd);
     /**
        Activate metric group and tracked in activatedMetricGroups map.
        @return true when metric group activated successfully, false otherwise
      */
-    bool activateMetricGroup(const uint32_t contextId,
-                             const zet_metric_group_handle_t hMetricGroup);
+    bool activateMetricGroup(const int vpuFd, const zet_metric_group_handle_t hMetricGroup);
 };
 
 } // namespace L0

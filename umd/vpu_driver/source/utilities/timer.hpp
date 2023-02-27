@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <vector>
 #include <memory>
-#include <uapi/drm/ivpu_drm.h>
+#include <uapi/drm/ivpu_accel.h>
 
 #include "vpu_driver/source/command/vpu_job.hpp"
 #include "vpu_driver/source/command/vpu_event_command.hpp"
@@ -38,5 +38,5 @@ bool waitForSignal(uint64_t timeout, std::function<bool()> check);
  */
 bool waitForSignal(uint64_t timeout,
                    const std::vector<std::shared_ptr<VPUJob>> &jobs,
-                   DeviceInfo devInfo);
+                   VPUHwInfo devInfo);
 } // namespace VPU

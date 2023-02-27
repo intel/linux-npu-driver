@@ -1,3 +1,9 @@
 [submodule "umd/third_party/level-zero"]
 	path = umd/third_party/level-zero
 	url = https://github.com/oneapi-src/level-zero.git
+[submodule "umd/third_party/level-zero-vpu-extensions"]
+	path = umd/third_party/level-zero-vpu-extensions
+	url = https://github.com/intel/level-zero-vpu-extensions.git
+[submodule "umd/third_party/vpux_elf"]
+	path = umd/third_party/vpux_elf
+	url = https://github.com/openvinotoolkit/vpux_plugin_elf.git

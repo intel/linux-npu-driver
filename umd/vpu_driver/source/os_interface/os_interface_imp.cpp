@@ -57,7 +57,7 @@ int OsInterfaceImp::secureOpen(const char *pathname, int flags, mode_t mode) {
         return -1;
     }
 
-    LOG_I("Returning file desciptor %d", fd);
+    LOG_I("Returning file descriptor %d", fd);
     return fd;
 }
 

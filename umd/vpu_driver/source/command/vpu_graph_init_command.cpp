@@ -116,23 +116,25 @@ VPUGraphInitCommand::VPUGraphInitCommand(VPUDeviceContext *ctx,
     , actKernelBuffer(actKernelBuffer)
     , scratchSize(scratchSize)
     , metadataSize(metadataSize) {
-    commitCmd.cmd.header.type = VPU_CMD_OV_BLOB_INITIALIZE;
-    commitCmd.cmd.header.size = sizeof(commitCmd.cmd);
-    commitCmd.cmd.kernel_size = boost::numeric_cast<uint32_t>(blobSize);
-    commitCmd.cmd.desc_table_size =
+    vpu_cmd_ov_blob_initialize_t cmd = {};
+
+    cmd.header.type = VPU_CMD_OV_BLOB_INITIALIZE;
+    cmd.header.size = sizeof(vpu_cmd_ov_blob_initialize_t);
+    cmd.kernel_size = boost::numeric_cast<uint32_t>(blobSize);
+    cmd.desc_table_size =
         boost::numeric_cast<uint32_t>(2 * sizeof(vpu_cmd_resource_descriptor_table_t) +
                                       2 * sizeof(vpu_cmd_resource_descriptor_t) * bufferCount);
-    commitCmd.cmd.blob_id = umdBlobId;
+    cmd.blob_id = umdBlobId;
 
     if (actKernelBuffer != nullptr) {
-        commitCmd.cmd.desc_table_size += boost::numeric_cast<uint32_t>(
+        cmd.desc_table_size += boost::numeric_cast<uint32_t>(
             sizeof(vpu_cmd_resource_descriptor_table_t) + sizeof(vpu_cmd_resource_descriptor_t));
     }
 
-    commitCmd.cmd.kernel_offset =
+    cmd.kernel_offset =
         boost::numeric_cast<uint32_t>(kernelBuffer->getVPUAddr() - ctx->getVPULowBaseAddress());
-    LOG_I("Kernel offset set to %u for GraphInit Command!", commitCmd.cmd.kernel_offset);
-
+    LOG_I("Kernel offset set to %#lx for GraphInit Command!", cmd.kernel_offset);
+    command.emplace<vpu_cmd_ov_blob_initialize_t>(cmd);
     appendAssociateBufferObject(ctx, kernelBuffer->getBasePointer());
     appendAssociateBufferObject(ctx, scratchBuffer->getBasePointer());
     appendAssociateBufferObject(ctx, metadataBuffer->getBasePointer());
@@ -168,22 +170,12 @@ VPUGraphInitCommand::~VPUGraphInitCommand() {
     }
 }
 
-size_t VPUGraphInitCommand::getCommitSize() const {
-    return commitCmd.getKMDCommitSize();
-}
-
-const uint8_t *VPUGraphInitCommand::getCommitStream() const {
-    return commitCmd.getKMDCommitStream();
-}
-
-vpu_cmd_type VPUGraphInitCommand::getCommandType() const {
-    return commitCmd.getKMDCommandType();
-}
-
 void VPUGraphInitCommand::fillDescriptor() {
     VPUDescriptor descriptor;
-    descriptor.commandOffset = &commitCmd.cmd.desc_table_offset;
-    descriptor.data.resize(commitCmd.cmd.desc_table_size, 0);
+    auto cmd = std::any_cast<vpu_cmd_ov_blob_initialize_t>(&command);
+
+    descriptor.commandOffset = &cmd->desc_table_offset;
+    descriptor.data.resize(cmd->desc_table_size, 0);
     void *desc = descriptor.data.data();
 
     uint64_t startAddr = scratchBuffer->getVPUAddr();

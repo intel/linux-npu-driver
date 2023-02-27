@@ -12,6 +12,9 @@ endif()
 
 set(TARGET_NAME vpu_shared_tests)
 
+# build umd unit tests with sanitizers
+umd_sanitizer_flags()
+
 append_sources_from_properties(CORE_ENABLERS VPU_CORE_SRCS_LINK)
 
 add_executable(${TARGET_NAME}

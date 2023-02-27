@@ -7,11 +7,9 @@
 
 #pragma once
 
-#include <cstdint>
+#include <stdint.h>
 #include <string>
 #include <vector>
-
-#include <boost/numeric/conversion/cast.hpp>
 
 namespace VPU {
 /*
@@ -66,71 +64,6 @@ struct GroupInfo {
     uint32_t domain;
     uint32_t metricCount;
     std::vector<CounterInfo> counterInfo;
-};
-
-struct DeviceInfo {
-    // Note: Will be set by UMD.
-    bool initialized = false;
-
-    ////////////////////////////////////////
-    // HW specific information
-    ////////////////////////////////////////
-
-    // Device ID from PCI configuration.
-    uint32_t deviceId = 0u;
-
-    // Device revision from PCI configuration.
-    uint32_t deviceRevision = 0u;
-
-    // Sub device ID.
-    uint32_t subdeviceId = 0u;
-
-    // Core clock rate.
-    uint32_t coreClockRate = 0u;
-
-    // Max mem alloc size.
-    uint64_t maxMemAllocSize = 0u;
-
-    // Max hardware contexts.
-    uint32_t maxHardwareContexts = 0u;
-
-    // Max command queue priority.
-    uint32_t maxCommandQueuePriority = 0u;
-
-    // Number of threads per EU.
-    uint32_t numThreadsPerEU = 0u;
-
-    // Physical EU SIMD width.
-    uint32_t physicalEUSimdWidth = 0u;
-
-    // Number of EUs
-    uint32_t nExecUnits = 0u;
-
-    // Number of sub-slices per slice.
-    uint32_t numSubslicesPerSlice = 0u;
-
-    // Platoform Type
-    uint32_t platformType = 0u;
-
-    // [Device property flags]
-    // Device is integrated with the host.
-    bool isIntegrated = false;
-    // Device handle used for query represents a sub device
-    bool isSubdevice = false;
-    // Device supports error correction memory access.
-    bool isSupportEcc = false;
-    // Device supports on-demand page faulting.
-    bool isSupportOnDemandPaging = false;
-
-    ////////////////////////////////////////
-    // Device metric information
-    ////////////////////////////////////////
-
-    // Metric group and metric properties information.
-    std::vector<GroupInfo> groupsInfo = {};
-
-    // Device name.
-    char name[256] = "Intel VPU";
 };
 
 } // namespace VPU

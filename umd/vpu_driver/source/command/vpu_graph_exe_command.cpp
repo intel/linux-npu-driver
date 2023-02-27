@@ -83,22 +83,24 @@ VPUGraphExecuteCommand::VPUGraphExecuteCommand(
     , ctx(ctx)
     , profilingSize(profilingSize)
     , profilingBuffer(profilingBuffer) {
-    commitCmd.cmd.header.type = VPU_CMD_OV_BLOB_EXECUTE;
-    commitCmd.cmd.header.size = sizeof(commitCmd.cmd);
-    commitCmd.cmd.desc_table_offset = 0;
-    commitCmd.cmd.blob_id = umdBlobId;
+    vpu_cmd_ov_blob_execute_t cmd = {};
+
+    cmd.header.type = VPU_CMD_OV_BLOB_EXECUTE;
+    cmd.header.size = sizeof(vpu_cmd_ov_blob_execute_t);
+    cmd.desc_table_offset = 0;
+    cmd.blob_id = umdBlobId;
 
     size_t totalArgs = inputBuffers.size() + outputBuffers.size();
 
-    commitCmd.cmd.desc_table_size =
+    cmd.desc_table_size =
         boost::numeric_cast<uint32_t>(2 * sizeof(vpu_cmd_resource_descriptor_table_t) +
                                       totalArgs * sizeof(vpu_cmd_resource_descriptor_t));
 
     if (profilingSize > 0) {
-        commitCmd.cmd.desc_table_size += boost::numeric_cast<uint32_t>(
+        cmd.desc_table_size += boost::numeric_cast<uint32_t>(
             sizeof(vpu_cmd_resource_descriptor_table_t) + sizeof(vpu_cmd_resource_descriptor_t));
     }
-
+    command.emplace<vpu_cmd_ov_blob_execute_t>(cmd);
     for (const auto &ptr : inputBuffers) {
         appendAssociateBufferObject(ctx, ptr.first);
     }
@@ -123,25 +125,15 @@ VPUGraphExecuteCommand::VPUGraphExecuteCommand(
     fillDescriptor(inputArray, outputArray, inputBufferSize, outputBufferSize);
 }
 
-size_t VPUGraphExecuteCommand::getCommitSize() const {
-    return commitCmd.getKMDCommitSize();
-}
-
-const uint8_t *VPUGraphExecuteCommand::getCommitStream() const {
-    return commitCmd.getKMDCommitStream();
-}
-
-vpu_cmd_type VPUGraphExecuteCommand::getCommandType() const {
-    return commitCmd.getKMDCommandType();
-}
-
 void VPUGraphExecuteCommand::fillDescriptor(std::vector<uint64_t> inputArray,
                                             std::vector<uint64_t> outputArray,
                                             const std::vector<uint32_t> inputArraySize,
                                             const std::vector<uint32_t> outputArraySize) {
     VPUDescriptor descriptor;
-    descriptor.commandOffset = &commitCmd.cmd.desc_table_offset;
-    descriptor.data.resize(commitCmd.cmd.desc_table_size, 0);
+    auto cmd = std::any_cast<vpu_cmd_ov_blob_execute_t>(&command);
+
+    descriptor.commandOffset = &cmd->desc_table_offset;
+    descriptor.data.resize(cmd->desc_table_size, 0);
     void *desc = descriptor.data.data();
 
     updateResourceDescriptorTable(&desc,

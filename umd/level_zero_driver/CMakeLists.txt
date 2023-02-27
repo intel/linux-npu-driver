@@ -23,6 +23,10 @@ else()
             "${VPU_SOURCE_DIR}/third_party/level-zero/include/loader"
         )
         file(COPY ${LEVEL_ZERO_API_HEADERS} DESTINATION ${CUSTOM_L0_INCLUDE_PATH})
+        file(GLOB LEVEL_ZERO_API_EXT_HEADERS
+            "${VPU_SOURCE_DIR}/third_party/level-zero-vpu-extensions/*.h"
+        )
+        file(COPY ${LEVEL_ZERO_API_EXT_HEADERS} DESTINATION ${CUSTOM_L0_INCLUDE_PATH})
         set(LEVEL_ZERO_ROOT "${LEVEL_ZERO_ROOT_tmp}")
     endif()
 endif()
@@ -75,6 +79,7 @@ target_sources(${TARGET_NAME_L0} PRIVATE ${L0_SHARED_LIB_SRCS})
 target_link_libraries(${TARGET_NAME_L0}
     vpu_driver
     dl
+    vpux_elf
 )
 
 set_target_properties(${TARGET_NAME_L0} PROPERTIES
@@ -83,18 +88,13 @@ set_target_properties(${TARGET_NAME_L0} PROPERTIES
     SOVERSION "${PROJECT_VERSION_MAJOR}"
 )
 
-install(TARGETS ${TARGET_NAME_L0}
-    LIBRARY
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        COMPONENT ${PROJECT_NAME}
-        NAMELINK_SKIP
-)
-
 add_subdirectory_unique(unit_tests)
 
 add_subdirectories()
 add_subdirectory(core/source)
+add_subdirectory(ext/source)
 add_subdirectory(tools/source)
 
 append_sources_from_properties(L0_SOURCES L0_API_SOURCE L0_CORE_SOURCE L0_EXT_SOURCE L0_TOOLS_SOURCE)
 target_sources(${TARGET_NAME_L0} PRIVATE ${L0_SOURCES})
+add_dependencies(${TARGET_NAME_L0} vpux_elf)

@@ -7,7 +7,7 @@
 
 #include "gtest/gtest.h"
 
-#include "vpu_driver/source/device/device_info.hpp"
+#include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
@@ -72,11 +72,13 @@ TEST_F(CommandQueueCreate, whenCreatingAndDestroyingCommandQueueUsingContextSucc
     ze_command_queue_handle_t hCommandQueue = {};
 
     // Creating Command Queue
-    EXPECT_EQ(ZE_RESULT_SUCCESS, context->createCommandQueue(device, &desc, &hCommandQueue));
-    EXPECT_NE(nullptr, hCommandQueue);
+    ze_result_t result = context->createCommandQueue(device, &desc, &hCommandQueue);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+    ASSERT_TRUE(hCommandQueue);
 
     L0::CommandQueue *commandQueue = L0::CommandQueue::fromHandle(hCommandQueue);
-    ASSERT_NE(nullptr, commandQueue);
+    ASSERT_TRUE(commandQueue);
+
     EXPECT_EQ(device, commandQueue->getDevice());
 
     // Destroying Command Queue

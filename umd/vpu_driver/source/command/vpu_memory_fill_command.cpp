@@ -43,41 +43,31 @@ VPUMemoryFillCommand::VPUMemoryFillCommand(VPUDeviceContext *ctx,
                                            size_t patternSize,
                                            size_t size)
     : VPUCommand(EngineSupport::Copy) {
-    commitCmd.cmd.header.type = VPU_CMD_MEMORY_FILL;
-    commitCmd.cmd.header.size = sizeof(commitCmd.cmd);
-    commitCmd.cmd.start_address = ctx->getBufferVPUAddress(ptr);
-    commitCmd.cmd.size = boost::numeric_cast<uint64_t>(size);
+    vpu_cmd_memory_fill_t cmd = {};
+
+    cmd.header.type = VPU_CMD_MEMORY_FILL;
+    cmd.header.size = sizeof(vpu_cmd_memory_fill_t);
+    cmd.start_address = ctx->getBufferVPUAddress(ptr);
+    cmd.size = boost::numeric_cast<uint64_t>(size);
 
     if (patternSize == 1u) {
         uint8_t uintPattern = *static_cast<const uint8_t *>(pattern);
-        commitCmd.cmd.fill_pattern = uintPattern;
+        cmd.fill_pattern = uintPattern;
         for (int i = 0; i < 3; i++) {
-            commitCmd.cmd.fill_pattern = (commitCmd.cmd.fill_pattern << 8) | uintPattern;
+            cmd.fill_pattern = (cmd.fill_pattern << 8) | uintPattern;
         }
     } else if (patternSize == 2u) {
         uint16_t uintPattern = *static_cast<const uint16_t *>(pattern);
-        commitCmd.cmd.fill_pattern = uintPattern;
-        commitCmd.cmd.fill_pattern = (commitCmd.cmd.fill_pattern << 16) | uintPattern;
+        cmd.fill_pattern = uintPattern;
+        cmd.fill_pattern = (cmd.fill_pattern << 16) | uintPattern;
     } else if (patternSize == 4u) {
         uint32_t uintPattern = *static_cast<const uint32_t *>(pattern);
-        commitCmd.cmd.fill_pattern = uintPattern;
+        cmd.fill_pattern = uintPattern;
     }
+    command.emplace<vpu_cmd_memory_fill_t>(cmd);
+    appendAssociateBufferObject(ctx, ptr);
 
     LOG_I("Memory Fill command successfully created.");
-
-    appendAssociateBufferObject(ctx, ptr);
-}
-
-size_t VPUMemoryFillCommand::getCommitSize() const {
-    return commitCmd.getKMDCommitSize();
-}
-
-const uint8_t *VPUMemoryFillCommand::getCommitStream() const {
-    return commitCmd.getKMDCommitStream();
-}
-
-vpu_cmd_type VPUMemoryFillCommand::getCommandType() const {
-    return commitCmd.getKMDCommandType();
 }
 
 } // namespace VPU

@@ -10,6 +10,7 @@
 #include "level_zero_driver/core/source/driver/driver_handle.hpp"
 #include "level_zero_driver/core/source/driver/driver.hpp"
 #include "level_zero_driver/core/source/driver/driver_handle.hpp"
+#include "level_zero_driver/ext/source/graph/graph.hpp"
 #include "level_zero_driver/tools/source/metrics/metric.hpp"
 
 #include "vpu_driver/source/device/vpu_device.hpp"
@@ -17,6 +18,7 @@
 
 #include <level_zero/ze_api.h>
 #include <level_zero/zet_api.h>
+#include <level_zero/ze_graph_ext.h>
 
 struct _ze_device_handle_t {};
 
@@ -51,6 +53,8 @@ struct Device : _ze_device_handle_t {
     ze_result_t
     getMemoryAccessProperties(ze_device_memory_access_properties_t *pMemAccessProperties);
     ze_result_t getDeviceImageProperties(ze_device_image_properties_t *pDeviceImageProperties);
+    ze_result_t
+    getDeviceComputeProperties(ze_device_compute_properties_t *pDeviceComputeProperties);
     ze_result_t getCommandQueueGroupProperties(
         uint32_t *pCount,
         ze_command_queue_group_properties_t *pCommandQueueGroupProperties);
@@ -61,9 +65,8 @@ struct Device : _ze_device_handle_t {
     VPU::VPUDevice *getVPUDevice();
 
     ze_result_t metricGroupGet(uint32_t *pCount, zet_metric_group_handle_t *phMetricGroups);
-    ze_result_t activateMetricGroups(uint32_t contextId,
-                                     uint32_t count,
-                                     zet_metric_group_handle_t *phMetricGroups);
+    ze_result_t
+    activateMetricGroups(int vpuFd, uint32_t count, zet_metric_group_handle_t *phMetricGroups);
     const std::shared_ptr<MetricContext> getMetricContext() const;
     bool isMetricsLoaded() const { return metricsLoaded; }
     bool isMetricGroupAvailable(MetricGroup *metricGroup) const;

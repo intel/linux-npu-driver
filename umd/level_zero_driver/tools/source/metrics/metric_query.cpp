@@ -10,8 +10,6 @@
 
 #include "vpu_driver/source/utilities/log.hpp"
 
-#include <string.h>
-
 namespace L0 {
 
 MetricQueryPool::MetricQueryPool(VPU::VPUDeviceContext *ctx,
@@ -42,11 +40,12 @@ MetricQueryPool::MetricQueryPool(VPU::VPUDeviceContext *ctx,
     size_t metricBufferSize = metricGroup->getAllocationSize();
     LOG_I("Query Data buffer size: %lu", metricBufferSize);
 
-    size_t pageAlignedSize =
-        ctx->getPageAlignedSize(poolSize * getFwDataCacheAlign(queryArraySize + metricBufferSize));
+    size_t numberOfGroups = metricGroup->getNumberOfMetricGroups();
+    addressTableSize = getFwDataCacheAlign(sizeof(uint64_t) * numberOfGroups);
 
+    size_t bufferSize = poolSize * getFwDataCacheAlign(addressTableSize + metricBufferSize);
     auto queryPoolBO =
-        ctx->createInternalBufferObject(pageAlignedSize, VPU::VPUBufferObject::Type::CachedLow);
+        ctx->createInternalBufferObject(bufferSize, VPU::VPUBufferObject::Type::CachedLow);
     if (queryPoolBO == nullptr) {
         LOG_E("Failed to allocate buffer object for query pool");
         return;
@@ -70,7 +69,6 @@ MetricQuery::MetricQuery(MetricGroup &metricGroupInput,
     , pool(poolInput)
     , index(indexInput) {
     uint32_t groupBit = metricGroup.getGroupIndex();
-
     metricGroupMask = 0x1 << groupBit;
     LOG_I("Metric Group mask for MetricQuery: %x", metricGroupMask);
 
@@ -79,12 +77,17 @@ MetricQuery::MetricQuery(MetricGroup &metricGroupInput,
         return;
     }
 
-    metricQuery = reinterpret_cast<MetricData *>(queryPtrInput);
+    metricQueryPtr = reinterpret_cast<uint64_t *>(queryPtrInput);
 
-    metricQuery->groupArray[groupBit] = ctx->getBufferVPUAddress(metricQuery->data);
-    LOG_I("MetricQuery metricData ptr (%p) added to metricAddress (%p) at position %u.",
-          metricQuery->data,
-          &metricQuery->groupArray[0],
+    dataAddress = reinterpret_cast<uint64_t>(metricQueryPtr) + pool->getAddressTableSize();
+
+    metricQueryPtr[groupBit] = ctx->getBufferVPUAddress(reinterpret_cast<uint64_t *>(dataAddress));
+
+    LOG_I("Data pointer %p, CPU address %p to VPU address table for metric groups, metric data VPU "
+          "address %lu stored at position %u",
+          reinterpret_cast<uint64_t *>(dataAddress),
+          metricQueryPtr,
+          metricQueryPtr[groupBit],
           groupBit);
 
     // Mark successfully initialized.
@@ -119,7 +122,7 @@ ze_result_t MetricQueryPool::createMetricQuery(uint32_t index,
 
     uint64_t *queryPtr = reinterpret_cast<uint64_t *>(
         reinterpret_cast<uint64_t>(pQueryPool) +
-        (index * getFwDataCacheAlign((queryArraySize + metricGroup->getAllocationSize()))));
+        (index * getFwDataCacheAlign(addressTableSize + metricGroup->getAllocationSize())));
 
     MetricQuery *metricQuery = new MetricQuery(*metricGroup, ctx, this, index, queryPtr);
     if (metricQuery == nullptr) {
@@ -152,7 +155,6 @@ void MetricQueryPool::removeQuery(MetricQuery *metricQuery) {
 ze_result_t MetricQuery::destroy() {
     pool->removeQuery(this);
     this->reset();
-
     delete this;
 
     return ZE_RESULT_SUCCESS;
@@ -178,7 +180,7 @@ ze_result_t MetricQuery::getData(size_t *pRawDataSize, uint8_t *pRawData) {
             LOG_E("Failed to copy data. dataSize exceeds *pRawDataSize");
             return ZE_RESULT_ERROR_UNKNOWN;
         }
-        memcpy(pRawData, metricQuery->data, *pRawDataSize);
+        memcpy(pRawData, reinterpret_cast<uint64_t *>(dataAddress), *pRawDataSize);
     } else {
         LOG_W("Input raw data pointer is NULL.");
     }
@@ -187,13 +189,13 @@ ze_result_t MetricQuery::getData(size_t *pRawDataSize, uint8_t *pRawData) {
 }
 
 ze_result_t MetricQuery::reset() {
-    if (metricQuery == nullptr) {
-        LOG_E("Invalid pointer. metricQuery: %p.", metricQuery);
+    if (metricQueryPtr == nullptr) {
+        LOG_E("Invalid pointer. metricQueryPtr: %p.", metricQueryPtr);
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 
     size_t dataSize = metricGroup.getAllocationSize();
-    memset(metricQuery->data, 0, dataSize);
+    memset(reinterpret_cast<uint64_t *>(dataAddress), 0, dataSize);
 
     LOG_I("MetricQuery has been reset successfully.");
 
@@ -210,7 +212,6 @@ ze_result_t MetricQueryPool::destroy() {
     }
 
     queryAllocation.clear();
-
     if (pQueryPool != nullptr && !ctx->freeMemAlloc(pQueryPool)) {
         LOG_W("MetricQueryPool memory failed to be free'd.");
     } else {

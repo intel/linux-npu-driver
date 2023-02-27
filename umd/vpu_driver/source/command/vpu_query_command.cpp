@@ -34,31 +34,24 @@ VPUQueryCommand::VPUQueryCommand(VPUDeviceContext *ctx,
                                  void *dataAddress,
                                  uint64_t metricDataAddress)
     : VPUCommand(engType) {
+    // dataAddress       - table address containing pointers to buffers storing metric data
+    // metricDataAddress - VPU address of the table containing pointers to buffers storing metric
+    //                     data
     LOG_V("Query %s command args: \n"
-          "\tgroupMask: %u, dataAddress: %p, metricDataAddress %ld",
+          "\tgroupMask: %u, dataAddress: %p, metricDataAddress %ld (%#lx)",
           getQueryCommandStr(cmdType),
           groupMask,
           dataAddress,
+          metricDataAddress,
           metricDataAddress);
 
-    commitCmd.cmd.header.type = cmdType;
-    commitCmd.cmd.header.size = sizeof(commitCmd.cmd);
-    commitCmd.cmd.metric_group_type = groupMask;
-    commitCmd.cmd.metric_data_address = metricDataAddress;
-
+    vpu_cmd_metric_query_t cmd = {};
+    cmd.header.type = cmdType;
+    cmd.header.size = sizeof(vpu_cmd_metric_query_t);
+    cmd.metric_group_type = groupMask;
+    cmd.metric_data_address = metricDataAddress;
+    command.emplace<vpu_cmd_metric_query_t>(cmd);
     appendAssociateBufferObject(ctx, dataAddress);
-}
-
-size_t VPUQueryCommand::getCommitSize() const {
-    return commitCmd.getKMDCommitSize();
-}
-
-const uint8_t *VPUQueryCommand::getCommitStream() const {
-    return commitCmd.getKMDCommitStream();
-}
-
-vpu_cmd_type VPUQueryCommand::getCommandType() const {
-    return commitCmd.getKMDCommandType();
 }
 
 const char *VPUQueryCommand::getQueryCommandStr(const vpu_cmd_type cmdType) {

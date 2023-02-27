@@ -11,7 +11,7 @@
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
 #include "gtest/gtest.h"
 
-#include <uapi/drm/ivpu_drm.h>
+#include <uapi/drm/ivpu_accel.h>
 
 using namespace VPU;
 

@@ -7,7 +7,6 @@
 
 #pragma once
 #include "vpu_driver/source/command/vpu_command.hpp"
-#include "vpu_driver/source/command/kmd_commit_command.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -37,10 +36,6 @@ class VPUGraphExecuteCommand : public VPUCommand {
     VPUGraphExecuteCommand(VPUGraphExecuteCommand const &) = delete;
     VPUGraphExecuteCommand &operator=(VPUGraphExecuteCommand const &) = delete;
 
-    size_t getCommitSize() const override;
-    const uint8_t *getCommitStream() const override;
-    vpu_cmd_type getCommandType() const override;
-
     static std::shared_ptr<VPUGraphExecuteCommand>
     create(VPUDeviceContext *ctx,
            uint64_t umdBlobId,
@@ -50,10 +45,13 @@ class VPUGraphExecuteCommand : public VPUCommand {
            size_t profilingSize = 0,
            void *profilingBuffer = nullptr);
 
+    const vpu_cmd_header_t *getHeader() const {
+        return reinterpret_cast<const vpu_cmd_header_t *>(
+            std::any_cast<vpu_cmd_ov_blob_execute_t>(&command));
+    }
+
   private:
     VPUDeviceContext *ctx = nullptr;
-    KMDCommitCommand<vpu_cmd_ov_blob_execute_t> commitCmd;
-
     size_t profilingSize = 0u;
     void *profilingBuffer = nullptr;
 

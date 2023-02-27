@@ -121,7 +121,7 @@ ze_result_t CommandQueue::executeCommandLists(uint32_t nCommandLists,
         /*
          * TODO: Temporary WA to prevent the job resubmission in case previous job submission is not
          * finished (using same job). Timeout can be omitted thanks to TDR. TDR takes care to abort
-         * stall jobs (EISW-57309)
+         * stall jobs
          */
         while (job->waitForCompletion(0) == false) {
             std::this_thread::yield();
@@ -168,7 +168,7 @@ ze_result_t CommandQueue::synchronize(uint64_t timeout) {
     if (vpuDevice == nullptr)
         return ZE_RESULT_ERROR_DEVICE_LOST;
 
-    bool allSignaled = waitForSignal(timeout, trackedJobs, vpuDevice->getDeviceInfo());
+    bool allSignaled = waitForSignal(timeout, trackedJobs, vpuDevice->getHwInfo());
     if (!allSignaled) {
         LOG_W("Commands execution is not finished");
         return ZE_RESULT_NOT_READY;

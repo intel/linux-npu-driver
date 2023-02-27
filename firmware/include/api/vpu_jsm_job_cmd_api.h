@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright © 2020-2022 Intel Corporation
+ * Copyright © 2020-2023 Intel Corporation
  */
 
 /**
@@ -14,13 +14,13 @@
  * Major version changes that break backward compatibility.
  * Major version must start from 1 and can only be incremented.
  */
-#define VPU_JSM_JOB_CMD_API_VER_MAJOR 3
+#define VPU_JSM_JOB_CMD_API_VER_MAJOR 4
 
 /*
  * Minor version changes when API backward compatibility is preserved.
  * Resets to 0 if Major version is incremented.
  */
-#define VPU_JSM_JOB_CMD_API_VER_MINOR 2
+#define VPU_JSM_JOB_CMD_API_VER_MINOR 0
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
@@ -102,8 +102,9 @@ enum vpu_desc_table_entry_type {
  * @see vpu_cmd_resource_descriptor_table_t
  */
 typedef struct vpu_cmd_resource_descriptor {
-    uint64_t address; /**< Resource address */
-    uint32_t width;   /**< Resource width */
+    uint64_t address;    /**< Resource address */
+    uint32_t width;      /**< Resource width */
+    uint32_t reserved_0; /**< Reserved */
 } vpu_cmd_resource_descriptor_t;
 // static_assert(sizeof(vpu_cmd_resource_descriptor_t) % 8 == 0, "Alignment error");
 
@@ -118,7 +119,7 @@ typedef struct vpu_cmd_resource_view_descriptor {
     uint64_t address;             /**< Resource view address */
     uint64_t width;               /**< Resource view width */
     uint64_t uav_counter_address; /**< UAV counter address */
-    uint64_t reserved[5];         /**< Unused, reserved for future */
+    uint64_t reserved_0[5];       /**< Unused, reserved for future */
 } vpu_cmd_resource_view_descriptor_t;
 static_assert(sizeof(vpu_cmd_resource_view_descriptor_t) % 8 == 0, "Alignment error");
 
@@ -134,7 +135,7 @@ static_assert(sizeof(vpu_cmd_resource_view_descriptor_t) % 8 == 0, "Alignment er
 typedef struct vpu_cmd_resource_descriptor_table {
     uint16_t type;       /**< enum vpu_desc_table_entry_type */
     uint16_t desc_count; /**< Number of descriptors in the descriptor table entry */
-    uint32_t reserved;   /**< Unused */
+    uint32_t reserved_0; /**< Unused */
 } vpu_cmd_resource_descriptor_table_t;
 static_assert(sizeof(vpu_cmd_resource_descriptor_table_t) % 8 == 0, "Alignment error");
 
@@ -201,6 +202,8 @@ typedef struct vpu_cmd_header {
  */
 typedef struct vpu_cmd_copy_buffer {
     vpu_cmd_header_t header;
+    /**< Reserved */
+    uint32_t reserved_0;
     /**
      * @brief Offset in the descriptor heap where the array of copy descriptors start
      * @see vpu_cmd_copy_descriptor_mtl_t
@@ -208,9 +211,11 @@ typedef struct vpu_cmd_copy_buffer {
      * NOTE: Resulting address (heap base plus offset) must be aligned on a 64B boundary
      * to allow proper handling of VPU cache operations.
      */
-    uint32_t desc_start_offset;
+    uint64_t desc_start_offset;
     /** Number of descriptors in the desc_start_offset header */
     uint32_t desc_count;
+    /**< Reserved */
+    uint32_t reserved_1;
 } vpu_cmd_copy_buffer_t;
 // static_assert(sizeof(vpu_cmd_copy_buffer_t) % 8 == 0, "vpu_cmd_copy_buffer is misaligned");
 
@@ -220,6 +225,8 @@ typedef struct vpu_cmd_copy_buffer {
  */
 typedef struct vpu_cmd_memory_fill {
     vpu_cmd_header_t header;
+    /** Reserved */
+    uint32_t reserved_0;
     /**
      * Start address to fill, should be in VPU DDR
      * NOTE: Address must be aligned on a 64B boundary to allow proper handling of
@@ -230,6 +237,8 @@ typedef struct vpu_cmd_memory_fill {
     uint64_t size;
     /** Pattern to fill */
     uint32_t fill_pattern;
+    /** Reserved */
+    uint32_t reserved_1;
 } vpu_cmd_memory_fill_t;
 // static_assert(sizeof(vpu_cmd_memory_fill_t) % 8 == 0, "vpu_cmd_memory_fill is misaligned");
 
@@ -239,15 +248,15 @@ typedef struct vpu_cmd_memory_fill {
  */
 typedef struct vpu_cmd_dxil {
     vpu_cmd_header_t header;
-    uint32_t reserved_0;       /**< padding */
+    uint32_t reserved_0;       /**< Reserved */
     uint64_t kernel_entry;     /**< VA to kernel entry function */
     uint64_t dispatch_data;    /**< VA to buffer containing all the kernels invocation data */
     uint32_t kernel_data_size; /**< Size of kernel data for a single kernel */
     uint32_t shave_count;      /**< Number of shaves or kernel invocations */
-    uint64_t reserved_1;       /**< padding */
+    uint64_t reserved_1;       /**< Reserved */
     uint64_t shave_stack[16];  /**< Array of pointers to VA where the stack for each Shave is located */
     uint32_t shave_stack_size; /**< Shave stack size */
-    uint32_t reserved_2;       /**< padding */
+    uint32_t reserved_2;       /**< Reserved */
 } vpu_cmd_dxil_t;
 static_assert(sizeof(vpu_cmd_dxil_t) % 8 == 0, "vpu_cmd_dxil is misaligned");
 
@@ -264,11 +273,13 @@ typedef struct vpu_cmd_ov_blob_initialize {
      * NOTE: Resulting address (heap base plus offset) must be aligned on a 64B boundary
      * to allow proper handling of VPU cache operations.
      */
-    uint32_t kernel_offset;
+    uint64_t kernel_offset;
     /** Size in bytes of the Init descriptor table - scratch */
     uint32_t desc_table_size;
+    /** Reserved */
+    uint32_t reserved_0;
     /** Offset from the base of the descriptor heap */
-    uint32_t desc_table_offset;
+    uint64_t desc_table_offset;
     /** Unique Blob Id */
     uint64_t blob_id;
 } vpu_cmd_ov_blob_initialize_t;
@@ -287,7 +298,7 @@ typedef struct vpu_cmd_ov_blob_execute {
      * NOTE: Resulting address (heap base plus offset) must be aligned on a 64B boundary
      * to allow proper handling of VPU cache operations.
      */
-    uint32_t desc_table_offset;
+    uint64_t desc_table_offset;
     /** Unique Blob id */
     uint64_t blob_id;
 } vpu_cmd_ov_blob_execute_t;
@@ -299,7 +310,8 @@ typedef struct vpu_cmd_ov_blob_execute {
  */
 typedef struct vpu_cmd_inference_execute {
     vpu_cmd_header_t header;
-    uint32_t reserved;
+    /** Reserved */
+    uint32_t reserved_0;
     /** Unique identifier for the host mapped inference */
     uint64_t inference_id;
     /** Virtual address and size of the host mapped inference */
@@ -313,7 +325,8 @@ typedef struct vpu_cmd_inference_execute {
  */
 typedef struct vpu_cmd_timestamp {
     vpu_cmd_header_t header;
-    uint32_t reserved;
+    /** Reserved */
+    uint32_t reserved_0;
     /**
      * Timestamp address
      * NOTE: Address must be aligned on a 64B boundary to allow proper handling of
@@ -330,12 +343,14 @@ static_assert(sizeof(vpu_cmd_timestamp_t) % 8 == 0, "vpu_cmd_timestamp is misali
  */
 typedef struct vpu_cmd_fence {
     vpu_cmd_header_t header;
+    /** Reserved */
+    uint32_t reserved_0;
     /**
      * Offset from the base of the fence heap for the current fence value
      * NOTE: Resulting address (heap base plus offset) must be aligned on a 64B boundary
      * to allow proper handling of VPU cache operations.
      */
-    uint32_t offset;
+    uint64_t offset;
     /** Fence value to be written */
     uint64_t value;
 } vpu_cmd_fence_t;
@@ -347,8 +362,9 @@ static_assert(sizeof(vpu_cmd_fence_t) % 8 == 0, "vpu_cmd_fence is misaligned");
  */
 typedef struct vpu_cmd_barrier {
     vpu_cmd_header_t header;
+    uint32_t reserved_0; /**< Reserved */
 } vpu_cmd_barrier_t;
-// static_assert(sizeof(vpu_cmd_metric_query_t) % 8 == 0, "vpu_cmd_barrier is misaligned");
+static_assert(sizeof(vpu_cmd_barrier_t) % 8 == 0, "vpu_cmd_barrier is misaligned");
 
 /**
  * @brief Metric command structure
@@ -375,11 +391,12 @@ static_assert(sizeof(vpu_cmd_metric_query_t) % 8 == 0, "vpu_cmd_metric_query is 
  */
 typedef struct vpu_cmd_clear_buffer {
     vpu_cmd_header_t header;
+    uint32_t reserved_0;     /**< Reserved */
     uint64_t start_address;  /**< Start address to clear, should be in VPU DDR */
     uint64_t size;           /**< Size in bytes of memory buffer to clear */
     uint32_t clear_value[4]; /**< Clear value, 4 bytes per channel */
 } vpu_cmd_clear_buffer_t;
-// static_assert(sizeof(vpu_cmd_clear_buffer_t) % 8 == 0, "vpu_cmd_clear_buffer_t is misaligned");
+static_assert(sizeof(vpu_cmd_clear_buffer_t) % 8 == 0, "vpu_cmd_clear_buffer_t is misaligned");
 
 /**
  * @brief Address patch definition used in vpu_cmd_jit_mapped_inference_execute_t
@@ -396,7 +413,7 @@ typedef struct vpu_inference_address_patch {
     /** Size of the patch in bytes, e.g., 4 for uint32_t, 8 for uint64_t */
     uint32_t patch_size;
     /** Reserved bytes */
-    uint32_t reserved;
+    uint32_t reserved_0;
 } vpu_inference_address_patch_t;
 static_assert(sizeof(vpu_inference_address_patch_t) % 8 == 0, "vpu_inference_address_patch_t is misaligned");
 
@@ -406,6 +423,8 @@ static_assert(sizeof(vpu_inference_address_patch_t) % 8 == 0, "vpu_inference_add
  */
 typedef struct vpu_cmd_jit_mapped_inference_execute {
     vpu_cmd_header_t header;
+    /** Reserved */
+    uint32_t reserved_0;
     /** Unique identifier for the host parsed inference */
     uint64_t inference_id;
     /** Virtual address and size of the host parsed inference */

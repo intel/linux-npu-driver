@@ -8,16 +8,13 @@ cmake_minimum_required(VERSION 3.2.0 FATAL_ERROR)
 
 project(ivpudrv)
 
-if(NOT CMAKE_BUILD_TYPE)
-  message(STATUS "CMAKE_BUILD_TYPE not specified, using Release")
-  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type: [Release, Debug]" FORCE)
-endif()
-
-string(TOLOWER ${CMAKE_BUILD_TYPE} BUILD_TYPE_LOWER)
-
 include(common_macros.cmake)
 include(GNUInstallDirs)
 include(CheckCXXCompilerFlag)
+
+include(cmake/vpux_compiler.cmake)
+include(cmake/vpux_elf.cmake)
+include(cmake/utilities.cmake)
 
 # Check if boost is present before compiling
 find_package(Boost 1.71.0)
@@ -63,11 +60,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(NOT VPU_KMD_INCLUDE_DIR)
-  set(VPU_KMD_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vpu_driver/include")
-endif()
-
-if(NOT VPU_FW_INCLUDE_DIR)
-  set(VPU_FW_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vpu_driver/include")
+  set(VPU_KMD_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../linux/include")
 endif()
 
 message(STATUS "KMD include dir: ${VPU_KMD_INCLUDE_DIR}")
@@ -82,6 +75,7 @@ endif()
 set(GTEST_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/gtest")
 
 # Project-wide include paths
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/vpu_driver/include")
 include_directories(${VPU_BUILD_DIR})
 include_directories(${VPU_SOURCE_DIR})
 include_directories(SYSTEM ${VPU_KMD_INCLUDE_DIR})
@@ -115,3 +109,5 @@ endif()
 add_subdirectory_unique(vpu_driver/source)
 add_subdirectory_unique(vpu_driver/unit_tests)
 add_subdirectory_unique(level_zero_driver)
+
+install(TARGETS ze_intel_vpu ze_loader ze_validation_layer)

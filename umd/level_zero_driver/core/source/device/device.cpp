@@ -10,6 +10,7 @@
 #include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
 #include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
+#include "level_zero_driver/ext/source/graph/graph.hpp"
 #include "level_zero_driver/core/source/driver/driver_handle.hpp"
 #include "level_zero_driver/tools/source/metrics/metric.hpp"
 
@@ -204,12 +205,12 @@ ze_result_t Device::getMemoryProperties(uint32_t *pCount,
     if (nullptr == pMemProperties) {
         LOG_I("Input memory properties pointer is NULL.");
     } else {
-        const auto &deviceInfo = vpuDevice->getDeviceInfo();
+        const auto &hwInfo = vpuDevice->getHwInfo();
 
         pMemProperties->flags = 0u;
-        pMemProperties->maxClockRate = deviceInfo.coreClockRate;
+        pMemProperties->maxClockRate = hwInfo.coreClockRate;
         pMemProperties->maxBusWidth = 32u;
-        pMemProperties->totalSize = deviceInfo.maxMemAllocSize;
+        pMemProperties->totalSize = hwInfo.maxMemAllocSize;
         strncpy(pMemProperties->name, getDeviceMemoryName(), ZE_MAX_DEVICE_NAME - 1);
         pMemProperties->name[ZE_MAX_DEVICE_NAME - 1] = '\0';
     }
@@ -263,6 +264,45 @@ ze_result_t Device::getDeviceImageProperties(ze_device_image_properties_t *pDevi
 
     // Maximum number of image objects that can be written to by a kernel
     pDeviceImageProperties->maxWriteImageArgs = 128u;
+
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t
+Device::getDeviceComputeProperties(ze_device_compute_properties_t *pDeviceComputeProperties) {
+    if (pDeviceComputeProperties == nullptr) {
+        LOG_E("Invalid pDeviceComputeProperties pointer.");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    // Maximum items per compute group
+    pDeviceComputeProperties->maxTotalGroupSize = 0u;
+
+    // Maximum items for X dimension in group
+    pDeviceComputeProperties->maxGroupSizeX = 0u;
+
+    // Maximum items for Y dimension in group
+    pDeviceComputeProperties->maxGroupSizeY = 0u;
+
+    // Maximum items for Z dimension in group
+    pDeviceComputeProperties->maxGroupSizeZ = 0u;
+
+    // Maximum groups that can be launched for x dimension
+    pDeviceComputeProperties->maxGroupCountX = 0u;
+
+    // Maximum groups that can be launched for y dimension
+    pDeviceComputeProperties->maxGroupCountY = 0u;
+
+    // Maximum groups that can be launched for z dimension
+    pDeviceComputeProperties->maxGroupCountZ = 0u;
+
+    // Maximum shared local memory per group
+    pDeviceComputeProperties->maxSharedLocalMemory = 0u;
+
+    // Number of subgroup sizes supported
+    pDeviceComputeProperties->numSubGroupSizes = 0u;
+
+    memset(pDeviceComputeProperties->subGroupSizes, 0, sizeof(uint32_t) * ZE_SUBGROUPSIZE_COUNT);
 
     return ZE_RESULT_SUCCESS;
 }
@@ -362,41 +402,41 @@ VPU::VPUDevice *Device::getVPUDevice() {
 }
 
 void Device::loadDeviceProperties() {
-    const auto &deviceInfo = vpuDevice->getDeviceInfo();
+    const auto &hwInfo = vpuDevice->getHwInfo();
 
     // Device type.
     properties.type = ZE_DEVICE_TYPE_VPU;
 
     // IDs.
     properties.vendorId = INTEL_PCI_VENDOR_ID;
-    properties.deviceId = deviceInfo.deviceId;
+    properties.deviceId = hwInfo.deviceId;
 
     // Sub device ID.
-    properties.subdeviceId = deviceInfo.subdeviceId;
+    properties.subdeviceId = hwInfo.subdeviceId;
 
     // Core clock rate.
-    properties.coreClockRate = deviceInfo.coreClockRate;
+    properties.coreClockRate = hwInfo.coreClockRate;
 
     // Max mem alloc size.
-    properties.maxMemAllocSize = deviceInfo.maxMemAllocSize;
+    properties.maxMemAllocSize = hwInfo.maxMemAllocSize;
 
     // Max hardware contexts.
-    properties.maxHardwareContexts = deviceInfo.maxHardwareContexts;
+    properties.maxHardwareContexts = hwInfo.maxHardwareContexts;
 
     // Max command queue priority.
-    properties.maxCommandQueuePriority = deviceInfo.maxCommandQueuePriority;
+    properties.maxCommandQueuePriority = hwInfo.maxCommandQueuePriority;
 
     // Number of threads per EU.
-    properties.numThreadsPerEU = deviceInfo.numThreadsPerEU;
+    properties.numThreadsPerEU = hwInfo.numThreadsPerEU;
 
     // Physical EU SIMD width.
-    properties.physicalEUSimdWidth = deviceInfo.physicalEUSimdWidth;
+    properties.physicalEUSimdWidth = hwInfo.physicalEUSimdWidth;
 
     // Number of EUs per sub-slice
-    properties.numEUsPerSubslice = deviceInfo.nExecUnits;
+    properties.numEUsPerSubslice = hwInfo.nExecUnits;
 
     // Number of sub-slices per slice.
-    properties.numSubslicesPerSlice = deviceInfo.numSubslicesPerSlice;
+    properties.numSubslicesPerSlice = hwInfo.numSubslicesPerSlice;
 
     // Number of slices.
     properties.numSlices = 1u;
@@ -405,41 +445,44 @@ void Device::loadDeviceProperties() {
     properties.timerResolution = 0u;
 
     // Number of valid bits in the timestamp values.
-    properties.timestampValidBits = 0u;
+    properties.timestampValidBits = 64u;
 
     // Number of valid bits in the kernel timestamp values.
     properties.kernelTimestampValidBits = 0u;
 
     // Device name.
-    strncpy(properties.name, deviceInfo.name, ZE_MAX_DEVICE_NAME - 1);
+    strncpy(properties.name, hwInfo.name, ZE_MAX_DEVICE_NAME - 1);
     properties.name[ZE_MAX_DEVICE_NAME - 1] = '\0';
 
     // Property flags.
     properties.flags = 0u;
-    if (deviceInfo.isIntegrated) {
+    if (hwInfo.isIntegrated) {
         properties.flags |= ZE_DEVICE_PROPERTY_FLAG_INTEGRATED;
     }
 
-    if (deviceInfo.isSubdevice) {
+    if (hwInfo.isSubdevice) {
         properties.flags |= ZE_DEVICE_PROPERTY_FLAG_SUBDEVICE;
     }
 
-    if (deviceInfo.isSupportEcc) {
+    if (hwInfo.isSupportEcc) {
         properties.flags |= ZE_DEVICE_PROPERTY_FLAG_ECC;
     }
 
-    if (deviceInfo.isSupportOnDemandPaging) {
+    if (hwInfo.isSupportOnDemandPaging) {
         properties.flags |= ZE_DEVICE_PROPERTY_FLAG_ONDEMANDPAGING;
     }
 
     // UUID.
     reinterpret_cast<uint32_t *>(properties.uuid.id)[0] = INTEL_PCI_VENDOR_ID;
-    reinterpret_cast<uint32_t *>(properties.uuid.id)[1] = deviceInfo.deviceId;
+    reinterpret_cast<uint32_t *>(properties.uuid.id)[1] = hwInfo.deviceId;
     reinterpret_cast<uint32_t *>(properties.uuid.id)[2] = 0;
-    reinterpret_cast<uint32_t *>(properties.uuid.id)[3] = deviceInfo.platformType;
+    reinterpret_cast<uint32_t *>(properties.uuid.id)[3] = hwInfo.platformType;
 }
 
 void Device::loadMetricGroupsInfo(std::vector<VPU::GroupInfo> &metricGroupsInfo) {
+    size_t numberOfMetricGroups = metricGroupsInfo.size();
+    LOG_I("Number of metric groups: %lu", numberOfMetricGroups);
+
     metricGroups.reserve(metricGroupsInfo.size());
 
     for (auto const &metricGroupInfo : metricGroupsInfo) {
@@ -478,7 +521,8 @@ void Device::loadMetricGroupsInfo(std::vector<VPU::GroupInfo> &metricGroupsInfo)
         auto pMetricGroup = std::make_shared<MetricGroup>(groupProperties,
                                                           allocationSize,
                                                           metrics,
-                                                          metricGroupInfo.groupIndex);
+                                                          metricGroupInfo.groupIndex,
+                                                          numberOfMetricGroups);
         metricGroups.push_back(pMetricGroup);
     }
 
@@ -497,6 +541,11 @@ bool Device::isMetricGroupAvailable(MetricGroup *metricGroup) const {
 }
 
 ze_result_t Device::metricGroupGet(uint32_t *pCount, zet_metric_group_handle_t *phMetricGroups) {
+    if (getVPUDevice()->getCapMetricStreamer() != 1) {
+        LOG_E("Metrics are not supported.");
+        return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    }
+
     if (!metricsLoaded) {
         LOG_E("Metrics data not loaded for device (%p)", this);
         return ZE_RESULT_ERROR_UNINITIALIZED;
@@ -525,15 +574,14 @@ ze_result_t Device::metricGroupGet(uint32_t *pCount, zet_metric_group_handle_t *
     return ZE_RESULT_SUCCESS;
 }
 
-ze_result_t Device::activateMetricGroups(uint32_t contextId,
-                                         uint32_t count,
-                                         zet_metric_group_handle_t *phMetricGroups) {
+ze_result_t
+Device::activateMetricGroups(int vpuFd, uint32_t count, zet_metric_group_handle_t *phMetricGroups) {
     if (metricContext == nullptr) {
         LOG_E("MetricContext not initialized.");
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 
-    return metricContext->activateMetricGroups(contextId, count, phMetricGroups);
+    return metricContext->activateMetricGroups(vpuFd, count, phMetricGroups);
 }
 
 const std::shared_ptr<MetricContext> Device::getMetricContext() const {

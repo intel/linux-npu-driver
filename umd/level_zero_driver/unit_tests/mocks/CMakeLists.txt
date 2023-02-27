@@ -14,3 +14,5 @@ set(L0_MOCKS_SOURCES
 )
 
 add_library(${TARGET_NAME} OBJECT ${L0_MOCKS_SOURCES})
+add_dependencies(${TARGET_NAME} vpux_elf)
+target_link_libraries(${TARGET_NAME} fw_vpu_api_headers)

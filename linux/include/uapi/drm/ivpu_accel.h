@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (C) 2020-2022 Intel Corporation
+ * Copyright (C) 2020-2023 Intel Corporation
  */
 
 #ifndef __UAPI_IVPU_DRM_H__
 #define __UAPI_IVPU_DRM_H__
 
+/* UPSTREAM: replace <drm/drm.h> with "drm.h" */
 #include <drm/drm.h>
 
 #if defined(__cplusplus)
@@ -13,15 +14,18 @@ extern "C" {
 #endif
 
 #define DRM_IVPU_DRIVER_MAJOR 1
-#define DRM_IVPU_DRIVER_MINOR 0
+#define DRM_IVPU_DRIVER_MINOR 3
 
 #define DRM_IVPU_GET_PARAM		  0x00
 #define DRM_IVPU_SET_PARAM		  0x01
 #define DRM_IVPU_BO_CREATE		  0x02
 #define DRM_IVPU_BO_INFO		  0x03
-#define DRM_IVPU_BO_USERPTR		  0x04
 #define DRM_IVPU_SUBMIT			  0x05
 #define DRM_IVPU_BO_WAIT		  0x06
+#define DRM_IVPU_METRIC_STREAMER_START	  0x07
+#define DRM_IVPU_METRIC_STREAMER_STOP	  0x08
+#define DRM_IVPU_METRIC_STREAMER_GET_DATA 0x09
+#define DRM_IVPU_METRIC_STREAMER_GET_INFO 0x0a
 
 #define DRM_IOCTL_IVPU_GET_PARAM                                               \
 	DRM_IOWR(DRM_COMMAND_BASE + DRM_IVPU_GET_PARAM, struct drm_ivpu_param)
@@ -35,14 +39,27 @@ extern "C" {
 #define DRM_IOCTL_IVPU_BO_INFO                                                 \
 	DRM_IOWR(DRM_COMMAND_BASE + DRM_IVPU_BO_INFO, struct drm_ivpu_bo_info)
 
-#define DRM_IOCTL_IVPU_BO_USERPTR                                              \
-	DRM_IOWR(DRM_COMMAND_BASE + DRM_IVPU_BO_USERPTR, struct drm_ivpu_bo_userptr)
-
 #define DRM_IOCTL_IVPU_SUBMIT                                                  \
 	DRM_IOW(DRM_COMMAND_BASE + DRM_IVPU_SUBMIT, struct drm_ivpu_submit)
 
 #define DRM_IOCTL_IVPU_BO_WAIT                                                 \
 	DRM_IOWR(DRM_COMMAND_BASE + DRM_IVPU_BO_WAIT, struct drm_ivpu_bo_wait)
+
+#define DRM_IOCTL_IVPU_METRIC_STREAMER_START                                   \
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_IVPU_METRIC_STREAMER_START,            \
+		 struct drm_ivpu_metric_streamer_start)
+
+#define DRM_IOCTL_IVPU_METRIC_STREAMER_STOP                                    \
+	DRM_IOW(DRM_COMMAND_BASE + DRM_IVPU_METRIC_STREAMER_STOP,              \
+		struct drm_ivpu_metric_streamer_stop)
+
+#define DRM_IOCTL_IVPU_METRIC_STREAMER_GET_DATA                                \
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_IVPU_METRIC_STREAMER_GET_DATA,         \
+		 struct drm_ivpu_metric_streamer_get_data)
+
+#define DRM_IOCTL_IVPU_METRIC_STREAMER_GET_INFO                                \
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_IVPU_METRIC_STREAMER_GET_INFO,         \
+		 struct drm_ivpu_metric_streamer_get_data)
 
 /**
  * DOC: contexts
@@ -64,6 +81,7 @@ extern "C" {
 #define DRM_IVPU_PARAM_UNIQUE_INFERENCE_ID  10
 #define DRM_IVPU_PARAM_TILE_CONFIG	    11
 #define DRM_IVPU_PARAM_SKU		    12
+#define DRM_IVPU_PARAM_CAPABILITIES	    13
 
 #define DRM_IVPU_PLATFORM_TYPE_SILICON	    0
 
@@ -71,6 +89,8 @@ extern "C" {
 #define DRM_IVPU_CONTEXT_PRIORITY_NORMAL    1
 #define DRM_IVPU_CONTEXT_PRIORITY_FOCUS	    2
 #define DRM_IVPU_CONTEXT_PRIORITY_REALTIME  3
+
+#define DRM_IVPU_CAP_METRIC_STREAMER	    1
 
 /**
  * struct drm_ivpu_param - Get/Set VPU parameters
@@ -219,35 +239,6 @@ struct drm_ivpu_bo_info {
 	__u64 size;
 };
 
-/**
- * struct drm_ivpu_bo_userptr - Create BO from user memory
- *
- * Create GEM buffer object from user allocated memory. The provided @user_ptr
- * has to be page aligned. BOs created using this ioctl are always cacheable.
- */
-struct drm_ivpu_bo_userptr {
-	/** @user_ptr: User allocated pointer aligned to PAGE_SIZE */
-	__u64 user_ptr;
-
-	/** @user_size: The size in bytes of the allocated memory */
-	__u64 user_size;
-
-	/**
-	 * @flags:
-	 *
-	 * Supported flags:
-	 *
-	 * %DRM_IVPU_BO_HIGH_MEM: see &drm_ivpu_bo_create->flags
-	 */
-	__u32 flags;
-
-	/** @handle: Returned GEM object handle */
-	__u32 handle;
-
-	/** @vpu_addr: Returned VPU virtual address */
-	__u64 vpu_addr;
-};
-
 /* drm_ivpu_submit engines */
 #define DRM_IVPU_ENGINE_COMPUTE 0
 #define DRM_IVPU_ENGINE_COPY    1
@@ -330,6 +321,53 @@ struct drm_ivpu_bo_wait {
 
 	/** @pad: Padding - must be zero */
 	__u32 pad;
+};
+
+/**
+ * struct drm_ivpu_metric_streamer_start - Start collecting metrics data
+ */
+struct drm_ivpu_metric_streamer_start {
+	/** @metric_group_mask: Metric group mask, also indicates metric streamer instance */
+	__u64 metric_group_mask;
+	/** @sampling_rate_ns: Sampling rate in nanoseconds */
+	__u64 sampling_rate_ns;
+	/**
+	 * @read_rate:
+	 *
+	 * Number of samples after which application will try to read the data.
+	 * Reading the data after significantly longer period may cause data loss.
+	 */
+	__u32 read_rate;
+	/** @sample_size: Returned size of a single sample in bytes */
+	__u32 sample_size;
+};
+
+/**
+ * struct drm_ivpu_metric_streamer_get_data - Copy collected metrics data
+ */
+struct drm_ivpu_metric_streamer_get_data {
+	/** @metric_group_mask: Metric group mask, also indicates metric streamer instance */
+	__u64 metric_group_mask;
+	/**
+	 * @size:
+	 *
+	 * Size of metric data to be copied in bytes. The driver overwrites this value
+	 * with the actual size of the copied data.
+	 *
+	 * If the size is zero, the @buffer_ptr is disregarded and this value gets
+	 * overwritten with the amount of data ready to be copied.
+	 */
+	__u64 size;
+	/** @buffer_ptr: A pointer to a destination for the copied data */
+	__u64 buffer_ptr;
+};
+
+/**
+ * struct drm_ivpu_metric_streamer_stop - Stop collecting metrics data
+ */
+struct drm_ivpu_metric_streamer_stop {
+	/** @metric_group_mask: Metric group mask, also indicates metric streamer instance */
+	__u64 metric_group_mask;
 };
 
 #if defined(__cplusplus)

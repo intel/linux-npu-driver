@@ -8,7 +8,7 @@
 #include "umd_common.hpp"
 
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
-#include "vpu_driver/source/device/device_info.hpp"
+#include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
@@ -27,13 +27,7 @@ namespace ult {
 TEST(DeviceCap, capabilitiesShouldBeInitializedWithDeviceInitialization) {
     VPU::MockOsInterfaceImp mockOSInfc;
     VPU::MockVPUDevice vpuDevice(FAKE_TEST_DEV_NODE, mockOSInfc);
-
-    // By default it's not initialized.
-    EXPECT_FALSE(vpuDevice.getDeviceInfo().initialized);
-
-    // Initialize should run the capability initializations.
     EXPECT_TRUE(vpuDevice.init());
-    EXPECT_TRUE(vpuDevice.getDeviceInfo().initialized);
 }
 
 using SingleDeviceTest = Test<DeviceFixture>;
@@ -86,18 +80,13 @@ TEST_F(SingleDeviceTest, checkVPUSupportingMemoryAccess) {
     EXPECT_EQ((uint32_t)0, (ZE_MEMORY_ACCESS_CAP_FLAG_CONCURRENT_ATOMIC & sharedSysAllocCap));
 }
 
-TEST_F(SingleDeviceTest, driverHandleInitializationShouldTriggerCapInitialization) {
-    // DriverHandle.initialize() in the fixture should trigger the capability initialization.
-    EXPECT_EQ(true, mockVpuDevice->getDeviceInfo().initialized);
-}
-
 TEST_F(SingleDeviceTest, givenCallToDevicePropertiesThenBasicPropertiesCorrectlyReturned) {
     ze_device_properties_t l0DevProps;
     l0DevProps.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
 
     device->getProperties(&l0DevProps);
 
-    auto vpuDevInfo = mockVpuDevice->getDeviceInfo();
+    auto hwInfo = mockVpuDevice->getHwInfo();
 
     // Device type.
     EXPECT_EQ(ZE_DEVICE_TYPE_VPU, l0DevProps.type);
@@ -106,34 +95,34 @@ TEST_F(SingleDeviceTest, givenCallToDevicePropertiesThenBasicPropertiesCorrectly
     EXPECT_EQ(l0DevProps.vendorId, INTEL_PCI_VENDOR_ID);
 
     // Device ID.
-    EXPECT_EQ(l0DevProps.deviceId, vpuDevInfo.deviceId);
+    EXPECT_EQ(l0DevProps.deviceId, hwInfo.deviceId);
 
     // Sub device ID.
-    EXPECT_EQ(l0DevProps.subdeviceId, vpuDevInfo.subdeviceId);
+    EXPECT_EQ(l0DevProps.subdeviceId, hwInfo.subdeviceId);
 
     // Core clock rate.
-    EXPECT_EQ(l0DevProps.coreClockRate, vpuDevInfo.coreClockRate);
+    EXPECT_EQ(l0DevProps.coreClockRate, hwInfo.coreClockRate);
 
     // Max mem alloc size.
-    EXPECT_EQ(l0DevProps.maxMemAllocSize, vpuDevInfo.maxMemAllocSize);
+    EXPECT_EQ(l0DevProps.maxMemAllocSize, hwInfo.maxMemAllocSize);
 
     // Max hardware contexts.
-    EXPECT_EQ(l0DevProps.maxHardwareContexts, vpuDevInfo.maxHardwareContexts);
+    EXPECT_EQ(l0DevProps.maxHardwareContexts, hwInfo.maxHardwareContexts);
 
     // Max command queue priority.
-    EXPECT_EQ(l0DevProps.maxCommandQueuePriority, vpuDevInfo.maxCommandQueuePriority);
+    EXPECT_EQ(l0DevProps.maxCommandQueuePriority, hwInfo.maxCommandQueuePriority);
 
     // Number of threads per EU.
-    EXPECT_EQ(l0DevProps.numThreadsPerEU, vpuDevInfo.numThreadsPerEU);
+    EXPECT_EQ(l0DevProps.numThreadsPerEU, hwInfo.numThreadsPerEU);
 
     // Physical EU SIMD width.
-    EXPECT_EQ(l0DevProps.physicalEUSimdWidth, vpuDevInfo.physicalEUSimdWidth);
+    EXPECT_EQ(l0DevProps.physicalEUSimdWidth, hwInfo.physicalEUSimdWidth);
 
     // Number of EUs per sub-slice
-    EXPECT_EQ(l0DevProps.numEUsPerSubslice, vpuDevInfo.nExecUnits);
+    EXPECT_EQ(l0DevProps.numEUsPerSubslice, hwInfo.nExecUnits);
 
     // Number of sub-slices per slice.
-    EXPECT_EQ(l0DevProps.numSubslicesPerSlice, vpuDevInfo.numSubslicesPerSlice);
+    EXPECT_EQ(l0DevProps.numSubslicesPerSlice, hwInfo.numSubslicesPerSlice);
 
     // Number of slices.
     EXPECT_EQ(l0DevProps.numSlices, 1u);
@@ -143,19 +132,19 @@ TEST_F(SingleDeviceTest, givenCallToDevicePropertiesThenBasicPropertiesCorrectly
     EXPECT_EQ(l0DevProps.timerResolution, NS_IN_SEC / 38'400'000);
 
     // Number of valid bits in the timestamp values.
-    EXPECT_EQ(l0DevProps.timestampValidBits, 0u);
+    EXPECT_EQ(l0DevProps.timestampValidBits, 64u);
 
     // Number of valid bits in the kernel timestamp values.
     EXPECT_EQ(l0DevProps.kernelTimestampValidBits, 0u);
 
     // Device name.
-    EXPECT_STREQ(l0DevProps.name, vpuDevInfo.name);
+    EXPECT_STREQ(l0DevProps.name, hwInfo.name);
 
     // UUID
     EXPECT_EQ(reinterpret_cast<uint32_t *>(l0DevProps.uuid.id)[0], INTEL_PCI_VENDOR_ID);
 
     auto uuid_id_1 = reinterpret_cast<uint32_t *>(l0DevProps.uuid.id)[1];
-    EXPECT_TRUE(uuid_id_1 == MTL_VPU_PCI_DEVICE_ID);
+    EXPECT_TRUE(uuid_id_1 == VPU::mtlHwInfo.deviceId);
 
     EXPECT_EQ(reinterpret_cast<uint32_t *>(l0DevProps.uuid.id)[2], 0u);
 
@@ -163,10 +152,10 @@ TEST_F(SingleDeviceTest, givenCallToDevicePropertiesThenBasicPropertiesCorrectly
     EXPECT_TRUE(platformType == 0u || platformType == 2u || platformType == 3u);
 
     // VPU device property flags (Assume, integrated dev with ECC supported).
-    EXPECT_TRUE(vpuDevInfo.isIntegrated);
-    EXPECT_FALSE(vpuDevInfo.isSubdevice);
-    EXPECT_FALSE(vpuDevInfo.isSupportEcc);
-    EXPECT_FALSE(vpuDevInfo.isSupportOnDemandPaging);
+    EXPECT_TRUE(hwInfo.isIntegrated);
+    EXPECT_FALSE(hwInfo.isSubdevice);
+    EXPECT_FALSE(hwInfo.isSupportEcc);
+    EXPECT_FALSE(hwInfo.isSupportOnDemandPaging);
 }
 
 TEST_F(SingleDeviceTest, givenCallToGetDeviceMemoryPropertiesExpectedValuesReturned) {
@@ -185,15 +174,15 @@ TEST_F(SingleDeviceTest, givenCallToGetDeviceMemoryPropertiesExpectedValuesRetur
     EXPECT_EQ(device->getMemoryProperties(&count, nullptr), ZE_RESULT_SUCCESS);
     EXPECT_EQ(count, 1u);
 
-    auto vpuDevInfo = mockVpuDevice->getDeviceInfo();
+    auto hwInfo = mockVpuDevice->getHwInfo();
     ze_device_memory_properties_t *memProperties = new ze_device_memory_properties_t[count];
     EXPECT_EQ(device->getMemoryProperties(&count, memProperties), ZE_RESULT_SUCCESS);
 
     // Checking returned values
     EXPECT_EQ(memProperties->flags, 0u);
-    EXPECT_EQ(memProperties->maxClockRate, vpuDevInfo.coreClockRate);
+    EXPECT_EQ(memProperties->maxClockRate, hwInfo.coreClockRate);
     EXPECT_EQ(memProperties->maxBusWidth, 32u);
-    EXPECT_EQ(memProperties->totalSize, vpuDevInfo.maxMemAllocSize);
+    EXPECT_EQ(memProperties->totalSize, hwInfo.maxMemAllocSize);
     EXPECT_EQ(strncmp(memProperties->name,
                       device->getDeviceMemoryName(),
                       strlen(device->getDeviceMemoryName())),

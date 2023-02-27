@@ -25,6 +25,7 @@ class Driver {
         bool sharedForceDeviceAlloc;
 
         std::string_view umdLogLevel;
+        std::string_view cidLogLevel;
     };
 
     Driver() { pDriver = this; }
