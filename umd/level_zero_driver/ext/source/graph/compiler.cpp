@@ -12,11 +12,12 @@
 #include <string.h>
 
 namespace L0 {
+
+uint32_t Compiler::cidLogLevel = 0;
+
 #ifdef ENABLE_VPUX_COMPILER
 
 #include "VPUXCompilerL0.h"
-
-uint32_t Compiler::cidLogLevel = 0;
 
 static bool getCompilerExecutable(vcl_compiler_handle_t &comp,
                                   vcl_executable_handle_t *exec,
