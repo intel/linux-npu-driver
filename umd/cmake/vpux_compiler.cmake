@@ -79,7 +79,16 @@ ExternalProject_Add(
       --target VPUXCompilerL0
       --parallel ${PARALLEL_PROCESSES}
   INSTALL_COMMAND
-    cp ${VPUX_COMPILER_BINARY_DIR}/libVPUXCompilerL0.so ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/)
+    cp ${VPUX_COMPILER_BINARY_DIR}/libVPUXCompilerL0.so
+       ${OPENVINO_DIR}/temp/tbb/lib/libtbb.so.2
+       ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/
+  BUILD_BYPRODUCTS
+    ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libVPUXCompilerL0.so
+    ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libtbb.so.2)
 
-install(FILES ${CMAKE_BINARY_DIR}/lib/libVPUXCompilerL0.so TYPE LIB)
+install(FILES
+  ${CMAKE_BINARY_DIR}/lib/libVPUXCompilerL0.so
+  ${CMAKE_BINARY_DIR}/lib/libtbb.so.2
+  TYPE LIB)
+
 add_compile_definitions(ENABLE_VPUX_COMPILER)
