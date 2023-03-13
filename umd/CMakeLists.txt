@@ -86,7 +86,7 @@ include_directories(SYSTEM ${VPUX_COMPILER_INCLUDE_DIR})
 # Build the third party modules with the default compiler switches.
 add_subdirectory_unique(third_party/level-zero EXCLUDE_FROM_ALL)
 
-add_dependencies(ze_loader ze_validation_layer ze_null)
+add_dependencies(ze_loader ze_validation_layer)
 
 # Cmake Setting - compiler independant
 add_compile_options(-Wall -Wextra -Werror -Wempty-body -Wignored-qualifiers -Wtype-limits
