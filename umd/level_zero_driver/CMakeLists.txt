@@ -97,4 +97,4 @@ add_subdirectory(tools/source)
 
 append_sources_from_properties(L0_SOURCES L0_API_SOURCE L0_CORE_SOURCE L0_EXT_SOURCE L0_TOOLS_SOURCE)
 target_sources(${TARGET_NAME_L0} PRIVATE ${L0_SOURCES})
-add_dependencies(${TARGET_NAME_L0} vpux_elf)
+add_dependencies(${TARGET_NAME_L0} vpux_elf ze_loader)
