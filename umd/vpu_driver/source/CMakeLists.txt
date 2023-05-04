@@ -12,8 +12,8 @@ target_link_libraries(${TARGET_NAME} fw_vpu_api_headers)
 
 add_subdirectories()
 
-if(ENABLE_VPUX_COMPILER)
-  add_dependencies(${TARGET_NAME} vpux_compiler)
-  target_link_libraries(${TARGET_NAME}
-                        ${CMAKE_BINARY_DIR}/lib/libVPUXCompilerL0.so)
+if(TARGET vpux_compiler)
+  target_link_libraries(${TARGET_NAME} vpux_compiler)
+else()
+  message(WARNING "Missing Compiler-in-Driver library (vpux_compiler target)")
 endif()
