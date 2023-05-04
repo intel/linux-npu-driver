@@ -31,14 +31,17 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# VPUXCompilerL0
+option(ENABLE_OPENVINO_PACKAGE "Enable building the OpenVINO + VPUX Plugin package" OFF)
 option(ENABLE_VPUX_COMPILER "Enable vpux_compiler" OFF)
+
+message(STATUS "option ENABLE_OPENVINO_PACKAGE: ${ENABLE_OPENVINO_PACKAGE}")
 message(STATUS "option ENABLE_VPUX_COMPILER: ${ENABLE_VPUX_COMPILER}")
 
 
 # Add Intel CET flags for Indirect Branch Tracking and Shadow call-stack technologies.
 add_compile_options(-fcf-protection=full -mshstk)
 
+add_subdirectory(compiler)
 add_subdirectory(firmware)
 add_subdirectory(umd)
 

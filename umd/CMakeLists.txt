@@ -12,7 +12,6 @@ include(common_macros.cmake)
 include(GNUInstallDirs)
 include(CheckCXXCompilerFlag)
 
-include(cmake/vpux_compiler.cmake)
 include(cmake/vpux_elf.cmake)
 include(cmake/utilities.cmake)
 
@@ -81,7 +80,6 @@ include_directories(${VPU_SOURCE_DIR})
 include_directories(SYSTEM ${VPU_KMD_INCLUDE_DIR})
 include_directories(SYSTEM ${VPU_FW_INCLUDE_DIR})
 include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
-include_directories(SYSTEM ${VPUX_COMPILER_INCLUDE_DIR})
 
 # Build the third party modules with the default compiler switches.
 add_subdirectory_unique(third_party/level-zero EXCLUDE_FROM_ALL)
