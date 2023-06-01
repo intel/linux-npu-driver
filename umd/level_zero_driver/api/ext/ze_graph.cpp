@@ -17,15 +17,15 @@
 
 namespace L0 {
 static ze_result_t translateHandle(zel_handle_type_t type, void *handler, void **pHandler) {
-    static void *loaderHandle = dlopen("libze_loader.so", RTLD_LAZY | RTLD_LOCAL);
+    static void *loaderHandle = dlopen("libze_loader.so.1", RTLD_LAZY | RTLD_LOCAL);
     if (loaderHandle == nullptr) {
-        LOG_E("Failed to open libze_loader.so library");
+        LOG_E("Failed to open libze_loader.so.1 library");
         return ZE_RESULT_ERROR_UNKNOWN;
     }
 
     static void *functionPointer = dlsym(loaderHandle, "zelLoaderTranslateHandle");
     if (functionPointer == nullptr) {
-        LOG_E("Failed to get 'zelLoaderTranslateHandle' from libze_loader.so, reason: %s",
+        LOG_E("Failed to get 'zelLoaderTranslateHandle' from libze_loader.so.1, reason: %s",
               dlerror());
         return ZE_RESULT_ERROR_UNKNOWN;
     }
