@@ -125,11 +125,6 @@ VPUBufferObject *VPUDeviceContext::createInternalBufferObject(size_t size,
         return nullptr;
     }
 
-    if (!(range == VPUBufferObject::Type::UncachedHigh ||
-          range == VPUBufferObject::Type::UncachedLow)) {
-        memset(bo->getBasePointer(), 0, bo->getAllocSize());
-    }
-
     return bo;
 }
 

@@ -42,7 +42,7 @@ class VPUDeviceContext {
 
     inline void *
     createDeviceMemAlloc(size_t size,
-                         VPUBufferObject::Type type = VPUBufferObject::Type::UncachedLow) {
+                         VPUBufferObject::Type type = VPUBufferObject::Type::WriteCombineLow) {
         return createMemAlloc(size, type, VPUBufferObject::Location::Device);
     };
 

@@ -60,14 +60,14 @@ std::shared_ptr<VPUGraphInitCommand> VPUGraphInitCommand::create(VPUDeviceContex
     }
 
     auto scratchBuffer = ctx->createInternalBufferObject(ctx->getPageAlignedSize(scratchSize) * 4,
-                                                         VPUBufferObject::Type::UncachedHigh);
+                                                         VPUBufferObject::Type::WriteCombineHigh);
     if (scratchBuffer == nullptr) {
         LOG_E("Failed to allocate memory for scratch pointer!");
         return nullptr;
     }
 
     auto metadataBuffer = ctx->createInternalBufferObject(ctx->getPageAlignedSize(metadataSize) * 4,
-                                                          VPUBufferObject::Type::UncachedLow);
+                                                          VPUBufferObject::Type::WriteCombineLow);
     if (metadataBuffer == nullptr) {
         LOG_E("Failed to allocate memory for metadata pointer!");
         return nullptr;
