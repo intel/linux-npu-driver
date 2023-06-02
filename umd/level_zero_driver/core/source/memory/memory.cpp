@@ -20,7 +20,6 @@ static VPU::VPUBufferObject::Type hostFlagToVPUBufferObjectType(ze_host_mem_allo
     case ZE_HOST_MEM_ALLOC_FLAG_BIAS_CACHED:
         return VPU::VPUBufferObject::Type::CachedHigh;
     case ZE_HOST_MEM_ALLOC_FLAG_BIAS_UNCACHED:
-        return VPU::VPUBufferObject::Type::UncachedHigh;
     case ZE_HOST_MEM_ALLOC_FLAG_BIAS_WRITE_COMBINED:
         return VPU::VPUBufferObject::Type::WriteCombineHigh;
     };
@@ -32,7 +31,6 @@ static VPU::VPUBufferObject::Type sharedFlagToVPUBufferObjectType(ze_host_mem_al
     case ZE_HOST_MEM_ALLOC_FLAG_BIAS_CACHED:
         return VPU::VPUBufferObject::Type::CachedLow;
     case ZE_HOST_MEM_ALLOC_FLAG_BIAS_UNCACHED:
-        return VPU::VPUBufferObject::Type::UncachedLow;
     case ZE_HOST_MEM_ALLOC_FLAG_BIAS_WRITE_COMBINED:
         return VPU::VPUBufferObject::Type::WriteCombineLow;
     };

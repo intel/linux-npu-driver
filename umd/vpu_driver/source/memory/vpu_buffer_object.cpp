@@ -31,9 +31,7 @@ VPUBufferObject::VPUBufferObject(const VPUDriverApi &drvApi,
     , handle(handle) {}
 
 VPUBufferObject::~VPUBufferObject() {
-    if (isUncached()) {
-        delete basePtr;
-    } else if (drvApi.unmap(basePtr, allocSize) != 0) {
+    if (drvApi.unmap(basePtr, allocSize) != 0) {
         LOG_E("Failed to unmap handle %d", handle);
     }
 
@@ -51,39 +49,24 @@ VPUBufferObject::create(const VPUDriverApi &drvApi, Location type, Type range, s
         return nullptr;
     }
 
-    void *ptr = nullptr;
-    if (!isUncached(range)) {
-        uint64_t offset = 0;
-        if (drvApi.getBufferInfo(handle, offset)) {
-            LOG_E("Failed to get info about buffer");
-            drvApi.closeBuffer(handle);
-            return nullptr;
-        }
+    uint64_t offset = 0;
+    if (drvApi.getBufferInfo(handle, offset)) {
+        LOG_E("Failed to get info about buffer");
+        drvApi.closeBuffer(handle);
+        return nullptr;
+    }
 
-        ptr = drvApi.mmap(size, offset);
-        if (ptr == nullptr) {
-            LOG_E("Failed to mmap the created buffer");
-            drvApi.closeBuffer(handle);
-            return nullptr;
-        }
-    } else {
-        /*
-         * User access to uncached memory is not desired hence buffer is not mapped. Allocate any
-         * pointer to acquire unique key to VPUBufferObject in VPUDeviceContext::trackedBuffers map.
-         * 'nullptr' cannot be used because it is not unique.
-         */
-        ptr = new uint8_t;
+    void *ptr = drvApi.mmap(size, offset);
+    if (ptr == nullptr) {
+        LOG_E("Failed to mmap the created buffer");
+        drvApi.closeBuffer(handle);
+        return nullptr;
     }
 
     return std::make_unique<VPUBufferObject>(drvApi, type, range, ptr, size, handle, vpuAddr);
 }
 
 bool VPUBufferObject::copyToBuffer(const void *data, size_t size, uint64_t offset) {
-    if (isUncached()) {
-        LOG_E("Memory is uncached - it is not mapped");
-        return false;
-    }
-
     if (offset > allocSize) {
         LOG_E("Invalid offset value");
         return false;

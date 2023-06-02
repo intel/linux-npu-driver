@@ -32,8 +32,6 @@ class VPUBufferObject {
     enum class Type {
         CachedLow = DRM_IVPU_BO_CACHED | DRM_IVPU_BO_MAPPABLE,
         CachedHigh = DRM_IVPU_BO_CACHED | DRM_IVPU_BO_MAPPABLE | DRM_IVPU_BO_HIGH_MEM,
-        UncachedLow = DRM_IVPU_BO_UNCACHED,
-        UncachedHigh = DRM_IVPU_BO_UNCACHED | DRM_IVPU_BO_HIGH_MEM,
         WriteCombineLow = DRM_IVPU_BO_WC | DRM_IVPU_BO_MAPPABLE,
         WriteCombineHigh = DRM_IVPU_BO_WC | DRM_IVPU_BO_MAPPABLE | DRM_IVPU_BO_HIGH_MEM,
     };
@@ -108,10 +106,6 @@ class VPUBufferObject {
     bool copyToBuffer(const void *data, size_t size, uint64_t offset);
 
   private:
-    static bool isUncached(Type t) { return t == Type::UncachedLow || t == Type::UncachedHigh; }
-
-    bool isUncached() const { return isUncached(type); }
-
     const VPUDriverApi &drvApi;
     Location location;
     Type type;
