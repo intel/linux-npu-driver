@@ -22,12 +22,8 @@ using Driver = Mock<::L0::Driver>;
 
 template <>
 struct Mock<Driver> : public Driver {
-    Mock() {
-        previousDriver = Driver::pDriver;
-        pDriver = this;
-    }
-
-    ~Mock() override { Driver::pDriver = previousDriver; }
+    Mock() = default;
+    ~Mock() override { Driver::pDriver = nullptr; }
 
     void reset(uint32_t numMockDrvCnt = 1, bool doInit = false) {
         initCalledCount = 0;
@@ -57,7 +53,6 @@ struct Mock<Driver> : public Driver {
     void initializeEnvVariables() { Driver::initializeEnvVariables(); }
 
     bool bDoInit = false;
-    Driver *previousDriver = nullptr;
     uint32_t initCalledCount = 0;
 };
 
