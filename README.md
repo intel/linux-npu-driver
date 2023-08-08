@@ -91,7 +91,7 @@ Commands to build driver
 
 ```
 cd linux-vpu-driver
-cmake -B build -S .
+cmake -Bbuild -S . -GNinja
 cmake --build build --parallel $(nproc)
 ```
 
@@ -115,7 +115,7 @@ document](https://github.com/openvinotoolkit/openvino/blob/master/docs/dev/build
 To build compiler from driver repository the `ENABLE_VPUX_COMPILER` flag has to be set
 ```
 cd linux-vpu-driver
-cmake -B build -S . -DENABLE_VPUX_COMPILER=ON
+cmake -B build -S . -GNinja -DENABLE_VPUX_COMPILER=ON
 cmake --build build --parallel $(nproc)
 ```
 
