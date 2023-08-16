@@ -294,7 +294,8 @@ TEST_F(CommandQueueExecTest,
     uint64_t *ts = static_cast<uint64_t *>(ctx->createSharedMemAlloc(64));
     EXPECT_EQ(ZE_RESULT_SUCCESS, cmdList->appendWriteGlobalTimestamp(ts, nullptr, 0, nullptr));
     // Memalloc causes mapping.
-    EXPECT_EQ(1u, osInfc.callCntAlloc);
+    // Timestamp is split by UMD to two commands expected 2 mappings
+    EXPECT_EQ(2u, osInfc.callCntAlloc);
     EXPECT_EQ(0u, osInfc.callCntFree);
 
     // Executing the queue
@@ -303,7 +304,7 @@ TEST_F(CommandQueueExecTest,
     EXPECT_EQ(nnQue->executeCommandLists(1, &cmdListHandle, nullptr), ZE_RESULT_SUCCESS);
 
     // Checking mapping call for commandbuffer
-    EXPECT_EQ(2u, osInfc.callCntAlloc);
+    EXPECT_EQ(3u, osInfc.callCntAlloc);
 
     // ::free() will be called.
     ctx->freeMemAlloc(ts);
@@ -445,8 +446,7 @@ TEST_F(CommandQueueJobTest, emptyCommandListDoesNotKeepJob) {
     // Empty NN command list.
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
 
-    // Command queue execution should be failed.
-    ASSERT_EQ(ZE_RESULT_ERROR_UNKNOWN, nnCmdque->executeCommandLists(1, &hNNCmdlist, nullptr));
+    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdque->executeCommandLists(1, &hNNCmdlist, nullptr));
     EXPECT_EQ(0u, nnCmdque->getSubmittedJobCount());
 
     // Call buffer sync against failed command queue.

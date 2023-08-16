@@ -28,7 +28,6 @@ class GMockOsInterfaceImp : public OsInterface {
                 (void *addr, size_t size, int prot, int flags, int fd, off_t offset),
                 (override));
     MOCK_METHOD(int, osiMunmap, (void *addr, size_t size), (override));
-    MOCK_METHOD(bool, fileExists, (std::string & p), (override));
 };
 
 } // namespace VPU

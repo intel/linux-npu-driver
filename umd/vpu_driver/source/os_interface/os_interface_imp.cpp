@@ -16,7 +16,6 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <memory>
-#include <filesystem>
 #include <string>
 
 #include <boost/numeric/conversion/cast.hpp>
@@ -28,31 +27,24 @@ OsInterfaceImp &OsInterfaceImp::getInstance() {
     return instance;
 }
 
-int OsInterfaceImp::secureOpen(const char *pathname, int flags, mode_t mode) {
-    struct stat lstatInfo = {};
+int OsInterfaceImp::osiOpen(const char *pathname, int flags, mode_t mode) {
     struct stat fstatInfo = {};
     int fd;
 
     LOG_V("Trying to open file '%s'.", pathname);
-    if (lstat(pathname, &lstatInfo) == -1) {
-        LOG_V("File '%s' does not exits", pathname);
-        return -1;
-    }
-
     if ((fd = open(pathname, flags, mode)) == -1) {
-        LOG_E("Failed to open file '%s'.", pathname);
+        LOG_V("Failed to open file '%s'.", pathname);
         return -1;
     }
 
-    if (fstat(fd, &fstatInfo) == -1) {
+    if (fstat(fd, &fstatInfo) != 0) {
         LOG_E("Failed to get file information. Closing.");
         close(fd);
         return -1;
     }
 
-    if (lstatInfo.st_ino != fstatInfo.st_ino || lstatInfo.st_dev != fstatInfo.st_dev ||
-        lstatInfo.st_mode != fstatInfo.st_mode) {
-        LOG_E("Open file is not the expected regular file. Closing.");
+    if (!S_ISCHR(fstatInfo.st_mode)) {
+        LOG_E("Open file is not the expected device file. Closing.");
         close(fd);
         return -1;
     }
@@ -61,12 +53,8 @@ int OsInterfaceImp::secureOpen(const char *pathname, int flags, mode_t mode) {
     return fd;
 }
 
-int OsInterfaceImp::osiOpen(const char *pathname, int flags, mode_t mode) {
-    return secureOpen(pathname, flags, mode);
-}
-
-int OsInterfaceImp::osiClose(int fildes) {
-    return close(fildes);
+int OsInterfaceImp::osiClose(int fd) {
+    return close(fd);
 }
 
 int OsInterfaceImp::osiFcntl(int fd, int cmd) {
@@ -101,10 +89,6 @@ void *OsInterfaceImp::osiMmap(void *addr, size_t size, int prot, int flags, int 
 
 int OsInterfaceImp::osiMunmap(void *addr, size_t size) {
     return munmap(addr, size);
-}
-
-bool OsInterfaceImp::fileExists(std::string &p) {
-    return std::filesystem::exists(p);
 }
 
 } // namespace VPU

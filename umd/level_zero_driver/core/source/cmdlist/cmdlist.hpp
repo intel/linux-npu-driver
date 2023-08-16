@@ -72,11 +72,8 @@ struct CommandList : _ze_command_list_handle_t {
     bool isCmdListClosed() const { return vpuJob->isClosed(); }
     size_t getNumCommands() const;
 
-    const std::vector<std::shared_ptr<VPU::VPUCommand>> &getNNCommands() const {
-        return vpuJob->getNNCommands();
-    }
-    const std::vector<std::shared_ptr<VPU::VPUCommand>> &getCopyCommands() const {
-        return vpuJob->getCopyCommands();
+    const std::vector<std::shared_ptr<VPU::VPUCommand>> &getCommands() const {
+        return vpuJob->getCommands();
     }
     std::shared_ptr<VPU::VPUJob> getJob() const { return vpuJob; }
 
@@ -103,6 +100,7 @@ struct CommandList : _ze_command_list_handle_t {
     bool isCopyOnlyCmdList;
     VPU::VPUDeviceContext *ctx;
     std::shared_ptr<VPU::VPUJob> vpuJob = nullptr;
+    std::vector<VPU::VPUBufferObject *> tracedInternalBos;
 };
 
 } // namespace L0

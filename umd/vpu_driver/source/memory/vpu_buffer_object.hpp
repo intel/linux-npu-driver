@@ -19,12 +19,6 @@
 #include <uapi/drm/ivpu_accel.h>
 #include <api/vpu_jsm_job_cmd_api.h>
 
-enum CopyDirection : uint16_t {
-    COPY_LOCAL_TO_LOCAL = VPU_CMD_COPY_LOCAL_TO_LOCAL,
-    COPY_SYSTEM_TO_SYSTEM = VPU_CMD_COPY_SYSTEM_TO_SYSTEM,
-    COPY_INVALID = 0x1111
-};
-
 namespace VPU {
 
 class VPUBufferObject {
@@ -32,6 +26,8 @@ class VPUBufferObject {
     enum class Type {
         CachedLow = DRM_IVPU_BO_CACHED | DRM_IVPU_BO_MAPPABLE,
         CachedHigh = DRM_IVPU_BO_CACHED | DRM_IVPU_BO_MAPPABLE | DRM_IVPU_BO_HIGH_MEM,
+        UncachedLow = DRM_IVPU_BO_UNCACHED,
+        UncachedHigh = DRM_IVPU_BO_UNCACHED | DRM_IVPU_BO_HIGH_MEM,
         WriteCombineLow = DRM_IVPU_BO_WC | DRM_IVPU_BO_MAPPABLE,
         WriteCombineHigh = DRM_IVPU_BO_WC | DRM_IVPU_BO_MAPPABLE | DRM_IVPU_BO_HIGH_MEM,
     };
@@ -104,6 +100,14 @@ class VPUBufferObject {
        @return true on successful copy, false otherwise.
      */
     bool copyToBuffer(const void *data, size_t size, uint64_t offset);
+
+    /**
+       Fill allocated buffer with pattern.
+       @param pattern[in]: Pattern byte stream.
+       @param patternSize[in]: Size of pattern, allowed:1,2,4
+       @return true on successful fill, false otherwise.
+     */
+    bool fillBuffer(const void *pattern, size_t patternSize);
 
   private:
     const VPUDriverApi &drvApi;

@@ -31,16 +31,6 @@ class VPUEventCommand : public VPUCommand {
     };
     static_assert(sizeof(JsmEventData) % 64 == 0, "JsmEventData is misaligned");
 
-    /**
-     * Set internal event buffer previously inserted with index
-     */
-    bool updateInternalEventOffsets(VPUDeviceContext *ctx, KMDEventDataType *eventHeapPtr);
-
-    /**
-     * Return index value of internal event
-     */
-    inline size_t getInternalEventIndex() const { return internalEventIndex; }
-
     static std::shared_ptr<VPUEventCommand> create(VPUDeviceContext *ctx,
                                                    const EngineSupport engType,
                                                    const vpu_cmd_type cmdType,
@@ -53,10 +43,6 @@ class VPUEventCommand : public VPUCommand {
                     KMDEventDataType *eventHeapPtr,
                     const KMDEventDataType eventState);
 
-    VPUEventCommand(const EngineSupport engType,
-                    const vpu_cmd_type cmdType,
-                    const KMDEventDataType eventState,
-                    uint8_t intEventIndex = 0);
     const vpu_cmd_header_t *getHeader() const {
         return reinterpret_cast<const vpu_cmd_header_t *>(std::any_cast<vpu_cmd_fence_t>(&command));
     }
@@ -64,7 +50,6 @@ class VPUEventCommand : public VPUCommand {
   private:
     static const char *getEventCommandStr(const vpu_cmd_type cmdType,
                                           const KMDEventDataType eventState);
-    size_t internalEventIndex = 0u;
 };
 
 class VPUEventResetCommand : public VPUEventCommand {
@@ -77,13 +62,6 @@ class VPUEventResetCommand : public VPUEventCommand {
                                        eventHeapPtr,
                                        VPUEventCommand::STATE_DEVICE_RESET);
     }
-
-    static std::shared_ptr<VPUEventCommand> create(uint8_t intEventIndex) {
-        return std::make_shared<VPUEventCommand>(EngineSupport::Backward,
-                                                 VPU_CMD_FENCE_SIGNAL,
-                                                 VPUEventCommand::STATE_DEVICE_RESET,
-                                                 intEventIndex);
-    }
 };
 
 class VPUEventSignalCommand : public VPUEventCommand {
@@ -91,17 +69,10 @@ class VPUEventSignalCommand : public VPUEventCommand {
     static std::shared_ptr<VPUEventCommand> create(VPUDeviceContext *ctx,
                                                    KMDEventDataType *eventHeapPtr) {
         return VPUEventCommand::create(ctx,
-                                       EngineSupport::Backward,
+                                       EngineSupport::Synchronize,
                                        VPU_CMD_FENCE_SIGNAL,
                                        eventHeapPtr,
                                        VPUEventCommand::STATE_DEVICE_SIGNAL);
-    }
-
-    static std::shared_ptr<VPUEventCommand> create(uint8_t intEventIndex) {
-        return std::make_shared<VPUEventCommand>(EngineSupport::Backward,
-                                                 VPU_CMD_FENCE_SIGNAL,
-                                                 VPUEventCommand::STATE_DEVICE_SIGNAL,
-                                                 intEventIndex);
     }
 };
 
@@ -114,13 +85,6 @@ class VPUEventWaitCommand : public VPUEventCommand {
                                        VPU_CMD_FENCE_WAIT,
                                        eventHeapPtr,
                                        VPUEventCommand::STATE_DEVICE_SIGNAL);
-    }
-
-    static std::shared_ptr<VPUEventCommand> create(uint8_t intEventIndex) {
-        return std::make_shared<VPUEventCommand>(EngineSupport::Forward,
-                                                 VPU_CMD_FENCE_WAIT,
-                                                 VPUEventCommand::STATE_DEVICE_SIGNAL,
-                                                 intEventIndex);
     }
 };
 

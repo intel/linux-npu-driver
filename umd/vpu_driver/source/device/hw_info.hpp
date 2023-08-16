@@ -24,6 +24,9 @@ using PrintCopyDescriptor = void(void *, vpu_cmd_header_t *);
 
 struct VPUHwInfo {
     uint32_t deviceId = 0u;
+    uint32_t supportedDeviceIds[2] = {0, 0};
+    uint32_t numSupportedDevices = 0;
+    int compilerPlatform = -1;
     uint32_t deviceRevision = 0u;
     uint32_t subdeviceId = 0u;
     uint32_t coreClockRate = 0u;
@@ -35,11 +38,9 @@ struct VPUHwInfo {
     uint32_t nExecUnits = 0u;
     uint32_t numSubslicesPerSlice = 0u;
     uint32_t platformType = 0u;
-
-    bool isIntegrated = true;
-    bool isSubdevice = false;
-    bool isSupportEcc = false;
-    bool isSupportOnDemandPaging = false;
+    uint32_t tileFuseMask = 0u;
+    /* Each set bit in tileConfig represents enabled tile */
+    uint32_t tileConfig = 0u;
 
     char name[256] = "Intel VPU";
 
@@ -47,15 +48,18 @@ struct VPUHwInfo {
 
     GetCopyCommand *getCopyCommand = nullptr;
     PrintCopyDescriptor *printCopyDescriptor = nullptr;
+
+    bool IsDeviceId(uint32_t deviceId) const {
+        for (uint32_t i = 0; i < numSupportedDevices; i++) {
+            if (deviceId == supportedDeviceIds[i])
+                return true;
+        }
+        return false;
+    }
 };
 
-#ifndef VPU_NEXT_GEN_HW
-#define VPU_NEXT_GEN_HW
-#else
-extern VPUHwInfo VPU_NEXT_GEN_HW;
-#endif
+extern VPUHwInfo vpuHwInfo37xx;
 
-extern VPUHwInfo mtlHwInfo;
-const VPUHwInfo VPUHwInfos[] = {mtlHwInfo, VPU_NEXT_GEN_HW};
+const VPUHwInfo VPUHwInfos[] = {vpuHwInfo37xx};
 
 } // namespace VPU

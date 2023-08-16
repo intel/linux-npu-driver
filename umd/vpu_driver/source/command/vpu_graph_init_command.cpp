@@ -17,6 +17,20 @@
 
 namespace VPU {
 
+/*
+ * Blob execute allows to run inferences in parallel based on number of metadata and scratch
+ * buffers. Metadata count has to be equal to scatch count. Driver counts how many parallel
+ * inferences can be run based on requested size.
+ */
+static size_t getBufferCount(size_t size) {
+    constexpr size_t MB = 1024 * 1024;
+    if (size < 64 * MB)
+        return 4;
+    if (size < 128 * MB)
+        return 2;
+    return 1;
+}
+
 std::shared_ptr<VPUGraphInitCommand> VPUGraphInitCommand::create(VPUDeviceContext *ctx,
                                                                  uint64_t umdBlobId,
                                                                  void *blobData,
@@ -59,15 +73,18 @@ std::shared_ptr<VPUGraphInitCommand> VPUGraphInitCommand::create(VPUDeviceContex
         return nullptr;
     }
 
-    auto scratchBuffer = ctx->createInternalBufferObject(ctx->getPageAlignedSize(scratchSize) * 4,
-                                                         VPUBufferObject::Type::WriteCombineHigh);
+    const size_t bufferCount = getBufferCount(metadataSize);
+    auto scratchBuffer =
+        ctx->createInternalBufferObject(ctx->getPageAlignedSize(scratchSize) * bufferCount,
+                                        VPUBufferObject::Type::WriteCombineHigh);
     if (scratchBuffer == nullptr) {
         LOG_E("Failed to allocate memory for scratch pointer!");
         return nullptr;
     }
 
-    auto metadataBuffer = ctx->createInternalBufferObject(ctx->getPageAlignedSize(metadataSize) * 4,
-                                                          VPUBufferObject::Type::WriteCombineLow);
+    auto metadataBuffer =
+        ctx->createInternalBufferObject(ctx->getPageAlignedSize(metadataSize) * bufferCount,
+                                        VPUBufferObject::Type::WriteCombineLow);
     if (metadataBuffer == nullptr) {
         LOG_E("Failed to allocate memory for metadata pointer!");
         return nullptr;
@@ -115,7 +132,8 @@ VPUGraphInitCommand::VPUGraphInitCommand(VPUDeviceContext *ctx,
     , metadataBuffer(metadataBuffer)
     , actKernelBuffer(actKernelBuffer)
     , scratchSize(scratchSize)
-    , metadataSize(metadataSize) {
+    , metadataSize(metadataSize)
+    , bufferCount(getBufferCount(metadataSize)) {
     vpu_cmd_ov_blob_initialize_t cmd = {};
 
     cmd.header.type = VPU_CMD_OV_BLOB_INITIALIZE;

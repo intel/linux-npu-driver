@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 #
 
-set(L0_SRCS_CORE_API
+target_sources(${TARGET_NAME_L0} PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/ze_barrier.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/ze_cmdlist.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/ze_cmdqueue.hpp
@@ -18,4 +18,3 @@ set(L0_SRCS_CORE_API
   ${CMAKE_CURRENT_SOURCE_DIR}/ze_copy.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/zes_loader.cpp
 )
-set_property(GLOBAL PROPERTY L0_SRCS_CORE_API ${L0_SRCS_CORE_API})

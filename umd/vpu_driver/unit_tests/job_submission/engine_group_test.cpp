@@ -50,7 +50,6 @@ TEST_F(EngineGroupTest, engineGroupsHoldsCapabilities) {
 }
 
 TEST_F(EngineGroupTest, engineGroupsMaxMemFillSizeCheck) {
-    EXPECT_EQ(0u, vpuDevice->getEngineMaxMemoryFillSize(EngineType::COMPUTE));
-    EXPECT_EQ(std::numeric_limits<uint32_t>::max(),
-              vpuDevice->getEngineMaxMemoryFillSize(EngineType::COPY));
+    EXPECT_EQ(sizeof(uint32_t), vpuDevice->getEngineMaxMemoryFillSize(EngineType::COMPUTE));
+    EXPECT_EQ(sizeof(uint32_t), vpuDevice->getEngineMaxMemoryFillSize(EngineType::COPY));
 }

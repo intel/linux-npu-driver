@@ -18,11 +18,9 @@ TEST(DeviceFactoryTest, devicesDiscoveredWithUDevFuncs) {
     GMockOsInterfaceImp gmockInfc;
 
     // Set expected returns.
-    EXPECT_CALL(gmockInfc, osiOpen).Times(32);
+    EXPECT_CALL(gmockInfc, osiOpen).Times(64);
 
-    EXPECT_CALL(gmockInfc, osiIoctl).Times(32);
-
-    EXPECT_CALL(gmockInfc, fileExists).WillRepeatedly(::testing::ReturnRoundRobin({true, false}));
+    EXPECT_CALL(gmockInfc, osiIoctl).Times(64);
 
     // Devices vector will be returned upon number of discovered devices.
     auto devVector = DeviceFactory::createDevices(&gmockInfc);

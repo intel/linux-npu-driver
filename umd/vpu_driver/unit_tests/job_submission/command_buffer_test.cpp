@@ -36,11 +36,7 @@ struct VPUCommandBufferTest : public ::testing::Test {
 
 TEST_F(VPUCommandBufferTest, allocateCommandBufferWithoutCommandExpectNullptr) {
     EXPECT_EQ(nullptr,
-              VPUCommandBuffer::allocateCommandBuffer(ctx,
-                                                      {},
-                                                      nullptr,
-                                                      nullptr,
-                                                      VPUCommandBuffer::Target::COMPUTE));
+              VPUCommandBuffer::allocateCommandBuffer(ctx, {}, VPUCommandBuffer::Target::COMPUTE));
 }
 
 TEST_F(VPUCommandBufferTest, allocateCommandBufferWithTimestampCommand) {
@@ -50,12 +46,9 @@ TEST_F(VPUCommandBufferTest, allocateCommandBufferWithTimestampCommand) {
     cmds.emplace_back(VPUTimeStampCommand::create(ctx, tsHeap));
     ASSERT_NE(cmds.back(), nullptr);
 
-    EXPECT_NE(nullptr,
-              VPUCommandBuffer::allocateCommandBuffer(ctx,
-                                                      cmds,
-                                                      nullptr,
-                                                      nullptr,
-                                                      VPUCommandBuffer::Target::COMPUTE));
+    EXPECT_NE(
+        nullptr,
+        VPUCommandBuffer::allocateCommandBuffer(ctx, cmds, VPUCommandBuffer::Target::COMPUTE));
 
     EXPECT_TRUE(ctx->freeMemAlloc(tsHeap));
 }
@@ -68,12 +61,9 @@ TEST_F(VPUCommandBufferTest, allocateCommandBufferWithMallocFailureExpectNullptr
     ASSERT_NE(cmds.back(), nullptr);
 
     osInfc.mockFailNextAlloc();
-    EXPECT_EQ(nullptr,
-              VPUCommandBuffer::allocateCommandBuffer(ctx,
-                                                      cmds,
-                                                      nullptr,
-                                                      nullptr,
-                                                      VPUCommandBuffer::Target::COMPUTE));
+    EXPECT_EQ(
+        nullptr,
+        VPUCommandBuffer::allocateCommandBuffer(ctx, cmds, VPUCommandBuffer::Target::COMPUTE));
     EXPECT_TRUE(ctx->freeMemAlloc(tsHeap));
 }
 
@@ -85,55 +75,10 @@ TEST_F(VPUCommandBufferTest, allocateCommandBufferWithCopyCommand) {
     cmds.emplace_back(VPUCopyCommand::create(ctx, src, dst, sizeof(uint64_t)));
     ASSERT_NE(cmds.back(), nullptr);
 
-    VPUBufferObject *descHeap = ctx->createInternalBufferObject(cmds.back()->getDescriptorSize(),
-                                                                VPUBufferObject::Type::CachedLow);
-    ASSERT_TRUE(descHeap);
+    EXPECT_NE(
+        nullptr,
+        VPUCommandBuffer::allocateCommandBuffer(ctx, cmds, VPUCommandBuffer::Target::COMPUTE));
 
-    void *descTail = descHeap->getBasePointer();
-    void *descEnd = descHeap->getBasePointer() + descHeap->getAllocSize();
-    EXPECT_NE(nullptr,
-              VPUCommandBuffer::allocateCommandBuffer(ctx,
-                                                      cmds,
-                                                      &descTail,
-                                                      descEnd,
-                                                      VPUCommandBuffer::Target::COMPUTE));
-
-    EXPECT_EQ(descTail, descEnd);
-    EXPECT_TRUE(ctx->freeMemAlloc(src));
-    EXPECT_TRUE(ctx->freeMemAlloc(dst));
-    EXPECT_TRUE(ctx->freeMemAlloc(descHeap));
-}
-
-TEST_F(VPUCommandBufferTest, allocateCommandBufferWithInvalidPointerInCommandExpectFailure) {
-    void *mem = ctx->createSharedMemAlloc(sizeof(uint64_t));
-    uint64_t *ts = static_cast<uint64_t *>(mem);
-
-    auto cmd = VPUTimeStampCommand::create(ctx, ts);
-    ASSERT_NE(nullptr, cmd);
-
-    EXPECT_TRUE(ctx->freeMemAlloc(mem));
-}
-
-TEST_F(VPUCommandBufferTest, allocateCommandBufferWithInvalidDescriptorExpectFailure) {
-    void *src = ctx->createSharedMemAlloc(sizeof(uint64_t));
-    void *dst = ctx->createSharedMemAlloc(sizeof(uint64_t));
-
-    std::vector<std::shared_ptr<VPUCommand>> cmds;
-    cmds.emplace_back(VPUCopyCommand::create(ctx, src, dst, sizeof(uint64_t)));
-    ASSERT_NE(cmds.back(), nullptr);
-
-    std::vector<uint8_t> descriptor(cmds.back()->getDescriptorSize(), 0u);
-
-    void *descTail = reinterpret_cast<void *>(descriptor.data());
-    void *descEnd = reinterpret_cast<void *>(descriptor.data() + descriptor.size());
-    EXPECT_EQ(nullptr,
-              VPUCommandBuffer::allocateCommandBuffer(ctx,
-                                                      cmds,
-                                                      &descTail,
-                                                      descEnd,
-                                                      VPUCommandBuffer::Target::COMPUTE));
-
-    EXPECT_NE(descTail, descEnd);
     EXPECT_TRUE(ctx->freeMemAlloc(src));
     EXPECT_TRUE(ctx->freeMemAlloc(dst));
 }
@@ -162,27 +107,12 @@ TEST_F(VPUCommandBufferTest, allocateCommandBufferWithInitAndExecuteGraphCommand
         cmds.back()->getAssociateBufferObjects()));
     ASSERT_NE(cmds.back(), nullptr);
 
-    size_t descSize = 0u;
-    for (const auto &cmd : cmds)
-        descSize += getFwDataCacheAlign(cmd->getDescriptorSize());
+    EXPECT_NE(
+        nullptr,
+        VPUCommandBuffer::allocateCommandBuffer(ctx, cmds, VPUCommandBuffer::Target::COMPUTE));
 
-    VPUBufferObject *descHeap =
-        ctx->createInternalBufferObject(descSize, VPUBufferObject::Type::CachedLow);
-    ASSERT_TRUE(descHeap);
-
-    void *descTail = descHeap->getBasePointer();
-    void *descEnd = descHeap->getBasePointer() + descHeap->getAllocSize();
-    EXPECT_NE(nullptr,
-              VPUCommandBuffer::allocateCommandBuffer(ctx,
-                                                      cmds,
-                                                      &descTail,
-                                                      descEnd,
-                                                      VPUCommandBuffer::Target::COMPUTE));
-
-    EXPECT_EQ(descTail, descEnd);
     EXPECT_TRUE(ctx->freeMemAlloc(inputData));
     EXPECT_TRUE(ctx->freeMemAlloc(outputData));
-    EXPECT_TRUE(ctx->freeMemAlloc(descHeap));
 }
 
 } // namespace VPU

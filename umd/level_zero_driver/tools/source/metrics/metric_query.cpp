@@ -10,6 +10,8 @@
 
 #include "vpu_driver/source/utilities/log.hpp"
 
+#include <string.h>
+
 namespace L0 {
 
 MetricQueryPool::MetricQueryPool(VPU::VPUDeviceContext *ctx,

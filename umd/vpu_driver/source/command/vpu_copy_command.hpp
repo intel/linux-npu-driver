@@ -23,7 +23,6 @@ class VPUCopyCommand : public VPUCommand {
                    const void *srcPtr,
                    void *dstPtr,
                    size_t size,
-                   CopyDirection direction,
                    VPUDescriptor &descriptor);
 
     static std::shared_ptr<VPUCopyCommand>
@@ -33,6 +32,9 @@ class VPUCopyCommand : public VPUCommand {
         return reinterpret_cast<const vpu_cmd_header_t *>(
             std::any_cast<vpu_cmd_copy_buffer_t>(&command));
     }
+
+    bool isCopyTypeCommand() { return true; }
+    bool changeCopyCommandType(uint32_t engine_id);
 
     template <class T>
     static bool fillDescriptor(VPUDeviceContext *ctx,

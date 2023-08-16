@@ -50,7 +50,6 @@ class VPUGraphInitCommand : public VPUCommand {
         return reinterpret_cast<const vpu_cmd_header_t *>(
             std::any_cast<vpu_cmd_ov_blob_initialize_t>(&command));
     }
-    static const int bufferCount = 4;
 
   private:
     void fillDescriptor();
@@ -64,6 +63,7 @@ class VPUGraphInitCommand : public VPUCommand {
 
     size_t scratchSize = 0;
     size_t metadataSize = 0;
+    size_t bufferCount = 0;
 };
 
 } // namespace VPU

@@ -48,10 +48,12 @@ VPUGraphExecuteCommand::create(VPUDeviceContext *ctx,
     if (!checkUserArgs(ctx, outputBuffers, outputArray))
         return nullptr;
 
-    if ((profilingSize == 0) != (profilingBuffer == nullptr)) {
-        LOG_E("Invalid profilingBuffer (%p)! profilingSize = %ld", profilingBuffer, profilingSize);
-        return nullptr;
-    } else if ((profilingBuffer != 0) && (profilingBuffer != nullptr)) {
+    if (profilingSize > 0) {
+        if (profilingBuffer == nullptr) {
+            LOG_E("Failed to get profiling buffer");
+            return nullptr;
+        }
+
         if (ctx->getBufferVPUAddress(profilingBuffer) == 0) {
             LOG_E("Failed to getHeapVPUAddress on profilingBuffer (%p)!", profilingBuffer);
             return nullptr;

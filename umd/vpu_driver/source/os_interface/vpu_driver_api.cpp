@@ -50,11 +50,10 @@ int VPUDriverApi::doIoctl(unsigned long request, void *arg) const {
         ret = osInfc.osiIoctl(vpuFd, request, arg);
     } while (ret == -1 && (errno == -EAGAIN || errno == -EINTR));
 
-    LOG_V("End IOCTL request %#lx: ret=%d, ERRNO=%d, STRERROR=\"%s\"",
-          request,
-          ret,
-          errno,
-          strerror(errno));
+    LOG_V("End IOCTL request %#lx: ret=%d", request, ret);
+    if (ret != 0)
+        LOG_V("IOCTL ERRNO=%d, STRERROR=\"%s\"", errno, strerror(errno));
+
     return ret;
 }
 

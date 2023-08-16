@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 #
 
-set(L0_CORE_SOURCE
+target_sources(${TARGET_NAME_L0} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/cmdlist/cmdlist.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/cmdlist/cmdlist.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/cmdqueue/cmdqueue.cpp
@@ -25,13 +25,3 @@ set(L0_CORE_SOURCE
     ${CMAKE_CURRENT_SOURCE_DIR}/event/eventpool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/memory/memory.cpp
 )
-
-if(NOT DEFINED L0_DRIVER_VERSION)
-  set(L0_DRIVER_VERSION 1)
-endif()
-
-# Put Driver version into define
-configure_file(driver/driver_version.h.in ${CMAKE_BINARY_DIR}/driver_version_l0.h)
-
-# Make our source files visible to parent
-set_property(GLOBAL PROPERTY L0_CORE_SOURCE ${L0_CORE_SOURCE})

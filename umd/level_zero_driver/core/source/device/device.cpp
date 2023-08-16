@@ -18,6 +18,7 @@
 #include "vpu_driver/source/device/vpu_device.hpp"
 
 #include <algorithm>
+#include <bitset>
 #include <string.h>
 
 namespace L0 {
@@ -27,11 +28,13 @@ Device::Device(DriverHandle *driverHandle, VPU::VPUDevice *vpuDevice)
     , vpuDevice(vpuDevice)
     , metricContext(std::make_shared<MetricContext>(this)) {
     if (vpuDevice != nullptr) {
-        loadDeviceProperties();
         Driver *pDriver = Driver::getInstance();
         if (pDriver && pDriver->getEnvVariables().metrics) {
             std::vector<VPU::GroupInfo> metricGroupsInfo = vpuDevice->getMetricGroupsInfo();
             loadMetricGroupsInfo(metricGroupsInfo);
+        }
+        if (!Compiler::compilerInit(vpuDevice->getHwInfo().compilerPlatform)) {
+            LOG_W("Failed to initialize VPU compiler.");
         }
     }
 }
@@ -127,19 +130,56 @@ ze_result_t Device::getProperties(ze_device_properties_t *pDeviceProperties) {
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    if (pDeviceProperties->stype == ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES_1_2) {
-        properties.stype = pDeviceProperties->stype;
-
-        // the units are in cycles/sec
-        properties.timerResolution = 38'400'000;
-    } else if (pDeviceProperties->stype == ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES) {
-        properties.stype = pDeviceProperties->stype;
-
-        // the units are in nanoseconds
-        properties.timerResolution = NS_IN_SEC / 38'400'000;
+    auto vpuDevice = getVPUDevice();
+    if (vpuDevice == nullptr) {
+        LOG_E("Failed to get VPUDevice instance.");
+        return ZE_RESULT_ERROR_DEVICE_LOST;
     }
 
-    *pDeviceProperties = properties;
+    const auto &hwInfo = vpuDevice->getHwInfo();
+
+    pDeviceProperties->type = ZE_DEVICE_TYPE_VPU;
+    pDeviceProperties->vendorId = INTEL_PCI_VENDOR_ID;
+    pDeviceProperties->deviceId = hwInfo.deviceId;
+    pDeviceProperties->subdeviceId = hwInfo.subdeviceId;
+    pDeviceProperties->coreClockRate = hwInfo.coreClockRate;
+    pDeviceProperties->maxMemAllocSize = hwInfo.maxMemAllocSize;
+    pDeviceProperties->maxHardwareContexts = hwInfo.maxHardwareContexts;
+    pDeviceProperties->maxCommandQueuePriority = hwInfo.maxCommandQueuePriority;
+    pDeviceProperties->numThreadsPerEU = hwInfo.numThreadsPerEU;
+    pDeviceProperties->physicalEUSimdWidth = hwInfo.physicalEUSimdWidth;
+    pDeviceProperties->numEUsPerSubslice = hwInfo.nExecUnits;
+    pDeviceProperties->numSubslicesPerSlice = hwInfo.numSubslicesPerSlice;
+    pDeviceProperties->numSlices =
+        static_cast<uint32_t>(std::bitset<32>(hwInfo.tileConfig).count());
+
+    if (pDeviceProperties->stype == ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES_1_2) {
+        // the units are in cycles/sec
+        pDeviceProperties->timerResolution = 38'400'000;
+    } else if (pDeviceProperties->stype == ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES) {
+        // the units are in nanoseconds
+        pDeviceProperties->timerResolution = NS_IN_SEC / 38'400'000;
+    }
+
+    pDeviceProperties->timestampValidBits = 64u;
+    pDeviceProperties->kernelTimestampValidBits = 0u;
+
+    strncpy(pDeviceProperties->name, hwInfo.name, ZE_MAX_DEVICE_NAME - 1);
+    pDeviceProperties->name[ZE_MAX_DEVICE_NAME - 1] = '\0';
+
+    pDeviceProperties->flags = ZE_DEVICE_PROPERTY_FLAG_INTEGRATED;
+    pDeviceProperties->uuid = ze_intel_vpu_device_uuid;
+
+    // Using the structure ze_device_ip_version_ext_t to store the platformType value
+    if (pDeviceProperties->stype == ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES &&
+        pDeviceProperties->pNext != nullptr) {
+        ze_device_ip_version_ext_t *deviceDetails =
+            reinterpret_cast<ze_device_ip_version_ext_t *>(pDeviceProperties->pNext);
+
+        if (deviceDetails->stype == ZE_STRUCTURE_TYPE_DEVICE_IP_VERSION_EXT) {
+            deviceDetails->ipVersion = hwInfo.platformType;
+        }
+    }
 
     LOG_I("Returning device properties.");
     return ZE_RESULT_SUCCESS;
@@ -241,29 +281,14 @@ ze_result_t Device::getDeviceImageProperties(ze_device_image_properties_t *pDevi
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    // Maximum image dimensions for 1D resources
-    pDeviceImageProperties->maxImageDims1D = 16384u;
-
-    // Maximum image dimensions for 2D resources
-    pDeviceImageProperties->maxImageDims2D = 16384u;
-
-    // Maximum image dimensions for 3D resources
-    pDeviceImageProperties->maxImageDims3D = 2048u;
-
-    // Maximum image dimensions for 1D resources
-    pDeviceImageProperties->maxImageBufferSize = 262144u;
-
-    // Maximum image array slices
-    pDeviceImageProperties->maxImageArraySlices = 2048u;
-
-    // Maximum image array slices
-    pDeviceImageProperties->maxSamplers = 16u;
-
-    // Maximum number of image objects that can be read from by a kernel
-    pDeviceImageProperties->maxReadImageArgs = 128u;
-
-    // Maximum number of image objects that can be written to by a kernel
-    pDeviceImageProperties->maxWriteImageArgs = 128u;
+    pDeviceImageProperties->maxImageDims1D = 0u;
+    pDeviceImageProperties->maxImageDims2D = 0u;
+    pDeviceImageProperties->maxImageDims3D = 0u;
+    pDeviceImageProperties->maxImageBufferSize = 0u;
+    pDeviceImageProperties->maxImageArraySlices = 0u;
+    pDeviceImageProperties->maxSamplers = 0u;
+    pDeviceImageProperties->maxReadImageArgs = 0u;
+    pDeviceImageProperties->maxWriteImageArgs = 0u;
 
     return ZE_RESULT_SUCCESS;
 }
@@ -399,84 +424,6 @@ Device::~Device() {
 
 VPU::VPUDevice *Device::getVPUDevice() {
     return vpuDevice;
-}
-
-void Device::loadDeviceProperties() {
-    const auto &hwInfo = vpuDevice->getHwInfo();
-
-    // Device type.
-    properties.type = ZE_DEVICE_TYPE_VPU;
-
-    // IDs.
-    properties.vendorId = INTEL_PCI_VENDOR_ID;
-    properties.deviceId = hwInfo.deviceId;
-
-    // Sub device ID.
-    properties.subdeviceId = hwInfo.subdeviceId;
-
-    // Core clock rate.
-    properties.coreClockRate = hwInfo.coreClockRate;
-
-    // Max mem alloc size.
-    properties.maxMemAllocSize = hwInfo.maxMemAllocSize;
-
-    // Max hardware contexts.
-    properties.maxHardwareContexts = hwInfo.maxHardwareContexts;
-
-    // Max command queue priority.
-    properties.maxCommandQueuePriority = hwInfo.maxCommandQueuePriority;
-
-    // Number of threads per EU.
-    properties.numThreadsPerEU = hwInfo.numThreadsPerEU;
-
-    // Physical EU SIMD width.
-    properties.physicalEUSimdWidth = hwInfo.physicalEUSimdWidth;
-
-    // Number of EUs per sub-slice
-    properties.numEUsPerSubslice = hwInfo.nExecUnits;
-
-    // Number of sub-slices per slice.
-    properties.numSubslicesPerSlice = hwInfo.numSubslicesPerSlice;
-
-    // Number of slices.
-    properties.numSlices = 1u;
-
-    // Resolution of device timer in nanoseconsds used for profiling, timestamps, etc.
-    properties.timerResolution = 0u;
-
-    // Number of valid bits in the timestamp values.
-    properties.timestampValidBits = 64u;
-
-    // Number of valid bits in the kernel timestamp values.
-    properties.kernelTimestampValidBits = 0u;
-
-    // Device name.
-    strncpy(properties.name, hwInfo.name, ZE_MAX_DEVICE_NAME - 1);
-    properties.name[ZE_MAX_DEVICE_NAME - 1] = '\0';
-
-    // Property flags.
-    properties.flags = 0u;
-    if (hwInfo.isIntegrated) {
-        properties.flags |= ZE_DEVICE_PROPERTY_FLAG_INTEGRATED;
-    }
-
-    if (hwInfo.isSubdevice) {
-        properties.flags |= ZE_DEVICE_PROPERTY_FLAG_SUBDEVICE;
-    }
-
-    if (hwInfo.isSupportEcc) {
-        properties.flags |= ZE_DEVICE_PROPERTY_FLAG_ECC;
-    }
-
-    if (hwInfo.isSupportOnDemandPaging) {
-        properties.flags |= ZE_DEVICE_PROPERTY_FLAG_ONDEMANDPAGING;
-    }
-
-    // UUID.
-    reinterpret_cast<uint32_t *>(properties.uuid.id)[0] = INTEL_PCI_VENDOR_ID;
-    reinterpret_cast<uint32_t *>(properties.uuid.id)[1] = hwInfo.deviceId;
-    reinterpret_cast<uint32_t *>(properties.uuid.id)[2] = 0;
-    reinterpret_cast<uint32_t *>(properties.uuid.id)[3] = hwInfo.platformType;
 }
 
 void Device::loadMetricGroupsInfo(std::vector<VPU::GroupInfo> &metricGroupsInfo) {

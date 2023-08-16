@@ -225,10 +225,6 @@ int MockOsInterfaceImp::osiMunmap(void *addr, size_t size) {
     return osiFree(addr);
 }
 
-bool MockOsInterfaceImp::fileExists(std::string &p) {
-    return true;
-}
-
 size_t MockOsInterfaceImp::osiGetSystemPageSize() {
     return 4u * 1024u;
 }

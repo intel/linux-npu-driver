@@ -10,6 +10,8 @@
 
 #include "vpu_driver/source/utilities/log.hpp"
 
+#include <string.h>
+
 #ifdef ENABLE_VPUX_COMPILER
 #include "VPUXCompilerL0.h"
 #endif

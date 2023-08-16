@@ -40,7 +40,7 @@ TEST_F(VPUCommandTest, timestampCommandShouldReturnExpectedProperties) {
     VPUTimeStampCommand tsCmd(ctx, static_cast<uint64_t *>(mem));
     EXPECT_EQ(VPU_CMD_TIMESTAMP, tsCmd.getCommandType());
     EXPECT_EQ(sizeof(vpu_cmd_timestamp_t), tsCmd.getCommitSize());
-    EXPECT_TRUE(tsCmd.isBackwardCommand());
+    EXPECT_TRUE(tsCmd.isForwardCommand());
 
     // Compare associated pointers
     VPUBufferObject *bo = ctx->findBuffer(mem);
@@ -69,7 +69,7 @@ TEST_F(VPUCommandTest, copyCommandShouldReturnExpectedProperties) {
 
     EXPECT_EQ(VPU_CMD_COPY_LOCAL_TO_LOCAL, copyCmd->getCommandType());
     EXPECT_EQ(sizeof(vpu_cmd_copy_buffer_t), copyCmd->getCommitSize());
-    EXPECT_TRUE(copyCmd->isComputeCommand());
+    EXPECT_TRUE(copyCmd->isBackwardCommand());
 
     // Compare buffer handle
     auto copyCmdAssocVec = copyCmd->getAssociateBufferObjects();
@@ -94,6 +94,7 @@ TEST_F(VPUCommandTest, copyCommandShouldReturnExpectedProperties) {
 
 TEST_F(VPUCommandTest, graphInitCommandWithoutGraphShouldReturnExpectedProperties) {
     const size_t blobSize = 4 * 1024;
+    const size_t bufferCount = 4;
     uint8_t blobData[blobSize] = {};
 
     std::vector<uint32_t> numArgsVec{1u, 2u};
@@ -114,8 +115,7 @@ TEST_F(VPUCommandTest, graphInitCommandWithoutGraphShouldReturnExpectedPropertie
         blobSize,
         0ul, // kernel_offset
         boost::numeric_cast<uint32_t>(2 * sizeof(vpu_cmd_resource_descriptor_table_t) +
-                                      2 * sizeof(vpu_cmd_resource_descriptor_t) *
-                                          VPUGraphInitCommand::bufferCount),
+                                      2 * sizeof(vpu_cmd_resource_descriptor_t) * bufferCount),
         0u,  // reserved_0
         0ul, // desc_table_offset
         blobId};
@@ -339,7 +339,7 @@ TEST_F(VPUEventCommandTest, eventSignalCommandsShouldReturnExpectedProperties) {
     // Check expected command contents.
     EXPECT_EQ(VPU_CMD_FENCE_SIGNAL, signalCmd->getCommandType());
     EXPECT_EQ(sizeof(vpu_cmd_fence_t), signalCmd->getCommitSize());
-    EXPECT_TRUE(signalCmd->isBackwardCommand());
+    EXPECT_TRUE(signalCmd->isSynchronizeCommand());
 
     // Compare command stream return value in byte wise.
     vpu_cmd_fence_t expKMDSignalCmd = {};

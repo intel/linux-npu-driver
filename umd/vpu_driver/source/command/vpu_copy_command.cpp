@@ -23,29 +23,22 @@ VPUCopyCommand::create(VPUDeviceContext *ctx, const void *srcPtr, void *dstPtr, 
         return nullptr;
     }
 
-    auto copyDirection = ctx->getCopyDirection(dstPtr, srcPtr);
-    if (copyDirection == COPY_INVALID) {
-        LOG_E("Wrong memory type assigned during srcptr/dstptr allocation.");
-        return nullptr;
-    }
-
     VPUDescriptor descriptor;
     if (!ctx->getCopyCommandDescriptor(srcPtr, dstPtr, size, descriptor))
         return nullptr;
 
-    return std::make_shared<VPUCopyCommand>(ctx, srcPtr, dstPtr, size, copyDirection, descriptor);
+    return std::make_shared<VPUCopyCommand>(ctx, srcPtr, dstPtr, size, descriptor);
 }
 
 VPUCopyCommand::VPUCopyCommand(VPUDeviceContext *ctx,
                                const void *srcPtr,
                                void *dstPtr,
                                size_t size,
-                               CopyDirection direction,
                                VPUDescriptor &descriptor)
-    : VPUCommand(direction == COPY_LOCAL_TO_LOCAL ? EngineSupport::Compute : EngineSupport::Copy) {
+    : VPUCommand(EngineSupport::Backward) {
     vpu_cmd_copy_buffer_t cmd = {};
 
-    cmd.header.type = direction;
+    cmd.header.type = VPU_CMD_COPY_LOCAL_TO_LOCAL;
     cmd.header.size = sizeof(vpu_cmd_copy_buffer_t);
     cmd.desc_start_offset = 0u;
     cmd.desc_count = 1u;
@@ -58,6 +51,24 @@ VPUCopyCommand::VPUCopyCommand(VPUDeviceContext *ctx,
     appendAssociateBufferObject(ctx, dstPtr);
 
     LOG_I("Copy Command successfully created!");
+}
+
+bool VPUCopyCommand::changeCopyCommandType(uint32_t engine_id) {
+    vpu_cmd_header_t *hdr = nullptr;
+
+    hdr = reinterpret_cast<vpu_cmd_header_t *>(std::any_cast<vpu_cmd_copy_buffer_t>(&command));
+    if (hdr == nullptr)
+        return false;
+
+    if (engine_id == DRM_IVPU_ENGINE_COMPUTE) {
+        hdr->type = VPU_CMD_COPY_LOCAL_TO_LOCAL;
+    } else if (engine_id == DRM_IVPU_ENGINE_COPY) {
+        hdr->type = VPU_CMD_COPY_SYSTEM_TO_SYSTEM;
+    } else {
+        LOG_I("Unsupported engine conversion for copy command.");
+        return false;
+    }
+    return true;
 }
 
 } // namespace VPU

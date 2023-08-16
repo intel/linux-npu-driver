@@ -28,20 +28,27 @@ struct VPUDescriptor {
 class VPUCommand {
   public:
     enum class EngineSupport {
-        /* Compute command can be only run on compute engine */
-        Compute,
-        /* Copy command can be only run on copy engine */
-        Copy,
+        /* Compute command can be only run in compute engine */
+        Compute = DRM_IVPU_ENGINE_COMPUTE,
+        /* Copy command can be only run in copy engine */
+        Copy = DRM_IVPU_ENGINE_COPY,
         /**
-         * Forward and Backward commands can be run on both engine. Those commands are
-         * added to copy or compute engine based on logic in command list implementation.
-         * Forward commands are added to the next command list when there is a switch between
-         * engines. Backward commands are added to the previous command list when there is a
-         * switch between engines. If there is no switch between engines then command is added to
-         * latest used engine.
+         * Forward commands can be run in both engine. Forward commands are added to the next
+         * command list when there is a switch between engines. If there is no switch between
+         * engines then command is added to latest used engine.
          */
         Forward,
-        Backward
+        /**
+         * Backward commands can be run in both engine. Backward commands are added to the previous
+         * command list when there is a switch between engines. If there is no switch between
+         * engines then command is added to latest used engine.
+         */
+        Backward,
+        /**
+         * Synchronize commands can be run in both engine. Synchronize command ends the command
+         * list. All the following commands are added to new job.
+         */
+        Synchronize,
     };
 
     /**
@@ -96,34 +103,46 @@ class VPUCommand {
     }
 
     /**
-     * Return true if the command can be run on copy engine
+     * Return true if the command can be run in copy engine
      */
     inline bool isCopyCommand() const { return engineSupport == EngineSupport::Copy; }
 
     /**
-     * Return true if the command can be run on compute engine
+     * Return true if the command can be run in compute engine
      */
     inline bool isComputeCommand() const { return engineSupport == EngineSupport::Compute; }
 
     /**
-     * Set the engineSupport of the command to compute engine
-     */
-    inline void setComputeCommand() { engineSupport = EngineSupport::Compute; }
-
-    /**
-     * Return true if the command is backward following command
+     * Return true if the command is backward type
      */
     inline bool isBackwardCommand() const { return engineSupport == EngineSupport::Backward; }
 
     /**
-     * Return true if the command is forward following command
+     * Return true if the command is forward type
      */
     inline bool isForwardCommand() const { return engineSupport == EngineSupport::Forward; }
 
     /**
-     * Return true if this command can be run on copy and compute engine
+     * Return true if this command can be run in copy and compute engine
      */
-    inline bool isCommandAgnostic() const { return isForwardCommand() || isBackwardCommand(); }
+    inline bool isCommandAgnostic() const {
+        return isForwardCommand() || isBackwardCommand() || isSynchronizeCommand();
+    }
+
+    /**
+     * Return true if this command is synchronize type
+     */
+    inline bool isSynchronizeCommand() const { return engineSupport == EngineSupport::Synchronize; }
+
+    /**
+     * Return true if the command is copy command
+     */
+    virtual bool isCopyTypeCommand() { return false; }
+
+    /**
+     * Change execution engine and applies necessary action to command structures
+     */
+    virtual bool changeCopyCommandType(uint32_t engine_id) { return false; }
 
     /**
      * Update offsets and descriptor addresses as required by specific commands using heap base

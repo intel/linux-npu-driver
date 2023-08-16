@@ -16,31 +16,15 @@
 
 namespace L0 {
 
-Event *Event::create(EventPool *pEventPool, const ze_event_desc_t *desc) {
-    if (!desc) {
-        LOG_E("Invalid descriptor.");
-        return nullptr;
-    }
-
-    if (pEventPool == nullptr) {
-        LOG_E("Invalid pointer to eventPool");
-        return nullptr;
-    }
-
-    auto pSyncPointer = pEventPool->allocateEvent(desc->index);
-    if (pSyncPointer == nullptr) {
-        LOG_E("Failed to get pointer from EventPool");
-        return nullptr;
-    }
-
-    return new Event(pEventPool, desc->index, pSyncPointer);
-}
-
-Event::Event(EventPool *eventPool, uint32_t index, VPU::VPUEventCommand::KMDEventDataType *ptr)
-    : nIndex(index)
-    , pEventPool(eventPool)
-    , pSyncPointer(ptr) {
-    updateSyncState(VPU::VPUEventCommand::STATE_EVENT_INITIAL);
+Event::Event(EventPool *eventPool,
+             uint32_t index,
+             VPU::VPUEventCommand::KMDEventDataType *ptr,
+             uint64_t vpuAddr)
+    : pEventPool(eventPool)
+    , nIndex(index)
+    , eventState(ptr)
+    , eventVpuAddr(vpuAddr) {
+    setEventState(VPU::VPUEventCommand::STATE_EVENT_INITIAL);
 }
 
 ze_result_t Event::destroy() {
@@ -49,7 +33,7 @@ ze_result_t Event::destroy() {
         LOG_E("Invalid event pool pointer.");
         res = ZE_RESULT_ERROR_UNINITIALIZED;
     } else if (!pEventPool->freeEvent(nIndex)) {
-        LOG_E("Failed to deallocate event pointer: %p", pSyncPointer);
+        LOG_E("Failed to deallocate event pointer: %p", eventState);
         res = ZE_RESULT_ERROR_UNKNOWN;
     }
     LOG_V("Destroying event instance.(res: %#x)", res);
@@ -59,78 +43,71 @@ ze_result_t Event::destroy() {
 }
 
 ze_result_t Event::hostSignal() {
-    updateSyncState(VPU::VPUEventCommand::STATE_HOST_SIGNAL);
+    setEventState(VPU::VPUEventCommand::STATE_HOST_SIGNAL);
     return ZE_RESULT_SUCCESS;
 }
 
 ze_result_t Event::hostSynchronize(uint64_t timeout) {
+    auto absoluteTimeout = VPU::getAbsoluteTimeoutNanoseconds(timeout);
+
     /* Remove dangling weak pointers */
     associatedJobs.erase(std::remove_if(associatedJobs.begin(),
                                         associatedJobs.end(),
                                         [](auto x) { return x.use_count() == 0; }),
                          associatedJobs.end());
 
-    bool signaled = VPU::waitForSignal(timeout, [this]() {
-        if (queryStatus() == ZE_RESULT_SUCCESS)
-            return true;
-
-        /*
-         * If there is no job in execution with Event then return to user to avoid waiting
-         * infinitiely. This approach is a hack to break loop that waits infinitely for
-         * inference result in ZeroBackend in VPUX plugin.
-         */
-        for (auto weakPtr : associatedJobs) {
-            std::shared_ptr<VPU::VPUJob> job = weakPtr.lock();
-            if (job.get() != nullptr && !job->waitForCompletion(0)) {
-                return false;
+    LOG_I("Waiting for fence in VPUAddr: %#lx", eventVpuAddr);
+    /* Check if all jobs with this event are finished */
+    for (auto &jobWeak : associatedJobs) {
+        if (auto job = jobWeak.lock()) {
+            for (const auto &cmdBuffer : job->getCommandBuffers()) {
+                if (cmdBuffer->getFenceAddr() == eventVpuAddr) {
+                    // TODO: Add check for ABORTED status from command buffer completion
+                    if (!cmdBuffer->waitForCompletion(absoluteTimeout)) {
+                        LOG_E("Associated command buffer is still in execution!\n");
+                    }
+                }
             }
         }
+    }
 
-        return true;
-    });
-
-    LOG_I("Sync completed. Time: %ld, signaled: %u", timeout, signaled);
-    /*
-     * 'queryStatus()' is used instead of 'signaled' beause waitForSignal can return true when
-     * there all jobs are finished
-     */
     return queryStatus();
 }
 
 ze_result_t Event::queryStatus() {
-    switch (*pSyncPointer) {
+    switch (*eventState) {
     case VPU::VPUEventCommand::STATE_EVENT_INITIAL:
-        LOG_V("Sync point %p is still in initial state.", pSyncPointer);
+        LOG_V("Sync point %p is still in initial state.", eventState);
         return ZE_RESULT_NOT_READY;
     case VPU::VPUEventCommand::STATE_HOST_RESET:
-        LOG_V("Sync point %p has been resetted by host.", pSyncPointer);
+        LOG_V("Sync point %p has been resetted by host.", eventState);
         return ZE_RESULT_NOT_READY;
     case VPU::VPUEventCommand::STATE_DEVICE_RESET:
-        LOG_V("Sync point %p has ben resetted by device.", pSyncPointer);
+        LOG_V("Sync point %p has ben resetted by device.", eventState);
         return ZE_RESULT_NOT_READY;
     case VPU::VPUEventCommand::STATE_HOST_SIGNAL:
-        LOG_V("Sync point %p has been signaled by host.", pSyncPointer);
+        LOG_V("Sync point %p has been signaled by host.", eventState);
         return ZE_RESULT_SUCCESS;
     case VPU::VPUEventCommand::STATE_DEVICE_SIGNAL:
-        LOG_V("Sync point %p has been signaled by device.", pSyncPointer);
+        LOG_V("Sync point %p has been signaled by device.", eventState);
         return ZE_RESULT_SUCCESS;
     default:
-        LOG_E("Unexpected sync value. (%lx)", *pSyncPointer);
+        LOG_E("Unexpected sync value. (%lx)", *eventState);
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 }
 
 ze_result_t Event::reset() {
-    updateSyncState(VPU::VPUEventCommand::STATE_HOST_RESET);
+    setEventState(VPU::VPUEventCommand::STATE_HOST_RESET);
     return ZE_RESULT_SUCCESS;
 }
 
-void Event::updateSyncState(VPU::VPUEventCommand::KMDEventDataType updateTo) {
-    if (*pSyncPointer == updateTo) {
-        LOG_W("The sync pointer(%p) already in target status(%lu).", pSyncPointer, updateTo);
+void Event::setEventState(VPU::VPUEventCommand::KMDEventDataType updateTo) {
+    if (*eventState == updateTo) {
+        LOG_W("The sync pointer(%p) already in target status(%lu).", eventState, updateTo);
     } else {
-        LOG_V("Sync updated from %#lx to %#lx.", *pSyncPointer, updateTo);
-        *pSyncPointer = updateTo;
+        LOG_V("Sync updated from %#lx to %#lx.", *eventState, updateTo);
+        *eventState = updateTo;
     }
 }
 

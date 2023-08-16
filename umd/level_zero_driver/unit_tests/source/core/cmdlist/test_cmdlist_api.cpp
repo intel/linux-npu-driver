@@ -189,8 +189,9 @@ TEST_F(CommandListApiTest, whenCalledAppendWriteGlobalTimestampSuccessIsReturned
     auto result = commandList->close();
     EXPECT_EQ(ZE_RESULT_SUCCESS, result);
 
-    EXPECT_EQ(1UL, commandList->getNumCommands());
-    EXPECT_EQ(VPU_CMD_TIMESTAMP, commandList->getNNCommands()[0]->getCommandType());
+    /* Timestamp is split by UMD to two commands aligned TS and copy */
+    EXPECT_EQ(2UL, commandList->getNumCommands());
+    EXPECT_EQ(VPU_CMD_TIMESTAMP, commandList->getCommands()[0]->getCommandType());
 }
 
 TEST_F(CommandListApiTest, whenCalledAppendWriteGlobalTimestampAfterCloseFailureIsReturned) {
@@ -224,20 +225,22 @@ TEST_F(CommandListApiTest, eventSyncObjectsAttachedWithTSCommand) {
     result = commandList->close();
     EXPECT_EQ(ZE_RESULT_SUCCESS, result);
 
-    // 3 wait on + 1 TS command + 1 signal.
-    ASSERT_EQ(5UL, commandList->getNumCommands());
+    // 3 wait on + 2 TS command + 1 signal.
+    ASSERT_EQ(6UL, commandList->getNumCommands());
 
     // Expected command order.
     //  3 x Wait on event | TS | signal event.
-    std::array<vpu_cmd_type, 5> expectedCommandTypes = {VPU_CMD_FENCE_WAIT,
-                                                        VPU_CMD_FENCE_WAIT,
-                                                        VPU_CMD_FENCE_WAIT,
-                                                        VPU_CMD_TIMESTAMP,
-                                                        VPU_CMD_FENCE_SIGNAL};
+    std::array<vpu_cmd_type, 6> expectedCommandTypes = {
+        VPU_CMD_FENCE_WAIT,
+        VPU_CMD_FENCE_WAIT,
+        VPU_CMD_FENCE_WAIT,
+        VPU_CMD_TIMESTAMP,           // TS to aligned buf
+        VPU_CMD_COPY_LOCAL_TO_LOCAL, // Copy result of TS to unaligned buf
+        VPU_CMD_FENCE_SIGNAL};
 
-    ASSERT_EQ(expectedCommandTypes.size(), commandList->getNNCommands().size());
+    ASSERT_EQ(expectedCommandTypes.size(), commandList->getCommands().size());
     for (size_t i = 0; i < expectedCommandTypes.size(); i++)
-        ASSERT_EQ(expectedCommandTypes[i], commandList->getNNCommands()[i]->getCommandType());
+        ASSERT_EQ(expectedCommandTypes[i], commandList->getCommands()[i]->getCommandType());
 }
 
 TEST_F(CommandListApiTest, whenCalledAppendMemoryCopyWithCorrectProgramSequenceSuccessIsReturned) {
@@ -286,9 +289,9 @@ TEST_F(CommandListApiTest, eventSyncObjectsAttachedWithMemoryCopyCommand) {
                                                         VPU_CMD_COPY_LOCAL_TO_LOCAL,
                                                         VPU_CMD_FENCE_SIGNAL};
 
-    ASSERT_EQ(expectedCommandTypes.size(), commandList->getNNCommands().size());
+    ASSERT_EQ(expectedCommandTypes.size(), commandList->getCommands().size());
     for (size_t i = 0; i < expectedCommandTypes.size(); i++)
-        ASSERT_EQ(expectedCommandTypes[i], commandList->getNNCommands()[i]->getCommandType());
+        ASSERT_EQ(expectedCommandTypes[i], commandList->getCommands()[i]->getCommandType());
 
     EXPECT_TRUE(ctx->freeMemAlloc(srcPtr));
 }
@@ -399,8 +402,8 @@ TEST_F(CommandListEventApiTest, givenCallAppendSignalEventSuccessIsReturned) {
     EXPECT_EQ(ZE_RESULT_SUCCESS, zeCommandListAppendSignalEvent(commandList->toHandle(), hEvent));
     EXPECT_EQ(ZE_RESULT_SUCCESS, zeCommandListClose(commandList->toHandle()));
 
-    EXPECT_EQ(1u, commandList->getNNCommands().size());
-    EXPECT_EQ(VPU_CMD_FENCE_SIGNAL, commandList->getNNCommands()[0]->getCommandType());
+    EXPECT_EQ(1u, commandList->getCommands().size());
+    EXPECT_EQ(VPU_CMD_FENCE_SIGNAL, commandList->getCommands()[0]->getCommandType());
 }
 
 TEST_F(CommandListEventApiTest, givenCallAppendSignalEventWithInvalidParamsReturnFiailure) {
@@ -415,8 +418,8 @@ TEST_F(CommandListEventApiTest, givenCallAppendResetEventSuccessIsReturned) {
     EXPECT_EQ(ZE_RESULT_SUCCESS, zeCommandListAppendEventReset(commandList->toHandle(), hEvent));
     EXPECT_EQ(ZE_RESULT_SUCCESS, zeCommandListClose(commandList->toHandle()));
 
-    EXPECT_EQ(1u, commandList->getNNCommands().size());
-    EXPECT_EQ(VPU_CMD_FENCE_SIGNAL, commandList->getNNCommands()[0]->getCommandType());
+    EXPECT_EQ(1u, commandList->getCommands().size());
+    EXPECT_EQ(VPU_CMD_FENCE_SIGNAL, commandList->getCommands()[0]->getCommandType());
 }
 
 TEST_F(CommandListEventApiTest, givenCallAppendResetEventWithInvalidParamsReturnFiailure) {
@@ -443,8 +446,8 @@ TEST_F(CommandListEventApiTest, givenCallAppendWaitEventSuccessIsReturned) {
               zeCommandListAppendWaitOnEvents(commandList->toHandle(), evPoolCap, phEvent));
     EXPECT_EQ(ZE_RESULT_SUCCESS, zeCommandListClose(commandList->toHandle()));
 
-    EXPECT_EQ(evPoolCap, commandList->getNNCommands().size());
-    for (const auto &cmd : commandList->getNNCommands())
+    EXPECT_EQ(evPoolCap, commandList->getCommands().size());
+    for (const auto &cmd : commandList->getCommands())
         EXPECT_EQ(VPU_CMD_FENCE_WAIT, cmd->getCommandType());
 
     for (uint32_t i = 1; i < evPoolCap; ++i)
