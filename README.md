@@ -84,7 +84,7 @@ Install required dependencies in Ubuntu
 
 ```
 sudo apt update
-sudo apt install -y build-essential git cmake libudev-dev libboost-all-dev
+sudo apt install -y build-essential git git-lfs cmake libudev-dev libboost-all-dev
 ```
 
 Commands to build driver
