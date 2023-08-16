@@ -30,6 +30,7 @@ VPUDevice::VPUDevice(std::string devnode, OsInterface &osInfc)
 
 bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
     struct drm_ivpu_param arg = {};
+    uint32_t deviceId;
 
     arg.param = DRM_IVPU_PARAM_DEVICE_ID;
     if (drvApi->getDeviceParam(&arg)) {
@@ -37,10 +38,13 @@ bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
         return false;
     }
 
+    deviceId = boost::numeric_cast<uint32_t>(arg.value);
+
     LOG_I("Pci device ID: %#llx", arg.value);
-    for (auto info : VPUHwInfos) {
-        if (info.deviceId == arg.value) {
+    for (auto &info : VPUHwInfos) {
+        if (info.IsDeviceId(deviceId)) {
             hwInfo = info;
+            hwInfo.deviceId = deviceId;
             break;
         }
     }
@@ -77,6 +81,13 @@ bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
         return false;
     }
     hwInfo.platformType = boost::numeric_cast<uint32_t>(arg.value);
+
+    arg.param = DRM_IVPU_PARAM_TILE_CONFIG;
+    if (drvApi->getDeviceParam(&arg)) {
+        LOG_E("Failed to get tile config using ioctl. -errno: %d", errno);
+        return false;
+    }
+    hwInfo.tileConfig = (~boost::numeric_cast<uint32_t>(arg.value)) & hwInfo.tileFuseMask;
 
     arg.param = DRM_IVPU_PARAM_CONTEXT_BASE_ADDRESS;
     if (drvApi->getDeviceParam(&arg) != 0) {
@@ -266,7 +277,7 @@ bool VPUDevice::init() {
     LOG_V("Initializing VPU device.");
 
     if (devnode.empty()) {
-        LOG_W("vpuInfo is null.");
+        LOG_W("Device node is null.");
         return false;
     }
 
@@ -311,10 +322,7 @@ size_t VPUDevice::getNumberOfEngineGroups(void) const {
 }
 
 size_t VPUDevice::getEngineMaxMemoryFillSize(EngineType engineType) {
-    if (engineType == EngineType::COPY)
-        return std::numeric_limits<uint32_t>::max();
-
-    return 0u;
+    return sizeof(uint32_t);
 }
 
 EngineType VPUDevice::getEngineType(uint32_t engGrpIdx) {

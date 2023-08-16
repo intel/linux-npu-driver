@@ -7,7 +7,9 @@
 
 #pragma once
 
+#include "level_zero/ze_api.h"
 #include "level_zero/ze_graph_ext.h"
+#include "level_zero/ze_graph_profiling_ext.h"
 
 namespace L0 {
 
@@ -30,6 +32,16 @@ zeGraphGetArgumentProperties(ze_graph_handle_t hGraph,
                              uint32_t argIndex,
                              ze_graph_argument_properties_t *pGraphArgumentProperties);
 
+ze_result_t ZE_APICALL
+zeGraphGetArgumentProperties2(ze_graph_handle_t hGraph,
+                              uint32_t argIndex,
+                              ze_graph_argument_properties_2_t *pGraphArgumentProperties);
+
+ze_result_t ZE_APICALL
+zeGraphGetArgumentProperties3(ze_graph_handle_t hGraph,
+                              uint32_t argIndex,
+                              ze_graph_argument_properties_3_t *pGraphArgumentProperties);
+
 ze_result_t ZE_APICALL zeGraphSetArgumentValue(ze_graph_handle_t hGraph,
                                                uint32_t argIndex,
                                                const void *pArgValue);
@@ -50,6 +62,11 @@ ze_result_t ZE_APICALL zeAppendGraphExecute(ze_command_list_handle_t hCommandLis
 ze_result_t ZE_APICALL
 zeDeviceGetGraphProperties(ze_device_handle_t hDevice,
                            ze_device_graph_properties_t *pDeviceGraphProperties);
+
+ze_result_t ZE_APICALL
+zeGraphGetArgumentMetadata(ze_graph_handle_t hGraph,
+                           uint32_t argIndex,
+                           ze_graph_argument_metadata_t *pGraphArgumentMetadata);
 
 ze_result_t ZE_APICALL
 zeGraphProfilingPoolCreate(ze_graph_handle_t hGraph,
@@ -75,5 +92,19 @@ zeGraphProfilingQueryGetData(ze_graph_profiling_query_handle_t hProfilingQuery,
 ze_result_t ZE_APICALL zeDeviceGetProfilingDataProperties(
     ze_device_handle_t hDevice,
     ze_device_profiling_data_properties_t *pDeviceProfilingDataProperties);
+
+ze_result_t ZE_APICALL
+zeGraphQueryNetworkCreate(ze_context_handle_t hContext,
+                          ze_device_handle_t hDevice,
+                          const ze_graph_desc_t *desc,
+                          ze_graph_query_network_handle_t *phGraphQueryNetwork);
+
+ze_result_t ZE_APICALL
+zeGraphQueryNetworkDestroy(ze_graph_query_network_handle_t hGraphQueryNetwork);
+
+ze_result_t ZE_APICALL
+zeGraphQueryNetworkGetSupportedLayers(ze_graph_query_network_handle_t hGraphQueryNetwork,
+                                      size_t *pSize,
+                                      char *pSupportedLayers);
 
 } // namespace L0

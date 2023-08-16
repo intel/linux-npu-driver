@@ -3,8 +3,8 @@
  * Copyright © 2020-2023 Intel Corporation
  */
 
-#ifndef VPU_NCE_HW_MTL_H
-#define VPU_NCE_HW_MTL_H
+#ifndef VPU_NCE_HW_37XX_H
+#define VPU_NCE_HW_37XX_H
 
 namespace nn_public {
 
@@ -449,7 +449,9 @@ enum class VpuHWPStatMode : uint8_t {
     // dense_wt, sparse_wt, idu_time_stat
     MODE2 = 02,
     // dense_act, sparse_act, idu_time_stat
-    MODE3 = 03
+    MODE3 = 03,
+    // invalid
+    INVALID_MODE = 04
 };
 
 enum class VpuActWLType : uint8_t {

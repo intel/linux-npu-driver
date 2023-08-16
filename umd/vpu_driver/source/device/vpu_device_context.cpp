@@ -125,32 +125,12 @@ VPUBufferObject *VPUDeviceContext::createInternalBufferObject(size_t size,
         return nullptr;
     }
 
-    return bo;
-}
-
-CopyDirection VPUDeviceContext::getCopyDirection(void *dstPtr, const void *srcPtr) {
-    auto dstBO = findBuffer(dstPtr);
-    auto srcBO = findBuffer(srcPtr);
-
-    if (dstBO != nullptr && srcBO != nullptr) {
-        auto dstLoc = dstBO->getLocation();
-        auto srcLoc = srcBO->getLocation();
-        LOG_I("Destination mem type: %d Source mem type: %d",
-              static_cast<int>(dstLoc),
-              static_cast<int>(srcLoc));
-
-        if ((srcLoc == VPUBufferObject::Location::Device ||
-             srcLoc == VPUBufferObject::Location::Shared) &&
-            (dstLoc == VPUBufferObject::Location::Device ||
-             dstLoc == VPUBufferObject::Location::Shared)) {
-            return COPY_LOCAL_TO_LOCAL;
-        }
-
-        return COPY_SYSTEM_TO_SYSTEM;
+    if (!(range == VPUBufferObject::Type::UncachedHigh ||
+          range == VPUBufferObject::Type::UncachedLow)) {
+        memset(bo->getBasePointer(), 0, bo->getAllocSize());
     }
 
-    LOG_E("Buffer objects invalid.");
-    return COPY_INVALID;
+    return bo;
 }
 
 size_t VPUDeviceContext::getPageAlignedSize(size_t reqSize) {
@@ -204,7 +184,6 @@ bool VPUDeviceContext::submitJob(const VPUJob *job) {
     }
 
     for (const auto &cmdBuffer : job->getCommandBuffers()) {
-        cmdBuffer->printCommandBuffer(job->getDescriptorPtr());
         if (!submitCommandBuffer(cmdBuffer.get())) {
             LOG_E("Failed to submit job using cmdBuffer: %p", cmdBuffer.get());
             return false;
@@ -234,6 +213,18 @@ void VPUDeviceContext::printCopyDescriptor(void *desc, vpu_cmd_header_t *cmd) {
     }
 
     hwInfo->printCopyDescriptor(desc, cmd);
+}
+
+bool VPUDeviceContext::getUniqueInferenceId(uint64_t &inferenceId) {
+    struct drm_ivpu_param deviceParameter = {};
+    deviceParameter.param = DRM_IVPU_PARAM_UNIQUE_INFERENCE_ID;
+    if (drvApi->getDeviceParam(&deviceParameter)) {
+        LOG_E("Failed to get inference ID");
+        return false;
+    }
+
+    inferenceId = deviceParameter.value;
+    return true;
 }
 
 } // namespace VPU

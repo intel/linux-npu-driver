@@ -18,6 +18,7 @@
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
 
 #include <level_zero/ze_api.h>
+#include <level_zero/ze_intel_vpu_uuid.h>
 #include <vector>
 #include <memory>
 
@@ -81,7 +82,7 @@ TEST_F(SingleDeviceTest, checkVPUSupportingMemoryAccess) {
 }
 
 TEST_F(SingleDeviceTest, givenCallToDevicePropertiesThenBasicPropertiesCorrectlyReturned) {
-    ze_device_properties_t l0DevProps;
+    ze_device_properties_t l0DevProps = {};
     l0DevProps.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
 
     device->getProperties(&l0DevProps);
@@ -125,7 +126,7 @@ TEST_F(SingleDeviceTest, givenCallToDevicePropertiesThenBasicPropertiesCorrectly
     EXPECT_EQ(l0DevProps.numSubslicesPerSlice, hwInfo.numSubslicesPerSlice);
 
     // Number of slices.
-    EXPECT_EQ(l0DevProps.numSlices, 1u);
+    EXPECT_EQ(l0DevProps.numSlices, 2u);
 
     const int NS_IN_SEC = 1'000'000'000;
     // Resolution of device timer in nanoseconds used for profiling, timestamps, etc.
@@ -140,22 +141,9 @@ TEST_F(SingleDeviceTest, givenCallToDevicePropertiesThenBasicPropertiesCorrectly
     // Device name.
     EXPECT_STREQ(l0DevProps.name, hwInfo.name);
 
-    // UUID
-    EXPECT_EQ(reinterpret_cast<uint32_t *>(l0DevProps.uuid.id)[0], INTEL_PCI_VENDOR_ID);
-
-    auto uuid_id_1 = reinterpret_cast<uint32_t *>(l0DevProps.uuid.id)[1];
-    EXPECT_TRUE(uuid_id_1 == VPU::mtlHwInfo.deviceId);
-
-    EXPECT_EQ(reinterpret_cast<uint32_t *>(l0DevProps.uuid.id)[2], 0u);
-
-    auto platformType = reinterpret_cast<uint32_t *>(l0DevProps.uuid.id)[3];
-    EXPECT_TRUE(platformType == 0u || platformType == 2u || platformType == 3u);
-
-    // VPU device property flags (Assume, integrated dev with ECC supported).
-    EXPECT_TRUE(hwInfo.isIntegrated);
-    EXPECT_FALSE(hwInfo.isSubdevice);
-    EXPECT_FALSE(hwInfo.isSupportEcc);
-    EXPECT_FALSE(hwInfo.isSupportOnDemandPaging);
+    // Device UUID.
+    ze_device_uuid_t uuid = ze_intel_vpu_device_uuid;
+    EXPECT_EQ(memcmp(&l0DevProps.uuid, &uuid, sizeof(l0DevProps.uuid)), 0);
 }
 
 TEST_F(SingleDeviceTest, givenCallToGetDeviceMemoryPropertiesExpectedValuesReturned) {

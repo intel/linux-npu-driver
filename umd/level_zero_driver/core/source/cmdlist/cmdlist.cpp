@@ -11,9 +11,9 @@
 #include "level_zero_driver/tools/source/metrics/metric_query.hpp"
 #include "vpu_driver/source/command/vpu_barrier_command.hpp"
 #include "vpu_driver/source/command/vpu_copy_command.hpp"
-#include "vpu_driver/source/command/vpu_memory_fill_command.hpp"
 #include "vpu_driver/source/command/vpu_query_command.hpp"
 #include "vpu_driver/source/command/vpu_ts_command.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 namespace L0 {
@@ -27,11 +27,15 @@ CommandList *
 CommandList::create(bool isCopyOnly, VPU::VPUDeviceContext *ctx, ze_result_t &returnValue) {
     CommandList *commandList = new CommandList(isCopyOnly, ctx);
 
-    returnValue = ZE_RESULT_SUCCESS;
+    returnValue =
+        (commandList != nullptr) ? ZE_RESULT_SUCCESS : ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     return commandList;
 }
 
 ze_result_t CommandList::destroy() {
+    for (auto &bo : tracedInternalBos)
+        ctx->freeMemAlloc(bo);
+    tracedInternalBos.clear();
     delete this;
     LOG_I("CommandList destroyed.");
     return ZE_RESULT_SUCCESS;
@@ -52,6 +56,9 @@ ze_result_t CommandList::close() {
 }
 
 ze_result_t CommandList::reset() {
+    for (auto &bo : tracedInternalBos)
+        ctx->freeMemAlloc(bo);
+    tracedInternalBos.clear();
     vpuJob = std::make_shared<VPU::VPUJob>(ctx, isCopyOnlyCmdList);
 
     return ZE_RESULT_SUCCESS;
@@ -171,16 +178,32 @@ ze_result_t CommandList::appendMemoryFill(void *ptr,
         LOG_E("Pointer to value to initialize memory passed as nullptr.");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
+    if (!(patternSize == 1u || patternSize == 2u || patternSize == 4u)) {
+        LOG_E("Invalid pattern size %ld. Value should be power of 2. Max = 4.", patternSize);
+        return ZE_RESULT_ERROR_INVALID_SIZE;
+    }
 
-    // Append a memory fill command.
-    return appendCommandWithEvents<VPU::VPUMemoryFillCommand>(hSignalEvent,
-                                                              numWaitEvents,
-                                                              phWaitEvents,
-                                                              ctx,
-                                                              ptr,
-                                                              pattern,
-                                                              patternSize,
-                                                              size);
+    auto patternBo =
+        ctx->createInternalBufferObject(size + patternSize, VPU::VPUBufferObject::Type::CachedHigh);
+    if (patternBo == nullptr) {
+        LOG_E("Failed to allocate memory");
+        return ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY;
+    }
+    tracedInternalBos.push_back(patternBo);
+
+    if (!patternBo->fillBuffer(pattern, patternSize)) {
+        LOG_E("Failed to fill memory");
+        return ZE_RESULT_ERROR_INVALID_SIZE;
+    }
+
+    // Implemet fill by memory copy from internal filled buffer to user buffer.
+    return appendCommandWithEvents<VPU::VPUCopyCommand>(hSignalEvent,
+                                                        numWaitEvents,
+                                                        phWaitEvents,
+                                                        ctx,
+                                                        patternBo->getBasePointer(),
+                                                        ptr,
+                                                        size);
 }
 
 ze_result_t CommandList::appendWriteGlobalTimestamp(uint64_t *dstptr,
@@ -191,12 +214,41 @@ ze_result_t CommandList::appendWriteGlobalTimestamp(uint64_t *dstptr,
         LOG_E("dstptr is NULL.");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
-    // Append a TS command.
-    return appendCommandWithEvents<VPU::VPUTimeStampCommand>(hSignalEvent,
-                                                             numWaitEvents,
-                                                             phWaitEvents,
-                                                             ctx,
-                                                             dstptr);
+
+    auto dstBo = ctx->findBuffer(dstptr);
+    if (dstBo == nullptr) {
+        LOG_E("Buffer object not found");
+        return ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY;
+    }
+
+    auto allignedBo =
+        ctx->createInternalBufferObject(sizeof(uint64_t), VPU::VPUBufferObject::Type::CachedLow);
+
+    if (allignedBo == nullptr) {
+        LOG_E("Failed to allocate memory");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    tracedInternalBos.push_back(allignedBo);
+
+    ze_result_t ret;
+    ret = appendCommandWithEvents<VPU::VPUTimeStampCommand>(
+        nullptr,
+        numWaitEvents,
+        phWaitEvents,
+        ctx,
+        reinterpret_cast<uint64_t *>(allignedBo->getBasePointer()));
+    if (ret != ZE_RESULT_SUCCESS) {
+        LOG_E("Failed to append command");
+        return ret;
+    }
+
+    return appendCommandWithEvents<VPU::VPUCopyCommand>(hSignalEvent,
+                                                        0,
+                                                        nullptr,
+                                                        ctx,
+                                                        allignedBo->getBasePointer(),
+                                                        dstptr,
+                                                        sizeof(uint64_t));
 }
 
 ze_result_t CommandList::appendGraphInitialize(ze_graph_handle_t hGraph,
@@ -386,7 +438,6 @@ ze_result_t CommandList::appendWaitOnEvents(uint32_t numEvents, ze_event_handle_
             return ZE_RESULT_ERROR_UNKNOWN;
         }
 
-        event->associateJob(vpuJob);
         LOG_V("Successfully appended event wait command to CommandList.");
     }
     return ZE_RESULT_SUCCESS;
@@ -420,7 +471,6 @@ ze_result_t CommandList::appendEventReset(ze_event_handle_t hEvent) {
         return ZE_RESULT_ERROR_UNKNOWN;
     }
 
-    event->associateJob(vpuJob);
     LOG_V("Successfully appended reset event command to CommandList.");
     return ZE_RESULT_SUCCESS;
 }

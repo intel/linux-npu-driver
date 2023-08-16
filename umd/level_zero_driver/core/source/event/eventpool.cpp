@@ -62,8 +62,7 @@ EventPool::EventPool(DriverHandle *driver,
                      ze_device_handle_t *phDevices,
                      uint32_t numEvents,
                      ze_event_pool_flags_t flags)
-    : phDriver(driver)
-    , ctx(ctx)
+    : ctx(ctx)
     , pEventPool(nullptr)
     , szEventCap(numEvents)
     , szEventAllocated(0)
@@ -146,22 +145,19 @@ ze_result_t EventPool::createEvent(const ze_event_desc_t *desc, ze_event_handle_
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    if (phDriver == nullptr) {
-        LOG_E("Invalid driver handle.");
+    auto *eventPtr = allocateEvent(desc->index);
+    if (eventPtr == nullptr) {
+        LOG_E("Failed to get event from event pool");
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    auto device = phDriver->getPrimaryDevice();
-    if (device == nullptr) {
-        LOG_E("Driver handle failed to retrieve primary device.");
-        return ZE_RESULT_ERROR_DEVICE_LOST;
-    }
-
-    auto newEvent = Event::create(this, desc);
+    uint64_t vpuAddr = ctx->getBufferVPUAddress(eventPtr);
+    auto newEvent = new Event(this, desc->index, eventPtr, vpuAddr);
     if (newEvent == nullptr) {
         LOG_E("Failed to initialize event.");
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
+
     *phEvent = newEvent;
     szEventAllocated++;
     return ZE_RESULT_SUCCESS;

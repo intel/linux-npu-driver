@@ -11,8 +11,8 @@
  * @{
  */
 
-#ifndef VPU_DMA_HW_MTL_H_
-#define VPU_DMA_HW_MTL_H_
+#ifndef VPU_DMA_HW_37XX_H_
+#define VPU_DMA_HW_37XX_H_
 
 /*
  * If changes are made to this file that break backwards compatibility, e.g. adding struct
@@ -105,6 +105,6 @@ typedef struct vpu_dma_descriptor ALIGN_DMA(VPU_CPU_L2CACHE_ALIGNMENT) vpu_dma_d
 static_assert(sizeof(vpu_dma_descriptor_t) == 80, "DMA descriptor size != 80");
 
 #pragma pack(pop)
-#endif /* ifndef VPU_DMA_HW_MTL_H_ */
+#endif /* ifndef VPU_DMA_HW_37XX_H_ */
 
 /** @} */

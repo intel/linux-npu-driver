@@ -55,42 +55,6 @@ VPUEventCommand::VPUEventCommand(VPUDeviceContext *ctx,
     appendAssociateBufferObject(ctx, eventHeapPtr);
 }
 
-VPUEventCommand::VPUEventCommand(const EngineSupport engType,
-                                 const vpu_cmd_type cmdType,
-                                 const KMDEventDataType eventState,
-                                 uint8_t intEventIndex)
-    : VPUCommand(engType)
-    , internalEventIndex(intEventIndex) {
-    vpu_cmd_fence_t cmd = {};
-
-    cmd.header.type = cmdType;
-    cmd.header.size = sizeof(vpu_cmd_fence_t);
-    cmd.value = eventState;
-    command.emplace<vpu_cmd_fence_t>(cmd);
-}
-
-bool VPUEventCommand::updateInternalEventOffsets(VPUDeviceContext *ctx,
-                                                 KMDEventDataType *eventHeapPtr) {
-    if (ctx == nullptr) {
-        LOG_E("Context is nullptr in updateInternalEventOffsets");
-        return false;
-    }
-
-    VPUBufferObject *eventBuffer = ctx->findBuffer(eventHeapPtr);
-    if (eventBuffer == nullptr) {
-        LOG_E("Event pointer %p is not allocated within context %p", eventHeapPtr, ctx);
-        return false;
-    }
-    auto cmd = std::any_cast<vpu_cmd_fence_t>(&command);
-    cmd->offset = boost::numeric_cast<uint32_t>(ctx->getBufferVPUAddress(eventHeapPtr) -
-                                                ctx->getVPULowBaseAddress());
-    LOG_I("Event offset is set to %lu.", cmd->offset);
-
-    appendAssociateBufferObject(ctx, eventHeapPtr);
-
-    return true;
-}
-
 const char *VPUEventCommand::getEventCommandStr(const vpu_cmd_type cmdType,
                                                 const KMDEventDataType eventState) {
     if (cmdType == VPU_CMD_FENCE_SIGNAL) {

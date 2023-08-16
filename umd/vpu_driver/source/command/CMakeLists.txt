@@ -17,8 +17,6 @@ target_sources(${TARGET_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/vpu_ts_command.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vpu_copy_command.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vpu_copy_command.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/vpu_memory_fill_command.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/vpu_memory_fill_command.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vpu_graph_init_command.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vpu_graph_init_command.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vpu_graph_exe_command.hpp

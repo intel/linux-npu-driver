@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: MIT
 #
 
-set(L0_SRCS_EXT_API
+target_sources(${TARGET_NAME_L0} PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/ze_graph.cpp
 )
-set_property(GLOBAL APPEND PROPERTY L0_SRCS_EXT_API ${L0_SRCS_EXT_API})

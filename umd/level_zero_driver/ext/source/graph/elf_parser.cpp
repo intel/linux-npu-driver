@@ -8,24 +8,15 @@
 #include "level_zero_driver/ext/source/graph/elf_parser.hpp"
 #include "level_zero/ze_graph_ext.h"
 
-#include <stdexcept>
-#include <umd_common.hpp>
 #include <api/vpu_nnrt_api.h>
-
-#include <algorithm>
 #include <boost/numeric/conversion/cast.hpp>
-#include <exception>
 #include <string.h>
-#include <vpux_elf/utils/error.hpp>
 #include <vpux_elf/accessor.hpp>
-#include <vpux_elf/reader.hpp>
+#include <vpux_headers/buffer_manager.hpp>
+#include <vpux_headers/device_buffer.hpp>
 #include <vpux_headers/metadata.hpp>
-#include <vpux_loader/vpux_loader.hpp>
-#include <vpux_sym_tab/3720/SymTabGen.h>
-
-namespace elf {
-SymbolEntry SymTabGen::symTab_[SymTabGen::N_TABS][SymTabGen::SPECIAL_SYMTAB_SIZE] = {};
-} // namespace elf
+#include <vpux_elf/types/vpu_extensions.hpp>
+#include <vpux_elf/utils/error.hpp>
 
 namespace L0 {
 
@@ -37,9 +28,9 @@ class DriverBufferManager : public elf::BufferManager {
 
     VPU::VPUBufferObject::Type getBufferType(elf::Elf_Xword flag) {
         if (flag & elf::SHF_EXECINSTR)
-            return VPU::VPUBufferObject::Type::CachedLow;
+            return VPU::VPUBufferObject::Type::WriteCombineLow;
 
-        return VPU::VPUBufferObject::Type::CachedHigh;
+        return VPU::VPUBufferObject::Type::WriteCombineHigh;
     }
 
     elf::DeviceBuffer allocate(const elf::BufferSpecs &buffSpecs) override {
@@ -49,7 +40,7 @@ class DriverBufferManager : public elf::BufferManager {
               buffSpecs.procFlags);
 
         size_t size = buffSpecs.size;
-        if (buffSpecs.size == 0) {
+        if (size == 0) {
             LOG_W("WA for buffSpecs.size == 0 -> set size to 1");
             size = 1;
         }
@@ -65,7 +56,7 @@ class DriverBufferManager : public elf::BufferManager {
               bo->getBasePointer(),
               bo->getVPUAddr(),
               bo->getAllocSize());
-        return elf::DeviceBuffer(bo->getBasePointer(), bo->getVPUAddr(), buffSpecs.size);
+        return elf::DeviceBuffer(bo->getBasePointer(), bo->getVPUAddr(), size);
     }
 
     void deallocate(elf::DeviceBuffer &devAddress) override {
@@ -111,64 +102,45 @@ class DriverBufferManager : public elf::BufferManager {
 };
 
 ElfParser::ElfParser(VPU::VPUDeviceContext *ctx,
-                     std::unique_ptr<elf::BufferManager> manager,
-                     std::unique_ptr<elf::VPUXLoader> loader)
+                     std::unique_ptr<elf::BufferManager> buffer,
+                     std::unique_ptr<elf::AccessManager> access,
+                     std::unique_ptr<elf::HostParsedInference> hpi)
     : ctx(ctx)
-    , manager(std::move(manager))
-    , loader(std::move(loader))
-    , hostParsedInference(nullptr) {}
+    , bufferManager(std::move(buffer))
+    , accessManager(std::move(access))
+    , hpi(std::move(hpi)) {}
 
-ElfParser::~ElfParser() {
-    if (hostParsedInference)
-        if (!ctx->freeMemAlloc(hostParsedInference))
-            LOG_E("Failed to free hostParsedInference memory");
-}
+ElfParser::~ElfParser() {}
 
-static elf::ResourceRequirements readResourcesFromElf(elf::ElfDDRAccessManager *elfAccess) {
-    /* TODO: Temporary solution */
-    // The loader must be initialized with a pre-generated symtab.
-    // To generate a symtab for a configuration (one cluster/two clusters), the resource
-    // requirements shoud be read before the loader starts to apply relocations.
-    elf::Reader<elf::ELF_Bitness::Elf64> notReader(elfAccess);
-
-    auto nSections = notReader.getSectionsNum();
-
-    for (size_t i = 0; i < nSections; i++) {
-        const auto &section = notReader.getSection(i);
-
-        const auto sectionHeader = section.getHeader();
-        auto sectionType = sectionHeader->sh_type;
-
-        if (sectionType == elf::VPU_SHT_NETDESC) {
-            LOG_I("Found section with resource, name: %s, type: %u",
-                  section.getName(),
-                  sectionType);
-            return *(section.getData<elf::ResourceRequirements>());
-        }
-    }
-
-    throw std::runtime_error("Failed to find a resource");
-}
-
-std::optional<ElfParser>
-ElfParser::getElfParser(VPU::VPUDeviceContext *ctx, uint8_t *ptr, size_t size) {
-    elf::SymTabGen::initSymTab();
-    auto bufferManager = std::make_unique<DriverBufferManager>(ctx);
-    auto elfAccess = std::make_unique<elf::ElfDDRAccessManager>(ptr, size);
-
+static std::unique_ptr<elf::HostParsedInference>
+createHostParsedInference(elf::BufferManager *buffer, elf::AccessManager *access) {
     try {
-        auto resReq = readResourcesFromElf(elfAccess.get());
-        auto loader =
-            std::make_unique<elf::VPUXLoader>(elfAccess.get(),
-                                              bufferManager.get(),
-                                              elf::SymTabGen::symTab(resReq.nn_slice_count_));
-        return ElfParser(ctx, std::move(bufferManager), std::move(loader));
+        return std::make_unique<elf::HostParsedInference>(buffer, access);
     } catch (const elf::RuntimeError &err) {
-        LOG_E("Failed to create elf::VPUXLoader, type: elf::RuntimeError, reason: %s", err.what());
+        LOG_E("Failed to create elf::HostParsedInference, type: elf::RuntimeError, reason: %s",
+              err.what());
     } catch (const elf::LogicError &err) {
-        LOG_E("Failed to create elf::VPUXLoader, type: elf::LogicError, reason: %s", err.what());
+        LOG_E("Failed to create elf::HostParsedInference, type: elf::LogicError, reason: %s",
+              err.what());
+    } catch (const std::exception &err) {
+        LOG_E("Unhandled exception while creating elf::HostParsedInference, reason: %s",
+              err.what());
     }
-    return std::nullopt;
+    return nullptr;
+}
+
+std::unique_ptr<ElfParser>
+ElfParser::getElfParser(VPU::VPUDeviceContext *ctx, uint8_t *ptr, size_t size) {
+    auto bufferManager = std::make_unique<DriverBufferManager>(ctx);
+    auto accessManager = std::make_unique<elf::ElfDDRAccessManager>(ptr, size);
+    auto hpi = createHostParsedInference(bufferManager.get(), accessManager.get());
+    if (hpi != nullptr)
+        return std::make_unique<ElfParser>(ctx,
+                                           std::move(bufferManager),
+                                           std::move(accessManager),
+                                           std::move(hpi));
+
+    return nullptr;
 }
 
 ze_graph_argument_precision_t ElfParser::getTensorPrecision(elf::DType type) {
@@ -307,15 +279,17 @@ static ze_graph_argument_layout_t getDeviceLayout(const elf::TensorRef &tensor) 
     return computeLayoutFromStride(tensor.strides, tensor.strides_size);
 }
 
-void ElfParser::getArgumentProperties(std::vector<ze_graph_argument_properties_t> &props) const {
-    auto metadata = loader->getNetworkMetadata();
+void ElfParser::getArgumentProperties(std::vector<ze_graph_argument_properties_3_t> &props) const {
+    auto metadata = hpi->getMetadata();
 
     props.reserve(metadata.in_tenosr_count + metadata.out_tensor_count);
 
     auto convert = [](const elf::TensorRef &devTensor,
                       const elf::TensorRef &netTensor,
+                      const elf::OVNode &node,
                       ze_graph_argument_type_t argType) {
-        ze_graph_argument_properties_t prop = {};
+        ze_graph_argument_properties_3_t prop = {};
+        prop.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES;
 
         strncpy(prop.name, netTensor.name, std::min(sizeof(prop.name), strlen(netTensor.name)));
         prop.type = argType;
@@ -326,10 +300,26 @@ void ElfParser::getArgumentProperties(std::vector<ze_graph_argument_properties_t
                 prop.dims[j] = 1;
             }
         }
+        prop.dims_count = devTensor.dimensions_size;
         prop.networkPrecision = getTensorPrecision(netTensor.data_type);
         prop.networkLayout = getNetworkLayout(netTensor);
         prop.devicePrecision = getTensorPrecision(devTensor.data_type);
         prop.deviceLayout = getDeviceLayout(devTensor);
+
+        // TODO: Add support for quantization parameters
+        prop.quantReverseScale = 1.f;
+        prop.quantZeroPoint = 0;
+
+        strncpy(prop.debug_friendly_name,
+                node.friendly_name,
+                std::min(sizeof(prop.debug_friendly_name), strlen(node.friendly_name)));
+
+        for (unsigned i = 0; i < node.tensor_names_count; i++) {
+            strncpy(prop.associated_tensor_names[i],
+                    node.tensor_names[i],
+                    sizeof(prop.associated_tensor_names[i]));
+        }
+        prop.associated_tensor_names_count = node.tensor_names_count;
 
         return prop;
     };
@@ -337,6 +327,7 @@ void ElfParser::getArgumentProperties(std::vector<ze_graph_argument_properties_t
     for (size_t i = 0; i < metadata.in_tenosr_count; i++) {
         auto prop = convert(metadata.in_tensor_desc[i],
                             metadata.net_input[i],
+                            metadata.ov_parameters[i],
                             ZE_GRAPH_ARGUMENT_TYPE_INPUT);
         props.push_back(prop);
     }
@@ -344,16 +335,111 @@ void ElfParser::getArgumentProperties(std::vector<ze_graph_argument_properties_t
     for (size_t i = 0; i < metadata.out_tensor_count; i++) {
         auto prop = convert(metadata.out_tensor_desc[i],
                             metadata.net_output[i],
+                            metadata.ov_results[i],
                             ZE_GRAPH_ARGUMENT_TYPE_OUTPUT);
         props.push_back(prop);
     }
 }
 
-bool ElfParser::applyInputOutputs(
-    const std::vector<std::pair<const void *, uint32_t>> &inputPtrs,
-    const std::vector<std::pair<const void *, uint32_t>> &outputPtrs) {
-    auto getDeviceBuffers = [this](const std::vector<std::pair<const void *, uint32_t>> &ptrs,
-                                   std::vector<elf::DeviceBuffer> &buffers) {
+constexpr std::array<std::pair<elf::OVNodeType, ze_graph_metadata_type>, 18> toMetadataType = {{
+    {elf::OVNodeType_UNDEFINED, ZE_GRAPH_METADATA_TYPE_UNDEFINED},
+    {elf::OVNodeType_DYNAMIC, ZE_GRAPH_METADATA_TYPE_DYNAMIC},
+    {elf::OVNodeType_BOOLEAN, ZE_GRAPH_METADATA_TYPE_BOOLEAN},
+    {elf::OVNodeType_BF16, ZE_GRAPH_METADATA_TYPE_BF16},
+    {elf::OVNodeType_F16, ZE_GRAPH_METADATA_TYPE_F16},
+    {elf::OVNodeType_F32, ZE_GRAPH_METADATA_TYPE_F32},
+    {elf::OVNodeType_F64, ZE_GRAPH_METADATA_TYPE_F64},
+    {elf::OVNodeType_I4, ZE_GRAPH_METADATA_TYPE_I4},
+    {elf::OVNodeType_I8, ZE_GRAPH_METADATA_TYPE_I8},
+    {elf::OVNodeType_I16, ZE_GRAPH_METADATA_TYPE_I16},
+    {elf::OVNodeType_I32, ZE_GRAPH_METADATA_TYPE_I32},
+    {elf::OVNodeType_I64, ZE_GRAPH_METADATA_TYPE_I64},
+    {elf::OVNodeType_U1, ZE_GRAPH_METADATA_TYPE_U1},
+    {elf::OVNodeType_U4, ZE_GRAPH_METADATA_TYPE_U4},
+    {elf::OVNodeType_U8, ZE_GRAPH_METADATA_TYPE_U8},
+    {elf::OVNodeType_U16, ZE_GRAPH_METADATA_TYPE_U16},
+    {elf::OVNodeType_U32, ZE_GRAPH_METADATA_TYPE_U32},
+    {elf::OVNodeType_U64, ZE_GRAPH_METADATA_TYPE_U64},
+}};
+
+void ElfParser::getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &args) const {
+    auto metadata = hpi->getMetadata();
+
+    args.reserve(metadata.net_input_count + metadata.net_output_count);
+
+    auto convert = [](const elf::OVNode &node, ze_graph_argument_type_t type) {
+        ze_graph_argument_metadata_t arg = {};
+        arg.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_METADATA;
+        arg.type = type;
+
+        strncpy(arg.friendly_name,
+                node.friendly_name,
+                std::min(sizeof(arg.friendly_name), strlen(node.friendly_name)));
+
+        for (const auto &itr : toMetadataType) {
+            if (itr.first == node.type) {
+                arg.data_type = itr.second;
+                break;
+            }
+        }
+
+        std::copy(node.shape, node.shape + node.shape_size, &arg.shape[0]);
+        arg.shape_size = node.shape_size;
+
+        for (unsigned i = 0; i < node.tensor_names_count; i++) {
+            strncpy(arg.tensor_names[i], node.tensor_names[i], sizeof(arg.tensor_names[i]));
+        }
+        arg.tensor_names_count = node.tensor_names_count;
+        strncpy(arg.input_name,
+                node.input_name,
+                std::min(sizeof(arg.input_name), strlen(node.input_name)));
+
+        return arg;
+    };
+
+    for (size_t i = 0; i < metadata.net_input_count; i++) {
+        if (i >= metadata.ov_parameters_count) {
+            args.emplace_back();
+            continue;
+        }
+
+        auto arg = convert(metadata.ov_parameters[i], ZE_GRAPH_ARGUMENT_TYPE_INPUT);
+        args.push_back(arg);
+    }
+
+    for (size_t i = 0; i < metadata.net_output_count; i++) {
+        if (i >= metadata.ov_results_count) {
+            args.emplace_back();
+            continue;
+        }
+
+        auto arg = convert(metadata.ov_results[i], ZE_GRAPH_ARGUMENT_TYPE_OUTPUT);
+        args.push_back(arg);
+    }
+}
+
+bool ElfParser::getProfilingSize(uint32_t &size) const {
+    const auto &profBuffers = hpi->getProfBuffers();
+
+    if (profBuffers.size() == 0) {
+        size = 0;
+    } else if (profBuffers.size() == 1) {
+        size = boost::numeric_cast<uint32_t>(profBuffers[0].size());
+    } else {
+        LOG_E("Multiple profiling tensors are not supported");
+        return false;
+    }
+
+    return true;
+}
+
+bool ElfParser::applyInputOutputs(elf::HostParsedInference &hostParsedInference,
+                                  const std::vector<std::pair<const void *, uint32_t>> &inputPtrs,
+                                  const std::vector<std::pair<const void *, uint32_t>> &outputPtrs,
+                                  const std::pair<const void *, uint32_t> &profilingPtr,
+                                  std::vector<VPU::VPUBufferObject *> &bos) {
+    auto getDeviceBuffers = [this, &bos](const std::vector<std::pair<const void *, uint32_t>> &ptrs,
+                                         std::vector<elf::DeviceBuffer> &buffers) {
         buffers.reserve(ptrs.size());
 
         for (const auto &[ptr, size] : ptrs) {
@@ -363,7 +449,7 @@ bool ElfParser::applyInputOutputs(
                 return false;
             }
 
-            userBuffers.push_back(bo);
+            bos.push_back(bo);
 
             uint64_t vpuAddr = ctx->getBufferVPUAddress(ptr);
             uint8_t *basePtr = static_cast<uint8_t *>(const_cast<void *>(ptr));
@@ -373,103 +459,64 @@ bool ElfParser::applyInputOutputs(
         return true;
     };
 
-    std::vector<elf::DeviceBuffer> inputs;
-    if (!getDeviceBuffers(inputPtrs, inputs))
+    std::vector<elf::DeviceBuffer> inputDeviceBuffers;
+    if (!getDeviceBuffers(inputPtrs, inputDeviceBuffers))
         return false;
 
-    std::vector<elf::DeviceBuffer> outputs;
-    if (!getDeviceBuffers(outputPtrs, outputs))
+    std::vector<elf::DeviceBuffer> outputDeviceBuffers;
+    if (!getDeviceBuffers(outputPtrs, outputDeviceBuffers))
         return false;
 
-    loader->applyJitRelocations(inputs, outputs);
+    std::vector<elf::DeviceBuffer> profilingDeviceBuffers;
+    if (profilingPtr.first != nullptr && !getDeviceBuffers({profilingPtr}, profilingDeviceBuffers))
+        return false;
 
+    try {
+        hostParsedInference.applyInputOutput(inputDeviceBuffers,
+                                             outputDeviceBuffers,
+                                             profilingDeviceBuffers);
+    } catch (const elf::RelocError &err) {
+        LOG_E("Caught reloc exception in hostParsedInference.applyInputOutput()");
+        return false;
+    } catch (const elf::LogicError &err) {
+        LOG_E("Caught logic exception in hostParsedInference.applyInputOutput()");
+        return false;
+    } catch (const std::exception &err) {
+        LOG_E("Unhandled exception in hostParsedInference.applyInputOutput()");
+        return false;
+    }
     return true;
 }
 
-void ElfParser::addArtificalBarrierConfig() {
-    /* TODO: Termporary WA to allow elf execution when barrierConfigs is not defined*/
-    auto vpuAddr = loader->getEntry();
+std::shared_ptr<VPU::VPUInferenceExecute> ElfParser::createInferenceExecuteCommand(
+    const std::vector<std::pair<const void *, uint32_t>> &inputPtrs,
+    const std::vector<std::pair<const void *, uint32_t>> &outputPtrs,
+    const std::pair<void *, uint32_t> &profilingPtr) {
+    uint64_t inferenceId = 0;
+    if (!ctx->getUniqueInferenceId(inferenceId))
+        return nullptr;
 
-    for (const auto &buf : loader->getAllocatedBuffers()) {
-        if (buf.vpu_addr() == vpuAddr) {
-            uint8_t *ptr = const_cast<uint8_t *>(buf.cpu_addr());
-            auto *mappedInference = reinterpret_cast<nn_public::VpuMappedInference *>(ptr);
-            if (mappedInference->barrier_configs.address == 0) {
-                LOG_E("Applying a WA for barrierConfigs_ address!!");
-                mappedInference->barrier_configs.address = 0xC000'0000;
-                return;
-            }
+    if (!firstInference) {
+        auto newHpi = createHostParsedInference(bufferManager.get(), accessManager.get());
+        if (newHpi == nullptr) {
+            LOG_E("Not able to create new HostParsedInference");
+            return nullptr;
         }
-    }
-}
 
-static void printMappedInference(nn_public::VpuMappedInference *mi) {
-    LOG_I("MappedInference->vpu_nnrt_api_ver: %d", mi->vpu_nnrt_api_ver);
-    for (uint32_t dma_engine = 0; dma_engine < nn_public::VPU_MAX_DMA_ENGINES; dma_engine++) {
-        LOG_I("MappedInference->dma_tasks[%u].count: %lu",
-              dma_engine,
-              mi->dma_tasks[dma_engine].count);
-
-        /* TODO: Convert VPU address to cpu address
-        for (uint32_t i = 0; i < mi->dma_tasks[dma_engine].count; i++) {
-            const auto &task = mi->dma_tasks[dma_engine].at(i);
-            LOG_I("MappedInference->dma_tasks[%i]->transaction_.dst: %#lx",
-                  i,
-                  task.transaction_.dst);
-            LOG_I("MappedInference->dma_tasks[%i]->transaction_.src: %#lx",
-                  i,
-                  task.transaction_.src);
-        }
-        */
-    }
-    LOG_I("MappedInference->invariants.count: %lu", mi->invariants.count);
-    LOG_I("MappedInference->variants.count: %lu", mi->variants.count);
-    LOG_I("MappedInference->barrier_configs.count: %lu", mi->barrier_configs.count);
-    LOG_I("MappedInference->act_kernel_ranges.count: %lu", mi->act_kernel_ranges.count);
-    LOG_I("MappedInference->act_kernel_invocations.count: %lu", mi->act_kernel_invocations.count);
-
-    for (uint32_t desc = 0; desc < nn_public::VPU_NUM_METADATA_FEEDERS; desc++) {
-        LOG_I("MappedInference->feeder_descriptors[%u].descriptor_.dst: %#lx",
-              desc,
-              mi->feeder_descriptors[desc].descriptor_.dst);
-        LOG_I("MappedInference->feeder_descriptors[%u].descriptor_.src: %#lx",
-              desc,
-              mi->feeder_descriptors[desc].descriptor_.src);
+        otherHpis.push_back(std::move(hpi));
+        hpi = std::move(newHpi);
     }
 
-    for (uint32_t dma_engine = 0; dma_engine < nn_public::VPU_MAX_DMA_ENGINES; dma_engine++) {
-        LOG_I("MappedInference->leading_dma_tasks[%u]: %u",
-              dma_engine,
-              mi->leading_dma_tasks[dma_engine]);
+    std::vector<VPU::VPUBufferObject *> bos;
+    if (!applyInputOutputs(*hpi, inputPtrs, outputPtrs, profilingPtr, bos)) {
+        LOG_E("Failed to apply arguments to elf executor");
+        return nullptr;
     }
 
-    LOG_I("MappedInference->shv_rt_configs.runtime_entry: %#x", mi->shv_rt_configs.runtime_entry);
-    LOG_I("MappedInference->shv_rt_configs.act_rt_window_base: %#x",
-          mi->shv_rt_configs.act_rt_window_base);
-    for (uint32_t i = 0; i < nn_public::VPU_AS_TOTAL; i++) {
-        LOG_I("MappedInference->shv_rt_configs.stack_frames[%u]: %#x",
-              i,
-              mi->shv_rt_configs.stack_frames[i]);
-    }
-    LOG_I("MappedInference->shv_rt_configs.stack_size: %#x", mi->shv_rt_configs.stack_size);
-    LOG_I("MappedInference->shv_rt_configs.code_window_buffer_size: %#x",
-          mi->shv_rt_configs.code_window_buffer_size);
-    LOG_I("MappedInference->shv_rt_configs.perf_metrics_mask: %#x",
-          mi->shv_rt_configs.perf_metrics_mask);
-    LOG_I("MappedInference->shv_rt_configs.runtime_version: %#x",
-          mi->shv_rt_configs.runtime_version);
-    LOG_I("MappedInference->shv_rt_configs.use_schedule_embedded_rt: %#x",
-          mi->shv_rt_configs.use_schedule_embedded_rt);
-    LOG_I("MappedInference->shv_rt_configs.dpu_perf_mode: %#hhx",
-          static_cast<uint8_t>(mi->shv_rt_configs.dpu_perf_mode));
-}
-
-std::shared_ptr<VPU::VPUInferenceExecute> ElfParser::getCommand(uint64_t inferenceId) {
     /*
      * All associated buffer objects needs to be added to command. Thanks to it kernel pin pages
      */
-    std::vector<VPU::VPUBufferObject *> bos;
-    for (const auto &buffer : loader->getAllocatedBuffers()) {
+    for (const auto &buffer : hpi->getAllocatedBuffers()) {
         if (buffer.size() == 0)
             continue;
 
@@ -482,66 +529,46 @@ std::shared_ptr<VPU::VPUInferenceExecute> ElfParser::getCommand(uint64_t inferen
         bos.push_back(bo);
     }
 
-    addArtificalBarrierConfig();
-
-    hostParsedInference = ctx->createInternalBufferObject(
-        getFwDataCacheAlign(sizeof(nn_public::VpuHostParsedInference)),
-        VPU::VPUBufferObject::Type::CachedLow);
-    if (hostParsedInference == nullptr) {
-        LOG_E("Failed to allocate Host Parsed Inference buffer");
+    auto hpiBuffer = hpi->getParsedInference();
+    VPU::VPUBufferObject *bo = ctx->findBuffer(hpiBuffer.cpu_addr());
+    if (bo == nullptr) {
+        LOG_E("Failed to find a buffer in tracked memory");
         return nullptr;
     }
+    bos.push_back(bo);
 
-    bos.push_back(hostParsedInference);
-
-    for (auto *bo : userBuffers)
-        bos.push_back(bo);
-
-    auto *hpi = reinterpret_cast<nn_public::VpuHostParsedInference *>(
-        hostParsedInference->getBasePointer());
-
-    auto resource = loader->getResourceRequirements();
-    hpi->resource_requirements_ = {};
-    /* TODO: Below three fields should not be passed */
-    // hpi->resource_requirements_.nn_slice_length_ = resource.nn_slice_length_;
-    // hpi->resource_requirements_.ddr_scratch_length_ = resource.ddr_scratch_length_;
-    // hpi->resource_requirements_.nn_barrier_count_ = resource.nn_barrier_count_;
-    hpi->resource_requirements_.nn_slice_count_ = resource.nn_slice_count_;
-    hpi->resource_requirements_.nn_barriers_ = resource.nn_barriers_;
-
-    hpi->performance_metrics_ = {};
-
-    hpi->mapped_.address = loader->getEntry();
-    hpi->mapped_.count = 1;
-
-    LOG_I("HostParsedInference->resource_requirements_\n"
-          "\tnn_slice_length_: %d\n"
-          "\tddr_scratch_length_: %d\n"
-          "\tnn_barrier_count_: %d\n"
-          "\tnn_slice_count_: %d\n"
-          "\tnn_barriers_: %d\n",
-          hpi->resource_requirements_.nn_slice_length_,
-          hpi->resource_requirements_.ddr_scratch_length_,
-          hpi->resource_requirements_.nn_barrier_count_,
-          hpi->resource_requirements_.nn_slice_count_,
-          hpi->resource_requirements_.nn_barriers_);
-    LOG_I("HostParsedInference->mapped_\n"
-          "\taddress = %#lx\n"
-          "\tcount = %lu\n",
-          hpi->mapped_.address,
-          hpi->mapped_.count);
-
-    for (const auto &bo : bos) {
-        if (bo->getVPUAddr() == hpi->mapped_.address) {
-            printMappedInference(
-                reinterpret_cast<nn_public::VpuMappedInference *>(bo->getBasePointer()));
-        }
-    }
-
+    firstInference = false;
     return VPU::VPUInferenceExecute::create(inferenceId,
-                                            hostParsedInference->getVPUAddr(),
-                                            hostParsedInference->getAllocSize(),
+                                            hpiBuffer.vpu_addr(),
+                                            hpiBuffer.size(),
                                             bos);
+}
+
+ze_result_t ElfParser::parse(std::vector<ze_graph_argument_properties_3_t> &argumentProperties,
+                             std::vector<ze_graph_argument_metadata_t> &argumentMetadata,
+                             uint32_t &profilingOutputSize) {
+    getArgumentProperties(argumentProperties);
+    getArgumentMetadata(argumentMetadata);
+    getProfilingSize(profilingOutputSize);
+
+    return ZE_RESULT_SUCCESS;
+}
+
+std::shared_ptr<VPU::VPUCommand> ElfParser::allocateInitCommand(VPU::VPUDeviceContext *ctx,
+                                                                uint8_t *graphBlobRawData,
+                                                                size_t graphBlobRawSize) {
+    /* No initialize command for elf, return empty command that will be ignored */
+    return std::make_shared<VPU::VPUCommand>();
+}
+
+std::shared_ptr<VPU::VPUCommand>
+ElfParser::allocateExecuteCommand(VPU::VPUDeviceContext *ctx,
+                                  const std::vector<std::pair<const void *, uint32_t>> &inputArgs,
+                                  const std::vector<std::pair<const void *, uint32_t>> &outputArgs,
+                                  const std::pair<void *, uint32_t> &profilingPtr) {
+    return createInferenceExecuteCommand(inputArgs,
+                                         outputArgs,
+                                         {profilingPtr.first, profilingPtr.second});
 }
 
 } // namespace L0

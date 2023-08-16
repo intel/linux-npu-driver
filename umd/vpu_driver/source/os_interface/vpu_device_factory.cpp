@@ -20,10 +20,11 @@ std::vector<std::unique_ptr<VPUDevice>> DeviceFactory::createDevices(OsInterface
     std::vector<std::unique_ptr<VPUDevice>> devices;
     std::string devPrefix;
     std::string devPath;
+    std::error_code ec;
     int maxMinor;
     int minMinor;
 
-    if (std::filesystem::exists("/sys/class/accel")) {
+    if (std::filesystem::exists("/sys/class/accel", ec)) {
         devPrefix = "/dev/accel/accel";
         minMinor = 0;
     } else {
@@ -34,9 +35,6 @@ std::vector<std::unique_ptr<VPUDevice>> DeviceFactory::createDevices(OsInterface
 
     for (int minor = minMinor; minor <= maxMinor; minor++) {
         devPath = devPrefix + std::to_string(minor);
-        if (!osi->fileExists(devPath)) {
-            continue;
-        }
         auto device = std::make_unique<VPUDevice>(devPath, *osi);
         if (!device->init()) {
             continue;

@@ -49,6 +49,7 @@ VPUBufferObject::create(const VPUDriverApi &drvApi, Location type, Type range, s
         return nullptr;
     }
 
+    void *ptr = nullptr;
     uint64_t offset = 0;
     if (drvApi.getBufferInfo(handle, offset)) {
         LOG_E("Failed to get info about buffer");
@@ -56,7 +57,7 @@ VPUBufferObject::create(const VPUDriverApi &drvApi, Location type, Type range, s
         return nullptr;
     }
 
-    void *ptr = drvApi.mmap(size, offset);
+    ptr = drvApi.mmap(size, offset);
     if (ptr == nullptr) {
         LOG_E("Failed to mmap the created buffer");
         drvApi.closeBuffer(handle);
@@ -81,6 +82,41 @@ bool VPUBufferObject::copyToBuffer(const void *data, size_t size, uint64_t offse
     }
 
     memcpy(dstPtr, data, size);
+    return true;
+}
+
+bool VPUBufferObject::fillBuffer(const void *pattern, size_t patternSize) {
+    if (!pattern) {
+        LOG_E("Fill pattern undefined");
+        return false;
+    }
+
+    switch (patternSize) {
+    case sizeof(uint32_t): {
+        uint32_t *start = reinterpret_cast<uint32_t *>(basePtr);
+        uint32_t *end = start + (allocSize / sizeof(uint32_t));
+
+        std::fill(start, end, *reinterpret_cast<const uint32_t *>(pattern));
+        break;
+    }
+
+    case sizeof(uint16_t): {
+        uint16_t *start = reinterpret_cast<uint16_t *>(basePtr);
+        uint16_t *end = start + (allocSize / sizeof(uint16_t));
+
+        std::fill(start, end, *reinterpret_cast<const uint16_t *>(pattern));
+        break;
+    }
+
+    case sizeof(uint8_t):
+        memset(reinterpret_cast<uint8_t *>(basePtr),
+               *static_cast<const uint8_t *>(pattern),
+               allocSize);
+        break;
+    default:
+        LOG_E("Unsupported pattern size");
+        return false;
+    }
     return true;
 }
 

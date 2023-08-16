@@ -5,4 +5,4 @@
 #
 
 target_sources(${TARGET_NAME}
-               PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/vpu_hw_mtl.cpp)
+               PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/vpu_hw_37xx.cpp)

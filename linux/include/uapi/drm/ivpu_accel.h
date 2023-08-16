@@ -91,6 +91,7 @@ extern "C" {
 #define DRM_IVPU_CONTEXT_PRIORITY_REALTIME  3
 
 #define DRM_IVPU_CAP_METRIC_STREAMER	    1
+#define DRM_IVPU_CAP_DMA_MEMORY_RANGE       2
 
 /**
  * struct drm_ivpu_param - Get/Set VPU parameters
@@ -153,8 +154,10 @@ struct drm_ivpu_param {
 	__u64 value;
 };
 
-#define DRM_IVPU_BO_HIGH_MEM   0x00000001
+#define DRM_IVPU_BO_SHAVE_MEM  0x00000001
+#define DRM_IVPU_BO_HIGH_MEM   DRM_IVPU_BO_SHAVE_MEM
 #define DRM_IVPU_BO_MAPPABLE   0x00000002
+#define DRM_IVPU_BO_DMA_MEM    0x00000004
 
 #define DRM_IVPU_BO_CACHED     0x00000000
 #define DRM_IVPU_BO_UNCACHED   0x00010000
@@ -164,6 +167,7 @@ struct drm_ivpu_param {
 #define DRM_IVPU_BO_FLAGS \
 	(DRM_IVPU_BO_HIGH_MEM | \
 	 DRM_IVPU_BO_MAPPABLE | \
+	 DRM_IVPU_BO_DMA_MEM | \
 	 DRM_IVPU_BO_CACHE_MASK)
 
 /**
@@ -293,6 +297,7 @@ struct drm_ivpu_submit {
 
 /* drm_ivpu_bo_wait job status codes */
 #define DRM_IVPU_JOB_STATUS_SUCCESS 0
+#define DRM_IVPU_JOB_STATUS_ABORTED 256
 
 /**
  * struct drm_ivpu_bo_wait - Wait for BO to become inactive

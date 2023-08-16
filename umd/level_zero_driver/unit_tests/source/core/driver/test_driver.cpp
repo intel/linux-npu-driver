@@ -5,6 +5,9 @@
  *
  */
 
+#include "level_zero/ze_api.h"
+#include "level_zero/ze_graph_ext.h"
+#include "level_zero/ze_intel_vpu_uuid.h"
 #include "level_zero_driver/core/source/driver/driver_handle.hpp"
 #include "level_zero_driver/core/source/driver/driver.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
@@ -84,31 +87,90 @@ TEST_F(DriverVersionTest, returnsExpectedDriverVersion) {
     EXPECT_EQ(boost::numeric_cast<uint32_t>(L0_PROJECT_VERSION_MINOR), versionMinor);
     EXPECT_EQ(boost::numeric_cast<uint32_t>(VPU_VERSION_BUILD), versionBuild);
 
-    // TODO: Reuse uuid from ze-ext-headers
-    ze_driver_uuid_t uuid = {0x01,
-                             0x7d,
-                             0xe9,
-                             0x31,
-                             0x6b,
-                             0x4d,
-                             0x4f,
-                             0xd4,
-                             0xaa,
-                             0x9b,
-                             0x5b,
-                             0xed,
-                             0x77,
-                             0xfc,
-                             0x8e,
-                             0x89};
+    ze_driver_uuid_t uuid = ze_intel_vpu_driver_uuid;
     EXPECT_EQ(memcmp(&properties.uuid, &uuid, sizeof(properties.uuid)), 0);
 }
 
-TEST_F(DriverVersionTest, givenCallToGetExtensionPropertiesThenUnsupportedIsReturned) {
+TEST_F(DriverVersionTest, checkGraphExtensionInDriverExtensionProperties) {
     uint32_t count = 0;
-    ze_driver_extension_properties_t properties;
-    ze_result_t res = driverHandle->getExtensionProperties(&count, &properties);
-    EXPECT_EQ(ZE_RESULT_ERROR_UNSUPPORTED_FEATURE, res);
+    EXPECT_EQ(driverHandle->getExtensionProperties(&count, nullptr), ZE_RESULT_SUCCESS);
+    EXPECT_GT(count, 0);
+
+    std::vector<ze_driver_extension_properties_t> props(count);
+    EXPECT_EQ(driverHandle->getExtensionProperties(&count, props.data()), ZE_RESULT_SUCCESS);
+
+    EXPECT_EQ(std::string(props[0].name), ZE_GRAPH_EXT_NAME);
+    EXPECT_EQ(props[0].version, ZE_GRAPH_EXT_VERSION_1_0);
+}
+
+TEST_F(DriverVersionTest, checkGraphExtensionFunctionTable) {
+    ze_graph_dditable_ext_t *ddi = nullptr;
+    ze_result_t res = driverHandle->getExtensionFunctionAddress(ZE_GRAPH_EXT_NAME,
+                                                                reinterpret_cast<void **>(&ddi));
+    EXPECT_EQ(ZE_RESULT_SUCCESS, res);
+
+    EXPECT_NE(ddi->pfnCreate, nullptr);
+    EXPECT_NE(ddi->pfnDestroy, nullptr);
+    EXPECT_NE(ddi->pfnGetProperties, nullptr);
+    EXPECT_NE(ddi->pfnGetArgumentProperties, nullptr);
+    EXPECT_NE(ddi->pfnSetArgumentValue, nullptr);
+    EXPECT_NE(ddi->pfnAppendGraphInitialize, nullptr);
+    EXPECT_NE(ddi->pfnAppendGraphExecute, nullptr);
+    EXPECT_NE(ddi->pfnGetNativeBinary, nullptr);
+    EXPECT_NE(ddi->pfnDeviceGetGraphProperties, nullptr);
+}
+
+TEST_F(DriverVersionTest, checkGraphExtension_1_1_FunctionTable) {
+    ze_graph_dditable_ext_1_1_t *ddi = nullptr;
+    ze_result_t res = driverHandle->getExtensionFunctionAddress(ZE_GRAPH_EXT_NAME_1_1,
+                                                                reinterpret_cast<void **>(&ddi));
+    EXPECT_EQ(ZE_RESULT_SUCCESS, res);
+
+    EXPECT_NE(ddi->pfnCreate, nullptr);
+    EXPECT_NE(ddi->pfnDestroy, nullptr);
+    EXPECT_NE(ddi->pfnGetProperties, nullptr);
+    EXPECT_NE(ddi->pfnGetArgumentProperties, nullptr);
+    EXPECT_NE(ddi->pfnSetArgumentValue, nullptr);
+    EXPECT_NE(ddi->pfnAppendGraphInitialize, nullptr);
+    EXPECT_NE(ddi->pfnAppendGraphExecute, nullptr);
+    EXPECT_NE(ddi->pfnGetNativeBinary, nullptr);
+    EXPECT_NE(ddi->pfnDeviceGetGraphProperties, nullptr);
+    EXPECT_NE(ddi->pfnGraphGetArgumentMetadata, nullptr);
+    EXPECT_NE(ddi->pfnGetArgumentProperties2, nullptr);
+}
+
+TEST_F(DriverVersionTest, checkGraphExtension_1_2_FunctionTable) {
+    ze_graph_dditable_ext_1_2_t *ddi = nullptr;
+    ze_result_t res = driverHandle->getExtensionFunctionAddress(ZE_GRAPH_EXT_NAME_1_2,
+                                                                reinterpret_cast<void **>(&ddi));
+    EXPECT_EQ(ZE_RESULT_SUCCESS, res);
+
+    EXPECT_NE(ddi->pfnCreate, nullptr);
+    EXPECT_NE(ddi->pfnDestroy, nullptr);
+    EXPECT_NE(ddi->pfnGetProperties, nullptr);
+    EXPECT_NE(ddi->pfnGetArgumentProperties, nullptr);
+    EXPECT_NE(ddi->pfnSetArgumentValue, nullptr);
+    EXPECT_NE(ddi->pfnAppendGraphInitialize, nullptr);
+    EXPECT_NE(ddi->pfnAppendGraphExecute, nullptr);
+    EXPECT_NE(ddi->pfnGetNativeBinary, nullptr);
+    EXPECT_NE(ddi->pfnDeviceGetGraphProperties, nullptr);
+    EXPECT_NE(ddi->pfnGraphGetArgumentMetadata, nullptr);
+    EXPECT_NE(ddi->pfnGetArgumentProperties2, nullptr);
+    EXPECT_NE(ddi->pfnGetArgumentProperties3, nullptr);
+}
+
+TEST_F(DriverVersionTest, checkGraphProfilingDataFunctionTable) {
+    ze_graph_profiling_dditable_ext_t *ddi = nullptr;
+    ze_result_t res = driverHandle->getExtensionFunctionAddress(ZE_PROFILING_DATA_EXT_NAME,
+                                                                reinterpret_cast<void **>(&ddi));
+    EXPECT_EQ(ZE_RESULT_SUCCESS, res);
+
+    EXPECT_NE(ddi->pfnProfilingPoolCreate, nullptr);
+    EXPECT_NE(ddi->pfnProfilingPoolDestroy, nullptr);
+    EXPECT_NE(ddi->pfnProfilingQueryCreate, nullptr);
+    EXPECT_NE(ddi->pfnProfilingQueryDestroy, nullptr);
+    EXPECT_NE(ddi->pfnProfilingQueryGetData, nullptr);
+    EXPECT_NE(ddi->pfnDeviceGetProfilingDataProperties, nullptr);
 }
 
 TEST_F(DriverVersionTest, returnsExpectedGetDriverPropertiesResultAndIPCPropertyFlagType) {

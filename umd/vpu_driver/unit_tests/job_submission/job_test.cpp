@@ -86,11 +86,11 @@ TEST_F(VPUJobTest,
     EXPECT_TRUE(ctx->freeMemAlloc(mem));
 }
 
-TEST_F(VPUJobTest, createJobWithOnlyCopyFlagAndComputeCommandExpectAppendCommandFailure) {
+TEST_F(VPUJobTest, createJobWithOnlyCopyFlagAndComputeCommandExpectAppendCommandSuccess) {
     auto job = std::make_unique<VPUJob>(ctx, true);
 
     void *mem = ctx->createSharedMemAlloc(sizeof(uint64_t));
-    EXPECT_FALSE(job->appendCommand(VPUCopyCommand::create(ctx, mem, mem, sizeof(uint64_t))));
+    EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx, mem, mem, sizeof(uint64_t))));
 
     EXPECT_TRUE(ctx->freeMemAlloc(mem));
 }
@@ -151,7 +151,7 @@ TEST_F(VPUJobTest, createJobWithGraphInitAndExecuteCommands) {
     EXPECT_TRUE(job->appendCommand(
         VPUGraphInitCommand::create(ctx, umdBlobId, blobData, blobSize, scratchSize, scratchSize)));
 
-    auto &graphInitBufferObjects = job->getNNCommands().back()->getAssociateBufferObjects();
+    auto &graphInitBufferObjects = job->getCommands().back()->getAssociateBufferObjects();
     EXPECT_TRUE(job->appendCommand(VPUGraphExecuteCommand::create(
         ctx,
         umdBlobId,
@@ -223,12 +223,13 @@ TEST_F(VPUJobTest, createJobWithDifferentTypesOfCommandExpectSuccess) {
 
     EXPECT_TRUE(job->closeCommands());
 
-    EXPECT_EQ(2u, job->getCommandBuffers().size());
+    /* Expected Copy command conversion to Compute compatible and only one CommandBuf */
+    EXPECT_EQ(1u, job->getCommandBuffers().size());
     for (size_t i = 0; i < job->getCommandBuffers().size(); i++) {
         const auto &cmdBuffer = job->getCommandBuffers()[i];
         EXPECT_EQ(getExpBufferCount(cmdBuffer->getBufferHandles()),
                   cmdBuffer->getBufferHandles().size());
-        if (i == 0)
+        if (i % 2 == 0)
             EXPECT_EQ(boost::numeric_cast<uint32_t>(DRM_IVPU_ENGINE_COMPUTE),
                       cmdBuffer->getEngine());
         else

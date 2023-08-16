@@ -7,3 +7,6 @@
 [submodule "umd/third_party/vpux_elf"]
 	path = umd/third_party/vpux_elf
 	url = https://github.com/openvinotoolkit/vpux_plugin_elf.git
+[submodule "validation/third_party/gtest"]
+	path = validation/third_party/gtest
+	url = https://github.com/google/googletest.git

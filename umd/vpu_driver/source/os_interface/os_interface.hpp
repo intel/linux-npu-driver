@@ -36,8 +36,6 @@ class OsInterface {
 
     virtual void *osiMmap(void *addr, size_t size, int prot, int flags, int fd, off_t offset) = 0;
     virtual int osiMunmap(void *addr, size_t size) = 0;
-
-    virtual bool fileExists(std::string &p) = 0;
 };
 
 } // namespace VPU

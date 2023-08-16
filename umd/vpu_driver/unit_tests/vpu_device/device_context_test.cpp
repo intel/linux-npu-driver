@@ -635,25 +635,6 @@ TEST_F(DeviceContextTest, givenPointerDeviceContextReturnsProperValidity) {
     EXPECT_TRUE(ctx->freeMemAlloc(allocPtr));
 }
 
-TEST_F(DeviceContextTest, checkForCorrectReturnMemTypeInHeap) {
-    // Allocate mem pointers
-    void *sharedPtr = ctx->createSharedMemAlloc(allocSize);
-    void *hostPtr = ctx->createHostMemAlloc(allocSize);
-    EXPECT_NE(sharedPtr, hostPtr);
-
-    EXPECT_EQ(COPY_LOCAL_TO_LOCAL, ctx->getCopyDirection(sharedPtr, sharedPtr));
-    EXPECT_EQ(COPY_SYSTEM_TO_SYSTEM, ctx->getCopyDirection(hostPtr, hostPtr));
-
-    // Checking with invalid mem type
-    osInfc.mockFailNextAlloc();
-    void *hostInvalidPtr = ctx->createHostMemAlloc(allocSize);
-    EXPECT_EQ(COPY_INVALID, ctx->getCopyDirection(hostInvalidPtr, sharedPtr));
-
-    // Free'ing memory allocated
-    EXPECT_TRUE(ctx->freeMemAlloc(sharedPtr));
-    EXPECT_TRUE(ctx->freeMemAlloc(hostPtr));
-}
-
 TEST_F(DeviceContextTest, memoryMangerReturnsPageAlignedSize) {
     size_t sz = ctx->getPageAlignedSize(0u);
     EXPECT_EQ(0u, sz);

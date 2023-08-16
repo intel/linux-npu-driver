@@ -32,6 +32,8 @@ class VPUJob {
      */
     bool isSuccess() const;
 
+    uint64_t getStatus() const;
+
     /**
      * @brief Returns true if the job has completed by the specified time.
      * @param timeout_abs_ns[in]: Absolute timeout in nanoseconds
@@ -50,10 +52,24 @@ class VPUJob {
         return cmdBuffers;
     }
 
-    void *getDescriptorPtr() const { return descriptorPtr; }
-
     /**
-     * @brief Append command to proper collection based on following rules:
+     * @brief Append a command to command list
+     *
+     * @param cmd [in]: Command that is added to command list
+     * @return true on succesfull appending
+     */
+    bool appendCommand(std::shared_ptr<VPUCommand> cmd);
+
+    inline size_t getNumCommands() const { return commands.size(); }
+
+    const std::vector<std::shared_ptr<VPUCommand>> &getCommands() const { return commands; }
+
+    /* Job is closed, no more append commands is allowed. Job is ready for submission */
+    bool isClosed() const { return closed; }
+
+  private:
+    /**
+     * @brief Segregate commands into command buffers based on following rules:
      *  - if command is copy type it is pushed to copy command collection
      *  - if command is compute type it is pushed to compute command collection
      *  - if command is backward type it is pushed to command collection that was used in
@@ -65,48 +81,11 @@ class VPUJob {
      * flushed to copy collection. If isCopyOnly is false, then commands are flushed to compute
      * collection
      *
-     * @param cmd [in]: Command that is added to command list
-     * @return true on succesfull appending
+     * @param begin [in]: Iterator of command list where algorithm should start.
+     * @return last element in command list for specific target. Target can be only COMPUTE or COPY
      */
-    bool appendCommand(std::shared_ptr<VPUCommand> cmd);
-
-    inline size_t getNumCommands() const {
-        return nnCmds.size() + cpCmds.size() + unclassified.size();
-    }
-
-    const std::vector<std::shared_ptr<VPUCommand>> &getNNCommands() const { return nnCmds; }
-    const std::vector<std::shared_ptr<VPUCommand>> &getCopyCommands() const { return cpCmds; }
-
-    /* Job is closed, no more append commands is allowed. Job is ready for submission */
-    bool isClosed() const { return closed; }
-
-  private:
-    /**
-     * @brief Move commands from src vector to dst vector. Clean the src vector.
-     *
-     * @param dst [in]: Destination vector
-     * @param src [in]: Source vector
-     */
-    static void moveCommands(std::vector<std::shared_ptr<VPUCommand>> &dst,
-                             std::vector<std::shared_ptr<VPUCommand>> &src);
-
-    /**
-     * @brief Flush unclassified commands to the last used command list. If last used command list
-     * is not set, then push unclassified commands to compute command collection. If isCopyOnly is
-     * true, flush commands to copy collection
-     */
-    void flushCommands();
-
-    /**
-     * @brief Add internal event between two command collections to synchronize the command order
-     * execution.
-     *
-     * @param fromCmds[in]: Command list from
-     * @param toCmds[in]: Command list to
-     * @return true on successful event appending.
-     */
-    bool appendInternalEvents(std::vector<std::shared_ptr<VPUCommand>> &fromCmds,
-                              std::vector<std::shared_ptr<VPUCommand>> &toCmds);
+    std::pair<std::vector<std::shared_ptr<VPUCommand>>::iterator, VPUCommandBuffer::Target>
+    scheduleCommands(std::vector<std::shared_ptr<VPUCommand>>::iterator begin);
 
     /**
      * Create VPUCommandBuffer with user VPUCommands and designed for specific VPU engine
@@ -115,36 +94,17 @@ class VPUJob {
      * @return true when successfully added, false otherwise.
      */
     bool createCommandBuffer(const std::vector<std::shared_ptr<VPUCommand>> &cmds,
-                             VPUCommandBuffer::Target cmdtype);
-
-    /**
-     * Update buffer of VPUEventCommand used as internal event
-     * @param cmd[in]: Internal Event Commands to be attached to buffer based on index
-     * @return true when successfully added, false otherwise.
-     */
-    bool updateInternalEventBuffer(std::shared_ptr<VPUCommand> cmd);
+                             VPUCommandBuffer::Target cmdtype,
+                             VPUEventCommand::KMDEventDataType **lastEvent);
 
     VPUDeviceContext *ctx = nullptr;
     bool isCopyOnly = false;
-
-    /* Descriptor buffer that is shared between command buffers */
-    VPUBufferObject *descriptor = nullptr;
-    /* Pointer to the descriptor memory that is populated by commands */
-    void *descriptorPtr = nullptr;
 
     /* Collection of VPUCommandBuffer that later will be pushed for submission */
     std::vector<std::unique_ptr<VPUCommandBuffer>> cmdBuffers;
 
     /* Commands collection */
-    std::vector<std::shared_ptr<VPUCommand>> cpCmds;
-    std::vector<std::shared_ptr<VPUCommand>> nnCmds;
-    std::vector<std::shared_ptr<VPUCommand>> unclassified;
-    std::vector<std::shared_ptr<VPUCommand>> *prevCmds = nullptr;
-
-    /* Memory for internal events */
-    VPUEventCommand::KMDEventDataType *eventBasePtr = nullptr;
-    static constexpr size_t eventPoolSize = sizeof(VPUEventCommand::KMDEventDataType) * 2;
-    uint8_t intEventIndex = 1u;
+    std::vector<std::shared_ptr<VPUCommand>> commands;
 
     bool closed = false;
 };

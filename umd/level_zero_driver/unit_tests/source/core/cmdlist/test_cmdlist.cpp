@@ -9,6 +9,7 @@
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
 #include "vpu_driver/source/device/hw_info.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 
 #include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
@@ -84,7 +85,7 @@ TEST_F(CommandListTest, commandListIsIteratable) {
     ASSERT_NE(nullptr, cmdList);
 
     uint64_t globalTS;
-    EXPECT_EQ(ZE_RESULT_ERROR_UNINITIALIZED,
+    EXPECT_EQ(ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY,
               cmdList->appendWriteGlobalTimestamp(&globalTS, nullptr, 0, nullptr));
 
     auto ptrAlloc = (uint64_t *)ctx->createSharedMemAlloc(4 * 1024);
@@ -104,11 +105,17 @@ TEST_F(CommandListTest, commandListIsIteratable) {
     auto result = cmdList->close();
     EXPECT_EQ(ZE_RESULT_SUCCESS, result);
 
-    EXPECT_EQ(5u, cmdList->getNumCommands());
+    /* Timestamp is split by UMD to two commands aligned TS and copy */
+    EXPECT_EQ(10u, cmdList->getNumCommands());
 
-    for (const auto &cmd : cmdList->getNNCommands()) {
-        EXPECT_EQ(VPU_CMD_TIMESTAMP, cmd->getCommandType());
-        EXPECT_EQ(sizeof(vpu_cmd_timestamp_t), cmd->getCommitSize());
+    /* In the buffer is expected TS command and COPY_LOCAL_TO_LOCAL */
+    for (const auto &cmd : cmdList->getCommands()) {
+        EXPECT_TRUE(cmd->getCommandType() == VPU_CMD_TIMESTAMP ||
+                    cmd->getCommandType() == VPU_CMD_COPY_LOCAL_TO_LOCAL);
+        if (cmd->getCommandType() == VPU_CMD_TIMESTAMP)
+            EXPECT_EQ(sizeof(vpu_cmd_timestamp_t), cmd->getCommitSize());
+        else
+            EXPECT_EQ(sizeof(vpu_cmd_copy_buffer_t), cmd->getCommitSize());
     }
 
     cmdList->destroy();
@@ -134,7 +141,8 @@ TEST_F(CommandListTest, whenCalledCommandListResetCommandListVectorIsClearedSucc
               cmdList->appendWriteGlobalTimestamp(ptrAlloc, nullptr, 0, nullptr));
     EXPECT_EQ(ZE_RESULT_SUCCESS,
               cmdList->appendWriteGlobalTimestamp(ptrAlloc, nullptr, 0, nullptr));
-    EXPECT_EQ(3u, cmdList->getNumCommands());
+    /* Timestamp is split by UMD to two commands aligned TS and copy */
+    EXPECT_EQ(6u, cmdList->getNumCommands());
 
     // Reset CommandList
     EXPECT_EQ(ZE_RESULT_SUCCESS, cmdList->reset());
@@ -145,7 +153,8 @@ TEST_F(CommandListTest, whenCalledCommandListResetCommandListVectorIsClearedSucc
               cmdList->appendWriteGlobalTimestamp(ptrAlloc, nullptr, 0, nullptr));
     EXPECT_EQ(ZE_RESULT_SUCCESS,
               cmdList->appendWriteGlobalTimestamp(ptrAlloc, nullptr, 0, nullptr));
-    EXPECT_EQ(2u, cmdList->getNumCommands());
+    /* Timestamp is split by UMD to two commands aligned TS and copy */
+    EXPECT_EQ(4u, cmdList->getNumCommands());
 
     // Reset CommandList
     EXPECT_EQ(ZE_RESULT_SUCCESS, cmdList->reset());
@@ -252,8 +261,7 @@ TEST_F(CommandListCommitSizeTest, l2lCopyAndbarrierCommandWithEvents) {
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
 
     EXPECT_EQ(5u, nnCmdlist->getNumCommands());
-    EXPECT_EQ(5u, nnCmdlist->getNNCommands().size());
-    EXPECT_EQ(0u, nnCmdlist->getCopyCommands().size());
+    EXPECT_EQ(1u, nnCmdlist->getJob()->getCommandBuffers().size());
 }
 
 TEST_F(CommandListCommitSizeTest, timeStampAndS2LCopyCommands) {
@@ -271,9 +279,9 @@ TEST_F(CommandListCommitSizeTest, timeStampAndS2LCopyCommands) {
 
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
 
-    EXPECT_EQ(4u, nnCmdlist->getNumCommands());
-    EXPECT_EQ(0u, nnCmdlist->getNNCommands().size());
-    EXPECT_EQ(4u, nnCmdlist->getCopyCommands().size());
+    /* Timestamp is split by UMD to two commands aligned TS and copy */
+    EXPECT_EQ(6u, nnCmdlist->getNumCommands());
+    EXPECT_EQ(1u, nnCmdlist->getJob()->getCommandBuffers().size());
 }
 
 TEST_F(CommandListCommitSizeTest, timeStampAndS2lCopyCommandsWithEvents) {
@@ -294,14 +302,9 @@ TEST_F(CommandListCommitSizeTest, timeStampAndS2lCopyCommandsWithEvents) {
 
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
 
-    EXPECT_EQ(10u, nnCmdlist->getNumCommands());
-    // NN queue.
-    // TS(x) | S2L(x) | signal ev(x) | L2S(x) | wait ev(x) | internal event | L2L | reset ev
-    EXPECT_EQ(5u, nnCmdlist->getNNCommands().size());
-
-    // CP queue.
-    // TS | S2L | signal ev | L2S | wait ev | internal event(x) | L2L(x) | reset ev(x)
-    EXPECT_EQ(5u, nnCmdlist->getCopyCommands().size());
+    /* Timestamp is split by UMD to two commands aligned TS and copy */
+    EXPECT_EQ(8u, nnCmdlist->getNumCommands());
+    EXPECT_EQ(2u, nnCmdlist->getJob()->getCommandBuffers().size());
 }
 
 TEST_F(CommandListCommitSizeTest, l2lCopyAndL2SCopyCommands) {
@@ -312,15 +315,12 @@ TEST_F(CommandListCommitSizeTest, l2lCopyAndL2SCopyCommands) {
               nnCmdlist->appendMemoryCopy(shareMem2, shareMem1, allocSize, nullptr, 0, nullptr));
     ASSERT_EQ(ZE_RESULT_SUCCESS,
               nnCmdlist->appendMemoryCopy(hostMem2, shareMem2, allocSize, nullptr, 0, nullptr));
-    EXPECT_EQ(9u, nnCmdlist->getNumCommands());
 
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
 
-    // L2L copy in NN
-    EXPECT_EQ(4u, nnCmdlist->getNNCommands().size());
-
-    // S2L copy | L2S copy in Copy
-    EXPECT_EQ(5u, nnCmdlist->getCopyCommands().size());
+    EXPECT_EQ(3u, nnCmdlist->getNumCommands());
+    /* Expected only Compute is used */
+    EXPECT_EQ(1u, nnCmdlist->getJob()->getCommandBuffers().size());
 }
 
 TEST_F(CommandListCommitSizeTest, l2lCopyAndL2SCopyCommandsWithBarriers) {
@@ -334,17 +334,11 @@ TEST_F(CommandListCommitSizeTest, l2lCopyAndL2SCopyCommandsWithBarriers) {
     ASSERT_EQ(ZE_RESULT_SUCCESS,
               nnCmdlist->appendMemoryCopy(hostMem2, shareMem2, allocSize, nullptr, 0, nullptr));
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendBarrier(nullptr, 0, nullptr));
-    EXPECT_EQ(12u, nnCmdlist->getNumCommands());
+    EXPECT_EQ(6u, nnCmdlist->getNumCommands());
 
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
-
-    // NN queue.
-    // S2L(x) | barrier(x) | L2L | barrier | L2S(x) | barrier(x)
-    EXPECT_EQ(5u, nnCmdlist->getNNCommands().size());
-
-    // COPY queue.
-    // S2L | barrier | L2L(x) | barrier(x) | L2S | barrier
-    EXPECT_EQ(7u, nnCmdlist->getCopyCommands().size());
+    /* Only Compute should be used */
+    EXPECT_EQ(1u, nnCmdlist->getJob()->getCommandBuffers().size());
 }
 
 TEST_F(CommandListCommitSizeTest, l2lCopyAndL2SCopyCommandsWithEvents) {
@@ -358,50 +352,11 @@ TEST_F(CommandListCommitSizeTest, l2lCopyAndL2SCopyCommandsWithEvents) {
     ASSERT_EQ(ZE_RESULT_SUCCESS,
               nnCmdlist->appendMemoryCopy(hostMem2, shareMem2, allocSize, nullptr, 0, nullptr));
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendSignalEvent(hEvent1));
-    EXPECT_EQ(12u, nnCmdlist->getNumCommands());
+    EXPECT_EQ(6u, nnCmdlist->getNumCommands());
 
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
-
-    // NN queue.
-    // S2L(x) | signal ev(x) | L2L | wait ev(x) | L2S(x) | signal ev(x)
-    EXPECT_EQ(4u, nnCmdlist->getNNCommands().size());
-
-    // COPY queue.
-    // S2L | signal ev | L2L(x) | wait ev | L2S | signal ev
-    EXPECT_EQ(8u, nnCmdlist->getCopyCommands().size());
-}
-
-TEST_F(CommandListCommitSizeTest, l2lCopyAndL2SCopyCommandsWithBarriersAndEvents) {
-    // S2L | barrier | signal ev | wait ev | L2L | barrier | signal ev | wait ev | L2S | barrier
-    ASSERT_EQ(ZE_RESULT_SUCCESS,
-              nnCmdlist->appendMemoryCopy(shareMem1, hostMem1, allocSize, nullptr, 0, nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendBarrier(nullptr, 0, nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendSignalEvent(hEvent0));
-
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendWaitOnEvents(1, &hEvent0));
-    ASSERT_EQ(ZE_RESULT_SUCCESS,
-              nnCmdlist->appendMemoryCopy(shareMem2, shareMem1, allocSize, nullptr, 0, nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendBarrier(nullptr, 0, nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendSignalEvent(hEvent1));
-
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendWaitOnEvents(1, &hEvent1));
-    ASSERT_EQ(ZE_RESULT_SUCCESS,
-              nnCmdlist->appendMemoryCopy(hostMem2, shareMem2, allocSize, nullptr, 0, nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendBarrier(nullptr, 0, nullptr));
-
-    EXPECT_EQ(16u, nnCmdlist->getNumCommands());
-
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
-
-    // NN queue.
-    // S2L(x) | barrier(x) | signal ev(x) | wait ev | L2L | barrier | signal ev | wait ev(x) |
-    // L2S(x) | barrier(x)
-    EXPECT_EQ(7u, nnCmdlist->getNNCommands().size());
-
-    // COPY queue.
-    // S2L | barrier | signal ev | wait ev(x) | L2L(x) | barrier(x) | signal ev(x) | wait ev | L2S |
-    // barrier
-    EXPECT_EQ(9u, nnCmdlist->getCopyCommands().size());
+    /* Only Compute should be used */
+    EXPECT_EQ(2u, nnCmdlist->getJob()->getCommandBuffers().size());
 }
 
 TEST_F(CommandListCommitSizeTest, testingVariousFollowingConditionsForDifferentCommandListTypes) {
@@ -414,8 +369,8 @@ TEST_F(CommandListCommitSizeTest, testingVariousFollowingConditionsForDifferentC
 
     // NN list.
     // reset ev | signal ev | barrier | [L2L]
-    EXPECT_EQ(4u, nnCmdlist->getNNCommands().size());
-    EXPECT_EQ(0u, nnCmdlist->getCopyCommands().size());
+    EXPECT_EQ(4u, nnCmdlist->getCommands().size());
+    EXPECT_EQ(2u, nnCmdlist->getJob()->getCommandBuffers().size());
 
     ASSERT_EQ(ZE_RESULT_SUCCESS, cpCmdlist->appendBarrier(nullptr, 0, nullptr));
     ASSERT_EQ(ZE_RESULT_SUCCESS,
@@ -425,47 +380,52 @@ TEST_F(CommandListCommitSizeTest, testingVariousFollowingConditionsForDifferentC
 
     // CP list.
     // barrier | [S2L] | wait ev
-    EXPECT_EQ(0u, cpCmdlist->getNNCommands().size());
-    EXPECT_EQ(3u, cpCmdlist->getCopyCommands().size());
+    EXPECT_EQ(3u, cpCmdlist->getCommands().size());
+    EXPECT_EQ(1u, cpCmdlist->getJob()->getCommandBuffers().size());
 
     // Reset
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->reset());
     ASSERT_EQ(ZE_RESULT_SUCCESS, cpCmdlist->reset());
-    ASSERT_EQ(0u, nnCmdlist->getNNCommands().size());
-    ASSERT_EQ(0u, nnCmdlist->getCopyCommands().size());
-    ASSERT_EQ(0u, cpCmdlist->getNNCommands().size());
-    ASSERT_EQ(0u, cpCmdlist->getCopyCommands().size());
+    ASSERT_EQ(0u, nnCmdlist->getCommands().size());
+    ASSERT_EQ(0u, cpCmdlist->getCommands().size());
 
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendBarrier(nullptr, 0, nullptr));
     ASSERT_EQ(ZE_RESULT_SUCCESS,
               nnCmdlist->appendWriteGlobalTimestamp(static_cast<uint64_t *>(hostMem2),
                                                     nullptr,
                                                     0,
-                                                    nullptr));
+                                                    nullptr)); // To Copy Engine, cmdlist#1
     ASSERT_EQ(ZE_RESULT_SUCCESS,
-              nnCmdlist->appendMemoryCopy(shareMem2, hostMem1, allocSize, nullptr, 0, nullptr));
+              nnCmdlist->appendMemoryCopy(shareMem2,
+                                          hostMem1,
+                                          allocSize,
+                                          nullptr,
+                                          0,
+                                          nullptr)); // To Copy Engine, cmdlist#1
     ASSERT_EQ(ZE_RESULT_SUCCESS,
-              nnCmdlist->appendMemoryCopy(shareMem2, shareMem1, allocSize, nullptr, 0, nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendBarrier(nullptr, 0, nullptr));
+              nnCmdlist->appendMemoryCopy(shareMem2,
+                                          shareMem1,
+                                          allocSize,
+                                          nullptr,
+                                          0,
+                                          nullptr)); // To Compute Engine, cmdlist#2
+    ASSERT_EQ(ZE_RESULT_SUCCESS,
+              nnCmdlist->appendBarrier(nullptr, 0, nullptr)); // To Compute Engine, cmdlist#2
     ASSERT_EQ(ZE_RESULT_SUCCESS,
               nnCmdlist->appendWriteGlobalTimestamp(static_cast<uint64_t *>(hostMem2),
                                                     nullptr,
                                                     0,
-                                                    nullptr));
+                                                    nullptr)); // To Copy Engine, cmdlist#3
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
 
-    // NN buffer.
-    // wait ev | reset ev | [L2L] | barrier | ts
-    EXPECT_EQ(5u, nnCmdlist->getNNCommands().size());
-
-    // COPY buffer.
-    // barrier | ts | [S2L] | signal ev
-    EXPECT_EQ(4u, nnCmdlist->getCopyCommands().size());
+    /* Timestamp is split by UMD to two commands aligned TS and copy */
+    EXPECT_EQ(8u, nnCmdlist->getCommands().size());
+    EXPECT_EQ(1u, nnCmdlist->getJob()->getCommandBuffers().size());
 
     // Reset
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->reset());
-    ASSERT_EQ(0u, nnCmdlist->getNNCommands().size());
-    ASSERT_EQ(0u, nnCmdlist->getCopyCommands().size());
+    ASSERT_EQ(0u, nnCmdlist->getCommands().size());
+    EXPECT_EQ(0u, nnCmdlist->getJob()->getCommandBuffers().size());
 
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendBarrier(nullptr, 0, nullptr));
     ASSERT_EQ(ZE_RESULT_SUCCESS,
@@ -484,10 +444,9 @@ TEST_F(CommandListCommitSizeTest, testingVariousFollowingConditionsForDifferentC
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendEventReset(hEvent0));
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
 
-    // NN list.
-    // barrier | ts | barrier | ts | signal ev | wait ev | reset ev
-    EXPECT_EQ(7u, nnCmdlist->getNNCommands().size());
-    EXPECT_EQ(0u, nnCmdlist->getCopyCommands().size());
+    /* Timestamp is split by UMD to two commands aligned TS and copy */
+    EXPECT_EQ(9u, nnCmdlist->getCommands().size());
+    EXPECT_EQ(2u, nnCmdlist->getJob()->getCommandBuffers().size());
 
     ASSERT_EQ(ZE_RESULT_SUCCESS, cpCmdlist->appendBarrier(nullptr, 0, nullptr));
     ASSERT_EQ(ZE_RESULT_SUCCESS,
@@ -506,10 +465,8 @@ TEST_F(CommandListCommitSizeTest, testingVariousFollowingConditionsForDifferentC
     ASSERT_EQ(ZE_RESULT_SUCCESS, cpCmdlist->appendEventReset(hEvent0));
     ASSERT_EQ(ZE_RESULT_SUCCESS, cpCmdlist->close());
 
-    // CP list.
-    // barrier | ts | barrier | ts | signal ev | wait ev | reset ev
-    EXPECT_EQ(0u, cpCmdlist->getNNCommands().size());
-    EXPECT_EQ(7u, cpCmdlist->getCopyCommands().size());
+    EXPECT_EQ(9u, cpCmdlist->getCommands().size());
+    EXPECT_EQ(2u, cpCmdlist->getJob()->getCommandBuffers().size());
 }
 
 } // namespace ult

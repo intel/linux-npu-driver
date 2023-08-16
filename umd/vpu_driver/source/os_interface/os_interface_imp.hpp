@@ -23,7 +23,7 @@ class OsInterfaceImp : public OsInterface {
     static OsInterfaceImp &getInstance();
 
     int osiOpen(const char *pathname, int flags, mode_t mode) override;
-    int osiClose(int fildes) override;
+    int osiClose(int fd) override;
     int osiFcntl(int fd, int cmd) override;
     int osiIoctl(int fd, unsigned long request, void *arg) override;
 
@@ -33,15 +33,6 @@ class OsInterfaceImp : public OsInterface {
 
     void *osiMmap(void *addr, size_t size, int prot, int flags, int fd, off_t offset) override;
     int osiMunmap(void *addr, size_t size) override;
-
-    bool fileExists(std::string &p) override;
-
-  private:
-    /**
-     * Does extra check for secure file open to avoid TOCTOU.
-     * Non-regular files will be failed to be opened.
-     */
-    static int secureOpen(const char *pathname, int flags, mode_t mode = 0);
 };
 
 } // namespace VPU

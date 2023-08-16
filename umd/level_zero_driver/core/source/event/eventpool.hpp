@@ -65,11 +65,6 @@ struct EventPool : _ze_event_pool_handle_t {
 
   private:
     /**
-     * Driver handle.
-     */
-    DriverHandle *phDriver = nullptr;
-
-    /**
      * From Context -> VPUDeviceContext.
      */
     VPU::VPUDeviceContext *ctx;

@@ -34,29 +34,13 @@ ze_result_t Fence::hostSynchronize(uint64_t timeout) {
 
     LOG_V("Synchronize for %lu ns, %zu jobs count", timeout, trackedJobs.size());
 
-    if (cmdQueue == nullptr)
-        return ZE_RESULT_ERROR_UNINITIALIZED;
-
-    auto device = cmdQueue->getDevice();
-    if (device == nullptr)
-        return ZE_RESULT_ERROR_DEVICE_LOST;
-
-    auto vpuDevice = device->getVPUDevice();
-    if (vpuDevice == nullptr)
-        return ZE_RESULT_ERROR_DEVICE_LOST;
-
-    bool allSignaled = waitForSignal(timeout, trackedJobs, vpuDevice->getHwInfo());
+    bool allSignaled = waitForSignal(timeout, trackedJobs);
     if (!allSignaled) {
         LOG_W("Commands execution is not finished");
         return ZE_RESULT_NOT_READY;
     }
 
-    ze_result_t result = ZE_RESULT_SUCCESS;
-    for (const auto &job : trackedJobs) {
-        if (!job->isSuccess()) {
-            result = ZE_RESULT_ERROR_UNKNOWN;
-        }
-    }
+    ze_result_t result = Device::jobStatusToResult(trackedJobs);
 
     trackedJobs.clear();
     signaled = true;
@@ -72,6 +56,8 @@ ze_result_t Fence::reset() {
 
 void Fence::setTrackedJobs(std::vector<std::shared_ptr<VPU::VPUJob>> &jobs) {
     trackedJobs = jobs;
+    if (!trackedJobs.size())
+        signaled = true;
     LOG_V("%zu sync jobs copied", trackedJobs.size());
 }
 

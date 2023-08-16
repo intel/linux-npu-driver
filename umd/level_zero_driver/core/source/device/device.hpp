@@ -19,6 +19,7 @@
 #include <level_zero/ze_api.h>
 #include <level_zero/zet_api.h>
 #include <level_zero/ze_graph_ext.h>
+#include <level_zero/ze_intel_vpu_uuid.h>
 
 struct _ze_device_handle_t {};
 
@@ -75,9 +76,20 @@ struct Device : _ze_device_handle_t {
     inline ze_device_handle_t toHandle() { return this; }
 
     static Device *create(DriverHandle *driverHandle, VPU::VPUDevice *vpuDevice);
-
-  private:
-    void loadDeviceProperties();
+    static ze_result_t jobStatusToResult(const std::vector<std::shared_ptr<VPU::VPUJob>> &jobs) {
+        for (const auto &job : jobs) {
+            auto jobStatus = job->getStatus();
+            switch (jobStatus) {
+            case DRM_IVPU_JOB_STATUS_SUCCESS:
+                break;
+            case DRM_IVPU_JOB_STATUS_ABORTED:
+                return ZE_RESULT_ERROR_DEVICE_LOST;
+            default:
+                return ZE_RESULT_ERROR_UNKNOWN;
+            }
+        }
+        return ZE_RESULT_SUCCESS;
+    }
 
   protected:
     /**
@@ -93,8 +105,6 @@ struct Device : _ze_device_handle_t {
   private:
     DriverHandle *driverHandle = nullptr;
     VPU::VPUDevice *vpuDevice = nullptr;
-
-    ze_device_properties_t properties = {};
 
     /**
        Returns if given ordinal is a copy only engine group.

@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright © 2020-2023 Intel Corporation
+ * Copyright (c) 2022-2023, Intel Corporation.
  */
 
 #ifndef VPU_NNRT_API_H
 #define VPU_NNRT_API_H
 
-#include "vpu_nce_hw_mtl.h"
-#include "vpu_dma_hw_mtl.h"
+#include "vpu_nce_hw_37xx.h"
+#include "vpu_dma_hw_37xx.h"
 
 /*
  * When a change is made to vpu_nnrt_api.h that breaks backwards compatibility
@@ -27,8 +27,8 @@
  * compatibility is not affected if this changes.
  */
 #define VPU_NNRT_API_VER_MAJOR 6
-#define VPU_NNRT_API_VER_MINOR 0
-#define VPU_NNRT_API_VER_PATCH 0
+#define VPU_NNRT_API_VER_MINOR 1
+#define VPU_NNRT_API_VER_PATCH 2
 #define VPU_NNRT_API_VER ((VPU_NNRT_API_VER_MAJOR << 16) | VPU_NNRT_API_VER_MINOR)
 
 /*
@@ -45,7 +45,7 @@
  * should be incremented. It resets to 0 when the major version is incremented.
  */
 #define VPU_ACT_RT_VER_MAJOR 1
-#define VPU_ACT_RT_VER_MINOR 1
+#define VPU_ACT_RT_VER_MINOR 3
 #define VPU_ACT_RT_VER_PATCH 0
 #define VPU_ACT_RT_VER ((VPU_ACT_RT_VER_MAJOR << 16) | VPU_ACT_RT_VER_MINOR)
 
@@ -113,7 +113,7 @@ template <typename T>
 struct VPU_ALIGNED_STRUCT(8) VpuTaskReference {
     // 'address' can point to memory in host user space within the PIOVA aperture.
     // In this case it needs converted to the bridge aperture to make it accessible from
-    // LeonRT/LeonNN on MTL.
+    // LeonRT/LeonNN.
     //
     // Use the methods data(int64_t offset) and at(uint32_t index, int64_t offset) to
     // apply the aperture offset to convert address to the bridge aperture.
@@ -174,15 +174,21 @@ static_assert(sizeof(VpuBarrierCountConfig) == 8, "VpuBarrierCountConfig size !=
 
 struct VPU_ALIGNED_STRUCT(8) VpuDPUInvariant {
     VpuDPUInvariantRegisters registers_;
-    uint32_t hwp_cmx_base_offset_;
+    // breaking-change: change this
+    uint32_t hwp_cmx_base_offset_; // int32_t hwp_cmx_base_offset_;
     VpuTaskBarrierDependency barriers_;
     VpuTaskSchedulingBarrierConfig barriers_sched_;
     uint16_t variant_count_;
     uint8_t cluster_;
     uint8_t is_cont_conv_;
+    // breaking-change: add this
+    // VpuHWPStatMode dpu_prof_mode; // add this
+    // uint8_t pad_[7]; // add this
 };
 
-static_assert(sizeof(VpuDPUInvariant) == 296, "DPUInvariant size != 296");
+// breaking-change: change this
+// static_assert(sizeof(VpuDPUInvariant) == 304, "DPUInvariant size != 304");
+static_assert(sizeof(VpuDPUInvariant) == 296, "DPUInvariant size != 296"); // == 304
 static_assert(offsetof(VpuDPUInvariant, hwp_cmx_base_offset_) % 4 == 0, "Alignment error");
 static_assert(offsetof(VpuDPUInvariant, barriers_) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuDPUInvariant, barriers_sched_) % 4 == 0, "Alignment error");
@@ -204,7 +210,7 @@ static_assert(offsetof(VpuDPUVariant, invariant_index_) % 4 == 0, "Alignment err
 struct VPU_ALIGNED_STRUCT(4) VpuResourceRequirements {
     uint32_t nn_slice_length_;
     uint32_t ddr_scratch_length_;
-    uint16_t nn_barrier_count_;
+    uint8_t reserved[2]; // Reserved due to deprecated member.
     uint8_t nn_slice_count_;
     uint8_t nn_barriers_;
 };
@@ -214,8 +220,8 @@ static_assert(sizeof(VpuResourceRequirements) == 12, "VpuResourceRequirements si
 struct VPU_ALIGNED_STRUCT(4) VpuNNShaveRuntimeConfigs {
     uint32_t runtime_entry; // when useScheduleEmbeddedRt = true this is a windowed address
     uint32_t act_rt_window_base;
-    uint32_t stack_frames[VPU_AS_TOTAL]; // this is aligned to 64 bits due to AS_TOTAL
-    uint32_t stack_size;
+    uint32_t stack_frames[VPU_AS_TOTAL]; // UNUSED - to be removed
+    uint32_t stack_size;                 // UNUSED - to be removed
     uint32_t code_window_buffer_size;
     uint32_t perf_metrics_mask;
     uint32_t runtime_version;
@@ -301,6 +307,9 @@ struct VPU_ALIGNED_STRUCT(64) VpuMappedInference {
     uint32_t leading_dma_tasks[VPU_MAX_DMA_ENGINES];
     VpuNNShaveRuntimeConfigs shv_rt_configs;
     uint8_t pad2_[12];
+    // for unification might be added field: see updated system/nn/include/nn_public.h
+    // from version VPU_NN_PUBLIC_VER_MAJOR 6
+    // logaddr_dma_hwp_ , padding. assert size checking added
 };
 
 static_assert(sizeof(VpuMappedInference) == 960, "VpuMappedInference size != 960");

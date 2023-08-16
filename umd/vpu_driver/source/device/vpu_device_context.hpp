@@ -72,15 +72,6 @@ class VPUDeviceContext {
     VPUBufferObject *findBuffer(const void *ptr) const;
 
     /**
-       Finds pointers in trackedBuffers and gets the copy direction depending on whether
-       the buffer object is device/host memory
-       @param dstPtr[in]: Destination pointer to copy to.
-       @param srcPtr[in]: Source pointer to copy from.
-       @return CopyDirection type depending on dst and src pointers
-     */
-    CopyDirection getCopyDirection(void *dstPtr, const void *srcPtr);
-
-    /**
      * Returns page aligned size.
      */
     size_t getPageAlignedSize(size_t size);
@@ -107,6 +98,7 @@ class VPUDeviceContext {
     VPUBufferObject *createInternalBufferObject(size_t size, VPUBufferObject::Type type);
 
     int getFd() const { return drvApi->getFd(); }
+
     /**
      * Return assigned VPUDriverApi
      */
@@ -118,6 +110,11 @@ class VPUDeviceContext {
     inline uint32_t getPciDevId() const { return hwInfo->deviceId; }
 
     /**
+     * Return platform for compilation
+     */
+    inline int getCompilerPlatform() const { return hwInfo->compilerPlatform; }
+
+    /**
      * Return the lowest VPU address from VPU low range that is accessible by firmware device
      */
     uint64_t getVPULowBaseAddress() const { return hwInfo->baseLowAddres; }
@@ -126,6 +123,11 @@ class VPUDeviceContext {
      * Return number of currently tracking buffer objects in the structure
      */
     size_t getBuffersCount() const { return trackedBuffers.size(); }
+
+    /**
+     * Return inference ID from kernel driver that is unique for VPU
+     */
+    bool getUniqueInferenceId(uint64_t &inferenceId);
 
     bool getCopyCommandDescriptor(const void *src, void *dst, size_t size, VPUDescriptor &desc);
     void printCopyDescriptor(void *desc, vpu_cmd_header_t *cmd);

@@ -19,24 +19,17 @@
 namespace VPU {
 
 /**
- * @brief Generic wait for given timeout until check function return true
-
- * @param timeout [in] A time out value in nano sec. Give max value for not time bound wait.
- * @param check [in] Function to verify the condition of success.
- * @return true The address has been signaled within given time.
- * @return false Otherwise.
- */
-bool waitForSignal(uint64_t timeout, std::function<bool()> check);
-
-/**
- * @brief Wait for given timeout until the jobs are all signalled by KMD.
+ * @brief Wait for given timeout until the jobs are all completed by KMD.
  *
  * @param timeout [in] A time out value in nano sec. Give max value for not time bound wait.
  * @param jobs [in] Vector for submitted command buffers.
- * @return true All command buffers have been signaled within given time.
+ * @return true All jobs are completed within given time.
  * @return false Otherwise.
  */
-bool waitForSignal(uint64_t timeout,
-                   const std::vector<std::shared_ptr<VPUJob>> &jobs,
-                   VPUHwInfo devInfo);
+bool waitForSignal(uint64_t timeout, const std::vector<std::shared_ptr<VPUJob>> &jobs);
+
+/**
+ * @brief Return the absolute timeout to user timeout that is passed in nanoseconds.
+ */
+int64_t getAbsoluteTimeoutNanoseconds(uint64_t userTimeout);
 } // namespace VPU

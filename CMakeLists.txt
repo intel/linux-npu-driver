@@ -5,7 +5,7 @@
 #
 
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
-project(vpu-drv VERSION 0.2)
+project(vpu-drv VERSION 0.3)
 
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "CMAKE_BUILD_TYPE not specified, using Release")
@@ -22,7 +22,7 @@ endif()
 message(STATUS "Using CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 
 if (NOT VPU_VERSION)
-  set(VPU_VERSION "0.2")
+  set(VPU_VERSION "0.3")
 endif()
 configure_file(version.h.in ${CMAKE_BINARY_DIR}/version.h)
 
@@ -44,6 +44,17 @@ add_compile_options(-fcf-protection=full -mshstk)
 add_subdirectory(compiler)
 add_subdirectory(firmware)
 add_subdirectory(umd)
+add_subdirectory(validation)
+
+# Add options for building with sanitizers
+if(NOT ENABLE_UMD_SANITIZER)
+  message(STATUS "ENABLE_UMD_SANITIZER not specified, using no sanitizers")
+  set(ENABLE_UMD_SANITIZER "" CACHE STRING "Enable UMD vpu test and unit test thread sanitizer. Set empty string to disable sanitizer. [address,undefined | thread | memory]" FORCE)
+endif()
+if (ENABLE_UMD_SANITIZER STREQUAL "memory" AND CMAKE_CXX_COMPILER_ID STREQUAL GNU)
+  message(FATAL_ERROR "GCC doesn't support memory sanitizer.")
+endif()
+message(STATUS "option ENABLE_UMD_SANITIZER: ${ENABLE_UMD_SANITIZER}")
 
 # You may your custom commands in .local.cmake, i.e. driver compilation, running tests.
 include(${CMAKE_CURRENT_SOURCE_DIR}/.local.cmake OPTIONAL)

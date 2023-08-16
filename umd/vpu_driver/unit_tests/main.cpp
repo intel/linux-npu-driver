@@ -6,9 +6,8 @@
  */
 
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 #include "vpu_driver/unit_tests/options.hpp"
-
-#include <gmock-gtest-all.cc>
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleMock(&argc, argv);
