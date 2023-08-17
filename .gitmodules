@@ -1,12 +1,12 @@
-[submodule "umd/third_party/level-zero"]
-	path = umd/third_party/level-zero
+[submodule "third_party/level-zero"]
+	path = third_party/level-zero
 	url = https://github.com/oneapi-src/level-zero.git
-[submodule "umd/third_party/level-zero-vpu-extensions"]
-	path = umd/third_party/level-zero-vpu-extensions
+[submodule "third_party/level-zero-vpu-extensions"]
+	path = third_party/level-zero-vpu-extensions
 	url = https://github.com/intel/level-zero-vpu-extensions.git
-[submodule "umd/third_party/vpux_elf"]
-	path = umd/third_party/vpux_elf
+[submodule "third_party/vpux_elf"]
+	path = third_party/vpux_elf
 	url = https://github.com/openvinotoolkit/vpux_plugin_elf.git
-[submodule "validation/third_party/gtest"]
-	path = validation/third_party/gtest
+[submodule "third_party/googletest"]
+	path = third_party/googletest
 	url = https://github.com/google/googletest.git

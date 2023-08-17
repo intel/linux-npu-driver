@@ -6,6 +6,7 @@
  */
 
 #include "level_zero_driver/api/ext/ze_graph.hpp"
+#include "level_zero/loader/ze_loader.h"
 #include "level_zero/ze_api.h"
 #include "level_zero/ze_graph_ext.h"
 #include "level_zero/ze_graph_profiling_ext.h"
@@ -16,7 +17,6 @@
 
 #include <dlfcn.h>
 #include <memory>
-#include <third_party/level-zero/include/loader/ze_loader.h>
 
 namespace L0 {
 static ze_result_t translateHandle(zel_handle_type_t type, void *handler, void **pHandler) {

@@ -43,8 +43,8 @@ add_compile_options(-fcf-protection=full -mshstk)
 
 add_subdirectory(compiler)
 add_subdirectory(firmware)
+add_subdirectory(third_party)
 add_subdirectory(umd)
-add_subdirectory(validation)
 
 # Add options for building with sanitizers
 if(NOT ENABLE_UMD_SANITIZER)
