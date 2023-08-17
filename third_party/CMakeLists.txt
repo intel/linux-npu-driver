@@ -8,4 +8,5 @@ include(cmake/vpux_elf.cmake)
 include(cmake/level-zero.cmake)
 include(cmake/level-zero-vpu-extensions.cmake)
 
+set(INSTALL_GTEST OFF)
 add_subdirectory(googletest EXCLUDE_FROM_ALL)

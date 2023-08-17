@@ -5,7 +5,7 @@
 #
 
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
-project(vpu-drv VERSION 0.3)
+project(vpu-drv VERSION 0.9)
 
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "CMAKE_BUILD_TYPE not specified, using Release")
@@ -56,6 +56,8 @@ if (ENABLE_UMD_SANITIZER STREQUAL "memory" AND CMAKE_CXX_COMPILER_ID STREQUAL GN
   message(FATAL_ERROR "GCC doesn't support memory sanitizer.")
 endif()
 message(STATUS "option ENABLE_UMD_SANITIZER: ${ENABLE_UMD_SANITIZER}")
+
+include(cmake/packages.cmake)
 
 # You may your custom commands in .local.cmake, i.e. driver compilation, running tests.
 include(${CMAKE_CURRENT_SOURCE_DIR}/.local.cmake OPTIONAL)
