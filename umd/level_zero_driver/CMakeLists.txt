@@ -6,7 +6,7 @@
 
 set(TARGET_NAME_L0 ze_intel_vpu)
 
-project(level-zero-vpu VERSION 1.1.0)
+project(level-zero-npu VERSION 1.1.0)
 message(STATUS "Level Zero driver version: ${PROJECT_VERSION}")
 
 # VPU UMD Version

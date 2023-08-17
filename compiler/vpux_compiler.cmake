@@ -34,4 +34,4 @@ install(FILES
   ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libVPUXCompilerL0.so
   ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libtbb.so.12
   TYPE LIB
-  COMPONENT driver-compiler-vpu)
+  COMPONENT driver-compiler-npu)
