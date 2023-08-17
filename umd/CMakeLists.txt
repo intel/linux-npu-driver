@@ -12,7 +12,6 @@ include(common_macros.cmake)
 include(GNUInstallDirs)
 include(CheckCXXCompilerFlag)
 
-include(cmake/vpux_elf.cmake)
 include(cmake/utilities.cmake)
 
 find_package(Boost 1.71.0 REQUIRED)
@@ -33,11 +32,6 @@ set(VPU_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/vpu_driver/include")
 include_directories(${VPU_SOURCE_DIR})
 include_directories(SYSTEM ${VPU_KMD_INCLUDE_DIR})
-
-# TODO: Try to use external level-zero library
-add_subdirectory_unique(third_party/level-zero EXCLUDE_FROM_ALL)
-
-add_dependencies(ze_loader ze_validation_layer)
 
 # Cmake Setting - compiler independant
 add_compile_options(-Wall -Wextra -Werror -Wempty-body -Wignored-qualifiers -Wtype-limits
@@ -61,4 +55,4 @@ add_subdirectory_unique(vpu_driver/source)
 add_subdirectory_unique(vpu_driver/unit_tests)
 add_subdirectory_unique(level_zero_driver)
 
-install(TARGETS ze_intel_vpu ze_loader ze_validation_layer)
+install(TARGETS ze_intel_vpu)

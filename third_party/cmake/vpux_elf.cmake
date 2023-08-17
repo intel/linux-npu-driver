@@ -10,18 +10,6 @@
 # or implied warranties, other than those that are expressly stated in
 # the License.
 
-set(VPUX_ELF_DIR ${CMAKE_SOURCE_DIR}/umd/third_party/vpux_elf/vpux_elf)
-set(VPUX_ELF_LOADER_INCLUDE_DIR ${VPUX_ELF_DIR}/loader/include)
-set(VPUX_ELF_CORE_INCLUDE_DIR ${VPUX_ELF_DIR}/core/include)
-
-include_directories(SYSTEM ${VPUX_ELF_CORE_INCLUDE_DIR})
-include_directories(SYSTEM ${VPUX_ELF_LOADER_INCLUDE_DIR})
-
-# Do not add target for second time to allow it to be included by other project then umd
-if(TARGET vpux_elf)
-  return()
-endif()
-
 # Below function is required by vpux_elf
 function(enable_warnings_as_errors TARGET_NAME)
   target_compile_options(${TARGET_NAME} PRIVATE -Wall -Wextra -Werror)
@@ -32,7 +20,7 @@ include_directories(SYSTEM ${CMAKE_SOURCE_DIR}/firmware/include/)
 
 # TODO: Skip install(TARGETS) from vpux_elf
 set(BUILD_SHARED_LIBS ON)
-add_subdirectory(${VPUX_ELF_DIR})
+add_subdirectory(vpux_elf/vpux_elf)
 unset(BUILD_SHARED_LIBS)
 
 # TODO: Temporary WA for linker issue with missing -fPIC. This only occurs on Linux

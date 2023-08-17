@@ -10,7 +10,7 @@ set(TARGET_NAME_L0 ze_intel_vpu)
 if(DEFINED LEVEL_ZERO_ROOT)
     get_filename_component(LEVEL_ZERO_ROOT "${LEVEL_ZERO_ROOT}" ABSOLUTE)
 else()
-    get_filename_component(LEVEL_ZERO_ROOT_tmp "${VPU_SOURCE_DIR}/third_party/level-zero" ABSOLUTE)
+    get_filename_component(LEVEL_ZERO_ROOT_tmp "${CMAKE_SOURCE_DIR}/third_party/level-zero" ABSOLUTE)
     # Level Zero Headers if read from the git repo are in include/core & include/tools.
     # To support the installation path of level_zero_loader headers which is include/*
     # the header files are combined into the path include/* in the commands below.
@@ -18,13 +18,13 @@ else()
         set(CUSTOM_L0_INCLUDE_PATH "${CMAKE_BINARY_DIR}/level_zero/")
         file(MAKE_DIRECTORY ${CUSTOM_L0_INCLUDE_PATH})
         file(GLOB LEVEL_ZERO_API_HEADERS
-            "${VPU_SOURCE_DIR}/third_party/level-zero/include/*.h"
-            "${VPU_SOURCE_DIR}/third_party/level-zero/include/layers"
-            "${VPU_SOURCE_DIR}/third_party/level-zero/include/loader"
+            "${CMAKE_SOURCE_DIR}/third_party/level-zero/include/*.h"
+            "${CMAKE_SOURCE_DIR}/third_party/level-zero/include/layers"
+            "${CMAKE_SOURCE_DIR}/third_party/level-zero/include/loader"
         )
         file(COPY ${LEVEL_ZERO_API_HEADERS} DESTINATION ${CUSTOM_L0_INCLUDE_PATH})
         file(GLOB LEVEL_ZERO_API_EXT_HEADERS
-            "${VPU_SOURCE_DIR}/third_party/level-zero-vpu-extensions/*.h"
+            "${CMAKE_SOURCE_DIR}/third_party/level-zero-vpu-extensions/*.h"
         )
         file(COPY ${LEVEL_ZERO_API_EXT_HEADERS} DESTINATION ${CUSTOM_L0_INCLUDE_PATH})
         set(LEVEL_ZERO_ROOT "${LEVEL_ZERO_ROOT_tmp}")
