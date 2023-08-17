@@ -41,3 +41,6 @@ add_subdirectory(ext/source)
 add_subdirectory(tools/source)
 
 target_include_directories(${TARGET_NAME_L0} PUBLIC ddi)
+
+install(TARGETS ${TARGET_NAME_L0}
+        COMPONENT ${PROJECT_NAME})

@@ -33,4 +33,5 @@ target_compile_definitions(vpux_compiler INTERFACE ENABLE_VPUX_COMPILER)
 install(FILES
   ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libVPUXCompilerL0.so
   ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libtbb.so.12
-  TYPE LIB)
+  TYPE LIB
+  COMPONENT driver-compiler-vpu)
