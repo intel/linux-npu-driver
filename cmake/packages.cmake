@@ -27,6 +27,7 @@ Library is implemented Level Zero API to interract with NPU hardware.")
 set(CPACK_COMPONENT_VALIDATION-VPU_DESCRIPTION "Intel(R) Validation applications for VPU\n\
 Set of application required for testing of Intel(R) Level Zero Driver for NPU hardware.")
 
+set(CPACK_DEBIAN_LEVEL-ZERO_PACKAGE_CONFLICTS "level-zero")
 set(CPACK_DEBIAN_VALIDATION-VPU_PACKAGE_DEPENDS "level-zero (>=1.10.0)")
 
 set(CPACK_VERBATIM_VARIABLES YES)
