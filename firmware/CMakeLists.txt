@@ -16,5 +16,5 @@ if (FIRMWARE_BINARIES)
   install(FILES ${FIRMWARE_BINARIES}
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/firmware/intel/vpu/
     PERMISSIONS OWNER_READ
-    COMPONENT fw-vpu)
+    COMPONENT fw-npu)
 endif()
