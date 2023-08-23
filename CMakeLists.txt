@@ -5,7 +5,7 @@
 #
 
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
-project(vpu-drv VERSION 0.9)
+project(vpu-drv VERSION 1.0.0)
 
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "CMAKE_BUILD_TYPE not specified, using Release")
@@ -22,7 +22,7 @@ endif()
 message(STATUS "Using CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 
 if (NOT VPU_VERSION)
-  set(VPU_VERSION "0.3")
+  set(VPU_VERSION "dev-0")
 endif()
 configure_file(version.h.in ${CMAKE_BINARY_DIR}/include/version.h)
 include_directories(SYSTEM ${CMAKE_BINARY_DIR}/include)
@@ -57,6 +57,7 @@ if (ENABLE_UMD_SANITIZER STREQUAL "memory" AND CMAKE_CXX_COMPILER_ID STREQUAL GN
 endif()
 message(STATUS "option ENABLE_UMD_SANITIZER: ${ENABLE_UMD_SANITIZER}")
 
+include(cmake/detect_linux_system.cmake)
 include(cmake/packages.cmake)
 
 # You may your custom commands in .local.cmake, i.e. driver compilation, running tests.
