@@ -58,10 +58,10 @@ class VPUGraphExecuteCommand : public VPUCommand {
     static bool checkUserArgs(VPUDeviceContext *ctx,
                               const std::vector<std::pair<const void *, uint32_t>> &userArgs,
                               std::vector<uint64_t> &vpuAddr);
-    void fillDescriptor(std::vector<uint64_t> inputArray,
-                        std::vector<uint64_t> outputArray,
-                        const std::vector<uint32_t> inputArraySize,
-                        const std::vector<uint32_t> outputArraySize);
+    void fillDescriptor(std::vector<uint64_t> &inputArray,
+                        std::vector<uint64_t> &outputArray,
+                        const std::vector<uint32_t> &inputArraySize,
+                        const std::vector<uint32_t> &outputArraySize);
 };
 
 } // namespace VPU

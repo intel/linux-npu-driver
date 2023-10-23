@@ -154,7 +154,7 @@ uint64_t VPUDeviceContext::getBufferVPUAddress(const void *ptr) const {
 bool VPUDeviceContext::submitCommandBuffer(const VPUCommandBuffer *cmdBuffer) {
     drm_ivpu_submit execParam = {};
     execParam.buffers_ptr = reinterpret_cast<uint64_t>(cmdBuffer->getBufferHandles().data());
-    execParam.buffer_count = boost::numeric_cast<uint32_t>(cmdBuffer->getBufferHandles().size());
+    execParam.buffer_count = safe_cast<uint32_t>(cmdBuffer->getBufferHandles().size());
     execParam.engine = cmdBuffer->getEngine();
 
     LOG_I("Buffer type: %s.", cmdBuffer->getName());

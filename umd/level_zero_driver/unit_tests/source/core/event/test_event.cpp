@@ -32,7 +32,8 @@ struct EventPoolTest : public Test<CommandQueueFixture> {
 TEST_F(EventPoolTest, givenCallCreateEventPoolReturnsSuccess) {
     ASSERT_NE(nullptr, context);
 
-    EXPECT_EQ(ZE_RESULT_SUCCESS, context->createEventPool(&eventPoolDesc, 0, nullptr, &hEventPool));
+    EXPECT_EQ(ZE_RESULT_SUCCESS,
+              zeEventPoolCreate(context, &eventPoolDesc, 0, nullptr, &hEventPool));
     EXPECT_NE(nullptr, hEventPool);
 
     // Deallocate the event pool.
@@ -44,37 +45,27 @@ TEST_F(EventPoolTest, eventPoolCreateHandleErrors) {
 
     // ZE_RESULT_ERROR_INVALID_NULL_POINTER if desc == nullptr or phEventPool.
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER,
-              context->createEventPool(nullptr, 0, nullptr, &hEventPool));
+              zeEventPoolCreate(context, nullptr, 0, nullptr, &hEventPool));
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER,
-              context->createEventPool(&eventPoolDesc, 0, nullptr, nullptr));
+              zeEventPoolCreate(context, &eventPoolDesc, 0, nullptr, nullptr));
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER,
-              context->createEventPool(nullptr, 0, nullptr, nullptr));
-
-    // ZE_RESULT_ERROR_INVALID_ENUMERATION if desc->flags > 0x7
-    eventPoolDesc.flags = 0x08;
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_ENUMERATION,
-              context->createEventPool(&eventPoolDesc, 0, nullptr, &hEventPool));
-    eventPoolDesc.flags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
+              zeEventPoolCreate(context, nullptr, 0, nullptr, nullptr));
 
     eventPoolDesc.count = 0;
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_SIZE,
-              context->createEventPool(&eventPoolDesc, 0, nullptr, &hEventPool));
+              zeEventPoolCreate(context, &eventPoolDesc, 0, nullptr, &hEventPool));
     eventPoolDesc.count = 1;
 
-    // (nullptr == phDevices) && (0 < numDevices)
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_SIZE,
-              context->createEventPool(&eventPoolDesc, 1, nullptr, &hEventPool));
+              zeEventPoolCreate(context, &eventPoolDesc, 1, nullptr, &hEventPool));
 }
 
-TEST_F(EventPoolTest, eventPoolCreateReservesDeviceMemory) {
+TEST_F(EventPoolTest, eventPoolCreateRetunsSuccessForManyEvents) {
     // 10 events allocatable event pool.
     const uint32_t nEvents = 10;
     eventPoolDesc.count = nEvents;
-    EXPECT_EQ(ZE_RESULT_SUCCESS, context->createEventPool(&eventPoolDesc, 0, nullptr, &hEventPool));
-
-    auto evPool = EventPool::fromHandle(hEventPool);
-    ASSERT_NE(nullptr, evPool);
-    EXPECT_EQ(nEvents, evPool->getNumberOfAvailableEvents());
+    EXPECT_EQ(ZE_RESULT_SUCCESS,
+              zeEventPoolCreate(context, &eventPoolDesc, 0, nullptr, &hEventPool));
 
     // Deallocate the event pool.
     EXPECT_EQ(ZE_RESULT_SUCCESS, zeEventPoolDestroy(hEventPool));
@@ -87,7 +78,7 @@ struct EventTest : public EventPoolTest {
         eventPoolDesc.count = 1;
 
         ASSERT_EQ(ZE_RESULT_SUCCESS,
-                  context->createEventPool(&eventPoolDesc, 0, nullptr, &hEventPool));
+                  zeEventPoolCreate(context, &eventPoolDesc, 0, nullptr, &hEventPool));
 
         pEvPool = EventPool::fromHandle(hEventPool);
         ASSERT_EQ(ZE_RESULT_SUCCESS, pEvPool->createEvent(&eventDesc, &hEvent));
@@ -156,13 +147,6 @@ TEST_F(EventTest, eventCreateHandleErrors) {
     ze_event_handle_t hTestEvent = nullptr;
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, evPool->createEvent(nullptr, &hTestEvent));
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, evPool->createEvent(&eventDesc, nullptr));
-
-    ze_event_desc_t desc = eventDesc;
-    desc.signal = 0x08;
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_ENUMERATION, evPool->createEvent(&desc, &hTestEvent));
-    desc.signal = ZE_EVENT_SCOPE_FLAG_HOST;
-    desc.wait = 0x08;
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_ENUMERATION, evPool->createEvent(&desc, &hTestEvent));
 }
 
 struct MultipleEventTest : public EventPoolTest {
@@ -179,8 +163,8 @@ struct MultipleEventTest : public EventPoolTest {
 
     void prepareEventPool(uint32_t numEvents) {
         eventPoolDesc.count = numEvents;
-        ze_result_t res = context->createEventPool(&eventPoolDesc, 0, nullptr, &hEventPool);
-        ASSERT_EQ(ZE_RESULT_SUCCESS, res);
+        ASSERT_EQ(ZE_RESULT_SUCCESS,
+                  zeEventPoolCreate(context, &eventPoolDesc, 0, nullptr, &hEventPool));
     }
 
     ze_event_desc_t eventDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC,
@@ -200,7 +184,6 @@ TEST_F(MultipleEventTest, eventPoolAllocatesMultipleEvents) {
     prepareEventPool(nMaxEvents);
     auto evPool = EventPool::fromHandle(hEventPool);
     ASSERT_NE(nullptr, evPool);
-    ASSERT_EQ(nMaxEvents, evPool->getEventPoolCapability());
 
     // Index 0 in event pool.
     eventDesc.index = 0;
@@ -252,7 +235,6 @@ TEST_F(MultipleEventTest, eventPoolReAllocatesMultipleEvents) {
     prepareEventPool(nMaxEvents);
     auto evPool = EventPool::fromHandle(hEventPool);
     ASSERT_NE(nullptr, evPool);
-    ASSERT_EQ(nMaxEvents, evPool->getEventPoolCapability());
 
     // Index 0 in event pool.
     eventDesc.index = 0;

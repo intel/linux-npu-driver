@@ -15,8 +15,8 @@ function(enable_warnings_as_errors TARGET_NAME)
   target_compile_options(${TARGET_NAME} PRIVATE -Wall -Wextra -Werror)
 endfunction()
 
-# TODO: This is a WA for vpux_elf that needs to include firmware headers
-include_directories(SYSTEM ${CMAKE_SOURCE_DIR}/firmware/include/)
+get_target_property(FIRMWARE_INCLUDES fw_vpu_api_headers INTERFACE_INCLUDE_DIRECTORIES)
+include_directories(SYSTEM ${FIRMWARE_INCLUDES})
 
 # TODO: Skip install(TARGETS) from vpux_elf
 set(BUILD_SHARED_LIBS ON)

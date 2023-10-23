@@ -94,13 +94,12 @@ VPUGraphExecuteCommand::VPUGraphExecuteCommand(
 
     size_t totalArgs = inputBuffers.size() + outputBuffers.size();
 
-    cmd.desc_table_size =
-        boost::numeric_cast<uint32_t>(2 * sizeof(vpu_cmd_resource_descriptor_table_t) +
-                                      totalArgs * sizeof(vpu_cmd_resource_descriptor_t));
+    cmd.desc_table_size = static_cast<uint32_t>(2U * sizeof(vpu_cmd_resource_descriptor_table_t) +
+                                                totalArgs * sizeof(vpu_cmd_resource_descriptor_t));
 
     if (profilingSize > 0) {
-        cmd.desc_table_size += boost::numeric_cast<uint32_t>(
-            sizeof(vpu_cmd_resource_descriptor_table_t) + sizeof(vpu_cmd_resource_descriptor_t));
+        cmd.desc_table_size += static_cast<uint32_t>(sizeof(vpu_cmd_resource_descriptor_table_t) +
+                                                     sizeof(vpu_cmd_resource_descriptor_t));
     }
     command.emplace<vpu_cmd_ov_blob_execute_t>(cmd);
     for (const auto &ptr : inputBuffers) {
@@ -127,10 +126,10 @@ VPUGraphExecuteCommand::VPUGraphExecuteCommand(
     fillDescriptor(inputArray, outputArray, inputBufferSize, outputBufferSize);
 }
 
-void VPUGraphExecuteCommand::fillDescriptor(std::vector<uint64_t> inputArray,
-                                            std::vector<uint64_t> outputArray,
-                                            const std::vector<uint32_t> inputArraySize,
-                                            const std::vector<uint32_t> outputArraySize) {
+void VPUGraphExecuteCommand::fillDescriptor(std::vector<uint64_t> &inputArray,
+                                            std::vector<uint64_t> &outputArray,
+                                            const std::vector<uint32_t> &inputArraySize,
+                                            const std::vector<uint32_t> &outputArraySize) {
     VPUDescriptor descriptor;
     auto cmd = std::any_cast<vpu_cmd_ov_blob_execute_t>(&command);
 
@@ -174,9 +173,9 @@ bool VPUGraphExecuteCommand::checkUserArgs(
             return false;
         }
 
-        uint64_t address = bo->getVPUAddr() +
-                           reinterpret_cast<uint8_t *>(const_cast<void *>(ptr.first)) -
-                           bo->getBasePointer();
+        uint64_t address =
+            bo->getVPUAddr() +
+            safe_cast<uint64_t>(static_cast<const uint8_t *>(ptr.first) - bo->getBasePointer());
 
         // Push VPU Address into input/output buffer.
         vpuAddr.emplace_back(address);

@@ -51,7 +51,7 @@ class VPUDriverApi final {
 
     int createBuffer(size_t size, uint32_t flags, uint32_t &handle, uint64_t &vpuAddr) const;
     int getBufferInfo(uint32_t handle, uint64_t &mmap_offset) const;
-    void *mmap(size_t size, uint64_t offset) const;
+    void *mmap(size_t size, off_t offset) const;
     int unmap(void *ptr, size_t size) const;
 
     int metricStreamerStart(drm_ivpu_metric_streamer_start *startData) const;
@@ -66,7 +66,8 @@ class VPUDriverApi final {
 
     const static int32_t umdIoctlVersionMajor = DRM_IVPU_DRIVER_MAJOR;
     const static int32_t umdIoctlVersionMinor = DRM_IVPU_DRIVER_MINOR;
-    constexpr static char const *umdIoctlDeviceName = "intel_vpu";
+    constexpr static char const *umdIoctlDeviceName1 = "intel_vpu";
+    constexpr static char const *umdIoctlDeviceName2 = "intel_npu";
 
     std::string devnode;
     OsInterface &osInfc;

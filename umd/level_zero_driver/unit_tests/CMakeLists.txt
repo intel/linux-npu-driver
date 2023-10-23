@@ -10,9 +10,6 @@ if(SKIP_UNIT_TESTS)
   return()
 endif()
 
-# build umd unit tests with sanitizers
-umd_sanitizer_flags()
-
 set(TARGET_NAME ${TARGET_NAME_L0}_tests)
 
 add_executable(${TARGET_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)

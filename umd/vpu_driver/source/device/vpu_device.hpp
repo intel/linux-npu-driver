@@ -32,7 +32,7 @@ class VPUDevice {
     virtual std::unique_ptr<VPUDeviceContext> createDeviceContext();
 
     size_t getNumberOfEngineGroups(void) const;
-    size_t getEngineMaxMemoryFillSize(EngineType engineType);
+    size_t getEngineMaxMemoryFillSize();
     EngineType getEngineType(uint32_t engGrpIdx);
     EngineType getEngineTypeFromOrdinal(uint32_t engGrpOrdinal, bool &isCopyOnly);
     bool engineSupportCompute(EngineType engineType) const;

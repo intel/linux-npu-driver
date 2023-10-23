@@ -13,40 +13,14 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 find_package(LevelZero)
 if(NOT LevelZero_FOUND)
   message(STATUS "LevelZero not found in the system, take one from third_party/level_zero")
-  set(LEVEL_ZERO_BINARY_DIR ${CMAKE_BINARY_DIR}/third_party/level-zero/build)
 
-  include(ExternalProject)
-  ExternalProject_Add(
-    level-zero
-    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/level-zero
-    BINARY_DIR ${LEVEL_ZERO_BINARY_DIR}
-    INSTALL_COMMAND
-      cp -a ${LEVEL_ZERO_BINARY_DIR}/lib/libze_loader.so
-      ${LEVEL_ZERO_BINARY_DIR}/lib/libze_loader.so.1
-      ${LEVEL_ZERO_BINARY_DIR}/lib/libze_loader.so.1.10.0
-      ${LEVEL_ZERO_BINARY_DIR}/lib/libze_validation_layer.so
-      ${LEVEL_ZERO_BINARY_DIR}/lib/libze_validation_layer.so.1
-      ${LEVEL_ZERO_BINARY_DIR}/lib/libze_validation_layer.so.1.10.0
-      ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/
-  BUILD_BYPRODUCTS
-      ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libze_loader.so.1
-      ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libze_validation_layer.so.1
-      )
-  add_library(ze_loader SHARED IMPORTED GLOBAL)
-  add_dependencies(ze_loader level-zero)
-  set_target_properties(
-    ze_loader PROPERTIES IMPORTED_LOCATION
-                         ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libze_loader.so.1)
+  # EXCLUDE_FROM_ALL is used because level-zero-devel install destination starts with root
+  add_subdirectory(level-zero EXCLUDE_FROM_ALL)
 
-  install(
-    FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libze_loader.so
-          ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libze_loader.so.1
-          ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libze_loader.so.1.10.0
-          ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libze_validation_layer.so
-          ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libze_validation_layer.so.1
-          ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libze_validation_layer.so.1.10.0
-    TYPE LIB
-    COMPONENT level-zero)
+  # EXCLUDE_FROM_ALL requires to add components from level-zero manually
+  add_dependencies(ze_loader ze_validation_layer)
+  install(TARGETS ze_loader ze_validation_layer
+          COMPONENT level-zero)
 
   set(LevelZero_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/level-zero/include)
 else()

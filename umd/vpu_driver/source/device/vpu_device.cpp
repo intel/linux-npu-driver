@@ -16,7 +16,6 @@
 #include "vpu_driver/source/os_interface/os_interface.hpp"
 #include "api/vpu_jsm_api.h"
 
-#include <boost/numeric/conversion/cast.hpp>
 #include <cerrno>
 #include <limits>
 #include <sys/mman.h>
@@ -25,7 +24,7 @@
 
 namespace VPU {
 VPUDevice::VPUDevice(std::string devnode, OsInterface &osInfc)
-    : devnode(devnode)
+    : devnode(std::move(devnode))
     , osInfc(osInfc) {}
 
 bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
@@ -38,7 +37,7 @@ bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
         return false;
     }
 
-    deviceId = boost::numeric_cast<uint32_t>(arg.value);
+    deviceId = safe_cast<uint32_t>(arg.value);
 
     LOG_I("Pci device ID: %#llx", arg.value);
     for (auto &info : VPUHwInfos) {
@@ -59,35 +58,35 @@ bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
         LOG_E("Failed to get device revision using ioctl. -errno: %d", errno);
         return false;
     }
-    hwInfo.deviceRevision = boost::numeric_cast<uint32_t>(arg.value);
+    hwInfo.deviceRevision = safe_cast<uint32_t>(arg.value);
 
     arg.param = DRM_IVPU_PARAM_NUM_CONTEXTS;
     if (drvApi->getDeviceParam(&arg)) {
         LOG_E("Failed to get number of contexts using ioctl. -errno: %d", errno);
         return false;
     }
-    hwInfo.maxHardwareContexts = boost::numeric_cast<uint32_t>(arg.value);
+    hwInfo.maxHardwareContexts = safe_cast<uint32_t>(arg.value);
 
     arg.param = DRM_IVPU_PARAM_CORE_CLOCK_RATE;
     if (drvApi->getDeviceParam(&arg)) {
         LOG_E("Failed to get core clock rate using ioctl. -errno: %d", errno);
         return false;
     }
-    hwInfo.coreClockRate = boost::numeric_cast<uint32_t>(arg.value);
+    hwInfo.coreClockRate = safe_cast<uint32_t>(arg.value);
 
     arg.param = DRM_IVPU_PARAM_PLATFORM_TYPE;
     if (drvApi->getDeviceParam(&arg)) {
         LOG_E("Failed to get platform type using ioctl. -errno: %d", errno);
         return false;
     }
-    hwInfo.platformType = boost::numeric_cast<uint32_t>(arg.value);
+    hwInfo.platformType = safe_cast<uint32_t>(arg.value);
 
     arg.param = DRM_IVPU_PARAM_TILE_CONFIG;
     if (drvApi->getDeviceParam(&arg)) {
         LOG_E("Failed to get tile config using ioctl. -errno: %d", errno);
         return false;
     }
-    hwInfo.tileConfig = (~boost::numeric_cast<uint32_t>(arg.value)) & hwInfo.tileFuseMask;
+    hwInfo.tileConfig = (~safe_cast<uint32_t>(arg.value)) & hwInfo.tileFuseMask;
 
     arg.param = DRM_IVPU_PARAM_CONTEXT_BASE_ADDRESS;
     if (drvApi->getDeviceParam(&arg) != 0) {
@@ -103,7 +102,7 @@ bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
     if (drvApi->getDeviceParam(&arg)) {
         LOG_W("Failed to get metric streamer capabilities using ioctl. -errno: %d", errno);
     } else {
-        capMetricStreamer = boost::numeric_cast<uint32_t>(arg.value);
+        capMetricStreamer = safe_cast<uint32_t>(arg.value);
     }
 
     return true;
@@ -321,7 +320,7 @@ size_t VPUDevice::getNumberOfEngineGroups(void) const {
     return engineGroups.size();
 }
 
-size_t VPUDevice::getEngineMaxMemoryFillSize(EngineType engineType) {
+size_t VPUDevice::getEngineMaxMemoryFillSize() {
     return sizeof(uint32_t);
 }
 

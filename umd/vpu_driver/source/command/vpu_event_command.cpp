@@ -8,7 +8,7 @@
 #include "vpu_driver/source/command/vpu_event_command.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
-#include <boost/numeric/conversion/cast.hpp>
+#include "umd_common.hpp"
 
 namespace VPU {
 
@@ -48,8 +48,8 @@ VPUEventCommand::VPUEventCommand(VPUDeviceContext *ctx,
 
     cmd.header.type = cmdType;
     cmd.header.size = sizeof(vpu_cmd_fence_t);
-    cmd.offset = boost::numeric_cast<uint32_t>(ctx->getBufferVPUAddress(eventHeapPtr) -
-                                               ctx->getVPULowBaseAddress());
+    cmd.offset =
+        safe_cast<uint32_t>(ctx->getBufferVPUAddress(eventHeapPtr) - ctx->getVPULowBaseAddress());
     cmd.value = eventState;
     command.emplace<vpu_cmd_fence_t>(cmd);
     appendAssociateBufferObject(ctx, eventHeapPtr);

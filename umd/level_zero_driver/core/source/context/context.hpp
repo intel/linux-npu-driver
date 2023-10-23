@@ -8,10 +8,14 @@
 #pragma once
 
 #include "level_zero_driver/core/source/driver/driver_handle.hpp"
+#include "level_zero_driver/include/l0_exception.hpp"
+#include "level_zero_driver/include/l0_handler.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 
 #include <level_zero/ze_api.h>
 #include <level_zero/zet_api.h>
+#include <level_zero/ze_graph_ext.h>
+#include <unordered_map>
 
 struct _ze_context_handle_t {};
 
@@ -50,17 +54,6 @@ struct Context : _ze_context_handle_t {
 
     ze_result_t getMemAddressRange(const void *ptr, void **basePtr, size_t *pSize);
 
-    ze_result_t createCommandQueue(ze_device_handle_t hDevice,
-                                   const ze_command_queue_desc_t *desc,
-                                   ze_command_queue_handle_t *commandQueue);
-    ze_result_t createCommandList(ze_device_handle_t hDevice,
-                                  const ze_command_list_desc_t *desc,
-                                  ze_command_list_handle_t *commandList);
-    ze_result_t createEventPool(const ze_event_pool_desc_t *desc,
-                                uint32_t numDevices,
-                                ze_device_handle_t *phDevices,
-                                ze_event_pool_handle_t *phEventPool);
-
     ze_result_t activateMetricGroups(zet_device_handle_t hDevice,
                                      uint32_t count,
                                      zet_metric_group_handle_t *phMetricGroups);
@@ -74,15 +67,30 @@ struct Context : _ze_context_handle_t {
                                    ze_event_handle_t hNotificationEvent,
                                    zet_metric_streamer_handle_t *phMetricStreamer);
 
+    ze_result_t queryContextMemory(ze_graph_memory_query_type_t type,
+                                   ze_graph_memory_query_t *query);
+
     inline ze_context_handle_t toHandle() { return this; }
     static Context *fromHandle(ze_context_handle_t handle) {
         return static_cast<Context *>(handle);
     }
     VPU::VPUDeviceContext *getDeviceContext() const { return ctx.get(); }
 
+    void appendObject(std::unique_ptr<IContextObject> obj) {
+        std::lock_guard<std::mutex> lock(mutex);
+        objects.emplace(obj.get(), std::move(obj));
+    }
+
+    void removeObject(IContextObject *obj) {
+        std::lock_guard<std::mutex> lock(mutex);
+        objects.erase(obj);
+    }
+
   private:
     DriverHandle *driverHandle = nullptr;
     std::unique_ptr<VPU::VPUDeviceContext> ctx;
+    std::unordered_map<void *, std::unique_ptr<IContextObject>> objects;
+    std::mutex mutex;
 };
 
 } // namespace L0

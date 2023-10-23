@@ -49,7 +49,6 @@ class MockMetricStreamer : public L0::MetricStreamer {
                        ze_event_handle_t hNotifyEvent)
         : L0::MetricStreamer(metricGroupInput, notifyNReport, ctxInput, deviceInput, hNotifyEvent) {
     }
-    void injectDummyData();
 };
 
 } // namespace ult

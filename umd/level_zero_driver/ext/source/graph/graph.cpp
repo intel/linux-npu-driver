@@ -17,16 +17,18 @@
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <string.h>
-#include <boost/numeric/conversion/cast.hpp>
 
 namespace L0 {
-Graph::Graph(VPU::VPUDeviceContext *pCtx, const ze_graph_desc_t *pDesc)
-    : ctx(pCtx)
-    , desc(*pDesc) {}
+Graph::Graph(Context *pCtx, const ze_graph_desc_2_t *pDesc)
+    : pContext(pCtx)
+    , ctx(pCtx->getDeviceContext())
+    , desc(*pDesc) {
+    initialize();
+}
 
 ze_result_t Graph::create(const ze_context_handle_t hContext,
                           const ze_device_handle_t hDevice,
-                          const ze_graph_desc_t *pDesc,
+                          const ze_graph_desc_2_t *pDesc,
                           ze_graph_handle_t *phGraph) {
     if (pDesc == nullptr) {
         LOG_E("Invalid graph descriptor");
@@ -44,28 +46,23 @@ ze_result_t Graph::create(const ze_context_handle_t hContext,
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 
-    Graph *pGraph = new Graph(pCtx, pDesc);
-    if (pGraph == nullptr) {
-        LOG_E("Failed to allocate Graph object");
-        return ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY;
+    try {
+        auto pGraph = std::make_unique<Graph>(Context::fromHandle(hContext), pDesc);
+        *phGraph = pGraph.get();
+        Context::fromHandle(hContext)->appendObject(std::move(pGraph));
+
+        LOG_I("Graph created - %p", *phGraph);
+    } catch (const DriverError &err) {
+        return err.result();
     }
 
-    ze_result_t ret = pGraph->initialize();
-    if (ret != ZE_RESULT_SUCCESS) {
-        LOG_E("Graph initialization failed, destroying graph object");
-        pGraph->destroy();
-        return ret;
-    }
-
-    *phGraph = pGraph;
-    LOG_I("Graph created - %p", pGraph);
     return ZE_RESULT_SUCCESS;
 }
 
 ze_result_t Graph::destroy() {
     LOG_V("Destroying graph.");
 
-    delete this;
+    pContext->removeObject(this);
     return ZE_RESULT_SUCCESS;
 }
 
@@ -114,7 +111,7 @@ ze_result_t Graph::getProperties(ze_graph_properties_t *pGraphProperties) {
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    pGraphProperties->numGraphArgs = boost::numeric_cast<uint32_t>(argumentProperties.size());
+    pGraphProperties->numGraphArgs = safe_cast<uint32_t>(argumentProperties.size());
     return ZE_RESULT_SUCCESS;
 }
 
@@ -252,14 +249,12 @@ ze_result_t Graph::getDeviceGraphProperties(ze_device_handle_t hDevice,
     }
 
     *pDeviceGraphProperties = {};
-
-    pDeviceGraphProperties->pNext = nullptr;
     pDeviceGraphProperties->graphExtensionVersion = ZE_GRAPH_EXT_VERSION_CURRENT;
+    pDeviceGraphProperties->graphFormatsSupported = ZE_GRAPH_FORMAT_NATIVE;
 
-    if (!Compiler::getCompilerProperties(pDeviceGraphProperties)) {
-        LOG_E("Failed to get compiler properties!");
-        return ZE_RESULT_ERROR_UNKNOWN;
-    }
+    if (!Compiler::getCompilerProperties(pDeviceGraphProperties))
+        LOG_W("Failed to get compiler properties!");
+
     return ZE_RESULT_SUCCESS;
 }
 
@@ -292,43 +287,40 @@ static uint32_t getArgumentSize(const ze_graph_argument_properties_3_t &prop) {
         break;
     }
 
-    return boost::numeric_cast<uint32_t>(size);
+    return safe_cast<uint32_t>(size);
 }
 
-ze_result_t Graph::initialize() {
-    if (desc.pInput == nullptr) {
-        LOG_E("Invalid input pointer.");
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
-    }
-
-    if (desc.inputSize == 0) {
-        LOG_E("Invalid size, should be non zero");
-        return ZE_RESULT_ERROR_INVALID_SIZE;
-    }
+void Graph::initialize() {
+    L0_THROW_WHEN(desc.pInput == nullptr,
+                  "Invalid input pointer",
+                  ZE_RESULT_ERROR_INVALID_NULL_POINTER);
+    L0_THROW_WHEN(desc.inputSize == 0, "Invalid size", ZE_RESULT_ERROR_INVALID_SIZE);
 
     size_t graphSize = desc.inputSize;
-
     if (desc.format == ZE_GRAPH_FORMAT_NGRAPH_LITE) {
         if (!Compiler::getCompiledBlob(graphSize, graphBlobRaw, desc)) {
             LOG_E("Failed to get compiled blob!");
-            return ZE_RESULT_ERROR_UNKNOWN;
+            throw DriverError(ZE_RESULT_ERROR_UNKNOWN);
         }
     } else {
         graphBlobRaw.resize(graphSize);
         memcpy(graphBlobRaw.data(), desc.pInput, graphBlobRaw.size());
     }
 
-    parser = ElfParser::getElfParser(ctx, graphBlobRaw.data(), graphBlobRaw.size());
-    if (!parser.get()) {
-        LOG_E("Failed to read blob as a elf.");
-        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    if (ElfParser::checkMagic(graphBlobRaw.data(), graphBlobRaw.size())) {
+        LOG_I("Detected Elf format");
+        parser = ElfParser::getElfParser(ctx, graphBlobRaw.data(), graphBlobRaw.size());
+    } else {
+        LOG_E("Failed to recognize blob format");
+        throw DriverError(ZE_RESULT_ERROR_INVALID_ARGUMENT);
     }
 
+    L0_THROW_WHEN(!parser.get(), "Failed to get parser", ZE_RESULT_ERROR_INVALID_ARGUMENT);
+
     ze_result_t result = parser->parse(argumentProperties, argumentMetadata, profilingOutputSize);
-    if (result != ZE_RESULT_SUCCESS) {
-        LOG_E("Failed to parse blob.");
-        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    }
+    L0_THROW_WHEN(result != ZE_RESULT_SUCCESS,
+                  "Failed to parse blob",
+                  ZE_RESULT_ERROR_INVALID_ARGUMENT);
 
     for (const auto &prop : argumentProperties) {
         uint32_t size = getArgumentSize(prop);
@@ -340,19 +332,34 @@ ze_result_t Graph::initialize() {
     }
 
     LOG_V("Graph initialized.");
-    return ZE_RESULT_SUCCESS;
 }
 
 std::shared_ptr<VPU::VPUCommand> Graph::allocateGraphInitCommand(VPU::VPUDeviceContext *ctx) {
     return parser->allocateInitCommand(ctx, graphBlobRaw.data(), graphBlobRaw.size());
 }
 
-std::shared_ptr<VPU::VPUCommand> Graph::allocateGraphExecuteCommand(VPU::VPUDeviceContext *ctx,
-                                                                    void *profilingQueryPtr) {
-    return parser->allocateExecuteCommand(ctx,
-                                          inputArgs,
-                                          outputArgs,
-                                          {profilingQueryPtr, profilingOutputSize});
+std::unique_ptr<InferenceExecutor> Graph::getGraphExecutor(VPU::VPUDeviceContext *ctx,
+                                                           void *profilingQueryPtr) {
+    return std::make_unique<InferenceExecutor>(
+        parser,
+        ctx,
+        inputArgs,
+        outputArgs,
+        std::make_pair(profilingQueryPtr, profilingOutputSize));
+}
+
+ze_result_t Graph::getLogString(uint32_t *pSize, char *pBuildLog) {
+    if (pSize == nullptr) {
+        LOG_E("Input size pointer is NULL");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    if (!Compiler::logGetString(pSize, pBuildLog)) {
+        LOG_E("Failed to get error message!");
+        return ZE_RESULT_ERROR_UNKNOWN;
+    }
+
+    return ZE_RESULT_SUCCESS;
 }
 
 } // namespace L0

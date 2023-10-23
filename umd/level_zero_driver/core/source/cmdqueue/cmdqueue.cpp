@@ -16,55 +16,79 @@
 
 namespace L0 {
 
-CommandQueue *CommandQueue::create(Device *device,
-                                   const ze_command_queue_desc_t *desc,
-                                   VPU::VPUDeviceContext *ctx) {
-    bool isCopyOnly = false;
-    VPU::VPUDevice *vpuDevice = device->getVPUDevice();
-
+ze_result_t CommandQueue::create(ze_context_handle_t hContext,
+                                 ze_device_handle_t hDevice,
+                                 const ze_command_queue_desc_t *desc,
+                                 ze_command_queue_handle_t *phCommandQueue) {
+    if (hContext == nullptr) {
+        LOG_E("Invalid hContext pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    if (hDevice == nullptr) {
+        LOG_E("Invalid hDevice pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
     if (desc == nullptr) {
-        LOG_E("Invalid command queue descriptor.");
-        return nullptr;
+        LOG_E("Invalid desc pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    if (phCommandQueue == nullptr) {
+        LOG_E("Invalid phCommandQueue pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    if (vpuDevice == nullptr) {
-        LOG_E("VPUDevice is not ready.");
-        return nullptr;
+    try {
+        Device *pDevice = Device::fromHandle(hDevice);
+        ze_command_queue_group_property_flags_t flags =
+            pDevice->getCommandQeueueGroupFlags(desc->ordinal);
+        L0_THROW_WHEN(flags == 0, "Invalid group ordinal", ZE_RESULT_ERROR_INVALID_ARGUMENT);
+
+        Context *pContext = Context::fromHandle(hContext);
+        bool isCopyOnly = flags == ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY;
+        auto commandQueue = std::make_unique<CommandQueue>(pContext, pDevice, isCopyOnly);
+
+        *phCommandQueue = commandQueue.get();
+        pContext->appendObject(std::move(commandQueue));
+
+        LOG_I("CommandQueue created - %p", *phCommandQueue);
+    } catch (const DriverError &err) {
+        return err.result();
     }
-
-    VPU::EngineType engType = vpuDevice->getEngineTypeFromOrdinal(desc->ordinal, isCopyOnly);
-    if (engType == VPU::EngineType::INVALID) {
-        LOG_E("Invalid engine ordinal(%u) has given", desc->ordinal);
-        return nullptr;
-    }
-
-    CommandQueue *commandQueue = new CommandQueue(device, desc, ctx, isCopyOnly);
-    if (commandQueue != nullptr) {
-        LOG_I("CommandQueue created.");
-    }
-
-    return commandQueue;
-}
-
-ze_result_t CommandQueue::destroy() {
-    delete this;
-    LOG_I("CommandQueue destroyed.");
 
     return ZE_RESULT_SUCCESS;
 }
 
+ze_result_t CommandQueue::destroy() {
+    pContext->removeObject(this);
+    LOG_I("CommandQueue destroyed");
+    return ZE_RESULT_SUCCESS;
+}
+
 ze_result_t CommandQueue::createFence(const ze_fence_desc_t *desc, ze_fence_handle_t *phFence) {
-    if ((desc == nullptr) || (phFence == nullptr)) {
-        LOG_E("Pointer to fence descriptor/pointer to handle hFence passed as nullptr.");
+    if (desc == nullptr) {
+        LOG_E("Invalid desc pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
-
+    if (phFence == nullptr) {
+        LOG_E("Invalid phFence pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
     if (desc->stype != ZE_STRUCTURE_TYPE_FENCE_DESC) {
-        LOG_E("Invalid descriptor type. (%d)", desc->stype);
+        LOG_E("Invalid descriptor type (%d)", desc->stype);
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    *phFence = new Fence(this, desc);
+    try {
+        auto fence = std::make_unique<Fence>(pContext, desc);
+
+        *phFence = fence.get();
+        pContext->appendObject(std::move(fence));
+
+        LOG_I("Fence created - %p", *phFence);
+    } catch (const DriverError &err) {
+        return err.result();
+    }
+
     return ZE_RESULT_SUCCESS;
 }
 
@@ -97,14 +121,7 @@ ze_result_t CommandQueue::executeCommandLists(uint32_t nCommandLists,
         }
     }
 
-    auto vpuDevice = device->getVPUDevice();
-    if (vpuDevice == nullptr) {
-        LOG_W("Failed to submit the buffer. (vpuDevice: %p)", vpuDevice);
-        return ZE_RESULT_ERROR_DEVICE_LOST;
-    }
-
     std::vector<std::shared_ptr<VPU::VPUJob>> jobs;
-
     for (auto i = 0u; i < nCommandLists; i++) {
         auto cmdList = CommandList::fromHandle(phCommandLists[i]);
         if (cmdList == nullptr) {
@@ -123,7 +140,7 @@ ze_result_t CommandQueue::executeCommandLists(uint32_t nCommandLists,
             return ZE_RESULT_ERROR_UNKNOWN;
         }
 
-        if (!ctx->submitJob(job.get())) {
+        if (!pContext->getDeviceContext()->submitJob(job.get())) {
             LOG_E("VPUJob submission failed");
             if (errno == -EBADFD)
                 return ZE_RESULT_ERROR_DEVICE_LOST;

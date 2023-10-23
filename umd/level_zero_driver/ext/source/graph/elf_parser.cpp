@@ -5,13 +5,15 @@
  *
  */
 
+#include "level_zero_driver/include/l0_exception.hpp"
 #include "level_zero_driver/ext/source/graph/elf_parser.hpp"
+#include "level_zero/ze_api.h"
 #include "level_zero/ze_graph_ext.h"
+#include "umd_common.hpp"
 
-#include <api/vpu_nnrt_api.h>
-#include <boost/numeric/conversion/cast.hpp>
 #include <string.h>
 #include <vpux_elf/accessor.hpp>
+#include <vpux_elf/utils/utils.hpp>
 #include <vpux_headers/buffer_manager.hpp>
 #include <vpux_headers/device_buffer.hpp>
 #include <vpux_headers/metadata.hpp>
@@ -104,18 +106,27 @@ class DriverBufferManager : public elf::BufferManager {
 ElfParser::ElfParser(VPU::VPUDeviceContext *ctx,
                      std::unique_ptr<elf::BufferManager> buffer,
                      std::unique_ptr<elf::AccessManager> access,
-                     std::unique_ptr<elf::HostParsedInference> hpi)
+                     std::shared_ptr<elf::HostParsedInference> hpi)
     : ctx(ctx)
     , bufferManager(std::move(buffer))
     , accessManager(std::move(access))
     , hpi(std::move(hpi)) {}
 
-ElfParser::~ElfParser() {}
+bool ElfParser::checkMagic(uint8_t *ptr, size_t size) {
+    if (size == 0)
+        return false;
 
-static std::unique_ptr<elf::HostParsedInference>
+    return elf::utils::checkELFMagic(ptr);
+}
+
+static std::shared_ptr<elf::HostParsedInference>
 createHostParsedInference(elf::BufferManager *buffer, elf::AccessManager *access) {
     try {
-        return std::make_unique<elf::HostParsedInference>(buffer, access);
+        return std::make_shared<elf::HostParsedInference>(buffer, access);
+    } catch (const elf::AllocError &err) {
+        LOG_E("Failed to create elf::HostParsedInference, type: elf::AllocError, reason: %s",
+              err.what());
+        throw DriverError(ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY);
     } catch (const elf::RuntimeError &err) {
         LOG_E("Failed to create elf::HostParsedInference, type: elf::RuntimeError, reason: %s",
               err.what());
@@ -123,8 +134,33 @@ createHostParsedInference(elf::BufferManager *buffer, elf::AccessManager *access
         LOG_E("Failed to create elf::HostParsedInference, type: elf::LogicError, reason: %s",
               err.what());
     } catch (const std::exception &err) {
-        LOG_E("Unhandled exception while creating elf::HostParsedInference, reason: %s",
+        LOG_E("Failed to create elf::HostParsedInference, type: std::exception, reason: %s",
               err.what());
+    } catch (...) {
+        LOG_E("Failed to create elf::HostParsedInference, unknown exception type");
+    }
+    return nullptr;
+}
+
+static std::shared_ptr<elf::HostParsedInference>
+copyHostParsedInference(std::shared_ptr<elf::HostParsedInference> &hpi) {
+    try {
+        return std::make_shared<elf::HostParsedInference>(*hpi);
+    } catch (const elf::AllocError &err) {
+        LOG_E("Failed to copy elf::HostParsedInference, type: elf::AllocError, reason: %s",
+              err.what());
+        throw DriverError(ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY);
+    } catch (const elf::RuntimeError &err) {
+        LOG_E("Failed to copy elf::HostParsedInference, type: elf::RuntimeError, reason: %s",
+              err.what());
+    } catch (const elf::LogicError &err) {
+        LOG_E("Failed to copy elf::HostParsedInference, type: elf::LogicError, reason: %s",
+              err.what());
+    } catch (const std::exception &err) {
+        LOG_E("Failed to copy elf::HostParsedInference, type: std::exception, reason: %s",
+              err.what());
+    } catch (...) {
+        LOG_E("Failed to copy elf::HostParsedInference, unknown exception type");
     }
     return nullptr;
 }
@@ -147,16 +183,24 @@ ze_graph_argument_precision_t ElfParser::getTensorPrecision(elf::DType type) {
     switch (type) {
     case elf::DType::DType_NOT_SET:
         return ZE_GRAPH_ARGUMENT_PRECISION_UNKNOWN;
+    case elf::DType::DType_FP64:
+        return ZE_GRAPH_ARGUMENT_PRECISION_FP64;
     case elf::DType::DType_FP32:
         return ZE_GRAPH_ARGUMENT_PRECISION_FP32;
     case elf::DType::DType_FP16:
         return ZE_GRAPH_ARGUMENT_PRECISION_FP16;
+    case elf::DType::DType_U64:
+        return ZE_GRAPH_ARGUMENT_PRECISION_UINT64;
+    case elf::DType::DType_U32:
+        return ZE_GRAPH_ARGUMENT_PRECISION_UINT32;
     case elf::DType::DType_U16:
         return ZE_GRAPH_ARGUMENT_PRECISION_UINT16;
     case elf::DType::DType_U8:
         return ZE_GRAPH_ARGUMENT_PRECISION_UINT8;
     case elf::DType::DType_U4:
         return ZE_GRAPH_ARGUMENT_PRECISION_UINT4;
+    case elf::DType::DType_I64:
+        return ZE_GRAPH_ARGUMENT_PRECISION_INT64;
     case elf::DType::DType_I32:
         return ZE_GRAPH_ARGUMENT_PRECISION_INT32;
     case elf::DType::DType_I16:
@@ -279,7 +323,7 @@ static ze_graph_argument_layout_t getDeviceLayout(const elf::TensorRef &tensor) 
     return computeLayoutFromStride(tensor.strides, tensor.strides_size);
 }
 
-void ElfParser::getArgumentProperties(std::vector<ze_graph_argument_properties_3_t> &props) const {
+bool ElfParser::getArgumentProperties(std::vector<ze_graph_argument_properties_3_t> &props) const {
     auto metadata = hpi->getMetadata();
 
     props.reserve(metadata.in_tenosr_count + metadata.out_tensor_count);
@@ -287,11 +331,12 @@ void ElfParser::getArgumentProperties(std::vector<ze_graph_argument_properties_3
     auto convert = [](const elf::TensorRef &devTensor,
                       const elf::TensorRef &netTensor,
                       const elf::OVNode &node,
-                      ze_graph_argument_type_t argType) {
-        ze_graph_argument_properties_3_t prop = {};
+                      ze_graph_argument_type_t argType,
+                      ze_graph_argument_properties_3_t &prop) {
         prop.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES;
 
-        strncpy(prop.name, netTensor.name, std::min(sizeof(prop.name), strlen(netTensor.name)));
+        strncpy(prop.name, netTensor.name, sizeof(prop.name) - 1);
+
         prop.type = argType;
         for (size_t j = 0; j < ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE; j++) {
             if (j < devTensor.dimensions_size) {
@@ -306,39 +351,53 @@ void ElfParser::getArgumentProperties(std::vector<ze_graph_argument_properties_3
         prop.devicePrecision = getTensorPrecision(devTensor.data_type);
         prop.deviceLayout = getDeviceLayout(devTensor);
 
-        // TODO: Add support for quantization parameters
         prop.quantReverseScale = 1.f;
         prop.quantZeroPoint = 0;
 
-        strncpy(prop.debug_friendly_name,
-                node.friendly_name,
-                std::min(sizeof(prop.debug_friendly_name), strlen(node.friendly_name)));
+        strncpy(prop.debug_friendly_name, node.friendly_name, sizeof(prop.debug_friendly_name) - 1);
+
+        if (node.tensor_names_count > ZE_MAX_GRAPH_TENSOR_NAMES_SIZE) {
+            LOG_E("Tensor names count exceeds the Graph Extension limits (%u > %u)",
+                  node.tensor_names_count,
+                  ZE_MAX_GRAPH_TENSOR_NAMES_SIZE);
+            return false;
+        }
 
         for (unsigned i = 0; i < node.tensor_names_count; i++) {
             strncpy(prop.associated_tensor_names[i],
                     node.tensor_names[i],
-                    sizeof(prop.associated_tensor_names[i]));
+                    sizeof(prop.associated_tensor_names[i]) - 1);
         }
         prop.associated_tensor_names_count = node.tensor_names_count;
 
-        return prop;
+        return true;
     };
 
     for (size_t i = 0; i < metadata.in_tenosr_count; i++) {
-        auto prop = convert(metadata.in_tensor_desc[i],
-                            metadata.net_input[i],
-                            metadata.ov_parameters[i],
-                            ZE_GRAPH_ARGUMENT_TYPE_INPUT);
+        ze_graph_argument_properties_3_t prop = {};
+        if (!convert(metadata.in_tensor_desc[i],
+                     metadata.net_input[i],
+                     metadata.ov_parameters[i],
+                     ZE_GRAPH_ARGUMENT_TYPE_INPUT,
+                     prop))
+            return false;
+
         props.push_back(prop);
     }
 
     for (size_t i = 0; i < metadata.out_tensor_count; i++) {
-        auto prop = convert(metadata.out_tensor_desc[i],
-                            metadata.net_output[i],
-                            metadata.ov_results[i],
-                            ZE_GRAPH_ARGUMENT_TYPE_OUTPUT);
+        ze_graph_argument_properties_3_t prop = {};
+        if (!convert(metadata.out_tensor_desc[i],
+                     metadata.net_output[i],
+                     metadata.ov_results[i],
+                     ZE_GRAPH_ARGUMENT_TYPE_OUTPUT,
+                     prop))
+            return false;
+
         props.push_back(prop);
     }
+
+    return true;
 }
 
 constexpr std::array<std::pair<elf::OVNodeType, ze_graph_metadata_type>, 18> toMetadataType = {{
@@ -362,19 +421,17 @@ constexpr std::array<std::pair<elf::OVNodeType, ze_graph_metadata_type>, 18> toM
     {elf::OVNodeType_U64, ZE_GRAPH_METADATA_TYPE_U64},
 }};
 
-void ElfParser::getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &args) const {
+bool ElfParser::getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &args) const {
     auto metadata = hpi->getMetadata();
-
     args.reserve(metadata.net_input_count + metadata.net_output_count);
 
-    auto convert = [](const elf::OVNode &node, ze_graph_argument_type_t type) {
-        ze_graph_argument_metadata_t arg = {};
+    auto convert = [](const elf::OVNode &node,
+                      ze_graph_argument_type_t type,
+                      ze_graph_argument_metadata_t &arg) {
         arg.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_METADATA;
         arg.type = type;
 
-        strncpy(arg.friendly_name,
-                node.friendly_name,
-                std::min(sizeof(arg.friendly_name), strlen(node.friendly_name)));
+        strncpy(arg.friendly_name, node.friendly_name, sizeof(arg.friendly_name) - 1);
 
         for (const auto &itr : toMetadataType) {
             if (itr.first == node.type) {
@@ -386,15 +443,19 @@ void ElfParser::getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &a
         std::copy(node.shape, node.shape + node.shape_size, &arg.shape[0]);
         arg.shape_size = node.shape_size;
 
-        for (unsigned i = 0; i < node.tensor_names_count; i++) {
-            strncpy(arg.tensor_names[i], node.tensor_names[i], sizeof(arg.tensor_names[i]));
+        if (node.tensor_names_count > ZE_MAX_GRAPH_TENSOR_NAMES_SIZE) {
+            LOG_E("Tensor names count exceeds the Graph Extension limits (%u > %u)",
+                  node.tensor_names_count,
+                  ZE_MAX_GRAPH_TENSOR_NAMES_SIZE);
+            return false;
         }
-        arg.tensor_names_count = node.tensor_names_count;
-        strncpy(arg.input_name,
-                node.input_name,
-                std::min(sizeof(arg.input_name), strlen(node.input_name)));
 
-        return arg;
+        for (unsigned i = 0; i < node.tensor_names_count; i++)
+            strncpy(arg.tensor_names[i], node.tensor_names[i], sizeof(arg.tensor_names[i]) - 1);
+        arg.tensor_names_count = node.tensor_names_count;
+        strncpy(arg.input_name, node.input_name, sizeof(arg.input_name) - 1);
+
+        return true;
     };
 
     for (size_t i = 0; i < metadata.net_input_count; i++) {
@@ -403,7 +464,10 @@ void ElfParser::getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &a
             continue;
         }
 
-        auto arg = convert(metadata.ov_parameters[i], ZE_GRAPH_ARGUMENT_TYPE_INPUT);
+        ze_graph_argument_metadata_t arg = {};
+        if (!convert(metadata.ov_parameters[i], ZE_GRAPH_ARGUMENT_TYPE_INPUT, arg))
+            return false;
+
         args.push_back(arg);
     }
 
@@ -413,9 +477,14 @@ void ElfParser::getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &a
             continue;
         }
 
-        auto arg = convert(metadata.ov_results[i], ZE_GRAPH_ARGUMENT_TYPE_OUTPUT);
+        ze_graph_argument_metadata_t arg = {};
+        if (!convert(metadata.ov_results[i], ZE_GRAPH_ARGUMENT_TYPE_OUTPUT, arg))
+            return false;
+
         args.push_back(arg);
     }
+
+    return true;
 }
 
 bool ElfParser::getProfilingSize(uint32_t &size) const {
@@ -424,7 +493,7 @@ bool ElfParser::getProfilingSize(uint32_t &size) const {
     if (profBuffers.size() == 0) {
         size = 0;
     } else if (profBuffers.size() == 1) {
-        size = boost::numeric_cast<uint32_t>(profBuffers[0].size());
+        size = safe_cast<uint32_t>(profBuffers[0].size());
     } else {
         LOG_E("Multiple profiling tensors are not supported");
         return false;
@@ -491,19 +560,18 @@ bool ElfParser::applyInputOutputs(elf::HostParsedInference &hostParsedInference,
 std::shared_ptr<VPU::VPUInferenceExecute> ElfParser::createInferenceExecuteCommand(
     const std::vector<std::pair<const void *, uint32_t>> &inputPtrs,
     const std::vector<std::pair<const void *, uint32_t>> &outputPtrs,
-    const std::pair<void *, uint32_t> &profilingPtr) {
+    const std::pair<void *, uint32_t> &profilingPtr,
+    std::shared_ptr<elf::HostParsedInference> &execHpi) {
     uint64_t inferenceId = 0;
     if (!ctx->getUniqueInferenceId(inferenceId))
         return nullptr;
 
     if (!firstInference) {
-        auto newHpi = createHostParsedInference(bufferManager.get(), accessManager.get());
+        auto newHpi = copyHostParsedInference(hpi);
         if (newHpi == nullptr) {
-            LOG_E("Not able to create new HostParsedInference");
+            LOG_E("Not able to make copy of HostParsedInference");
             return nullptr;
         }
-
-        otherHpis.push_back(std::move(hpi));
         hpi = std::move(newHpi);
     }
 
@@ -537,7 +605,9 @@ std::shared_ptr<VPU::VPUInferenceExecute> ElfParser::createInferenceExecuteComma
     }
     bos.push_back(bo);
 
+    execHpi = hpi;
     firstInference = false;
+
     return VPU::VPUInferenceExecute::create(inferenceId,
                                             hpiBuffer.vpu_addr(),
                                             hpiBuffer.size(),
@@ -547,9 +617,18 @@ std::shared_ptr<VPU::VPUInferenceExecute> ElfParser::createInferenceExecuteComma
 ze_result_t ElfParser::parse(std::vector<ze_graph_argument_properties_3_t> &argumentProperties,
                              std::vector<ze_graph_argument_metadata_t> &argumentMetadata,
                              uint32_t &profilingOutputSize) {
-    getArgumentProperties(argumentProperties);
-    getArgumentMetadata(argumentMetadata);
-    getProfilingSize(profilingOutputSize);
+    if (!getArgumentProperties(argumentProperties)) {
+        LOG_E("Failed to get argument properties");
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (!getArgumentMetadata(argumentMetadata)) {
+        LOG_E("Failed to get argument metadata");
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (!getProfilingSize(profilingOutputSize))
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
 
     return ZE_RESULT_SUCCESS;
 }
@@ -565,10 +644,12 @@ std::shared_ptr<VPU::VPUCommand>
 ElfParser::allocateExecuteCommand(VPU::VPUDeviceContext *ctx,
                                   const std::vector<std::pair<const void *, uint32_t>> &inputArgs,
                                   const std::vector<std::pair<const void *, uint32_t>> &outputArgs,
-                                  const std::pair<void *, uint32_t> &profilingPtr) {
+                                  const std::pair<void *, uint32_t> &profilingPtr,
+                                  std::shared_ptr<elf::HostParsedInference> &execHpi) {
     return createInferenceExecuteCommand(inputArgs,
                                          outputArgs,
-                                         {profilingPtr.first, profilingPtr.second});
+                                         {profilingPtr.first, profilingPtr.second},
+                                         execHpi);
 }
 
 } // namespace L0

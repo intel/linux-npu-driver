@@ -23,7 +23,7 @@ namespace VPU {
  */
 class OsInterface {
   public:
-    virtual ~OsInterface() {}
+    virtual ~OsInterface() = default;
 
     virtual int osiOpen(const char *pathname, int flags, mode_t mode) = 0;
     virtual int osiClose(int fildes) = 0;

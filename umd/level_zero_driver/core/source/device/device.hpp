@@ -37,12 +37,6 @@ struct Device : _ze_device_handle_t {
     Device &operator=(const Device &) = delete;
     Device(const Device &rhs) = delete;
 
-    ze_result_t createCommandList(const ze_command_list_desc_t *desc,
-                                  ze_command_list_handle_t *commandList,
-                                  VPU::VPUDeviceContext *ctx);
-    ze_result_t createCommandQueue(const ze_command_queue_desc_t *desc,
-                                   ze_command_queue_handle_t *commandQueue,
-                                   VPU::VPUDeviceContext *ctx);
     ze_result_t getP2PProperties(ze_device_handle_t hPeerDevice,
                                  ze_device_p2p_properties_t *pP2PProperties);
     ze_result_t getProperties(ze_device_properties_t *pDeviceProperties);
@@ -59,6 +53,7 @@ struct Device : _ze_device_handle_t {
     ze_result_t getCommandQueueGroupProperties(
         uint32_t *pCount,
         ze_command_queue_group_properties_t *pCommandQueueGroupProperties);
+    ze_command_queue_group_property_flags_t getCommandQeueueGroupFlags(uint32_t ordinal);
     ze_result_t getStatus() const;
 
     DriverHandle *getDriverHandle();
@@ -105,14 +100,6 @@ struct Device : _ze_device_handle_t {
   private:
     DriverHandle *driverHandle = nullptr;
     VPU::VPUDevice *vpuDevice = nullptr;
-
-    /**
-       Returns if given ordinal is a copy only engine group.
-       @param [in]: engGrpOrdinal: Engine group ordinal to check.
-       @param [out]: True when the return value is valid, false otherwise.
-       @return true if given engine ordinal is for copy only group.
-     */
-    bool isCopyOnlyEngineGroup(uint32_t enGrpOrdinal, bool &outputValid);
 
     std::shared_ptr<MetricContext> metricContext = nullptr;
     bool metricsLoaded = false;

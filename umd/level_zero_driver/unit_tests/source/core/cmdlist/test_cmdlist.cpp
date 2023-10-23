@@ -13,6 +13,7 @@
 
 #include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
+#include "level_zero_driver/core/source/event/eventpool.hpp"
 #include "level_zero_driver/core/source/event/event.hpp"
 #include "level_zero_driver/unit_tests/mocks/mock_driver.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
@@ -23,10 +24,7 @@ namespace ult {
 struct CommandListTest : public Test<CommandQueueFixture> {
     void SetUp() override { CommandQueueFixture::SetUp(); }
 
-    void TearDown() override {
-        CommandQueueFixture::TearDown();
-        mockDriver.reset();
-    }
+    void TearDown() override { CommandQueueFixture::TearDown(); }
 
     Mock<Driver> mockDriver;
     ze_command_list_handle_t hCommandList0 = nullptr;
@@ -68,7 +66,7 @@ TEST_F(CommandListTest, whenCreatingCommandListFromContextThenSuccessIsReturned)
     ze_command_list_desc_t desc = {};
     desc.commandQueueGroupOrdinal = getComputeQueueOrdinal();
 
-    ze_result_t result = context->createCommandList(device, &desc, &hCommandList0);
+    ze_result_t result = zeCommandListCreate(context, device, &desc, &hCommandList0);
     EXPECT_EQ(ZE_RESULT_SUCCESS, result);
 
     L0::CommandList *commandList = L0::CommandList::fromHandle(hCommandList0);
@@ -80,7 +78,9 @@ TEST_F(CommandListTest, commandListIsIteratable) {
     ze_command_list_desc_t desc = {};
     desc.commandQueueGroupOrdinal = getComputeQueueOrdinal();
 
-    context->createCommandList(device, &desc, &hCommandList0);
+    ze_result_t result = zeCommandListCreate(context, device, &desc, &hCommandList0);
+    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
+
     auto cmdList = L0::CommandList::fromHandle(hCommandList0);
     ASSERT_NE(nullptr, cmdList);
 
@@ -102,8 +102,7 @@ TEST_F(CommandListTest, commandListIsIteratable) {
     EXPECT_EQ(ZE_RESULT_SUCCESS,
               cmdList->appendWriteGlobalTimestamp(ptrAlloc, nullptr, 0, nullptr));
 
-    auto result = cmdList->close();
-    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, cmdList->close());
 
     /* Timestamp is split by UMD to two commands aligned TS and copy */
     EXPECT_EQ(10u, cmdList->getNumCommands());
@@ -127,8 +126,9 @@ TEST_F(CommandListTest, whenCalledCommandListResetCommandListVectorIsClearedSucc
     ze_command_list_desc_t desc = {};
     desc.commandQueueGroupOrdinal = getComputeQueueOrdinal();
 
-    // Get Command list imp.
-    context->createCommandList(device, &desc, &hCommandList0);
+    ze_result_t result = zeCommandListCreate(context, device, &desc, &hCommandList0);
+    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
+
     auto cmdList = L0::CommandList::fromHandle(hCommandList0);
     ASSERT_NE(nullptr, cmdList);
 
@@ -166,6 +166,14 @@ TEST_F(CommandListTest, whenCalledCommandListResetCommandListVectorIsClearedSucc
     EXPECT_TRUE(ctx->freeMemAlloc(ptrAlloc));
 }
 
+TEST_F(CommandListTest, expectCommandListIsDestroyOnContextDestroy) {
+    ze_command_list_desc_t desc = {};
+    desc.commandQueueGroupOrdinal = getComputeQueueOrdinal();
+
+    ze_result_t result = zeCommandListCreate(context, device, &desc, &hCommandList0);
+    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
+}
+
 struct CommandListCommitSizeTest : public CommandListTest {
     void SetUp() override {
         CommandListTest::SetUp();
@@ -177,12 +185,17 @@ struct CommandListCommitSizeTest : public CommandListTest {
         // Command list.
         ze_command_list_desc_t desc = {};
         desc.commandQueueGroupOrdinal = getComputeQueueOrdinal();
-        context->createCommandList(device, &desc, &hNNCmdlist);
+
+        ze_result_t result = zeCommandListCreate(context, device, &desc, &hNNCmdlist);
+        ASSERT_EQ(ZE_RESULT_SUCCESS, result);
+
         nnCmdlist = L0::CommandList::fromHandle(hNNCmdlist);
         ASSERT_NE(nullptr, nnCmdlist);
 
         desc.commandQueueGroupOrdinal = getCopyOnlyQueueOrdinal();
-        context->createCommandList(device, &desc, &hCPCmdlist);
+        result = zeCommandListCreate(context, device, &desc, &hCPCmdlist);
+        ASSERT_EQ(ZE_RESULT_SUCCESS, result);
+
         cpCmdlist = L0::CommandList::fromHandle(hCPCmdlist);
         ASSERT_NE(nullptr, cpCmdlist);
 
@@ -192,7 +205,8 @@ struct CommandListCommitSizeTest : public CommandListTest {
                                            0,
                                            ZE_EVENT_POOL_FLAG_HOST_VISIBLE};
         evPoolDesc.count = 3;
-        ASSERT_EQ(ZE_RESULT_SUCCESS, context->createEventPool(&evPoolDesc, 1, &hDevice, &hEvPool));
+        ASSERT_EQ(ZE_RESULT_SUCCESS,
+                  zeEventPoolCreate(context, &evPoolDesc, 1, &hDevice, &hEvPool));
         ASSERT_NE(nullptr, hEvPool);
         evPool = EventPool::fromHandle(hEvPool);
         ASSERT_NE(nullptr, evPool);

@@ -138,19 +138,19 @@ VPUGraphInitCommand::VPUGraphInitCommand(VPUDeviceContext *ctx,
 
     cmd.header.type = VPU_CMD_OV_BLOB_INITIALIZE;
     cmd.header.size = sizeof(vpu_cmd_ov_blob_initialize_t);
-    cmd.kernel_size = boost::numeric_cast<uint32_t>(blobSize);
+    cmd.kernel_size = safe_cast<uint32_t>(blobSize);
     cmd.desc_table_size =
-        boost::numeric_cast<uint32_t>(2 * sizeof(vpu_cmd_resource_descriptor_table_t) +
-                                      2 * sizeof(vpu_cmd_resource_descriptor_t) * bufferCount);
+        static_cast<uint32_t>(2 * sizeof(vpu_cmd_resource_descriptor_table_t) +
+                              2 * sizeof(vpu_cmd_resource_descriptor_t) * bufferCount);
     cmd.blob_id = umdBlobId;
 
     if (actKernelBuffer != nullptr) {
-        cmd.desc_table_size += boost::numeric_cast<uint32_t>(
-            sizeof(vpu_cmd_resource_descriptor_table_t) + sizeof(vpu_cmd_resource_descriptor_t));
+        cmd.desc_table_size += static_cast<uint32_t>(sizeof(vpu_cmd_resource_descriptor_table_t) +
+                                                     sizeof(vpu_cmd_resource_descriptor_t));
     }
 
     cmd.kernel_offset =
-        boost::numeric_cast<uint32_t>(kernelBuffer->getVPUAddr() - ctx->getVPULowBaseAddress());
+        safe_cast<uint32_t>(kernelBuffer->getVPUAddr() - ctx->getVPULowBaseAddress());
     LOG_I("Kernel offset set to %#lx for GraphInit Command!", cmd.kernel_offset);
     command.emplace<vpu_cmd_ov_blob_initialize_t>(cmd);
     appendAssociateBufferObject(ctx, kernelBuffer->getBasePointer());

@@ -16,10 +16,7 @@ ze_result_t zeCommandQueueCreate(ze_context_handle_t hContext,
                                  ze_device_handle_t hDevice,
                                  const ze_command_queue_desc_t *desc,
                                  ze_command_queue_handle_t *phCommandQueue) {
-    if (hContext == nullptr || hDevice == nullptr) {
-        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
-    }
-    return L0::Context::fromHandle(hContext)->createCommandQueue(hDevice, desc, phCommandQueue);
+    return L0::CommandQueue::create(hContext, hDevice, desc, phCommandQueue);
 }
 
 ze_result_t zeCommandQueueDestroy(ze_command_queue_handle_t hCommandQueue) {

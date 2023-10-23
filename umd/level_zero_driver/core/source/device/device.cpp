@@ -43,70 +43,6 @@ DriverHandle *Device::getDriverHandle() {
     return driverHandle;
 }
 
-bool Device::isCopyOnlyEngineGroup(uint32_t ordinal, bool &outputValid) {
-    bool isCopyOnly = false;
-    if (vpuDevice == nullptr ||
-        vpuDevice->getEngineTypeFromOrdinal(ordinal, isCopyOnly) == VPU::EngineType::INVALID) {
-        outputValid = false;
-        LOG_E("Failed to get engine type");
-        return false;
-    }
-
-    outputValid = true;
-    return isCopyOnly;
-}
-
-ze_result_t Device::createCommandList(const ze_command_list_desc_t *desc,
-                                      ze_command_list_handle_t *commandList,
-                                      VPU::VPUDeviceContext *ctx) {
-    bool isCopyOnly = false;
-    bool isValid = false;
-    ze_result_t returnValue = ZE_RESULT_SUCCESS;
-
-    if ((desc == nullptr) || (commandList == nullptr)) {
-        LOG_E("Command list descriptor/pointer commandList passed as nullptr.");
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
-    }
-
-    isCopyOnly = isCopyOnlyEngineGroup(desc->commandQueueGroupOrdinal, isValid);
-    if (!isValid) {
-        LOG_E("Wrong ordinal value received: CommandList could not be created");
-        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
-    *commandList = CommandList::create(isCopyOnly, ctx, returnValue);
-    return returnValue;
-}
-
-ze_result_t Device::createCommandQueue(const ze_command_queue_desc_t *desc,
-                                       ze_command_queue_handle_t *commandQueue,
-                                       VPU::VPUDeviceContext *ctx) {
-    if ((nullptr == desc) || (nullptr == commandQueue)) {
-        LOG_E("Command Queue descriptor/pointer commandQueue passed as nullptr.");
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
-    }
-
-    if (nullptr == vpuDevice) {
-        LOG_E("VPU Device lost / failed to be retrieved.");
-        return ZE_RESULT_ERROR_DEVICE_LOST;
-    }
-
-    // Check that ordinal value is not >=  max number of engines
-    if (desc->ordinal >= safe_cast<uint32_t>(VPU::EngineType::ENGINE_MAX)) {
-        LOG_E("Command Queue Descriptor ordinal value %u is invalid which should be less than %u.",
-              desc->ordinal,
-              safe_cast<uint32_t>(VPU::EngineType::ENGINE_MAX));
-        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
-    *commandQueue = CommandQueue::create(this, desc, ctx);
-
-    if (*commandQueue == nullptr)
-        return ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY;
-
-    return ZE_RESULT_SUCCESS;
-}
-
 ze_result_t Device::getP2PProperties(ze_device_handle_t hPeerDevice,
                                      ze_device_p2p_properties_t *pP2PProperties) {
     if (nullptr == hPeerDevice) {
@@ -346,7 +282,7 @@ ze_result_t Device::getCommandQueueGroupProperties(
         return ZE_RESULT_ERROR_DEVICE_LOST;
     }
 
-    uint32_t count = boost::numeric_cast<uint32_t>(vpuDevice->getNumberOfEngineGroups());
+    uint32_t count = safe_cast<uint32_t>(vpuDevice->getNumberOfEngineGroups());
     // Set engine group counts.
     if (*pCount == 0) {
         *pCount = count;
@@ -360,36 +296,43 @@ ze_result_t Device::getCommandQueueGroupProperties(
         // Set queue group properties.
         for (uint32_t i = 0; i < *pCount; i++) {
             auto egProp = &(pCommandQueueGroupProperties[i]);
-            auto eg = vpuDevice->getEngineType(i);
-            if (eg == VPU::EngineType::INVALID) {
-                LOG_W("Invalid engine group index (%u / %u)", i, *pCount);
-                continue;
-            }
 
             // Set flags.
-            egProp->flags = 0u;
-            if (vpuDevice->engineSupportCompute(eg)) {
-                egProp->flags |= ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE;
-            }
-            if (vpuDevice->engineSupportCopy(eg)) {
-                egProp->flags |= ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY;
-            }
-            if (vpuDevice->engineSupportCooperativeKernel(eg)) {
-                egProp->flags |= ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COOPERATIVE_KERNELS;
-            }
-            if (vpuDevice->engineSupportMetrics(eg)) {
-                egProp->flags |= ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_METRICS;
-            }
+            egProp->flags = getCommandQeueueGroupFlags(i);
 
             // Number of engines in the group.
             egProp->numQueues = 1u;
 
             // Maximum memory fill patern size.
-            egProp->maxMemoryFillPatternSize = vpuDevice->getEngineMaxMemoryFillSize(eg);
+            egProp->maxMemoryFillPatternSize = vpuDevice->getEngineMaxMemoryFillSize();
         }
     }
 
     return ZE_RESULT_SUCCESS;
+}
+
+ze_command_queue_group_property_flags_t Device::getCommandQeueueGroupFlags(uint32_t ordinal) {
+    auto type = vpuDevice->getEngineType(ordinal);
+    if (type == VPU::EngineType::INVALID) {
+        LOG_W("Invalid ordinal");
+        return 0;
+    }
+
+    ze_command_queue_group_property_flags_t flags = 0;
+    if (vpuDevice->engineSupportCompute(type)) {
+        flags |= ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE;
+    }
+    if (vpuDevice->engineSupportCopy(type)) {
+        flags |= ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY;
+    }
+    if (vpuDevice->engineSupportCooperativeKernel(type)) {
+        flags |= ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COOPERATIVE_KERNELS;
+    }
+    if (vpuDevice->engineSupportMetrics(type)) {
+        flags |= ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_METRICS;
+    }
+
+    return flags;
 }
 
 ze_result_t Device::getStatus() const {
@@ -504,10 +447,10 @@ ze_result_t Device::metricGroupGet(uint32_t *pCount, zet_metric_group_handle_t *
     }
 
     if (*pCount == 0) {
-        *pCount = boost::numeric_cast<uint32_t>(metricGroups.size());
+        *pCount = safe_cast<uint32_t>(metricGroups.size());
         return ZE_RESULT_SUCCESS;
     } else if (*pCount > metricGroups.size()) {
-        *pCount = boost::numeric_cast<uint32_t>(metricGroups.size());
+        *pCount = safe_cast<uint32_t>(metricGroups.size());
     }
 
     if (phMetricGroups != nullptr) {

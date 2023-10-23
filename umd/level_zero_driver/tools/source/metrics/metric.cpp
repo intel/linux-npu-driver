@@ -107,10 +107,12 @@ ze_result_t MetricGroup::getMetric(uint32_t *pCount, zet_metric_handle_t *phMetr
     }
 
     if (*pCount == 0) {
-        *pCount = boost::numeric_cast<uint32_t>(metrics.size());
+        *pCount = safe_cast<uint32_t>(metrics.size());
         return ZE_RESULT_SUCCESS;
-    } else if (*pCount > metrics.size()) {
-        *pCount = boost::numeric_cast<uint32_t>(metrics.size());
+    }
+
+    if (*pCount > metrics.size()) {
+        *pCount = safe_cast<uint32_t>(metrics.size());
     }
 
     if (phMetrics != nullptr) {
@@ -144,7 +146,7 @@ ze_result_t MetricGroup::calculateMetricValues(zet_metric_group_calculation_type
         return ZE_RESULT_ERROR_INVALID_ENUMERATION;
     }
 
-    uint32_t metricSize = boost::numeric_cast<uint32_t>(metrics.size());
+    uint32_t metricSize = safe_cast<uint32_t>(metrics.size());
     if (*pMetricValueCount == 0) {
         *pMetricValueCount = metricSize;
         return ZE_RESULT_SUCCESS;

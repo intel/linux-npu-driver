@@ -12,10 +12,6 @@
 
 #include <string.h>
 
-#ifdef ENABLE_VPUX_COMPILER
-#include "VPUXCompilerL0.h"
-#endif
-
 namespace L0 {
 
 GraphProfilingPool::GraphProfilingPool(VPU::VPUDeviceContext *ctx,
@@ -121,6 +117,20 @@ ze_result_t GraphProfilingQuery::getData(ze_graph_profiling_type_t profilingType
 ze_result_t GraphProfilingQuery::destroy() {
     pool->removeQuery(this);
     delete this;
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t GraphProfilingQuery::getLogString(uint32_t *pSize, char *pProfilingLog) {
+    if (pSize == nullptr) {
+        LOG_E("Invalid size pointer.");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    if (!Compiler::logGetString(pSize, pProfilingLog)) {
+        LOG_E("Failed to get error message!");
+        return ZE_RESULT_ERROR_UNKNOWN;
+    }
+
     return ZE_RESULT_SUCCESS;
 }
 

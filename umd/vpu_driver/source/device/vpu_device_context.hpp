@@ -122,7 +122,20 @@ class VPUDeviceContext {
     /**
      * Return number of currently tracking buffer objects in the structure
      */
-    size_t getBuffersCount() const { return trackedBuffers.size(); }
+    size_t getBuffersCount() const {
+        const std::lock_guard<std::mutex> lock(mtx);
+        return trackedBuffers.size();
+    }
+
+    /**
+     * Return size of currently tracking buffer objects in the structure
+     */
+    size_t getAllocatedSize() const {
+        size_t size = 0;
+        for (const auto &buffer : trackedBuffers)
+            size += buffer.second->getAllocSize();
+        return size;
+    }
 
     /**
      * Return inference ID from kernel driver that is unique for VPU

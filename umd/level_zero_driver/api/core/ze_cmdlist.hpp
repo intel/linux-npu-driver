@@ -17,10 +17,7 @@ ze_result_t zeCommandListCreate(ze_context_handle_t hContext,
                                 ze_device_handle_t hDevice,
                                 const ze_command_list_desc_t *desc,
                                 ze_command_list_handle_t *phCommandList) {
-    if (hContext == nullptr) {
-        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
-    }
-    return L0::Context::fromHandle(hContext)->createCommandList(hDevice, desc, phCommandList);
+    return L0::CommandList::create(hContext, hDevice, desc, phCommandList);
 }
 
 ze_result_t zeCommandListCreateImmediate(ze_context_handle_t hContext,

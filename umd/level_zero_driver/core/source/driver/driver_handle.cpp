@@ -69,9 +69,9 @@ ze_result_t DriverHandle::getProperties(ze_driver_properties_t *properties) {
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    uint32_t versionMajor = boost::numeric_cast<uint32_t>(L0_PROJECT_VERSION_MAJOR);
-    uint32_t versionMinor = boost::numeric_cast<uint32_t>(L0_PROJECT_VERSION_MINOR);
-    uint32_t versionBuild = boost::numeric_cast<uint32_t>(VPU_VERSION_BUILD);
+    uint32_t versionMajor = L0_PROJECT_VERSION_MAJOR;
+    uint32_t versionMinor = L0_PROJECT_VERSION_MINOR;
+    uint32_t versionBuild = VPU_VERSION_BUILD;
 
     properties->uuid = ze_intel_vpu_driver_uuid;
     properties->driverVersion = ((versionMajor << 24) & 0xFF000000) |
@@ -95,11 +95,13 @@ ze_result_t DriverHandle::getIPCProperties(ze_driver_ipc_properties_t *pIPCPrope
 ze_result_t
 DriverHandle::getExtensionProperties(uint32_t *pCount,
                                      ze_driver_extension_properties_t *pExtensionProperties) {
-    std::array<ze_driver_extension_properties_t, 5> supportedExts = {{
+    std::array<ze_driver_extension_properties_t, 7> supportedExts = {{
         {ZE_GRAPH_EXT_NAME, ZE_GRAPH_EXT_VERSION_1_0},
         {ZE_GRAPH_EXT_NAME_1_1, ZE_GRAPH_EXT_VERSION_1_1},
         {ZE_GRAPH_EXT_NAME_1_2, ZE_GRAPH_EXT_VERSION_1_2},
         {ZE_GRAPH_EXT_NAME_1_3, ZE_GRAPH_EXT_VERSION_1_3},
+        {ZE_GRAPH_EXT_NAME_1_4, ZE_GRAPH_EXT_VERSION_1_4},
+        {ZE_GRAPH_EXT_NAME_1_5, ZE_GRAPH_EXT_VERSION_1_5},
         {ZE_PROFILING_DATA_EXT_NAME, ZE_PROFILING_DATA_EXT_VERSION_1_0},
     }};
 
@@ -149,7 +151,7 @@ ze_result_t DriverHandle::initialize(std::vector<std::unique_ptr<VPU::VPUDevice>
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 
-    numDevices = boost::numeric_cast<uint32_t>(devices.size());
+    numDevices = safe_cast<uint32_t>(devices.size());
     LOG_I("Update numDevices with '%d'.", numDevices);
 
     return ZE_RESULT_SUCCESS;
@@ -220,12 +222,13 @@ ze_result_t DriverHandle::getExtensionFunctionAddress(const char *name, void **p
         table.pfnProfilingQueryDestroy = L0::zeGraphProfilingQueryDestroy;
         table.pfnProfilingQueryGetData = L0::zeGraphProfilingQueryGetData;
         table.pfnDeviceGetProfilingDataProperties = L0::zeDeviceGetProfilingDataProperties;
+        table.pfnProfilingLogGetString = L0::zeGraphProfilingLogGetString;
         *ppFunctionAddress = reinterpret_cast<void *>(&table);
         LOG_I("Return DDI table for extension: %s", name);
         return ZE_RESULT_SUCCESS;
     }
 
-    static ze_graph_dditable_ext_1_3_t table;
+    static ze_graph_dditable_ext_1_5_t table;
     // version 1.0
     table.pfnCreate = L0::zeGraphCreate;
     table.pfnDestroy = L0::zeGraphDestroy;
@@ -249,8 +252,17 @@ ze_result_t DriverHandle::getExtensionFunctionAddress(const char *name, void **p
     table.pfnQueryNetworkDestroy = L0::zeGraphQueryNetworkDestroy;
     table.pfnQueryNetworkGetSupportedLayers = L0::zeGraphQueryNetworkGetSupportedLayers;
 
+    // version 1.4
+    table.pfnBuildLogGetString = L0::zeGraphBuildLogGetString;
+
+    // version 1.5
+    table.pfnCreate2 = L0::zeGraphCreate2;
+    table.pfnQueryNetworkCreate2 = L0::zeGraphQueryNetworkCreate2;
+    table.pfnQueryContextMemory = L0::zeGraphQueryContextMemory;
+
     if (strcmp(name, ZE_GRAPH_EXT_NAME) == 0 || strcmp(name, ZE_GRAPH_EXT_NAME_1_1) == 0 ||
-        strcmp(name, ZE_GRAPH_EXT_NAME_1_2) == 0 || strcmp(name, ZE_GRAPH_EXT_NAME_1_3) == 0) {
+        strcmp(name, ZE_GRAPH_EXT_NAME_1_2) == 0 || strcmp(name, ZE_GRAPH_EXT_NAME_1_3) == 0 ||
+        strcmp(name, ZE_GRAPH_EXT_NAME_1_4) == 0 || strcmp(name, ZE_GRAPH_EXT_NAME_1_5) == 0) {
         *ppFunctionAddress = reinterpret_cast<void *>(&table);
         LOG_I("Return DDI table for extension: %s", name);
         return ZE_RESULT_SUCCESS;

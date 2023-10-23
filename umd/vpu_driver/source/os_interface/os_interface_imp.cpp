@@ -8,6 +8,7 @@
 #include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/source/os_interface/os_interface.hpp"
 #include "vpu_driver/source/os_interface/os_interface_imp.hpp"
+#include "umd_common.hpp"
 
 #include <stdlib.h>
 #include <sys/types.h>
@@ -17,8 +18,6 @@
 #include <fcntl.h>
 #include <memory>
 #include <string>
-
-#include <boost/numeric/conversion/cast.hpp>
 
 namespace VPU {
 
@@ -80,7 +79,7 @@ int OsInterfaceImp::osiFree(void *ptr) {
 }
 
 size_t OsInterfaceImp::osiGetSystemPageSize() {
-    return boost::numeric_cast<size_t>(sysconf(_SC_PAGESIZE));
+    return safe_cast<size_t>(sysconf(_SC_PAGESIZE));
 }
 
 void *OsInterfaceImp::osiMmap(void *addr, size_t size, int prot, int flags, int fd, off_t offset) {

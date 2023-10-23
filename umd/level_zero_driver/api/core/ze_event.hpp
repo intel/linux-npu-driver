@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "level_zero_driver/core/source/event/eventpool.hpp"
 #include "level_zero_driver/core/source/event/event.hpp"
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
 #include <level_zero/ze_api.h>
@@ -20,10 +21,7 @@ ze_result_t zeEventPoolCreate(ze_context_handle_t hContext,
     if (hContext == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Context::fromHandle(hContext)->createEventPool(desc,
-                                                              numDevices,
-                                                              phDevices,
-                                                              phEventPool);
+    return L0::EventPool::create(hContext, desc, numDevices, phDevices, phEventPool);
 }
 
 ze_result_t zeEventPoolDestroy(ze_event_pool_handle_t hEventPool) {

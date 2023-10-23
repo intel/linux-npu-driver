@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright © 2020-2023 Intel Corporation
+ * Copyright (c) 2022-2023, Intel Corporation.
  */
 
 #ifndef VPU_NCE_HW_37XX_H

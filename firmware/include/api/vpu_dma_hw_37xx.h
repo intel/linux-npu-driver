@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright © 2020-2023 Intel Corporation
+ * Copyright (c) 2022-2023, Intel Corporation.
  */
 
 /**
@@ -16,8 +16,8 @@
 
 /*
  * If changes are made to this file that break backwards compatibility, e.g. adding struct
- * members, please update VPU_NNRT_API_VERSION_MAJOR & VPU_NNRT_API_VERSION_MINOR in
- * vpu_nnrt_api.h. This allows the NNRuntime to detect old MappedInferences.
+ * members, please update VPU_NNRT_37XX_API_VER_MAJOR & VPU_NNRT_37XX_API_VER_MINOR in
+ * vpu_nnrt_api_37xx.h. This allows the NNRuntime to detect old MappedInferences.
  */
 
 /** Pack the API structures for now, once alignment issues are fixed this can be removed */

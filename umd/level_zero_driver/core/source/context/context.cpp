@@ -14,6 +14,9 @@
 #include "level_zero_driver/tools/source/metrics/metric_streamer.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
+#include <string.h>
+#include <sys/sysinfo.h>
+
 namespace L0 {
 
 ze_result_t Context::destroy() {
@@ -40,56 +43,6 @@ ze_result_t Context::getStatus() {
     }
 
     return vpuDevice->isConnected() ? ZE_RESULT_SUCCESS : ZE_RESULT_ERROR_DEVICE_LOST;
-}
-
-ze_result_t Context::createCommandQueue(ze_device_handle_t hDevice,
-                                        const ze_command_queue_desc_t *desc,
-                                        ze_command_queue_handle_t *commandQueue) {
-    if (hDevice == nullptr) {
-        LOG_E("hDevice passed as nullptr.");
-        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
-    }
-
-    return L0::Device::fromHandle(hDevice)->createCommandQueue(desc, commandQueue, ctx.get());
-}
-
-ze_result_t Context::createCommandList(ze_device_handle_t hDevice,
-                                       const ze_command_list_desc_t *desc,
-                                       ze_command_list_handle_t *commandList) {
-    if (hDevice == nullptr) {
-        LOG_E("hDevice is NULL!");
-        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
-    }
-
-    return L0::Device::fromHandle(hDevice)->createCommandList(desc, commandList, ctx.get());
-}
-
-ze_result_t Context::createEventPool(const ze_event_pool_desc_t *desc,
-                                     uint32_t numDevices,
-                                     ze_device_handle_t *phDevices,
-                                     ze_event_pool_handle_t *phEventPool) {
-    if (desc == nullptr || phEventPool == nullptr) {
-        LOG_E("Invalid event pool(%p) descriptor or handler pointer(%p).", desc, phEventPool);
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
-    }
-
-    // Invalid flag set.
-    if (desc->flags > 0x07) {
-        return ZE_RESULT_ERROR_INVALID_ENUMERATION;
-    }
-
-    if (desc->count == 0 || (numDevices > 0 && phDevices == nullptr)) {
-        return ZE_RESULT_ERROR_INVALID_SIZE;
-    }
-
-    EventPool *eventPool =
-        EventPool::create(getDriverHandle(), ctx.get(), numDevices, phDevices, desc);
-    if (eventPool == nullptr) {
-        LOG_E("Failed to create event pool.");
-        return ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY;
-    }
-    *phEventPool = eventPool->toHandle();
-    return ZE_RESULT_SUCCESS;
 }
 
 ze_result_t Context::activateMetricGroups(zet_device_handle_t hDevice,
@@ -176,7 +129,6 @@ ze_result_t Context::metricStreamerOpen(zet_device_handle_t hDevice,
     }
 
     auto device = Device::fromHandle(hDevice);
-
     if (!device->isMetricsLoaded()) {
         LOG_E("Device metrics is not initialized.");
         return ZE_RESULT_ERROR_UNINITIALIZED;
@@ -188,10 +140,15 @@ ze_result_t Context::metricStreamerOpen(zet_device_handle_t hDevice,
         return ZE_RESULT_NOT_READY;
     }
 
-    auto metricContext = device->getMetricContext().get();
+    auto metricContext = device->getMetricContext();
     if (metricContext->getMetricStreamer() != nullptr) {
         LOG_E("Device already has a MetricStreamer opened.");
         return ZE_RESULT_ERROR_HANDLE_OBJECT_IN_USE;
+    }
+
+    if (desc->samplingPeriod < L0::MetricContext::MIN_SAMPLING_RATE_NS) {
+        LOG_E("Sampling rate is too low.");
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     auto pMetricStreamer = new MetricStreamer(metricGroup,
@@ -204,37 +161,42 @@ ze_result_t Context::metricStreamerOpen(zet_device_handle_t hDevice,
         return ZE_RESULT_ERROR_NOT_AVAILABLE;
     }
 
-    if (!pMetricStreamer->isInitialized()) {
-        LOG_E("MetricStreamer not initialized correctly. Closing instance.");
-        pMetricStreamer->close();
-        return ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY;
-    }
-
     metricContext->setMetricStreamer(pMetricStreamer);
 
     drm_ivpu_metric_streamer_start startData = {};
     startData.metric_group_mask = 0x1 << metricGroup->getGroupIndex();
-
-    if (desc->samplingPeriod < L0::MetricContext::MIN_SAMPLING_RATE_NS) {
-        LOG_E("Sampling rate is too low.");
-        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
     // Sampling rate expressed in nanoseconds
     startData.sampling_rate_ns = desc->samplingPeriod;
-
     startData.read_rate = desc->notifyEveryNReports;
 
     const VPU::VPUDriverApi &drvApi = ctx->getDriverApi();
-
     if (drvApi.metricStreamerStart(&startData) < 0) {
         LOG_E("Failed to start metric streamer.");
+        pMetricStreamer->close();
         return ZE_RESULT_ERROR_UNKNOWN;
     }
 
     metricContext->sampleSize = startData.sample_size;
 
     *phMetricStreamer = pMetricStreamer->toHandle();
+
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t Context::queryContextMemory(ze_graph_memory_query_type_t type,
+                                        ze_graph_memory_query_t *query) {
+    if (type != ZE_GRAPH_QUERY_MEMORY_DDR) {
+        LOG_E("Unsupported type");
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    struct sysinfo info = {};
+    if (sysinfo(&info) < 0) {
+        LOG_E("Failed to get total ram using sysinfo, errno: %i, str: %s", errno, strerror(errno));
+    } else {
+        query->total = info.totalram * info.mem_unit;
+    }
+    query->allocated = ctx->getAllocatedSize();
 
     return ZE_RESULT_SUCCESS;
 }

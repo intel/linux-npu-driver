@@ -19,15 +19,5 @@ void MockMetricQuery::injectDummyData() {
     }
 }
 
-void MockMetricStreamer::injectDummyData() {
-    size_t dataCount = metricGroup->getAllocationSize() / sizeof(uint64_t);
-
-    uint64_t *metricData64 = static_cast<uint64_t *>(pMetricData);
-
-    for (uint64_t i = 0; i < (nReports * dataCount); i++) {
-        metricData64[i] = 10 * (i + 1);
-    }
-}
-
 } // namespace ult
 } // namespace L0
