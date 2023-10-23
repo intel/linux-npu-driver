@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright © 2020-2023 Intel Corporation
+ * Copyright (c) 2020-2023, Intel Corporation.
  */
 
 /**
@@ -22,17 +22,22 @@
 /*
  * Minor version changes when API backward compatibility is preserved.
  */
-#define VPU_JSM_API_VER_MINOR 7
+#define VPU_JSM_API_VER_MINOR 15
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
  */
-#define VPU_JSM_API_VER_PATCH 0
+#define VPU_JSM_API_VER_PATCH 2
 
 /*
  * Index in the API version table
  */
 #define VPU_JSM_API_VER_INDEX 4
+
+#ifndef API_ALIGN
+/* Default declaration of API_ALIGN for platforms where it is not needed. */
+#define API_ALIGN
+#endif /* API_ALIGN */
 
 /*
  * Number of Priority Bands for Hardware Scheduling
@@ -84,11 +89,13 @@
  * Job flags bit masks.
  */
 #define VPU_JOB_FLAGS_NULL_SUBMISSION_MASK 0x00000001
+#define VPU_JOB_FLAGS_PRIVATE_DATA_MASK 0xFF000000
 
 /*
  * Sizes of the reserved areas in jobs, in bytes.
  */
-#define VPU_JOB_RESERVED_BYTES 16
+#define VPU_JOB_RESERVED_BYTES 8
+
 /*
  * Sizes of the reserved areas in job queues, in bytes.
  */
@@ -131,11 +138,13 @@ struct vpu_job {
     volatile uint32_t flags;                          /**< Flags bit field, see VPU_JOB_FLAGS_* above */
     volatile uint64_t root_page_table_addr;           /**< Address of root page table to use for this job */
     volatile uint64_t root_page_table_update_counter; /**< Page tables update events counter */
-    volatile uint64_t preemption_buffer_address;      /**< Address of the preemption buffer to use for this job */
-    volatile uint64_t preemption_buffer_size;         /**< Size of the preemption buffer to use for this job */
+    volatile uint64_t primary_preempt_buf_addr;   /**< Address of the primary preemption buffer to use for this job */
+    volatile uint32_t primary_preempt_buf_size;   /**< Size of the primary preemption buffer to use for this job */
+    volatile uint32_t secondary_preempt_buf_size; /**< Size of secondary preemption buffer to use for this job */
+    volatile uint64_t secondary_preempt_buf_addr; /**< Address of secondary preemption buffer to use for this job */
     uint8_t reserved_0[VPU_JOB_RESERVED_BYTES];
 };
-typedef struct vpu_job vpu_job_t;
+typedef struct vpu_job API_ALIGN vpu_job_t;
 
 /*
  * Job queue control registers.
@@ -146,7 +155,7 @@ struct vpu_job_queue_header {
     volatile uint32_t tail;
     uint8_t reserved_0[VPU_JOB_QUEUE_RESERVED_BYTES];
 };
-typedef struct vpu_job_queue_header vpu_job_queue_header_t;
+typedef struct vpu_job_queue_header API_ALIGN vpu_job_queue_header_t;
 
 /*
  * Job queue format.
@@ -155,7 +164,7 @@ struct vpu_job_queue {
     struct vpu_job_queue_header header;
     struct vpu_job job[];
 };
-typedef struct vpu_job_queue vpu_job_queue_t;
+typedef struct vpu_job_queue API_ALIGN vpu_job_queue_t;
 
 /**
  * Logging entity types.
@@ -185,6 +194,7 @@ struct vpu_hws_log_buffer_header {
     uint64_t num_of_entries;
     uint64_t reserved[2];
 };
+typedef struct vpu_hws_log_buffer_header API_ALIGN vpu_hws_log_buffer_header_t;
 
 /*
  * HWS specific log buffer entry details.
@@ -206,6 +216,7 @@ struct vpu_hws_log_buffer_entry {
     /* Operation data depends on operation type */
     uint64_t operation_data[2];
 };
+typedef struct vpu_hws_log_buffer_entry API_ALIGN vpu_hws_log_buffer_entry_t;
 
 /*
  * Host <-> VPU IPC messages types.
@@ -289,6 +300,12 @@ enum vpu_ipc_msg_type {
     VPU_IPC_MSG_HWS_SUSPEND_CMDQ = 0x1119,
     /* Control command: Resume command queue */
     VPU_IPC_MSG_HWS_RESUME_CMDQ = 0x111a,
+    /* Control command: Resume engine after reset */
+    VPU_IPC_MSG_HWS_ENGINE_RESUME = 0x111b,
+    /* Control command: Enable survivability/DCT mode */
+    VPU_IPC_MSG_DCT_ENABLE = 0x111c,
+    /* Control command: Disable survivability/DCT mode */
+    VPU_IPC_MSG_DCT_DISABLE = 0x111d,
     /**
      * Dump VPU state. To be used for debug purposes only.
      * NOTE: Please introduce new ASYNC commands before this one. *
@@ -302,6 +319,10 @@ enum vpu_ipc_msg_type {
      * Linux command: `echo '<dyndbg_cmd>' > <debugfs>/dynamic_debug/control`.
      */
     VPU_IPC_MSG_DYNDBG_CONTROL = 0x1201,
+    /**
+     * Perform the save procedure for the D0i3 entry
+     */
+    VPU_IPC_MSG_PWR_D0I3_ENTER = 0x1202,
     /* IPC Device -> Host, Job completion */
     VPU_IPC_MSG_JOB_DONE = 0x2100,
     /* IPC Device -> Host, Async command completion */
@@ -378,6 +399,12 @@ enum vpu_ipc_msg_type {
     VPU_IPC_MSG_HWS_SUSPEND_CMDQ_DONE = 0x221a,
     /* Response to control command: Resume command queue */
     VPU_IPC_MSG_HWS_RESUME_CMDQ_RSP = 0x221b,
+    /* Response to control command: Resume engine command response */
+    VPU_IPC_MSG_HWS_RESUME_ENGINE_DONE = 0x221c,
+    /* Response to control command: Enable survivability/DCT mode */
+    VPU_IPC_MSG_DCT_ENABLE_DONE = 0x221d,
+    /* Response to control command: Disable survivability/DCT mode */
+    VPU_IPC_MSG_DCT_DISABLE_DONE = 0x221e,
     /**
      * Response to state dump control command.
      * NOTE: Please introduce new ASYNC responses before this one. *
@@ -388,6 +415,11 @@ enum vpu_ipc_msg_type {
     VPU_IPC_MSG_BLOB_DEINIT_DONE = VPU_IPC_MSG_GENERAL_CMD_DONE,
     /** Response to VPU_IPC_MSG_DYNDBG_CONTROL. */
     VPU_IPC_MSG_DYNDBG_CONTROL_RSP = 0x2301,
+    /**
+     * Acknowledgement of completion of the save procedure initiated by
+     * VPU_IPC_MSG_PWR_D0I3_ENTER
+     */
+    VPU_IPC_MSG_PWR_D0I3_ENTER_DONE = 0x2302,
 };
 typedef enum vpu_ipc_msg_type vpu_ipc_msg_type_t;
 
@@ -403,7 +435,7 @@ struct vpu_ipc_msg_payload_engine_reset {
     /* Reserved */
     uint32_t reserved_0;
 };
-typedef struct vpu_ipc_msg_payload_engine_reset vpu_ipc_msg_payload_engine_reset_t;
+typedef struct vpu_ipc_msg_payload_engine_reset API_ALIGN vpu_ipc_msg_payload_engine_reset_t;
 
 struct vpu_ipc_msg_payload_engine_preempt {
     /* Engine to be preempted. */
@@ -411,7 +443,7 @@ struct vpu_ipc_msg_payload_engine_preempt {
     /* ID of the preemption request. */
     uint32_t preempt_id;
 };
-typedef struct vpu_ipc_msg_payload_engine_preempt vpu_ipc_msg_payload_engine_preempt_t;
+typedef struct vpu_ipc_msg_payload_engine_preempt API_ALIGN vpu_ipc_msg_payload_engine_preempt_t;
 
 /*
  * @brief Register doorbell command structure.
@@ -430,7 +462,7 @@ struct vpu_ipc_msg_payload_register_db {
     /* Host sub-stream ID for the context assigned to the doorbell. */
     uint32_t host_ssid;
 };
-typedef struct vpu_ipc_msg_payload_register_db vpu_ipc_msg_payload_register_db_t;
+typedef struct vpu_ipc_msg_payload_register_db API_ALIGN vpu_ipc_msg_payload_register_db_t;
 
 /**
  * @brief Unregister doorbell command structure.
@@ -443,7 +475,7 @@ struct vpu_ipc_msg_payload_unregister_db {
     /* Reserved */
     uint32_t reserved_0;
 };
-typedef struct vpu_ipc_msg_payload_unregister_db vpu_ipc_msg_payload_unregister_db_t;
+typedef struct vpu_ipc_msg_payload_unregister_db API_ALIGN vpu_ipc_msg_payload_unregister_db_t;
 
 struct vpu_ipc_msg_payload_query_engine_hb {
     /* Engine to return heartbeat value. */
@@ -451,7 +483,7 @@ struct vpu_ipc_msg_payload_query_engine_hb {
     /* Reserved */
     uint32_t reserved_0;
 };
-typedef struct vpu_ipc_msg_payload_query_engine_hb vpu_ipc_msg_payload_query_engine_hb_t;
+typedef struct vpu_ipc_msg_payload_query_engine_hb API_ALIGN vpu_ipc_msg_payload_query_engine_hb_t;
 
 struct vpu_ipc_msg_payload_power_level {
     /**
@@ -468,7 +500,7 @@ struct vpu_ipc_msg_payload_power_level {
     /* Reserved */
     uint32_t reserved_0;
 };
-typedef struct vpu_ipc_msg_payload_set_power_level vpu_ipc_msg_payload_set_power_level_t;
+typedef struct vpu_ipc_msg_payload_set_power_level API_ALIGN vpu_ipc_msg_payload_set_power_level_t;
 
 struct vpu_ipc_msg_payload_ssid_release {
     /* Host sub-stream ID for the context to be released. */
@@ -476,7 +508,7 @@ struct vpu_ipc_msg_payload_ssid_release {
     /* Reserved */
     uint32_t reserved_0;
 };
-typedef struct vpu_ipc_msg_payload_ssid_release vpu_ipc_msg_payload_ssid_release_t;
+typedef struct vpu_ipc_msg_payload_ssid_release API_ALIGN vpu_ipc_msg_payload_ssid_release_t;
 
 /**
  * @brief Metric streamer start command structure.
@@ -524,7 +556,7 @@ struct vpu_jsm_metric_streamer_start {
     uint64_t next_buffer_addr;
     uint64_t next_buffer_size;
 };
-typedef struct vpu_jsm_metric_streamer_start vpu_jsm_metric_streamer_start_t;
+typedef struct vpu_jsm_metric_streamer_start API_ALIGN vpu_jsm_metric_streamer_start_t;
 
 /**
  * @brief Metric streamer stop command structure.
@@ -534,7 +566,7 @@ struct vpu_jsm_metric_streamer_stop {
     /** Bitmask to select the desired metric groups. */
     uint64_t metric_group_mask;
 };
-typedef struct vpu_jsm_metric_streamer_stop vpu_jsm_metric_streamer_stop_t;
+typedef struct vpu_jsm_metric_streamer_stop API_ALIGN vpu_jsm_metric_streamer_stop_t;
 
 /**
  * Provide VPU FW with buffers to write metric data.
@@ -566,13 +598,13 @@ struct vpu_jsm_metric_streamer_update {
     uint64_t next_buffer_addr;
     uint64_t next_buffer_size;
 };
-typedef struct vpu_jsm_metric_streamer_update vpu_jsm_metric_streamer_update_t;
+typedef struct vpu_jsm_metric_streamer_update API_ALIGN vpu_jsm_metric_streamer_update_t;
 
 struct vpu_ipc_msg_payload_blob_deinit {
     /* 64-bit unique ID for the blob to be de-initialized. */
     uint64_t blob_id;
 };
-typedef struct vpu_ipc_msg_payload_blob_deinit vpu_ipc_msg_payload_blob_deinit_t;
+typedef struct vpu_ipc_msg_payload_blob_deinit API_ALIGN vpu_ipc_msg_payload_blob_deinit_t;
 
 struct vpu_ipc_msg_payload_job_done {
     /* Engine to which the job was submitted. */
@@ -590,7 +622,7 @@ struct vpu_ipc_msg_payload_job_done {
     /* Command queue id */
     uint64_t cmdq_id;
 };
-typedef struct vpu_ipc_msg_payload_job_done vpu_ipc_msg_payload_job_done_t;
+typedef struct vpu_ipc_msg_payload_job_done API_ALIGN vpu_ipc_msg_payload_job_done_t;
 
 struct vpu_jsm_engine_reset_context {
     /* Host SSID */
@@ -602,6 +634,7 @@ struct vpu_jsm_engine_reset_context {
     /* Flags: 0: cause of hang; 1: collateral damage of reset */
     uint64_t flags;
 };
+typedef struct vpu_jsm_engine_reset_context API_ALIGN vpu_jsm_engine_reset_context_t;
 
 struct vpu_ipc_msg_payload_engine_reset_done {
     /* Engine ordinal */
@@ -611,7 +644,7 @@ struct vpu_ipc_msg_payload_engine_reset_done {
     /* Array of impacted command queue ids and their flags */
     struct vpu_jsm_engine_reset_context impacted_contexts[VPU_MAX_ENGINE_RESET_IMPACTED_CONTEXTS];
 };
-typedef struct vpu_ipc_msg_payload_engine_reset_done vpu_ipc_msg_payload_engine_reset_done_t;
+typedef struct vpu_ipc_msg_payload_engine_reset_done API_ALIGN vpu_ipc_msg_payload_engine_reset_done_t;
 
 struct vpu_ipc_msg_payload_engine_preempt_done {
     /* Engine preempted. */
@@ -619,7 +652,7 @@ struct vpu_ipc_msg_payload_engine_preempt_done {
     /* ID of the preemption request. */
     uint32_t preempt_id;
 };
-typedef struct vpu_ipc_msg_payload_engine_preempt_done vpu_ipc_msg_payload_engine_preempt_done_t;
+typedef struct vpu_ipc_msg_payload_engine_preempt_done API_ALIGN vpu_ipc_msg_payload_engine_preempt_done_t;
 
 /**
  * Response structure for register doorbell command for both OS
@@ -633,7 +666,7 @@ struct vpu_ipc_msg_payload_register_db_done {
     /* Reserved */
     uint32_t reserved_0;
 };
-typedef struct vpu_ipc_msg_payload_register_db_done vpu_ipc_msg_payload_register_db_done_t;
+typedef struct vpu_ipc_msg_payload_register_db_done API_ALIGN vpu_ipc_msg_payload_register_db_done_t;
 
 /**
  * Response structure for unregister doorbell command for both OS
@@ -646,7 +679,7 @@ struct vpu_ipc_msg_payload_unregister_db_done {
     /* Reserved */
     uint32_t reserved_0;
 };
-typedef struct vpu_ipc_msg_payload_unregister_db_done vpu_ipc_msg_payload_unregister_db_done_t;
+typedef struct vpu_ipc_msg_payload_unregister_db_done API_ALIGN vpu_ipc_msg_payload_unregister_db_done_t;
 
 struct vpu_ipc_msg_payload_query_engine_hb_done {
     /* Engine returning heartbeat value. */
@@ -656,7 +689,7 @@ struct vpu_ipc_msg_payload_query_engine_hb_done {
     /* Heartbeat value. */
     uint64_t heartbeat;
 };
-typedef struct vpu_ipc_msg_payload_query_engine_hb_done vpu_ipc_msg_payload_query_engine_hb_done_t;
+typedef struct vpu_ipc_msg_payload_query_engine_hb_done API_ALIGN vpu_ipc_msg_payload_query_engine_hb_done_t;
 
 struct vpu_ipc_msg_payload_get_power_level_count_done {
     /**
@@ -673,13 +706,14 @@ struct vpu_ipc_msg_payload_get_power_level_count_done {
      */
     uint8_t power_limit[16];
 };
-typedef struct vpu_ipc_msg_payload_get_power_level_count_done vpu_ipc_msg_payload_get_power_level_count_done_t;
+typedef struct vpu_ipc_msg_payload_get_power_level_count_done API_ALIGN
+    vpu_ipc_msg_payload_get_power_level_count_done_t;
 
 struct vpu_ipc_msg_payload_blob_deinit_done {
     /* 64-bit unique ID for the blob de-initialized. */
     uint64_t blob_id;
 };
-typedef struct vpu_ipc_msg_payload_blob_deinit_done vpu_ipc_msg_payload_blob_deinit_done_t;
+typedef struct vpu_ipc_msg_payload_blob_deinit_done API_ALIGN vpu_ipc_msg_payload_blob_deinit_done_t;
 
 /* HWS priority band setup request / response */
 struct vpu_ipc_msg_payload_hws_priority_band_setup {
@@ -692,12 +726,12 @@ struct vpu_ipc_msg_payload_hws_priority_band_setup {
      * Default quantum in 100ns units for scheduling across processes
      * within a priority band
      */
-    uint64_t process_quantum[VPU_HWS_NUM_PRIORITY_BANDS];
+    uint32_t process_quantum[VPU_HWS_NUM_PRIORITY_BANDS];
     /*
      * Default grace period in 100ns units for processes that preempt each
      * other within a priority band
      */
-    uint64_t process_grace_period[VPU_HWS_NUM_PRIORITY_BANDS];
+    uint32_t process_grace_period[VPU_HWS_NUM_PRIORITY_BANDS];
     /*
      * For normal priority band, specifies the target VPU percentage
      * in situations when it's starved by the focus band.
@@ -706,36 +740,58 @@ struct vpu_ipc_msg_payload_hws_priority_band_setup {
     /* Reserved */
     uint32_t reserved_0;
 };
+typedef struct vpu_ipc_msg_payload_hws_priority_band_setup API_ALIGN vpu_ipc_msg_payload_hws_priority_band_setup_t;
 
-/* HWS create command queue request */
+/*
+ * @brief HWS create command queue request.
+ * Host will create a command queue via this command.
+ * Note: Cmdq group is a handle of an object which
+ * may contain one or more command queues.
+ * @see VPU_IPC_MSG_CREATE_CMD_QUEUE
+ * @see VPU_IPC_MSG_CREATE_CMD_QUEUE_RSP
+ */
 struct vpu_ipc_msg_payload_hws_create_cmdq {
     /* Process id */
     uint64_t process_id;
     /* Host SSID */
     uint32_t host_ssid;
-    /* Zero Padding */
-    uint32_t reserved;
+    /* Engine for which queue is being created */
+    uint32_t engine_idx;
+    /*
+     * Cmdq group may be set to 0 or equal to
+     * cmdq_id while each priority band contains
+     * only single engine instances.
+     */
+    uint64_t cmdq_group;
     /* Command queue id */
     uint64_t cmdq_id;
     /* Command queue base */
     uint64_t cmdq_base;
     /* Command queue size */
     uint32_t cmdq_size;
-    /* Reserved */
+    /* Zero padding */
     uint32_t reserved_0;
 };
+typedef struct vpu_ipc_msg_payload_hws_create_cmdq API_ALIGN vpu_ipc_msg_payload_hws_create_cmdq_t;
 
-/* HWS create command queue response */
+/*
+ * @brief HWS create command queue response.
+ * @see VPU_IPC_MSG_CREATE_CMD_QUEUE
+ * @see VPU_IPC_MSG_CREATE_CMD_QUEUE_RSP
+ */
 struct vpu_ipc_msg_payload_hws_create_cmdq_rsp {
     /* Process id */
     uint64_t process_id;
     /* Host SSID */
     uint32_t host_ssid;
-    /* Zero Padding */
-    uint32_t reserved;
+    /* Engine for which queue is being created */
+    uint32_t engine_idx;
+    /* Command queue group */
+    uint64_t cmdq_group;
     /* Command queue id */
     uint64_t cmdq_id;
 };
+typedef struct vpu_ipc_msg_payload_hws_create_cmdq_rsp API_ALIGN vpu_ipc_msg_payload_hws_create_cmdq_rsp_t;
 
 /* HWS destroy command queue request / response */
 struct vpu_ipc_msg_payload_hws_destroy_cmdq {
@@ -746,6 +802,7 @@ struct vpu_ipc_msg_payload_hws_destroy_cmdq {
     /* Command queue id */
     uint64_t cmdq_id;
 };
+typedef struct vpu_ipc_msg_payload_hws_destroy_cmdq API_ALIGN vpu_ipc_msg_payload_hws_destroy_cmdq_t;
 
 /* HWS set context scheduling properties request / response */
 struct vpu_ipc_msg_payload_hws_set_context_sched_properties {
@@ -770,6 +827,8 @@ struct vpu_ipc_msg_payload_hws_set_context_sched_properties {
     /* Grace period when preempting context of a lower priority within the same process */
     uint64_t grace_period_lower_priority;
 };
+typedef struct vpu_ipc_msg_payload_hws_set_context_sched_properties API_ALIGN
+    vpu_ipc_msg_payload_hws_set_context_sched_properties_t;
 
 /*
  * @brief Register doorbell command structure.
@@ -792,6 +851,7 @@ struct vpu_jsm_hws_register_db {
     /* Size of the command queue in bytes. */
     uint64_t cmdq_size;
 };
+typedef struct vpu_jsm_hws_register_db API_ALIGN vpu_jsm_hws_register_db_t;
 
 /*
  * @brief Structure to set another buffer to be used for scheduling-related logging.
@@ -809,6 +869,7 @@ struct vpu_jsm_hws_register_db {
  * The host should set engine_idx and vpu_log_buffer_va to 0 to disable logging
  * for a particular engine.
  * VPU will handle one log buffer for each of supported engines.
+ * VPU should allow the logging to consume one host_ssid.
  * @see VPU_IPC_MSG_HWS_SET_SCHEDULING_LOG
  * @see VPU_IPC_MSG_HWS_SET_SCHEDULING_LOG_RSP
  * @see VPU_IPC_MSG_HWS_SCHEDULING_LOG_NOTIFICATION
@@ -816,8 +877,8 @@ struct vpu_jsm_hws_register_db {
 struct vpu_ipc_msg_payload_hws_set_scheduling_log {
     /* Engine ordinal */
     uint32_t engine_idx;
-    /* Zero Padding */
-    uint32_t reserved_0;
+    /* Host SSID */
+    uint32_t host_ssid;
     /*
      * VPU log buffer virtual address.
      * Set to 0 to disable logging for this engine.
@@ -829,6 +890,7 @@ struct vpu_ipc_msg_payload_hws_set_scheduling_log {
      */
     uint64_t notify_index;
 };
+typedef struct vpu_ipc_msg_payload_hws_set_scheduling_log API_ALIGN vpu_ipc_msg_payload_hws_set_scheduling_log_t;
 
 /*
  * @brief The scheduling log notification is generated by VPU when it writes
@@ -844,6 +906,8 @@ struct vpu_ipc_msg_payload_hws_scheduling_log_notification {
     /* Zero Padding */
     uint32_t reserved_0;
 };
+typedef struct vpu_ipc_msg_payload_hws_scheduling_log_notification API_ALIGN
+    vpu_ipc_msg_payload_hws_scheduling_log_notification_t;
 
 /*
  * @brief HWS suspend command queue request and done structure.
@@ -877,6 +941,7 @@ struct vpu_ipc_msg_payload_hws_suspend_cmdq {
      */
     uint64_t suspend_fence_value;
 };
+typedef struct vpu_ipc_msg_payload_hws_suspend_cmdq API_ALIGN vpu_ipc_msg_payload_hws_suspend_cmdq_t;
 
 /*
  * @brief HWS Resume command queue request / response structure.
@@ -894,6 +959,22 @@ struct vpu_ipc_msg_payload_hws_resume_cmdq {
     /* Command queue id */
     uint64_t cmdq_id;
 };
+typedef struct vpu_ipc_msg_payload_hws_resume_cmdq API_ALIGN vpu_ipc_msg_payload_hws_resume_cmdq_t;
+
+/*
+ * @brief HWS Resume engine request / response structure.
+ * After a HWS engine reset, all scheduling is stopped on VPU until a engine resume.
+ * Host shall send this command to resume scheduling of any valid queue.
+ * @see VPU_IPC_MSG_HWS_RESUME_ENGINE
+ * @see VPU_IPC_MSG_HWS_RESUME_ENGINE_DONE
+ */
+struct vpu_ipc_msg_payload_hws_resume_engine {
+    /* Engine to be resumed */
+    uint32_t engine_idx;
+    /* Reserved */
+    uint32_t reserved_0;
+};
+typedef struct vpu_ipc_msg_payload_hws_resume_engine API_ALIGN vpu_ipc_msg_payload_hws_resume_engine_t;
 
 /**
  * Payload for VPU_IPC_MSG_TRACE_SET_CONFIG[_RSP] and
@@ -932,6 +1013,7 @@ struct vpu_ipc_msg_payload_trace_config {
     uint64_t trace_hw_component_mask;
     uint64_t reserved_0; /**< Reserved for future extensions. */
 };
+typedef struct vpu_ipc_msg_payload_trace_config API_ALIGN vpu_ipc_msg_payload_trace_config_t;
 
 /**
  * Payload for VPU_IPC_MSG_TRACE_GET_CAPABILITY_RSP messages.
@@ -942,6 +1024,7 @@ struct vpu_ipc_msg_payload_trace_capability_rsp {
     uint64_t trace_hw_component_mask; /**< Bitmask of supported loggable HW components. */
     uint64_t reserved_1;              /**< Reserved for future extensions. */
 };
+typedef struct vpu_ipc_msg_payload_trace_capability_rsp API_ALIGN vpu_ipc_msg_payload_trace_capability_rsp_t;
 
 /**
  * Payload for VPU_IPC_MSG_TRACE_GET_NAME requests.
@@ -959,6 +1042,7 @@ struct vpu_ipc_msg_payload_trace_get_name {
      */
     uint64_t entity_id;
 };
+typedef struct vpu_ipc_msg_payload_trace_get_name API_ALIGN vpu_ipc_msg_payload_trace_get_name_t;
 
 /**
  * Payload for VPU_IPC_MSG_TRACE_GET_NAME_RSP responses.
@@ -980,6 +1064,7 @@ struct vpu_ipc_msg_payload_trace_get_name_rsp {
     /** The name of the entity. */
     char entity_name[VPU_TRACE_ENTITY_NAME_MAX_LEN];
 };
+typedef struct vpu_ipc_msg_payload_trace_get_name_rsp API_ALIGN vpu_ipc_msg_payload_trace_get_name_rsp_t;
 
 /**
  * Data sent from the VPU to the host in all metric streamer response messages
@@ -1021,7 +1106,7 @@ struct vpu_jsm_metric_streamer_done {
      */
     uint64_t bytes_written;
 };
-typedef struct vpu_jsm_metric_streamer_done vpu_jsm_metric_streamer_done_t;
+typedef struct vpu_jsm_metric_streamer_done API_ALIGN vpu_jsm_metric_streamer_done_t;
 
 /**
  * Metric group description placed in the metric buffer after successful completion
@@ -1068,7 +1153,7 @@ struct vpu_jsm_metric_group_descriptor {
      * the metric group.
      */
 };
-typedef struct vpu_jsm_metric_group_descriptor vpu_jsm_metric_group_descriptor_t;
+typedef struct vpu_jsm_metric_group_descriptor API_ALIGN vpu_jsm_metric_group_descriptor_t;
 
 /**
  * Metric counter description, placed in the buffer after vpu_jsm_metric_group_descriptor.
@@ -1112,7 +1197,7 @@ struct vpu_jsm_metric_counter_descriptor {
      * component and unit strings.
      */
 };
-typedef struct vpu_jsm_metric_counter_descriptor vpu_jsm_metric_counter_descriptor_t;
+typedef struct vpu_jsm_metric_counter_descriptor API_ALIGN vpu_jsm_metric_counter_descriptor_t;
 
 /**
  * Payload for VPU_IPC_MSG_DYNDBG_CONTROL requests.
@@ -1141,6 +1226,38 @@ struct vpu_ipc_msg_payload_dyndbg_control {
      */
     char dyndbg_cmd[VPU_DYNDBG_CMD_MAX_LEN];
 };
+typedef struct vpu_ipc_msg_payload_dyndbg_control API_ALIGN vpu_ipc_msg_payload_dyndbg_control_t;
+
+/**
+ * Payload for VPU_IPC_MSG_PWR_D0I3_ENTER
+ *
+ * This is a bi-directional payload.
+ */
+struct vpu_ipc_msg_payload_pwr_d0i3_enter {
+    /**
+     * 0: VPU_IPC_MSG_PWR_D0I3_ENTER_DONE is not sent to the host driver
+     *    The driver will poll for D0i2 Idle state transitions.
+     * 1: VPU_IPC_MSG_PWR_D0I3_ENTER_DONE is sent after VPU state save is complete
+     */
+    uint32_t send_response;
+    uint32_t reserved_0;
+};
+typedef struct vpu_ipc_msg_payload_pwr_d0i3_enter API_ALIGN vpu_ipc_msg_payload_pwr_d0i3_enter_t;
+
+/**
+ * Payload for VPU_IPC_MSG_DCT_ENABLE message.
+ *
+ * Default values for DCT active/inactive times are 5.3ms and 30ms respectively,
+ * corresponding to a 85% duty cycle. This payload allows the host to tune these
+ * values according to application requirements.
+ */
+struct vpu_ipc_msg_payload_pwr_dct_control {
+    /** Duty cycle active time in microseconds */
+    uint32_t dct_active_us;
+    /** Duty cycle inactive time in microseconds */
+    uint32_t dct_inactive_us;
+};
+typedef struct vpu_ipc_msg_payload_pwr_dct_control API_ALIGN vpu_ipc_msg_payload_pwr_dct_control_t;
 
 /*
  * Payloads union, used to define complete message format.
@@ -1181,8 +1298,11 @@ union vpu_ipc_msg_payload {
     struct vpu_ipc_msg_payload_hws_scheduling_log_notification hws_scheduling_log_notification;
     struct vpu_ipc_msg_payload_hws_suspend_cmdq hws_suspend_cmdq;
     struct vpu_ipc_msg_payload_hws_resume_cmdq hws_resume_cmdq;
+    struct vpu_ipc_msg_payload_hws_resume_engine hws_resume_engine;
+    struct vpu_ipc_msg_payload_pwr_d0i3_enter pwr_d0i3_enter;
+    struct vpu_ipc_msg_payload_pwr_dct_control pwr_dct_control;
 };
-typedef union vpu_ipc_msg_payload vpu_ipc_msg_payload_t;
+typedef union vpu_ipc_msg_payload API_ALIGN vpu_ipc_msg_payload_t;
 
 /*
  * Host <-> LRT IPC message base structure.
@@ -1208,7 +1328,7 @@ struct vpu_ipc_msg {
     /* Message payload depending on message type, see vpu_ipc_msg_payload union. */
     union vpu_ipc_msg_payload payload;
 };
-typedef struct vpu_ipc_msg vpu_ipc_msg_t;
+typedef struct vpu_ipc_msg API_ALIGN vpu_ipc_msg_t;
 
 #pragma pack(pop)
 

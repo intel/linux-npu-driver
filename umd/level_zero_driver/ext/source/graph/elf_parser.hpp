@@ -27,41 +27,21 @@ class ElfParser : public IParser {
     ElfParser(VPU::VPUDeviceContext *ctx,
               std::unique_ptr<elf::BufferManager> manager,
               std::unique_ptr<elf::AccessManager> access,
-              std::unique_ptr<elf::HostParsedInference> loader);
-    ~ElfParser();
+              std::shared_ptr<elf::HostParsedInference> loader);
 
-    ElfParser(const ElfParser &other) = delete;
-    ElfParser operator=(const ElfParser &other) = delete;
-    ElfParser(ElfParser &&other)
-        : ctx(other.ctx)
-        , bufferManager(std::move(other.bufferManager))
-        , accessManager(std::move(other.accessManager))
-        , hpi(std::move(other.hpi)) {
-        other.ctx = nullptr;
-    }
-    ElfParser &operator=(ElfParser &&other) {
-        if (&other == this)
-            return *this;
-
-        ctx = other.ctx;
-        bufferManager = std::move(other.bufferManager);
-        accessManager = std::move(other.accessManager);
-        hpi = std::move(other.hpi);
-        other.ctx = nullptr;
-        return *this;
-    }
-
+    static bool checkMagic(uint8_t *ptr, size_t size);
     static std::unique_ptr<ElfParser>
     getElfParser(VPU::VPUDeviceContext *ctx, uint8_t *ptr, size_t size);
 
-    void getArgumentProperties(std::vector<ze_graph_argument_properties_3_t> &props) const;
-    void getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &args) const;
+    bool getArgumentProperties(std::vector<ze_graph_argument_properties_3_t> &props) const;
+    bool getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &args) const;
     bool getProfilingSize(uint32_t &size) const;
 
     std::shared_ptr<VPU::VPUInferenceExecute>
     createInferenceExecuteCommand(const std::vector<std::pair<const void *, uint32_t>> &inputPtrs,
                                   const std::vector<std::pair<const void *, uint32_t>> &outputPtrs,
-                                  const std::pair<void *, uint32_t> &profilingPtr);
+                                  const std::pair<void *, uint32_t> &profilingPtr,
+                                  std::shared_ptr<elf::HostParsedInference> &execHpi);
 
     ze_result_t parse(std::vector<ze_graph_argument_properties_3_t> &argumentProperties,
                       std::vector<ze_graph_argument_metadata_t> &argumentMetadata,
@@ -75,7 +55,8 @@ class ElfParser : public IParser {
     allocateExecuteCommand(VPU::VPUDeviceContext *ctx,
                            const std::vector<std::pair<const void *, uint32_t>> &inputArgs,
                            const std::vector<std::pair<const void *, uint32_t>> &outputArgs,
-                           const std::pair<void *, uint32_t> &profilingPtr) override;
+                           const std::pair<void *, uint32_t> &profilingPtr,
+                           std::shared_ptr<elf::HostParsedInference> &execHpi) override;
 
   private:
     static ze_graph_argument_precision_t getTensorPrecision(elf::DType type);
@@ -89,9 +70,7 @@ class ElfParser : public IParser {
     VPU::VPUDeviceContext *ctx;
     std::unique_ptr<elf::BufferManager> bufferManager;
     std::unique_ptr<elf::AccessManager> accessManager;
-    std::unique_ptr<elf::HostParsedInference> hpi;
-
-    std::vector<std::unique_ptr<elf::HostParsedInference>> otherHpis;
+    std::shared_ptr<elf::HostParsedInference> hpi;
     bool firstInference = true;
 };
 

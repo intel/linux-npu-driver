@@ -21,7 +21,6 @@
 
 #include "gtest/gtest.h"
 
-#include <boost/numeric/conversion/cast.hpp>
 #include <memory>
 
 using namespace VPU;
@@ -108,7 +107,7 @@ TEST_F(VPUJobTest, createJobWithTimestampCommandsForComputeEngine) {
 
     EXPECT_EQ(1u, job->getCommandBuffers().size());
     for (const auto &cmdBuffer : job->getCommandBuffers()) {
-        EXPECT_EQ(boost::numeric_cast<uint32_t>(DRM_IVPU_ENGINE_COMPUTE), cmdBuffer->getEngine());
+        EXPECT_EQ(DRM_IVPU_ENGINE_COMPUTE, cmdBuffer->getEngine());
         EXPECT_EQ(getExpBufferCount(cmdBuffer->getBufferHandles()),
                   cmdBuffer->getBufferHandles().size());
     }
@@ -129,7 +128,7 @@ TEST_F(VPUJobTest, createJobWithTimestampCommandsForCopyEngine) {
 
     EXPECT_EQ(1u, job->getCommandBuffers().size());
     for (const auto &cmdBuffer : job->getCommandBuffers()) {
-        EXPECT_EQ(boost::numeric_cast<uint32_t>(DRM_IVPU_ENGINE_COPY), cmdBuffer->getEngine());
+        EXPECT_EQ(DRM_IVPU_ENGINE_COPY, cmdBuffer->getEngine());
         EXPECT_EQ(getExpBufferCount(cmdBuffer->getBufferHandles()),
                   cmdBuffer->getBufferHandles().size());
     }
@@ -162,7 +161,7 @@ TEST_F(VPUJobTest, createJobWithGraphInitAndExecuteCommands) {
 
     EXPECT_EQ(1u, job->getCommandBuffers().size());
     for (const auto &cmdBuffer : job->getCommandBuffers()) {
-        EXPECT_EQ(boost::numeric_cast<uint32_t>(DRM_IVPU_ENGINE_COMPUTE), cmdBuffer->getEngine());
+        EXPECT_EQ(DRM_IVPU_ENGINE_COMPUTE, cmdBuffer->getEngine());
         EXPECT_EQ(getExpBufferCount(cmdBuffer->getBufferHandles()),
                   cmdBuffer->getBufferHandles().size());
     }
@@ -184,7 +183,7 @@ TEST_F(VPUJobTest, createJobWithCopyCommandsforCopyEngine) {
 
     EXPECT_EQ(1u, job->getCommandBuffers().size());
     for (const auto &cmdBuffer : job->getCommandBuffers()) {
-        EXPECT_EQ(boost::numeric_cast<uint32_t>(DRM_IVPU_ENGINE_COPY), cmdBuffer->getEngine());
+        EXPECT_EQ(DRM_IVPU_ENGINE_COPY, cmdBuffer->getEngine());
         EXPECT_EQ(getExpBufferCount(cmdBuffer->getBufferHandles()),
                   cmdBuffer->getBufferHandles().size());
     }
@@ -230,10 +229,9 @@ TEST_F(VPUJobTest, createJobWithDifferentTypesOfCommandExpectSuccess) {
         EXPECT_EQ(getExpBufferCount(cmdBuffer->getBufferHandles()),
                   cmdBuffer->getBufferHandles().size());
         if (i % 2 == 0)
-            EXPECT_EQ(boost::numeric_cast<uint32_t>(DRM_IVPU_ENGINE_COMPUTE),
-                      cmdBuffer->getEngine());
+            EXPECT_EQ(DRM_IVPU_ENGINE_COMPUTE, cmdBuffer->getEngine());
         else
-            EXPECT_EQ(boost::numeric_cast<uint32_t>(DRM_IVPU_ENGINE_COPY), cmdBuffer->getEngine());
+            EXPECT_EQ(DRM_IVPU_ENGINE_COPY, cmdBuffer->getEngine());
     }
 
     EXPECT_TRUE(ctx->freeMemAlloc(hostMem));

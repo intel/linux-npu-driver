@@ -5,7 +5,7 @@
 #
 
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
-project(vpu-drv VERSION 1.0.0)
+project(vpu-drv VERSION 1.1.0)
 
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "CMAKE_BUILD_TYPE not specified, using Release")
@@ -33,11 +33,13 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(ENABLE_OPENVINO_PACKAGE "Enable building the OpenVINO + VPUX Plugin package" OFF)
-option(ENABLE_VPUX_COMPILER "Enable vpux_compiler" OFF)
+option(ENABLE_VPUX_COMPILER_BUILD "Enable building compiler in driver" OFF)
 
 message(STATUS "option ENABLE_OPENVINO_PACKAGE: ${ENABLE_OPENVINO_PACKAGE}")
-message(STATUS "option ENABLE_VPUX_COMPILER: ${ENABLE_VPUX_COMPILER}")
+message(STATUS "option ENABLE_VPUX_COMPILER_BUILD: ${ENABLE_VPUX_COMPILER_BUILD}")
 
+
+include(cmake/sanitizer.cmake)
 
 # Add Intel CET flags for Indirect Branch Tracking and Shadow call-stack technologies.
 add_compile_options(-fcf-protection=full -mshstk)
@@ -46,16 +48,6 @@ add_subdirectory(compiler)
 add_subdirectory(firmware)
 add_subdirectory(third_party)
 add_subdirectory(umd)
-
-# Add options for building with sanitizers
-if(NOT ENABLE_UMD_SANITIZER)
-  message(STATUS "ENABLE_UMD_SANITIZER not specified, using no sanitizers")
-  set(ENABLE_UMD_SANITIZER "" CACHE STRING "Enable UMD vpu test and unit test thread sanitizer. Set empty string to disable sanitizer. [address,undefined | thread | memory]" FORCE)
-endif()
-if (ENABLE_UMD_SANITIZER STREQUAL "memory" AND CMAKE_CXX_COMPILER_ID STREQUAL GNU)
-  message(FATAL_ERROR "GCC doesn't support memory sanitizer.")
-endif()
-message(STATUS "option ENABLE_UMD_SANITIZER: ${ENABLE_UMD_SANITIZER}")
 
 include(cmake/detect_linux_system.cmake)
 include(cmake/packages.cmake)

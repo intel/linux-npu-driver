@@ -15,12 +15,13 @@
 
 namespace L0 {
 
-#ifdef ENABLE_VPUX_COMPILER
-
 ze_result_t QueryNetwork::create(ze_context_handle_t hContext,
                                  ze_device_handle_t hDevice,
-                                 const ze_graph_desc_t *desc,
+                                 const ze_graph_desc_2_t *desc,
                                  ze_graph_query_network_handle_t *phGraphQueryNetwork) {
+    if (!Vcl::sym().ok())
+        return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+
     if (desc->stype != ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES) {
         LOG_E("Invalid structure type");
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
@@ -53,17 +54,17 @@ ze_result_t QueryNetwork::create(ze_context_handle_t hContext,
     vcl_compiler_handle_t compiler = NULL;
     vcl_log_handle_t logHandle = NULL;
 
-    vcl_result_t ret = vclCompilerCreate(compilerDesc, &compiler, &logHandle);
+    vcl_result_t ret = Vcl::sym().compilerCreate(compilerDesc, &compiler, &logHandle);
     if (ret != VCL_RESULT_SUCCESS) {
         LOG_E("Failed to create compiler! Result:%x", ret);
         return ZE_RESULT_ERROR_UNKNOWN;
     }
 
     vcl_query_handle_t query = nullptr;
-    ret = vclQueryNetworkCreate(compiler,
-                                const_cast<uint8_t *>(desc->pInput),
-                                desc->inputSize,
-                                &query);
+    ret = Vcl::sym().queryNetworkCreate(compiler,
+                                        const_cast<uint8_t *>(desc->pInput),
+                                        desc->inputSize,
+                                        &query);
     if (ret != VCL_RESULT_SUCCESS) {
         LOG_E("Failed to create query network! Result:%x", ret);
         return ZE_RESULT_ERROR_UNKNOWN;
@@ -80,15 +81,16 @@ ze_result_t QueryNetwork::create(ze_context_handle_t hContext,
 }
 
 ze_result_t QueryNetwork::destroy() {
-    vclQueryNetworkDestroy(query);
-    vclCompilerDestroy(compiler);
+    Vcl::sym().queryNetworkDestroy(query);
+    Vcl::sym().compilerDestroy(compiler);
     delete this;
 
     return ZE_RESULT_SUCCESS;
 }
 
 ze_result_t QueryNetwork::getSupportedLayers(size_t *pSize, char *pSupportedLayers) {
-    vcl_result_t ret = vclQueryNetwork(query, reinterpret_cast<uint8_t *>(pSupportedLayers), pSize);
+    vcl_result_t ret =
+        Vcl::sym().queryNetwork(query, reinterpret_cast<uint8_t *>(pSupportedLayers), pSize);
     if (ret != VCL_RESULT_SUCCESS) {
         LOG_E("Failed to execute vclQueryNetwork, ret: %x", ret);
         return ZE_RESULT_ERROR_UNKNOWN;
@@ -97,25 +99,4 @@ ze_result_t QueryNetwork::getSupportedLayers(size_t *pSize, char *pSupportedLaye
     return ZE_RESULT_SUCCESS;
 }
 
-#else // !ENABLE_VPUX_COMPILER
-
-ze_result_t QueryNetwork::create(ze_context_handle_t hContext,
-                                 ze_device_handle_t hDevice,
-                                 const ze_graph_desc_t *desc,
-                                 ze_graph_query_network_handle_t *phGraphQueryNetwork) {
-    LOG_E("VPUX Compiler disabled!");
-    return ZE_RESULT_ERROR_UNINITIALIZED;
-}
-
-ze_result_t QueryNetwork::destroy() {
-    LOG_E("VPUX Compiler disabled!");
-    return ZE_RESULT_ERROR_UNINITIALIZED;
-}
-
-ze_result_t QueryNetwork::getSupportedLayers(size_t *pSize, char *pSupportedLayers) {
-    LOG_E("VPUX Compiler disabled!");
-    return ZE_RESULT_ERROR_UNINITIALIZED;
-}
-
-#endif // ENABLE_VPUX_COMPILER
 } // namespace L0

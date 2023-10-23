@@ -11,14 +11,15 @@
 
 namespace L0 {
 
-Fence::Fence(CommandQueue *cmdQueue, const ze_fence_desc_t *desc)
-    : cmdQueue(cmdQueue) {
+Fence::Fence(Context *pContext, const ze_fence_desc_t *desc)
+    : pContext(pContext) {
     if (desc->flags & ZE_FENCE_FLAG_SIGNALED)
         signaled = true;
 }
 
 ze_result_t Fence::destroy() {
-    delete this;
+    pContext->removeObject(this);
+    LOG_I("Fence destroyed");
     return ZE_RESULT_SUCCESS;
 }
 

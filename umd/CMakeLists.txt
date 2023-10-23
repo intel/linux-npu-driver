@@ -8,10 +8,6 @@ include(common_macros.cmake)
 include(GNUInstallDirs)
 include(CheckCXXCompilerFlag)
 
-include(cmake/utilities.cmake)
-
-find_package(Boost 1.71.0 REQUIRED)
-
 if (NOT UMD_LOGLEVEL)
   set(UMD_LOGLEVEL ERROR)
 endif()

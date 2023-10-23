@@ -30,7 +30,6 @@ class MockVPUDevice : public VPUDevice {
 
   public:
     MockVPUDevice(std::string devnode, MockOsInterfaceImp &mockOSInf);
-    virtual ~MockVPUDevice() = default;
 
     static std::unique_ptr<MockVPUDevice>
     createWithDefaultHardwareInfo(MockOsInterfaceImp &mockOSInf);

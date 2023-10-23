@@ -9,8 +9,8 @@
 #include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 
-#include <boost/safe_numerics/safe_integer.hpp>
-#include <boost/numeric/conversion/cast.hpp>
+#include "umd_common.hpp"
+
 #include <string.h>
 
 namespace VPU {
@@ -57,7 +57,7 @@ VPUBufferObject::create(const VPUDriverApi &drvApi, Location type, Type range, s
         return nullptr;
     }
 
-    ptr = drvApi.mmap(size, offset);
+    ptr = drvApi.mmap(size, safe_cast<off_t>(offset));
     if (ptr == nullptr) {
         LOG_E("Failed to mmap the created buffer");
         drvApi.closeBuffer(handle);

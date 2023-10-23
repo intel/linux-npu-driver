@@ -15,8 +15,8 @@ struct _ze_fence_handle_t {};
 
 namespace L0 {
 
-struct Fence : _ze_fence_handle_t {
-    Fence(CommandQueue *cmdQueue, const ze_fence_desc_t *desc);
+struct Fence : _ze_fence_handle_t, IContextObject {
+    Fence(Context *pContext, const ze_fence_desc_t *desc);
     ~Fence() = default;
 
     ze_result_t destroy();
@@ -39,12 +39,10 @@ struct Fence : _ze_fence_handle_t {
      *
      * @return uint32_t
      */
-    uint32_t getTrackedJobCount() const {
-        return boost::numeric_cast<uint32_t>(trackedJobs.size());
-    }
+    size_t getTrackedJobCount() const { return trackedJobs.size(); }
 
   protected:
-    CommandQueue *cmdQueue = nullptr;
+    Context *pContext = nullptr;
     bool signaled = false;
     std::vector<std::shared_ptr<VPU::VPUJob>> trackedJobs;
 };

@@ -110,10 +110,9 @@ struct MetricGroupShared : public ContextFixture {
 
         std::vector<zet_metric_handle_t> metrics(metricCount);
 
-        ASSERT_EQ(
-            MetricGroup::fromHandle(metricGroups[boost::numeric_cast<size_t>(metricGroupIndex)])
-                ->getMetric(&metricCount, metrics.data()),
-            ZE_RESULT_SUCCESS);
+        ASSERT_EQ(MetricGroup::fromHandle(metricGroups[safe_cast<size_t>(metricGroupIndex)])
+                      ->getMetric(&metricCount, metrics.data()),
+                  ZE_RESULT_SUCCESS);
         ASSERT_EQ(metricCount, metrics.size());
 
         std::vector<zet_metric_properties_t> properties(metricCount);
@@ -515,7 +514,7 @@ TEST_F(MetricGroupTest, queryGetGroupMaskAndDataAddressReturnsExpectedResults) {
     ASSERT_NE(hMetricQuery, nullptr);
     auto metricQuery = MetricQuery::fromHandle(hMetricQuery);
 
-    EXPECT_EQ(metricQuery->getMetricGroupMask(), boost::numeric_cast<uint32_t>(0b1000));
+    EXPECT_EQ(metricQuery->getMetricGroupMask(), 0b1000);
     EXPECT_EQ(reinterpret_cast<uint64_t *>(metricQuery->getMetricAddrPtr())[0], 0u);
     EXPECT_NE(reinterpret_cast<uint64_t *>(metricQuery->getMetricAddrPtr())[3], 0u);
     ASSERT_EQ(MetricQuery::fromHandle(hMetricQuery)->destroy(), ZE_RESULT_SUCCESS);

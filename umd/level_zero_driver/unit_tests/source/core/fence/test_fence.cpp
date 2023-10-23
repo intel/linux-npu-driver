@@ -22,24 +22,26 @@ struct FenceTest : public ContextFixture, public testing::Test {
     void SetUp() override {
         ContextFixture::SetUp();
 
-        cmdQue = new CommandQueue(device, &cmdQueDesc, ctx, false);
-        EXPECT_NE(nullptr, cmdQue);
+        ze_command_queue_handle_t hCommandQueue = nullptr;
+        EXPECT_EQ(CommandQueue::create(context, device, &cmdQueDesc, &hCommandQueue),
+                  ZE_RESULT_SUCCESS);
+        ASSERT_NE(hCommandQueue, nullptr);
 
-        auto res = cmdQue->createFence(&fenceDesc, &hFence);
-        EXPECT_EQ(res, ZE_RESULT_SUCCESS);
+        cmdQue = CommandQueue::fromHandle(hCommandQueue);
+        EXPECT_EQ(cmdQue->createFence(&fenceDesc, &hFence), ZE_RESULT_SUCCESS);
 
         fence = static_cast<Fence *>(hFence);
         EXPECT_NE(nullptr, fence);
     }
 
     void TearDown() override {
+        if (fence) {
+            EXPECT_EQ(fence->destroy(), ZE_RESULT_SUCCESS);
+        }
+        if (cmdQue) {
+            EXPECT_EQ(cmdQue->destroy(), ZE_RESULT_SUCCESS);
+        }
         ContextFixture::TearDown();
-
-        ze_result_t res = fence->destroy();
-        EXPECT_EQ(res, ZE_RESULT_SUCCESS);
-
-        res = cmdQue->destroy();
-        EXPECT_EQ(res, ZE_RESULT_SUCCESS);
     }
 
     // Descs.
@@ -65,8 +67,8 @@ TEST_F(FenceTest, zeroTimoutShouldReturnTheSameAsQueryStatus) {
 }
 
 struct MockFence : public Fence {
-    MockFence(CommandQueue *cmdQue, const ze_fence_desc_t *desc)
-        : Fence(cmdQue, desc) {}
+    MockFence(Context *pContext, const ze_fence_desc_t *desc)
+        : Fence(pContext, desc) {}
 
     void updateSignal(bool state) { signaled = state; }
     bool getSignal() { return signaled; }
@@ -74,7 +76,7 @@ struct MockFence : public Fence {
 
 TEST_F(FenceTest, givenCallResetShouldClearHostSyncData) {
     ze_fence_desc_t desc = {.stype = ZE_STRUCTURE_TYPE_FENCE_DESC, .pNext = nullptr, .flags = 0u};
-    MockFence mockFence(cmdQue, &desc);
+    MockFence mockFence(context, &desc);
     // Assume the sync status has been updated by KMD.
     mockFence.updateSignal(true);
 

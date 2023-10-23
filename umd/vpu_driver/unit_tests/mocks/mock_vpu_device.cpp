@@ -16,7 +16,7 @@
 namespace VPU {
 
 MockVPUDevice::MockVPUDevice(std::string devnode, MockOsInterfaceImp &mockOSInf)
-    : VPUDevice(devnode, mockOSInf)
+    : VPUDevice(std::move(devnode), mockOSInf)
     , mockOSInf(mockOSInf) {}
 
 std::unique_ptr<MockVPUDevice>

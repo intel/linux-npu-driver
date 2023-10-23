@@ -9,17 +9,12 @@
 #include "vpu_driver/source/command/vpu_copy_command.hpp"
 #include "vpu_driver/source/device/hw_info.hpp"
 
+#include "vpux_driver_compiler.h"
+
 #include <vector>
 #include <string>
 
 namespace VPU {
-
-#ifdef ENABLE_VPUX_COMPILER
-#include "VPUXCompilerL0.h"
-static constexpr int vpuxCompilerPlatform = VCL_PLATFORM_VPU3720;
-#else
-static constexpr int vpuxCompilerPlatform = -1;
-#endif
 
 static bool getCopyCommandDescriptor37xx(VPUDeviceContext *ctx,
                                          const void *src,
@@ -35,7 +30,7 @@ static void printCopyDescriptor37xx(void *desc, vpu_cmd_header_t *cmd) {
 
 struct VPUHwInfo vpuHwInfo37xx = {.supportedDeviceIds = {0x7D1D, 0xAD1D},
                                   .numSupportedDevices = 2,
-                                  .compilerPlatform = vpuxCompilerPlatform,
+                                  .compilerPlatform = VCL_PLATFORM_VPU3720,
                                   .nExecUnits = 4096,
                                   .numSubslicesPerSlice = 2,
                                   .tileFuseMask = 0x3,

@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "level_zero/ze_api.h"
 #include "umd_common.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 
@@ -25,7 +26,6 @@ struct MetricStreamer : _zet_metric_streamer_handle_t {
                    VPU::VPUDeviceContext *ctxInput,
                    Device *deviceInput,
                    ze_event_handle_t hNotifyEvent);
-    ~MetricStreamer();
 
     inline zet_metric_streamer_handle_t toHandle() { return this; }
     static MetricStreamer *fromHandle(zet_metric_streamer_handle_t handle) {
@@ -34,18 +34,13 @@ struct MetricStreamer : _zet_metric_streamer_handle_t {
 
     ze_result_t close();
     ze_result_t readData(uint32_t maxReportCount, size_t *pRawDataSize, uint8_t *pRawData);
-    inline bool isInitialized() const { return initialized; }
 
-  protected:
-    MetricGroup *metricGroup = nullptr;
-    void *pMetricData = nullptr;
-    uint32_t nReports = 0u;
   private:
+    MetricGroup *metricGroup = nullptr;
+    uint32_t nReports = 0u;
     VPU::VPUDeviceContext *ctx = nullptr;
     Device *device = nullptr;
     ze_event_handle_t eventHandle;
-
-    bool initialized = false;
 };
 
 } // namespace L0

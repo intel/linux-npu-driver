@@ -53,24 +53,24 @@ TEST_F(VPUDeviceTest, jobSubmissionTriggersIoctls) {
 }
 
 TEST_F(VPUDeviceTest, allocateMemory) {
-    void *memPtr = nullptr;
+    void *memPtr1 = nullptr;
+    void *memPtr2 = nullptr;
     size_t size = 10;
     const auto &drvApi = ctx->getDriverApi();
 
     // Alloc failed case.
     osInfc.mockFailNextAlloc();
-    memPtr = drvApi.alloc(size);
-    EXPECT_FALSE(memPtr);
+    memPtr1 = drvApi.alloc(size);
+    EXPECT_EQ(nullptr, memPtr1);
+    // Attempting to free invalid memory space.
+    EXPECT_FALSE(ctx->freeMemAlloc(memPtr1));
 
     // Alloc successful.
-    memPtr = ctx->createHostMemAlloc(size, VPUBufferObject::Type::CachedLow);
-    EXPECT_NE(nullptr, memPtr);
+    memPtr2 = ctx->createHostMemAlloc(size, VPUBufferObject::Type::CachedLow);
+    EXPECT_NE(nullptr, memPtr2);
 
-    bool unmapRes = ctx->freeMemAlloc(memPtr);
+    bool unmapRes = ctx->freeMemAlloc(memPtr2);
     EXPECT_TRUE(unmapRes);
-
-    // Attempting to free invalid memory space.
-    EXPECT_FALSE(ctx->freeMemAlloc((void *)nullptr));
 }
 
 TEST_F(VPUDeviceTest, givenCallIsConnectedReportsDeviceConnectionStatus) {

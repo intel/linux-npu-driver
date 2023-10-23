@@ -3,38 +3,42 @@
  * Copyright (c) 2022-2023, Intel Corporation.
  */
 
-#ifndef VPU_NNRT_API_H
-#define VPU_NNRT_API_H
+#ifndef VPU_NNRT_API_37XX_H
+#define VPU_NNRT_API_37XX_H
 
 #include "vpu_nce_hw_37xx.h"
 #include "vpu_dma_hw_37xx.h"
 
 /*
- * When a change is made to vpu_nnrt_api.h that breaks backwards compatibility
- * VPU_NNRT_API_VER_MAJOR must be incremented.
+ * When a change is made to vpu_nnrt_api_37xx.h that breaks backwards compatibility
+ * VPU_NNRT_37XX_API_VER_MAJOR must be incremented.
  *
- * If a change preserves backwards compatibility then VPU_NNRT_API_VER_MINOR
+ * If a change preserves backwards compatibility then VPU_NNRT_37XX_API_VER_MINOR
  * should be incremented. It resets to 0 when the major version is incremented.
  *
- * If vpu_nnrt_api.h is modified (field names, documentation, formatting) but the API
- * itself is not changed, then VPU_NNRT_API_VER_PATCH should be incremented.
+ * If vpu_nnrt_api_37xx.h is modified (field names, documentation, formatting) but the API
+ * itself is not changed, then VPU_NNRT_37XX_API_VER_PATCH should be incremented.
  *
  * When the compiler creates a VpuMappedInference in an ELF blob
  * VpuMappedInference.vpu_nnrt_api_ver is set to the version of vpu_nnrt_api used.
  * NNRuntime checks this version at inference time to ensure it is current and
  * returns an error if the major version does not match.
- * Note: VPU_NNRT_API_VER_PATCH is not stored in the VpuMappedInference as
+ * Note: VPU_NNRT_37XX_API_VER_PATCH is not stored in the VpuMappedInference as
  * compatibility is not affected if this changes.
  */
-#define VPU_NNRT_API_VER_MAJOR 6
-#define VPU_NNRT_API_VER_MINOR 1
-#define VPU_NNRT_API_VER_PATCH 2
-#define VPU_NNRT_API_VER ((VPU_NNRT_API_VER_MAJOR << 16) | VPU_NNRT_API_VER_MINOR)
+#define VPU_NNRT_37XX_API_VER_MAJOR 6
+#define VPU_NNRT_37XX_API_VER_MINOR 2
+#define VPU_NNRT_37XX_API_VER_PATCH 0
+#define VPU_NNRT_37XX_API_VER ((VPU_NNRT_37XX_API_VER_MAJOR << 16) | VPU_NNRT_37XX_API_VER_MINOR)
+
+// Temporarily define VPU_NNRT_API_VER until all consumers of this header are updated
+// to use VPU_NNRT_37XX_API_VER
+#define VPU_NNRT_API_VER VPU_NNRT_37XX_API_VER
 
 /*
  * Index in the API version table
  */
-#define VPU_NNRT_API_VER_INDEX 7
+#define VPU_NNRT_37XX_API_VER_INDEX 7
 
 /*
  * When a change is made to the Activation Shave Runtime / Mangement kernel
@@ -45,7 +49,7 @@
  * should be incremented. It resets to 0 when the major version is incremented.
  */
 #define VPU_ACT_RT_VER_MAJOR 1
-#define VPU_ACT_RT_VER_MINOR 3
+#define VPU_ACT_RT_VER_MINOR 4
 #define VPU_ACT_RT_VER_PATCH 0
 #define VPU_ACT_RT_VER ((VPU_ACT_RT_VER_MAJOR << 16) | VPU_ACT_RT_VER_MINOR)
 
@@ -163,7 +167,7 @@ struct VPU_ALIGNED_STRUCT(8) VpuTaskBarrierDependency {
 static_assert(sizeof(VpuTaskBarrierDependency) == 24, "VpuTaskBarrierDependency size != 24");
 
 struct VPU_ALIGNED_STRUCT(2) VpuBarrierCountConfig {
-    int16_t next_same_id_;
+    uint16_t next_same_id_;
     uint16_t producer_count_;
     uint16_t consumer_count_;
     uint8_t real_id_;
@@ -334,8 +338,8 @@ struct VPU_ALIGNED_STRUCT(8) VpuPerformanceMetrics {
 
     /// Inner arrays are for different bandwidth values.
     /// Outer arrays are for different frequency values.
-    uint64_t ticks[VPU_SCALABILITY_NUM_OF_FREQ][VPU_SCALABILITY_VALUES_PER_FREQ];
-    float scalability[VPU_SCALABILITY_NUM_OF_FREQ][VPU_SCALABILITY_VALUES_PER_FREQ]; ///< Table of scalability values.
+    uint64_t ticks[VPU_SCALABILITY_NUM_OF_FREQ][VPU_SCALABILITY_VALUES_PER_FREQ];    ///< Table of infr. execution time
+    float scalability[VPU_SCALABILITY_NUM_OF_FREQ][VPU_SCALABILITY_VALUES_PER_FREQ]; ///< Table of infr. scalability
 
     float activity_factor; ///< Compiler estimated activity factor for the inference.
 };

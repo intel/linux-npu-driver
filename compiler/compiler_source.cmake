@@ -17,9 +17,9 @@ endif()
 include(ExternalProject)
 
 # OpenVINO + VPUX Plugin package options
-set(OPENVINO_REVISION 691630b68ca76e242089f0f1229a2a3ca8e88182)
-set(VPUX_PLUGIN_REVISION 914dd101157020a97b860718d5baf53a4d155d56)
-set(VPUX_PLUGIN_RELEASE 23ww32-vpu37xx-pv)
+set(OPENVINO_REVISION 2023.0.2)
+set(VPUX_PLUGIN_REVISION cb47a12c7119238071e170e60154720657baa487)
+set(VPUX_PLUGIN_RELEASE 23ww42_snapshot)
 
 # Directories
 set(OPENVINO_PREFIX_DIR "${CMAKE_BINARY_DIR}/third_party/openvino")
@@ -44,7 +44,7 @@ ExternalProject_Add(
 ExternalProject_Add(
   vpux_plugin_source
   GIT_REPOSITORY
-    https://github.com/openvinotoolkit/vpux_plugin.git
+    https://github.com/openvinotoolkit/npu_plugin.git
   GIT_TAG ${VPUX_PLUGIN_REVISION}
   PREFIX ${VPUX_PLUGIN_PREFIX_DIR}
   SOURCE_DIR ${VPUX_PLUGIN_SOURCE_DIR}

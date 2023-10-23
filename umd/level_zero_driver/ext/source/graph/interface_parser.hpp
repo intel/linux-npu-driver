@@ -11,6 +11,7 @@
 
 #include <level_zero/ze_api.h>
 #include <level_zero/ze_graph_ext.h>
+#include <vpux_hpi.hpp>
 
 #include <memory>
 
@@ -29,7 +30,8 @@ class IParser {
     allocateExecuteCommand(VPU::VPUDeviceContext *ctx,
                            const std::vector<std::pair<const void *, uint32_t>> &inputArgs,
                            const std::vector<std::pair<const void *, uint32_t>> &outputArgs,
-                           const std::pair<void *, uint32_t> &profilingPtr) = 0;
+                           const std::pair<void *, uint32_t> &profilingPtr,
+                           std::shared_ptr<elf::HostParsedInference> &execHpi) = 0;
 };
 
 } // namespace L0

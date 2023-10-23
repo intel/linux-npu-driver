@@ -5,6 +5,7 @@
  *
  */
 
+#include "level_zero/ze_api.h"
 #include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/tools/source/metrics/metric_streamer.hpp"
 #include "level_zero_driver/tools/source/metrics/metric.hpp"
@@ -22,16 +23,8 @@ MetricStreamer::MetricStreamer(MetricGroup *metricGroupInput,
     , ctx(ctxInput)
     , device(deviceInput)
     , eventHandle(hNotifyEvent) {
-    if (metricGroup == nullptr || ctx == nullptr) {
-        LOG_E("MetricGroup (%p) / DeviceContext (%p) passed in is NULL.", metricGroup, ctx);
-        return;
-    }
-
     if (eventHandle)
         LOG_W("No support for event handle in MetricStreamer");
-
-    // Mark successfully initialized
-    initialized = true;
 }
 
 ze_result_t MetricStreamer::close() {
@@ -44,6 +37,8 @@ ze_result_t MetricStreamer::close() {
         LOG_E("Failed to stop metric streamer.");
         return ZE_RESULT_ERROR_UNKNOWN;
     }
+
+    device->getMetricContext()->setMetricStreamer(nullptr);
 
     delete this;
 
@@ -60,7 +55,7 @@ MetricStreamer::readData(uint32_t maxReportCount, size_t *pRawDataSize, uint8_t 
     if (maxReportCount > nReports)
         maxReportCount = nReports;
 
-    auto metricContext = device->getMetricContext().get();
+    auto metricContext = device->getMetricContext();
 
     const VPU::VPUDriverApi &drvApi = ctx->getDriverApi();
 
@@ -110,12 +105,6 @@ MetricStreamer::readData(uint32_t maxReportCount, size_t *pRawDataSize, uint8_t 
     }
 
     return ZE_RESULT_SUCCESS;
-}
-
-MetricStreamer::~MetricStreamer() {
-    // Free MetricContext's MetricStreamer
-    auto metricContext = device->getMetricContext().get();
-    metricContext->setMetricStreamer(nullptr);
 }
 
 } // namespace L0

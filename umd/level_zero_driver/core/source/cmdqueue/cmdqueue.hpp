@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "level_zero_driver/core/source/context/context.hpp"
 #include "level_zero_driver/core/source/device/device.hpp"
 
 #include <level_zero/ze_api.h>
@@ -15,21 +16,17 @@ struct _ze_command_queue_handle_t {};
 
 namespace L0 {
 
-struct CommandQueue : _ze_command_queue_handle_t {
-    CommandQueue(Device *device,
-                 const ze_command_queue_desc_t *desc,
-                 VPU::VPUDeviceContext *ctx,
-                 bool isCopyOnly)
-        : device(device)
-        , desc(*desc)
-        , ctx(ctx)
+struct CommandQueue : _ze_command_queue_handle_t, IContextObject {
+    CommandQueue(Context *context, Device *device, bool isCopyOnly)
+        : pContext(context)
+        , device(device)
         , isCopyOnlyCommandQueue(isCopyOnly) {}
-    CommandQueue &operator=(const CommandQueue &) = delete;
-    CommandQueue(const CommandQueue &rhs) = delete;
     ~CommandQueue() = default;
 
-    static CommandQueue *
-    create(Device *device, const ze_command_queue_desc_t *desc, VPU::VPUDeviceContext *ctx);
+    static ze_result_t create(ze_context_handle_t hContext,
+                              ze_device_handle_t hDevice,
+                              const ze_command_queue_desc_t *desc,
+                              ze_command_queue_handle_t *phCommandQueue);
 
     inline ze_command_queue_handle_t toHandle() { return this; }
     static CommandQueue *fromHandle(ze_command_queue_handle_t handle) {
@@ -38,7 +35,6 @@ struct CommandQueue : _ze_command_queue_handle_t {
 
     ze_result_t createFence(const ze_fence_desc_t *desc, ze_fence_handle_t *phFence);
     ze_result_t destroy();
-    Device *getDevice() { return device; }
     ze_result_t executeCommandLists(uint32_t nCommandLists,
                                     ze_command_list_handle_t *phCommandLists,
                                     ze_fence_handle_t hFence);
@@ -57,9 +53,8 @@ struct CommandQueue : _ze_command_queue_handle_t {
     size_t getSubmittedJobCount() const { return trackedJobs.size(); }
 
   protected:
+    Context *pContext = nullptr;
     Device *device = nullptr;
-    const ze_command_queue_desc_t desc;
-    VPU::VPUDeviceContext *ctx = nullptr;
     bool isCopyOnlyCommandQueue = false;
     std::vector<std::shared_ptr<VPU::VPUJob>> trackedJobs;
 };

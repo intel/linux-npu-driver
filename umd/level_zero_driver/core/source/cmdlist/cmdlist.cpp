@@ -8,6 +8,7 @@
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
 #include "level_zero_driver/core/source/driver/driver.hpp"
 #include "level_zero_driver/core/source/event/event.hpp"
+#include "level_zero_driver/include/l0_exception.hpp"
 #include "level_zero_driver/tools/source/metrics/metric_query.hpp"
 #include "vpu_driver/source/command/vpu_barrier_command.hpp"
 #include "vpu_driver/source/command/vpu_copy_command.hpp"
@@ -15,28 +16,64 @@
 #include "vpu_driver/source/command/vpu_ts_command.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
+#include <level_zero/ze_api.h>
 
 namespace L0 {
 
-CommandList::CommandList(bool isCopyOnly, VPU::VPUDeviceContext *ctx)
-    : isCopyOnlyCmdList(isCopyOnly)
-    , ctx(ctx)
-    , vpuJob(std::make_shared<VPU::VPUJob>(ctx, isCopyOnly)){};
+CommandList::CommandList(Context *pContext, bool isCopyOnly)
+    : pContext(pContext)
+    , isCopyOnlyCmdList(isCopyOnly)
+    , ctx(pContext->getDeviceContext())
+    , vpuJob(std::make_shared<VPU::VPUJob>(ctx, isCopyOnly)) {}
 
-CommandList *
-CommandList::create(bool isCopyOnly, VPU::VPUDeviceContext *ctx, ze_result_t &returnValue) {
-    CommandList *commandList = new CommandList(isCopyOnly, ctx);
+CommandList::~CommandList() {
+    for (auto &bo : tracedInternalBos)
+        ctx->freeMemAlloc(bo);
+}
 
-    returnValue =
-        (commandList != nullptr) ? ZE_RESULT_SUCCESS : ZE_RESULT_ERROR_INVALID_NULL_POINTER;
-    return commandList;
+ze_result_t CommandList::create(ze_context_handle_t hContext,
+                                ze_device_handle_t hDevice,
+                                const ze_command_list_desc_t *desc,
+                                ze_command_list_handle_t *phCommandList) {
+    if (hContext == nullptr) {
+        LOG_E("Invalid hContext pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+    }
+    if (hDevice == nullptr) {
+        LOG_E("Invalid hDevice pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+    }
+    if (desc == nullptr) {
+        LOG_E("Invalid desc pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+    }
+    if (phCommandList == nullptr) {
+        LOG_E("Invalid phCommandList pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+    }
+
+    try {
+        Device *pDevice = Device::fromHandle(hDevice);
+        ze_command_queue_group_property_flags_t flags =
+            pDevice->getCommandQeueueGroupFlags(desc->commandQueueGroupOrdinal);
+        L0_THROW_WHEN(flags == 0, "Invalid group ordinal", ZE_RESULT_ERROR_INVALID_ARGUMENT);
+
+        Context *pContext = Context::fromHandle(hContext);
+        bool isCopyOnly = flags == ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY;
+        auto commandList = std::make_unique<CommandList>(pContext, isCopyOnly);
+
+        *phCommandList = commandList.get();
+        pContext->appendObject(std::move(commandList));
+
+        LOG_I("CommandList created - %p", *phCommandList);
+    } catch (const DriverError &err) {
+        return err.result();
+    }
+    return ZE_RESULT_SUCCESS;
 }
 
 ze_result_t CommandList::destroy() {
-    for (auto &bo : tracedInternalBos)
-        ctx->freeMemAlloc(bo);
-    tracedInternalBos.clear();
-    delete this;
+    pContext->removeObject(this);
     LOG_I("CommandList destroyed.");
     return ZE_RESULT_SUCCESS;
 }
@@ -59,6 +96,7 @@ ze_result_t CommandList::reset() {
     for (auto &bo : tracedInternalBos)
         ctx->freeMemAlloc(bo);
     tracedInternalBos.clear();
+    tracedInferences.clear();
     vpuJob = std::make_shared<VPU::VPUJob>(ctx, isCopyOnlyCmdList);
 
     return ZE_RESULT_SUCCESS;
@@ -286,7 +324,7 @@ ze_result_t CommandList::appendGraphInitialize(ze_graph_handle_t hGraph,
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 
-    if (!vpuJob->appendCommand(cmd)) {
+    if (!vpuJob->appendCommand(std::move(cmd))) {
         LOG_E("Failed to push Graph-Initialize command to list!");
         return ZE_RESULT_ERROR_UNKNOWN;
     }
@@ -345,13 +383,24 @@ ze_result_t CommandList::appendGraphExecute(ze_graph_handle_t hGraph,
         profilingQueryPtr = profilingQuery->getQueryPtr();
     }
 
-    auto cmd = graph->allocateGraphExecuteCommand(ctx, profilingQueryPtr);
+    std::unique_ptr<InferenceExecutor> inferenceExecutor;
+    try {
+        inferenceExecutor = graph->getGraphExecutor(ctx, profilingQueryPtr);
+        if (!inferenceExecutor) {
+            LOG_E("Fail to prepare inference execution!");
+            return ZE_RESULT_ERROR_UNINITIALIZED;
+        }
+    } catch (const DriverError &err) {
+        return err.result();
+    }
+
+    auto cmd = inferenceExecutor->getExecuteCommand();
     if (cmd == nullptr) {
         LOG_E("Graph-Execute Command failed to be initialized!");
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 
-    if (!vpuJob->appendCommand(cmd)) {
+    if (!vpuJob->appendCommand(std::move(cmd))) {
         LOG_E("Failed to push Graph-Execute command to list!");
         return ZE_RESULT_ERROR_UNKNOWN;
     }
@@ -366,6 +415,7 @@ ze_result_t CommandList::appendGraphExecute(ze_graph_handle_t hGraph,
         }
     }
 
+    tracedInferences.push_back(std::move(inferenceExecutor));
     LOG_V("Successfully appended graph execute command to CommandList.");
     return ZE_RESULT_SUCCESS;
 }

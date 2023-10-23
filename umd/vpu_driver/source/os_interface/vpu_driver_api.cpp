@@ -17,12 +17,10 @@
 #include <uapi/drm/ivpu_accel.h>
 #include <vector>
 
-#include <boost/numeric/conversion/cast.hpp>
-
 namespace VPU {
 
 VPUDriverApi::VPUDriverApi(std::string devnode, OsInterface &osInfc)
-    : devnode(devnode)
+    : devnode(std::move(devnode))
     , osInfc(osInfc)
     , vpuFd(-1) {}
 
@@ -59,7 +57,7 @@ int VPUDriverApi::doIoctl(unsigned long request, void *arg) const {
 
 std::unique_ptr<VPUDriverApi> VPUDriverApi::openDriverApi(std::string devnode,
                                                           OsInterface &osInfc) {
-    auto driverApi = std::make_unique<VPUDriverApi>(devnode, osInfc);
+    auto driverApi = std::make_unique<VPUDriverApi>(std::move(devnode), osInfc);
 
     if (!driverApi->openDevice())
         return nullptr;
@@ -114,9 +112,10 @@ bool VPUDriverApi::isVpuDevice() const {
         return false;
     }
 
-    if (kmdVersion != umdIoctlDeviceName) {
-        LOG_E("IOCTL device name doesn't match(UMD: %s, KMD: %s)",
-              umdIoctlDeviceName,
+    if (kmdVersion != umdIoctlDeviceName1 && kmdVersion != umdIoctlDeviceName2) {
+        LOG_E("IOCTL device name doesn't match(UMD: %s or %s, KMD: %s)",
+              umdIoctlDeviceName1,
+              umdIoctlDeviceName2,
               kmdVersion.c_str());
         return false;
     }
@@ -195,13 +194,8 @@ int VPUDriverApi::getBufferInfo(uint32_t handle, uint64_t &mmap_offset) const {
     return ret;
 }
 
-void *VPUDriverApi::mmap(size_t size, uint64_t offset) const {
-    void *ptr = osInfc.osiMmap(nullptr,
-                               size,
-                               PROT_READ | PROT_WRITE,
-                               MAP_SHARED,
-                               vpuFd,
-                               boost::numeric_cast<off_t>(offset));
+void *VPUDriverApi::mmap(size_t size, off_t offset) const {
+    void *ptr = osInfc.osiMmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, vpuFd, offset);
     if (ptr == MAP_FAILED) {
         LOG_E("Failed to mmap the memory using offset received from KMD");
         return nullptr;

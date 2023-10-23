@@ -15,14 +15,17 @@ struct _ze_command_list_handle_t {};
 
 namespace L0 {
 
-struct CommandList : _ze_command_list_handle_t {
-    CommandList(bool isCopyOnly, VPU::VPUDeviceContext *ctx);
-    ~CommandList() = default;
+struct CommandList : _ze_command_list_handle_t, IContextObject {
+    CommandList(Context *pContext, bool isCopyOnly);
+    ~CommandList();
 
     ze_result_t destroy();
     bool isCopyOnly() const { return isCopyOnlyCmdList; };
-    static CommandList *
-    create(bool isCopyOnly, VPU::VPUDeviceContext *ctx, ze_result_t &returnValue);
+
+    static ze_result_t create(ze_context_handle_t hContext,
+                              ze_device_handle_t hDevice,
+                              const ze_command_list_desc_t *desc,
+                              ze_command_list_handle_t *phCommandList);
 
     ze_result_t close();
     ze_result_t reset();
@@ -97,10 +100,12 @@ struct CommandList : _ze_command_list_handle_t {
                                         Args... args);
 
   protected:
-    bool isCopyOnlyCmdList;
-    VPU::VPUDeviceContext *ctx;
+    Context *pContext = nullptr;
+    bool isCopyOnlyCmdList = false;
+    VPU::VPUDeviceContext *ctx = nullptr;
     std::shared_ptr<VPU::VPUJob> vpuJob = nullptr;
     std::vector<VPU::VPUBufferObject *> tracedInternalBos;
+    std::vector<std::unique_ptr<InferenceExecutor>> tracedInferences;
 };
 
 } // namespace L0

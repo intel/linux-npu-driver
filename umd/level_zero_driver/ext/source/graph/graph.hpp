@@ -20,7 +20,6 @@
 #include <level_zero/ze_api.h>
 #include <level_zero/ze_graph_ext.h>
 
-#include <boost/safe_numerics/safe_integer.hpp>
 #include <vector>
 
 struct _ze_graph_handle_t {};
@@ -28,13 +27,35 @@ struct _ze_graph_handle_t {};
 namespace L0 {
 struct Context;
 
-struct Graph : _ze_graph_handle_t {
-    Graph(VPU::VPUDeviceContext *pCtx, const ze_graph_desc_t *pDesc);
+struct InferenceExecutor {
+  public:
+    InferenceExecutor(std::shared_ptr<IParser> &p,
+                      VPU::VPUDeviceContext *ctx,
+                      const std::vector<std::pair<const void *, uint32_t>> &inputArgs,
+                      const std::vector<std::pair<const void *, uint32_t>> &outputArgs,
+                      const std::pair<void *, uint32_t> &profilingPtr) {
+        parser = p;
+        exeCmd = parser->allocateExecuteCommand(ctx,
+                                                inputArgs,
+                                                outputArgs,
+                                                {profilingPtr.first, profilingPtr.second},
+                                                hpi);
+    }
+    std::shared_ptr<VPU::VPUCommand> getExecuteCommand() { return exeCmd; }
+
+  private:
+    std::shared_ptr<IParser> parser;
+    std::shared_ptr<elf::HostParsedInference> hpi;
+    std::shared_ptr<VPU::VPUCommand> exeCmd;
+};
+
+struct Graph : _ze_graph_handle_t, IContextObject {
+    Graph(Context *pCtx, const ze_graph_desc_2_t *pDesc);
     ~Graph() = default;
 
     static ze_result_t create(const ze_context_handle_t hContext,
                               const ze_device_handle_t hDevice,
-                              const ze_graph_desc_t *pDesc,
+                              const ze_graph_desc_2_t *pDesc,
                               ze_graph_handle_t *phGraph);
     ze_result_t destroy();
     ze_result_t getNativeBinary(size_t *pSize, uint8_t *pGraphNativeBinary);
@@ -62,14 +83,17 @@ struct Graph : _ze_graph_handle_t {
     inline ze_graph_handle_t toHandle() { return this; }
 
     std::shared_ptr<VPU::VPUCommand> allocateGraphInitCommand(VPU::VPUDeviceContext *ctx);
-    std::shared_ptr<VPU::VPUCommand> allocateGraphExecuteCommand(VPU::VPUDeviceContext *ctx,
-                                                                 void *profilingQueryPtr);
+    std::unique_ptr<InferenceExecutor> getGraphExecutor(VPU::VPUDeviceContext *ctx,
+                                                        void *profilingQueryPtr);
+
+    static ze_result_t getLogString(uint32_t *pSize, char *pBuildLog);
 
   private:
-    ze_result_t initialize();
+    void initialize();
 
+    Context *pContext;
     VPU::VPUDeviceContext *ctx;
-    ze_graph_desc_t desc;
+    ze_graph_desc_2_t desc;
     std::vector<uint8_t> graphBlobRaw;
 
     std::vector<std::pair<const void *, uint32_t>> inputArgs;
@@ -79,7 +103,7 @@ struct Graph : _ze_graph_handle_t {
     std::vector<ze_graph_argument_metadata_t> argumentMetadata;
     uint32_t profilingOutputSize = 0u;
 
-    std::unique_ptr<IParser> parser = nullptr;
+    std::shared_ptr<IParser> parser = nullptr;
 };
 
 } // namespace L0

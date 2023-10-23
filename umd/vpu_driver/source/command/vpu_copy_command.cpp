@@ -11,7 +11,6 @@
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
-#include <boost/numeric/conversion/cast.hpp>
 #include <cstdint>
 
 namespace VPU {

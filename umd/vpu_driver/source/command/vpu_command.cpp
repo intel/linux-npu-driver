@@ -10,7 +10,6 @@
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
-#include <boost/numeric/conversion/cast.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -34,8 +33,8 @@ bool VPUCommand::copyDescriptor(VPUDeviceContext *ctx, void **desc) {
               descriptor->data.end(),
               *reinterpret_cast<uint8_t **>(desc));
 
-    *descriptor->commandOffset = boost::numeric_cast<uint32_t>(ctx->getBufferVPUAddress(*desc) -
-                                                               ctx->getVPULowBaseAddress());
+    *descriptor->commandOffset =
+        safe_cast<uint32_t>(ctx->getBufferVPUAddress(*desc) - ctx->getVPULowBaseAddress());
     *reinterpret_cast<uint8_t **>(desc) += getFwDataCacheAlign(descriptor->data.size());
 
     return true;
@@ -51,7 +50,7 @@ void VPUCommand::updateResourceDescriptorTable(void **desc,
 
     auto *descEntry = reinterpret_cast<vpu_cmd_resource_descriptor_t *>(descTable + 1);
     descEntry->address = address;
-    descEntry->width = boost::numeric_cast<uint32_t>(size);
+    descEntry->width = safe_cast<uint32_t>(size);
     descEntry++;
     *desc = descEntry;
 }
@@ -65,7 +64,7 @@ void VPUCommand::updateResourceDescriptorTable(void **desc,
 
     auto *descEntry = reinterpret_cast<vpu_cmd_resource_descriptor_t *>(descTable + 1);
     descEntry->address = bo->getVPUAddr();
-    descEntry->width = boost::numeric_cast<uint32_t>(bo->getAllocSize());
+    descEntry->width = safe_cast<uint32_t>(bo->getAllocSize());
     descEntry++;
     *desc = descEntry;
 }
@@ -76,7 +75,7 @@ void VPUCommand::updateResourceDescriptorTable(void **desc,
                                                const std::vector<uint32_t> &size) {
     auto *descTable = static_cast<vpu_cmd_resource_descriptor_table_t *>(*desc);
     descTable->type = type;
-    descTable->desc_count = boost::numeric_cast<uint16_t>(addrs.size());
+    descTable->desc_count = safe_cast<uint16_t>(addrs.size());
 
     auto *descEntry = reinterpret_cast<vpu_cmd_resource_descriptor_t *>(descTable + 1);
     for (size_t i = 0; i < addrs.size(); i++) {
@@ -93,12 +92,12 @@ void VPUCommand::updateResourceDescriptorTable(void **desc,
                                                size_t size) {
     auto *descTable = static_cast<vpu_cmd_resource_descriptor_table_t *>(*desc);
     descTable->type = type;
-    descTable->desc_count = boost::numeric_cast<uint16_t>(addrs.size());
+    descTable->desc_count = safe_cast<uint16_t>(addrs.size());
 
     auto *descEntry = reinterpret_cast<vpu_cmd_resource_descriptor_t *>(descTable + 1);
     for (const auto &addr : addrs) {
         descEntry->address = addr;
-        descEntry->width = boost::numeric_cast<uint32_t>(size);
+        descEntry->width = safe_cast<uint32_t>(size);
         descEntry++;
     }
 

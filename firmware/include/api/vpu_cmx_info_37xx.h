@@ -9,7 +9,7 @@
 #ifndef VPU_CMX_INFO_37XX_H_
 #define VPU_CMX_INFO_37XX_H_
 
-#include "vpu_nnrt_api.h"
+#include "vpu_nnrt_api_37xx.h"
 
 namespace nn_public {
 

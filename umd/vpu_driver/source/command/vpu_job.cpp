@@ -5,25 +5,20 @@
  *
  */
 
-#include "umd_common.hpp"
 #include "vpu_driver/source/command/vpu_event_command.hpp"
 #include "vpu_driver/source/command/vpu_job.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
+#include "umd_common.hpp"
 
 #include <assert.h>
-#include <boost/numeric/conversion/cast.hpp>
 
 namespace VPU {
 
 VPUJob::VPUJob(VPUDeviceContext *ctx, bool isCopyOnly)
     : ctx(ctx)
     , isCopyOnly(isCopyOnly) {}
-
-VPUJob::~VPUJob() {
-    LOG_V("Destroying VPUJob - %p", this);
-}
 
 bool VPUJob::closeCommands() {
     if (ctx == nullptr) {
@@ -50,7 +45,7 @@ bool VPUJob::closeCommands() {
         long jump = std::distance(it, next);
         LOG_I("Passing %lu commands for target %u", jump, static_cast<uint32_t>(target));
 
-        if (boost::numeric_cast<size_t>(jump) == commands.size()) {
+        if (safe_cast<size_t>(jump) == commands.size()) {
             if (!createCommandBuffer(commands, target, nullptr)) {
                 LOG_E("Failed to initialize VPUCommandBuffer");
                 return false;

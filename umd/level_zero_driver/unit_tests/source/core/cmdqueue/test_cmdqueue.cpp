@@ -7,6 +7,7 @@
 
 #include "gtest/gtest.h"
 
+#include "level_zero_driver/api/core/ze_cmdlist.hpp"
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
@@ -19,6 +20,7 @@
 #include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
 
+#include <level_zero/ze_api.h>
 #include <thread>
 #include <chrono>
 
@@ -66,52 +68,16 @@ TEST_F(CommandQueueCreate, givenCallGetCommandQueueGroupPropertiesHandleParamete
 }
 
 TEST_F(CommandQueueCreate, whenCreatingAndDestroyingCommandQueueUsingContextSuccessIsReturned) {
-    ze_command_queue_desc_t desc = {};
-    desc.ordinal = getComputeQueueOrdinal();
-
-    ze_command_queue_handle_t hCommandQueue = {};
-
-    // Creating Command Queue
-    ze_result_t result = context->createCommandQueue(device, &desc, &hCommandQueue);
-    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
-    ASSERT_TRUE(hCommandQueue);
+    ze_command_queue_handle_t hCommandQueue = createCommandQueue(getComputeQueueOrdinal());
+    ASSERT_NE(hCommandQueue, nullptr);
 
     L0::CommandQueue *commandQueue = L0::CommandQueue::fromHandle(hCommandQueue);
-    ASSERT_TRUE(commandQueue);
-
-    EXPECT_EQ(device, commandQueue->getDevice());
-
-    // Destroying Command Queue
     EXPECT_EQ(ZE_RESULT_SUCCESS, commandQueue->destroy());
 }
 
-TEST_F(CommandQueueCreate, commandQueueReturningExpectedMembersWhenCreated) {
-    ze_command_queue_desc_t desc = {};
-    desc.ordinal = getComputeQueueOrdinal();
-    bool ignore = false;
-
-    auto cmdQueue = new CommandQueue(device, &desc, ctx, false);
-
-    EXPECT_NE(cmdQueue, nullptr);
-    EXPECT_EQ(device, cmdQueue->getDevice());
-    EXPECT_EQ(VPU::EngineType::COMPUTE,
-              device->getVPUDevice()->getEngineTypeFromOrdinal(desc.ordinal, ignore));
-
-    // COPY Engine
-    ze_command_queue_desc_t desc2 = {};
-    desc2.ordinal = getCopyOnlyQueueOrdinal();
-    auto cmdQueue2 = new CommandQueue(device, &desc2, ctx, true);
-
-    EXPECT_NE(cmdQueue2, nullptr);
-    EXPECT_EQ(device, cmdQueue2->getDevice());
-    EXPECT_EQ(VPU::EngineType::COPY,
-              device->getVPUDevice()->getEngineTypeFromOrdinal(desc2.ordinal, ignore));
-
-    // Comparison both command queue values
-    EXPECT_NE(cmdQueue, cmdQueue2);
-
-    cmdQueue->destroy();
-    cmdQueue2->destroy();
+TEST_F(CommandQueueCreate, expectCommandQueueIsDestroyOnContextDestroy) {
+    ze_command_queue_handle_t hCommandQueue = createCommandQueue(getComputeQueueOrdinal());
+    ASSERT_NE(hCommandQueue, nullptr);
 }
 
 struct CommandQueueExecTest : Test<CommandQueueFixture> {
@@ -119,15 +85,14 @@ struct CommandQueueExecTest : Test<CommandQueueFixture> {
         CommandQueueFixture::SetUp();
 
         // NN queue.
-        ze_command_queue_desc_t queDesc = {};
-        queDesc.ordinal = getComputeQueueOrdinal();
-        nnQue = L0::CommandQueue::create(device, &queDesc, ctx);
-        ASSERT_NE(nullptr, nnQue);
+        ze_command_queue_handle_t hNNCommandQueue = createCommandQueue(getComputeQueueOrdinal());
+        ASSERT_NE(hNNCommandQueue, nullptr);
+        nnQue = CommandQueue::fromHandle(hNNCommandQueue);
 
         // Copy queue.
-        queDesc.ordinal = getCopyOnlyQueueOrdinal();
-        cpQue = L0::CommandQueue::create(device, &queDesc, ctx);
-        ASSERT_NE(nullptr, cpQue);
+        ze_command_queue_handle_t hCPCommandQueue = createCommandQueue(getCopyOnlyQueueOrdinal());
+        ASSERT_NE(hCPCommandQueue, nullptr);
+        cpQue = CommandQueue::fromHandle(hCPCommandQueue);
 
         // Event.
         ze_event_pool_desc_t evPoolDesc = {.stype = ZE_STRUCTURE_TYPE_EVENT_POOL_DESC,
@@ -187,28 +152,22 @@ struct CommandQueueExecTest : Test<CommandQueueFixture> {
 TEST_F(
     CommandQueueExecTest,
     givenCmdQueueWithBlitCopyWhenExecutingNonCopyBlitCommandListThenWrongCommandListStatusReturned) {
-    // Create a non-copy command list.
-    ze_result_t res;
-    L0::CommandList *nonCopyCmdList = L0::CommandList::create(false, ctx, res);
-    EXPECT_EQ(ZE_RESULT_SUCCESS, res);
-    ASSERT_NE(nullptr, nonCopyCmdList);
+    auto hCommandList = createCommandList(getComputeQueueOrdinal());
+    ASSERT_NE(nullptr, hCommandList);
 
     // Execute the queue.
-    auto cmdListHandle = nonCopyCmdList->toHandle();
-    auto status = cpQue->executeCommandLists(1, &cmdListHandle, nullptr);
-
+    auto status = cpQue->executeCommandLists(1, &hCommandList, nullptr);
     EXPECT_EQ(status, ZE_RESULT_ERROR_INVALID_COMMAND_LIST_TYPE);
 
-    nonCopyCmdList->destroy();
+    L0::zeCommandListDestroy(hCommandList);
 }
 
 TEST_F(CommandQueueExecTest,
        givenCmdQueueWithBlitCopyWhenExecutingCopyBlitCommandListThenSuccessReturned) {
-    // Create a non-copy command list.
-    ze_result_t res;
-    L0::CommandList *nnCmdList = L0::CommandList::create(false, ctx, res);
-    EXPECT_EQ(ZE_RESULT_SUCCESS, res);
-    ASSERT_NE(nullptr, nnCmdList);
+    auto hCommandList = createCommandList(getComputeQueueOrdinal());
+    ASSERT_NE(nullptr, hCommandList);
+
+    CommandList *nnCmdList = CommandList::fromHandle(hCommandList);
 
     // Append a copy command.
     void *srcPtr = ctx->createSharedMemAlloc(4 * 1024);
@@ -220,9 +179,7 @@ TEST_F(CommandQueueExecTest,
     nnCmdList->close();
 
     // Execute the queue.
-    auto cmdListHandle = nnCmdList->toHandle();
-    auto status = nnQue->executeCommandLists(1, &cmdListHandle, nullptr);
-
+    auto status = nnQue->executeCommandLists(1, &hCommandList, nullptr);
     EXPECT_EQ(status, ZE_RESULT_SUCCESS);
 
     ctx->freeMemAlloc(srcPtr);
@@ -236,10 +193,10 @@ TEST_F(CommandQueueExecTest, syncWithoutJobSubmissionReturnsSuccess) {
 }
 
 TEST_F(CommandQueueExecTest, commandListsShouldBeClosedBeforeExecute) {
-    // Create a command list.
-    ze_result_t res;
-    L0::CommandList *cmdList = L0::CommandList::create(false, ctx, res);
-    ASSERT_NE(nullptr, cmdList);
+    auto hCommandList = createCommandList(getComputeQueueOrdinal());
+    ASSERT_NE(nullptr, hCommandList);
+
+    CommandList *cmdList = CommandList::fromHandle(hCommandList);
 
     // Append a TS command.
     uint64_t *ts = static_cast<uint64_t *>(ctx->createSharedMemAlloc(64));
@@ -260,10 +217,10 @@ TEST_F(CommandQueueExecTest, commandListsShouldBeClosedBeforeExecute) {
 }
 
 TEST_F(CommandQueueExecTest, jobAllocationFailureShouldBeHandled) {
-    // Create a command list.
-    ze_result_t res = ZE_RESULT_SUCCESS;
-    L0::CommandList *cmdList = L0::CommandList::create(false, ctx, res);
-    ASSERT_NE(nullptr, cmdList);
+    auto hCommandList = createCommandList(getComputeQueueOrdinal());
+    ASSERT_NE(nullptr, hCommandList);
+
+    CommandList *cmdList = CommandList::fromHandle(hCommandList);
 
     // Append a TS command and ready to execute.
     uint64_t *ts = static_cast<uint64_t *>(ctx->createSharedMemAlloc(64));
@@ -282,9 +239,10 @@ TEST_F(CommandQueueExecTest, jobAllocationFailureShouldBeHandled) {
 TEST_F(CommandQueueExecTest,
        commandQueueExecutionOnEmptyCommandListShouldCallMapAndUnmapCallForJob) {
     // Create a command list.
-    ze_result_t res;
-    L0::CommandList *cmdList = L0::CommandList::create(false, ctx, res);
-    ASSERT_NE(nullptr, cmdList);
+    auto hCommandList = createCommandList(getComputeQueueOrdinal());
+    ASSERT_NE(nullptr, hCommandList);
+
+    CommandList *cmdList = CommandList::fromHandle(hCommandList);
 
     // Resetting previous call counts
     osInfc.callCntAlloc = 0;
@@ -312,7 +270,6 @@ TEST_F(CommandQueueExecTest,
 }
 
 TEST_F(CommandQueueExecTest, eventAttachedToSingleQueuesRespectively) {
-    ze_result_t res;
     size_t testAllocSize = 4 * 1024;
 
     auto srcShareMem = ctx->createSharedMemAlloc(testAllocSize);
@@ -321,9 +278,10 @@ TEST_F(CommandQueueExecTest, eventAttachedToSingleQueuesRespectively) {
 
     // NN queue event attaching.
     // Append wait on event 0, L2L copy and signal event 1 to the same NN queue.
-    L0::CommandList *nnCmdlist = L0::CommandList::create(false, ctx, res);
-    ASSERT_NE(nullptr, nnCmdlist);
-    auto hNNCmdlist = nnCmdlist->toHandle();
+    auto hNNCmdlist = createCommandList(getComputeQueueOrdinal());
+    ASSERT_NE(nullptr, hNNCmdlist);
+
+    CommandList *nnCmdlist = CommandList::fromHandle(hNNCmdlist);
 
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendWaitOnEvents(1, &event0));
     ASSERT_EQ(ZE_RESULT_SUCCESS,
@@ -342,9 +300,11 @@ TEST_F(CommandQueueExecTest, eventAttachedToSingleQueuesRespectively) {
 
     // COPY queue event attaching.
     // Append wait on event 0, L2S copy and signal event 1 to the same COPY queue.
-    L0::CommandList *cpCmdlist = L0::CommandList::create(true, ctx, res);
-    ASSERT_NE(nullptr, cpCmdlist);
-    auto hCPCmdlist = cpCmdlist->toHandle();
+    auto hCPCmdlist = createCommandList(getCopyOnlyQueueOrdinal());
+    ASSERT_NE(nullptr, hCPCmdlist);
+
+    CommandList *cpCmdlist = CommandList::fromHandle(hCPCmdlist);
+
     ASSERT_EQ(ZE_RESULT_SUCCESS, cpCmdlist->appendWaitOnEvents(1, &event0));
     ASSERT_EQ(ZE_RESULT_SUCCESS,
               cpCmdlist->appendMemoryCopy((void *)destHostMem,
@@ -374,28 +334,24 @@ struct CommandQueueJobTest : public Test<CommandQueueFixture> {
         CommandQueueFixture::SetUp();
 
         // Create a CP command queue.
-        ze_command_queue_desc_t desc = {};
-        desc.ordinal = getComputeQueueOrdinal();
-        nnCmdque = CommandQueue::create(device, &desc, ctx);
-        ASSERT_NE(nullptr, nnCmdque);
+        ze_command_queue_handle_t hNNCommandQueue = createCommandQueue(getComputeQueueOrdinal());
+        ASSERT_NE(hNNCommandQueue, nullptr);
+        nnCmdque = CommandQueue::fromHandle(hNNCommandQueue);
 
         // Create a NN command queue.
-        desc.ordinal = getCopyOnlyQueueOrdinal();
-        cpCmdque = CommandQueue::create(device, &desc, ctx);
+        ze_command_queue_handle_t hCPCommandQueue = createCommandQueue(getCopyOnlyQueueOrdinal());
+        ASSERT_NE(hCPCommandQueue, nullptr);
+        cpCmdque = CommandQueue::fromHandle(hCPCommandQueue);
 
         // Command lists.
-        ze_result_t result = ZE_RESULT_SUCCESS;
-        nnCmdlist = CommandList::create(false, ctx, result);
-        ASSERT_EQ(ZE_RESULT_SUCCESS, result);
-        ASSERT_NE(nullptr, nnCmdlist);
-        hNNCmdlist = nnCmdlist->toHandle();
+        hNNCmdlist = createCommandList(getComputeQueueOrdinal());
         ASSERT_NE(nullptr, hNNCmdlist);
+        nnCmdlist = CommandList::fromHandle(hNNCmdlist);
+        ASSERT_NE(nullptr, nnCmdlist);
 
-        cpCmdlist = CommandList::create(true, ctx, result);
-        ASSERT_EQ(ZE_RESULT_SUCCESS, result);
-        ASSERT_NE(nullptr, cpCmdlist);
-        hCPCmdlist = cpCmdlist->toHandle();
+        hCPCmdlist = createCommandList(getCopyOnlyQueueOrdinal());
         ASSERT_NE(nullptr, hCPCmdlist);
+        cpCmdlist = CommandList::fromHandle(hCPCmdlist);
 
         // Fence.
         ze_fence_desc_t fenceDesc{.stype = ZE_STRUCTURE_TYPE_FENCE_DESC,
@@ -532,12 +488,10 @@ TEST_F(CommandQueueJobTest, multipleJobsMaintainedInSingleSubmitId) {
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
 
     // Assume 2 more command lists given.
-    ze_result_t result = ZE_RESULT_SUCCESS;
-    auto nnCmdlist1 = CommandList::create(false, ctx, result);
-    ASSERT_NE(nullptr, nnCmdlist1);
-    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
-    auto hNNCmdlist1 = nnCmdlist1->toHandle();
+    auto hNNCmdlist1 = createCommandList(getComputeQueueOrdinal());
     ASSERT_NE(nullptr, hNNCmdlist1);
+    auto nnCmdlist1 = CommandList::fromHandle(hNNCmdlist1);
+
     ASSERT_EQ(ZE_RESULT_SUCCESS,
               nnCmdlist1->appendWriteGlobalTimestamp(tsDest, nullptr, 0, nullptr));
     ASSERT_EQ(
@@ -545,11 +499,10 @@ TEST_F(CommandQueueJobTest, multipleJobsMaintainedInSingleSubmitId) {
         nnCmdlist1->appendMemoryCopy(dstHostMem, srcShareMem, memAllocSize, nullptr, 0, nullptr));
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist1->close());
 
-    auto nnCmdlist2 = CommandList::create(false, ctx, result);
-    ASSERT_NE(nullptr, nnCmdlist2);
-    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
-    auto hNNCmdlist2 = nnCmdlist2->toHandle();
+    auto hNNCmdlist2 = createCommandList(getComputeQueueOrdinal());
     ASSERT_NE(nullptr, hNNCmdlist2);
+    auto nnCmdlist2 = CommandList::fromHandle(hNNCmdlist2);
+
     ASSERT_EQ(ZE_RESULT_SUCCESS,
               nnCmdlist2->appendWriteGlobalTimestamp(tsDest, nullptr, 0, nullptr));
     ASSERT_EQ(

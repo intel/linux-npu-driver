@@ -6,40 +6,29 @@
  */
 
 #include "level_zero_driver/core/source/event/event.hpp"
-#include "level_zero/ze_api.h"
-#include "level_zero_driver/core/source/event/eventpool.hpp"
 #include "level_zero_driver/core/source/device/device.hpp"
 
 #include "vpu_driver/source/command/vpu_job.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/source/utilities/timer.hpp"
 
+#include <level_zero/ze_api.h>
+
 namespace L0 {
 
-Event::Event(EventPool *eventPool,
-             uint32_t index,
-             VPU::VPUEventCommand::KMDEventDataType *ptr,
-             uint64_t vpuAddr)
-    : pEventPool(eventPool)
-    , nIndex(index)
-    , eventState(ptr)
-    , eventVpuAddr(vpuAddr) {
+Event::Event(VPU::VPUEventCommand::KMDEventDataType *ptr,
+             uint64_t vpuAddr,
+             std::function<void()> &&destroyCb)
+    : eventState(ptr)
+    , eventVpuAddr(vpuAddr)
+    , destroyCb(std::move(destroyCb)) {
     setEventState(VPU::VPUEventCommand::STATE_EVENT_INITIAL);
 }
 
 ze_result_t Event::destroy() {
-    ze_result_t res = ZE_RESULT_SUCCESS;
-    if (pEventPool == nullptr) {
-        LOG_E("Invalid event pool pointer.");
-        res = ZE_RESULT_ERROR_UNINITIALIZED;
-    } else if (!pEventPool->freeEvent(nIndex)) {
-        LOG_E("Failed to deallocate event pointer: %p", eventState);
-        res = ZE_RESULT_ERROR_UNKNOWN;
-    }
-    LOG_V("Destroying event instance.(res: %#x)", res);
-
-    delete this;
-    return res;
+    destroyCb();
+    LOG_I("Event destroyed - %p", this);
+    return ZE_RESULT_SUCCESS;
 }
 
 ze_result_t Event::hostSignal() {

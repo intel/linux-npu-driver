@@ -26,6 +26,7 @@ struct GraphProfilingQuery : _ze_graph_profiling_query_handle_t {
 
     ze_result_t destroy();
     ze_result_t getData(ze_graph_profiling_type_t profilingType, uint32_t *pSize, uint8_t *pData);
+    ze_result_t getLogString(uint32_t *pSize, char *pProfilingLog);
 
     inline ze_graph_profiling_query_handle_t toHandle() { return this; }
     static GraphProfilingQuery *fromHandle(ze_graph_profiling_query_handle_t handle) {

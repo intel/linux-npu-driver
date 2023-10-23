@@ -25,11 +25,11 @@ struct CommandListFixture : CommandQueueFixture {
     void SetUp() override {
         CommandQueueFixture::SetUp();
 
-        ze_command_list_desc_t cmdlistDesc = {};
-        cmdlistDesc.commandQueueGroupOrdinal = getComputeQueueOrdinal();
+        ze_command_list_desc_t cmdListDesc = {};
+        cmdListDesc.commandQueueGroupOrdinal = getComputeQueueOrdinal();
         ze_command_list_handle_t hCommandList = nullptr;
 
-        ze_result_t result = context->createCommandList(device, &cmdlistDesc, &hCommandList);
+        ze_result_t result = zeCommandListCreate(context, device, &cmdListDesc, &hCommandList);
         EXPECT_EQ(ZE_RESULT_SUCCESS, result);
         commandList = L0::CommandList::fromHandle(hCommandList);
 
@@ -46,7 +46,7 @@ struct CommandListFixture : CommandQueueFixture {
                                               .count = 5};
         auto hDevice = device->toHandle();
         ASSERT_EQ(ZE_RESULT_SUCCESS,
-                  context->createEventPool(&eventPoolDesc, 1, &hDevice, &eventPool));
+                  zeEventPoolCreate(context, &eventPoolDesc, 1, &hDevice, &eventPool));
 
         ze_event_desc_t eventDesc = {.stype = ZE_STRUCTURE_TYPE_EVENT_DESC,
                                      .pNext = nullptr,

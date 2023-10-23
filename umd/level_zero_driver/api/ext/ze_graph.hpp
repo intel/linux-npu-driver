@@ -20,10 +20,6 @@ ze_result_t ZE_APICALL zeGraphCreate(ze_context_handle_t hContext,
 
 ze_result_t ZE_APICALL zeGraphDestroy(ze_graph_handle_t hGraph);
 
-ze_result_t ZE_APICALL zeGraphGetNativeBinary(ze_graph_handle_t hGraph,
-                                              size_t *pSize,
-                                              uint8_t *pGraphNativeBinary);
-
 ze_result_t ZE_APICALL zeGraphGetProperties(ze_graph_handle_t hGraph,
                                             ze_graph_properties_t *pGraphProperties);
 
@@ -31,16 +27,6 @@ ze_result_t ZE_APICALL
 zeGraphGetArgumentProperties(ze_graph_handle_t hGraph,
                              uint32_t argIndex,
                              ze_graph_argument_properties_t *pGraphArgumentProperties);
-
-ze_result_t ZE_APICALL
-zeGraphGetArgumentProperties2(ze_graph_handle_t hGraph,
-                              uint32_t argIndex,
-                              ze_graph_argument_properties_2_t *pGraphArgumentProperties);
-
-ze_result_t ZE_APICALL
-zeGraphGetArgumentProperties3(ze_graph_handle_t hGraph,
-                              uint32_t argIndex,
-                              ze_graph_argument_properties_3_t *pGraphArgumentProperties);
 
 ze_result_t ZE_APICALL zeGraphSetArgumentValue(ze_graph_handle_t hGraph,
                                                uint32_t argIndex,
@@ -59,6 +45,10 @@ ze_result_t ZE_APICALL zeAppendGraphExecute(ze_command_list_handle_t hCommandLis
                                             uint32_t numWaitEvents,
                                             ze_event_handle_t *phWaitEvents);
 
+ze_result_t ZE_APICALL zeGraphGetNativeBinary(ze_graph_handle_t hGraph,
+                                              size_t *pSize,
+                                              uint8_t *pGraphNativeBinary);
+
 ze_result_t ZE_APICALL
 zeDeviceGetGraphProperties(ze_device_handle_t hDevice,
                            ze_device_graph_properties_t *pDeviceGraphProperties);
@@ -67,6 +57,49 @@ ze_result_t ZE_APICALL
 zeGraphGetArgumentMetadata(ze_graph_handle_t hGraph,
                            uint32_t argIndex,
                            ze_graph_argument_metadata_t *pGraphArgumentMetadata);
+
+ze_result_t ZE_APICALL
+zeGraphGetArgumentProperties2(ze_graph_handle_t hGraph,
+                              uint32_t argIndex,
+                              ze_graph_argument_properties_2_t *pGraphArgumentProperties);
+
+ze_result_t ZE_APICALL
+zeGraphGetArgumentProperties3(ze_graph_handle_t hGraph,
+                              uint32_t argIndex,
+                              ze_graph_argument_properties_3_t *pGraphArgumentProperties);
+
+ze_result_t ZE_APICALL
+zeGraphQueryNetworkCreate(ze_context_handle_t hContext,
+                          ze_device_handle_t hDevice,
+                          const ze_graph_desc_t *desc,
+                          ze_graph_query_network_handle_t *phGraphQueryNetwork);
+
+ze_result_t ZE_APICALL
+zeGraphQueryNetworkDestroy(ze_graph_query_network_handle_t hGraphQueryNetwork);
+
+ze_result_t ZE_APICALL
+zeGraphQueryNetworkGetSupportedLayers(ze_graph_query_network_handle_t hGraphQueryNetwork,
+                                      size_t *pSize,
+                                      char *pSupportedLayers);
+
+ze_result_t ZE_APICALL zeGraphBuildLogGetString(ze_graph_handle_t hGraph,
+                                                uint32_t *pSize,
+                                                char *pBuildLog);
+
+ze_result_t ZE_APICALL zeGraphCreate2(ze_context_handle_t hContext,
+                                      ze_device_handle_t hDevice,
+                                      const ze_graph_desc_2_t *desc,
+                                      ze_graph_handle_t *phGraph);
+
+ze_result_t ZE_APICALL
+zeGraphQueryNetworkCreate2(ze_context_handle_t hContext,
+                           ze_device_handle_t hDevice,
+                           const ze_graph_desc_2_t *desc,
+                           ze_graph_query_network_handle_t *phGraphQueryNetwork);
+
+ze_result_t ZE_APICALL zeGraphQueryContextMemory(ze_context_handle_t hContext,
+                                                 ze_graph_memory_query_type_t type,
+                                                 ze_graph_memory_query_t *query);
 
 ze_result_t ZE_APICALL
 zeGraphProfilingPoolCreate(ze_graph_handle_t hGraph,
@@ -94,17 +127,8 @@ ze_result_t ZE_APICALL zeDeviceGetProfilingDataProperties(
     ze_device_profiling_data_properties_t *pDeviceProfilingDataProperties);
 
 ze_result_t ZE_APICALL
-zeGraphQueryNetworkCreate(ze_context_handle_t hContext,
-                          ze_device_handle_t hDevice,
-                          const ze_graph_desc_t *desc,
-                          ze_graph_query_network_handle_t *phGraphQueryNetwork);
-
-ze_result_t ZE_APICALL
-zeGraphQueryNetworkDestroy(ze_graph_query_network_handle_t hGraphQueryNetwork);
-
-ze_result_t ZE_APICALL
-zeGraphQueryNetworkGetSupportedLayers(ze_graph_query_network_handle_t hGraphQueryNetwork,
-                                      size_t *pSize,
-                                      char *pSupportedLayers);
+zeGraphProfilingLogGetString(ze_graph_profiling_query_handle_t hProfilingQuery,
+                             uint32_t *pSize,
+                             char *pProfilingLog);
 
 } // namespace L0

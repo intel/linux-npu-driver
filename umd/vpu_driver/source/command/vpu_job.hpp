@@ -19,7 +19,6 @@ namespace VPU {
 class VPUJob {
   public:
     VPUJob(VPUDeviceContext *ctx, bool isCopyOnly);
-    ~VPUJob();
 
     /**
      * Finalize building the job by moving commands into appropriate VPUCommandBuffers

@@ -12,14 +12,10 @@
 namespace VPU {
 
 class OsInterfaceImp : public OsInterface {
-  public:
+  private:
     OsInterfaceImp() = default;
 
-    OsInterfaceImp(const OsInterfaceImp &) = delete;
-    OsInterfaceImp &operator=(const OsInterfaceImp &) = delete;
-    OsInterfaceImp(OsInterfaceImp &&) = delete;
-    OsInterfaceImp &&operator=(OsInterfaceImp &&) = delete;
-
+  public:
     static OsInterfaceImp &getInstance();
 
     int osiOpen(const char *pathname, int flags, mode_t mode) override;

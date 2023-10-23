@@ -16,8 +16,6 @@
 #include <memory>
 #include <vector>
 
-#include <boost/numeric/conversion/cast.hpp>
-
 namespace VPU {
 
 class VPUCommandBuffer {

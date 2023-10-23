@@ -9,6 +9,7 @@
 
 #include "vpu_driver/source/command/vpu_command.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "umd_common.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -62,7 +63,7 @@ class VPUCopyCommand : public VPUCommand {
             return false;
         }
 
-        copyDescPtr->size = boost::numeric_cast<uint32_t>(size);
+        copyDescPtr->size = safe_cast<uint32_t>(size);
 
         LOG_I("Updated copy descriptor: src_address = %#lx,  dst_address  = %#lx, size = %#x",
               copyDescPtr->src_address,

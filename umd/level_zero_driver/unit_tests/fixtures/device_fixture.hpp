@@ -14,6 +14,7 @@
 
 #include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/core/source/context/context.hpp"
+#include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
 #include "level_zero_driver/unit_tests/mocks/mock_driver.hpp"
 
 namespace L0 {
@@ -152,6 +153,26 @@ struct CommandQueueFixture : ContextFixture {
             }
             return false;
         });
+    }
+
+    ze_command_list_handle_t createCommandList(uint32_t ordinal) {
+        ze_command_list_handle_t hCommandList = nullptr;
+        ze_command_list_desc_t desc = {};
+        desc.commandQueueGroupOrdinal = ordinal;
+
+        ze_result_t result = CommandList::create(context, device, &desc, &hCommandList);
+        EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+        return hCommandList;
+    }
+
+    ze_command_queue_handle_t createCommandQueue(uint32_t ordinal) {
+        ze_command_queue_handle_t hCommandQueue = nullptr;
+        ze_command_queue_desc_t desc = {};
+        desc.ordinal = ordinal;
+
+        ze_result_t result = CommandQueue::create(context, device, &desc, &hCommandQueue);
+        EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+        return hCommandQueue;
     }
 
     // 1 NN, 1 Copy queue groups.

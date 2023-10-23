@@ -42,7 +42,7 @@ struct VPUHwInfo {
     /* Each set bit in tileConfig represents enabled tile */
     uint32_t tileConfig = 0u;
 
-    char name[256] = "Intel VPU";
+    char name[256] = "Intel(R) AI Boost";
 
     uint64_t baseLowAddres = 0;
 

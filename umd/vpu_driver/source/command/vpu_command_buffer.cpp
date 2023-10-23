@@ -146,7 +146,7 @@ bool VPUCommandBuffer::initHeader(size_t cmdSize) {
         reinterpret_cast<vpu_cmd_buffer_header_t *>(buffer->getBasePointer());
 
     bb->cmd_offset = offsetof(CommandHeader, commandList);
-    bb->cmd_buffer_size = boost::numeric_cast<uint32_t>(bb->cmd_offset + cmdSize);
+    bb->cmd_buffer_size = safe_cast<uint32_t>(bb->cmd_offset + cmdSize);
     bb->context_save_area_address = buffer->getVPUAddr() + offsetof(CommandHeader, contextSaveArea);
 
     uint64_t baseAddress = ctx->getVPULowBaseAddress();

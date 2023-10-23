@@ -12,9 +12,6 @@ endif()
 
 set(TARGET_NAME vpu_shared_tests)
 
-# build umd unit tests with sanitizers
-umd_sanitizer_flags()
-
 add_executable(${TARGET_NAME} main.cpp)
 target_link_libraries(${TARGET_NAME} vpu_driver gtest gmock vpu_driver_mocks)
 

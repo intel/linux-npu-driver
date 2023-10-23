@@ -53,7 +53,8 @@ TEST_F(VPUCommandTest, timestampCommandShouldReturnExpectedProperties) {
     expKMDTsCmd.header = {VPU_CMD_TIMESTAMP, sizeof(vpu_cmd_timestamp_t)};
     expKMDTsCmd.timestamp_address = ctx->getBufferVPUAddress(mem);
 
-    EXPECT_EQ(memcmp(&expKMDTsCmd, tsCmd.getCommitStream(), tsCmd.getCommitSize()), 0);
+    EXPECT_EQ(sizeof(vpu_cmd_timestamp_t), tsCmd.getCommitSize());
+    EXPECT_EQ(memcmp(&expKMDTsCmd, tsCmd.getCommitStream(), sizeof(vpu_cmd_timestamp_t)), 0);
 
     EXPECT_TRUE(ctx->freeMemAlloc(mem));
 }
@@ -86,7 +87,7 @@ TEST_F(VPUCommandTest, copyCommandShouldReturnExpectedProperties) {
         expKMDCopyCmd{{VPU_CMD_COPY_LOCAL_TO_LOCAL, sizeof(vpu_cmd_copy_buffer_t)}, 0u, 0u, 1u, 0u};
     uint8_t *exp = reinterpret_cast<uint8_t *>(&expKMDCopyCmd);
 
-    EXPECT_EQ(memcmp(exp, copyCmd->getCommitStream(), copyCmd->getCommitSize()), 0);
+    EXPECT_EQ(memcmp(exp, copyCmd->getCommitStream(), sizeof(vpu_cmd_copy_buffer_t)), 0);
 
     EXPECT_TRUE(ctx->freeMemAlloc(srcPtr));
     EXPECT_TRUE(ctx->freeMemAlloc(dstPtr));
@@ -114,14 +115,15 @@ TEST_F(VPUCommandTest, graphInitCommandWithoutGraphShouldReturnExpectedPropertie
         {VPU_CMD_OV_BLOB_INITIALIZE, sizeof(vpu_cmd_ov_blob_initialize_t)},
         blobSize,
         0ul, // kernel_offset
-        boost::numeric_cast<uint32_t>(2 * sizeof(vpu_cmd_resource_descriptor_table_t) +
-                                      2 * sizeof(vpu_cmd_resource_descriptor_t) * bufferCount),
+        2U * sizeof(vpu_cmd_resource_descriptor_table_t) +
+            2U * sizeof(vpu_cmd_resource_descriptor_t) * bufferCount,
         0u,  // reserved_0
         0ul, // desc_table_offset
         blobId};
     uint8_t *exp = reinterpret_cast<uint8_t *>(&expKMDGraphInitCmd);
 
-    EXPECT_EQ(memcmp(exp, graphInitCmd->getCommitStream(), graphInitCmd->getCommitSize()), 0);
+    EXPECT_EQ(memcmp(exp, graphInitCmd->getCommitStream(), sizeof(vpu_cmd_ov_blob_initialize_t)),
+              0);
 }
 
 TEST_F(VPUCommandTest, graphExecuteCommandShouldReturnExpectedProperties) {
@@ -146,12 +148,12 @@ TEST_F(VPUCommandTest, graphExecuteCommandShouldReturnExpectedProperties) {
     // Expected byte stream for the command with settings above.
     vpu_cmd_ov_blob_execute_t expKMDgraphExecCmd{
         {VPU_CMD_OV_BLOB_EXECUTE, sizeof(vpu_cmd_ov_blob_execute_t)},
-        boost::numeric_cast<uint32_t>(2 * sizeof(vpu_cmd_resource_descriptor_table_t) +
-                                      2 * sizeof(vpu_cmd_resource_descriptor_t)),
+        2U * sizeof(vpu_cmd_resource_descriptor_table_t) +
+            2U * sizeof(vpu_cmd_resource_descriptor_t),
         0,
         blobId};
     uint8_t *exp = reinterpret_cast<uint8_t *>(&expKMDgraphExecCmd);
-    EXPECT_EQ(memcmp(exp, graphExecCmd->getCommitStream(), graphExecCmd->getCommitSize()), 0);
+    EXPECT_EQ(memcmp(exp, graphExecCmd->getCommitStream(), sizeof(vpu_cmd_ov_blob_execute_t)), 0);
     EXPECT_TRUE(ctx->freeMemAlloc(inputBuffer));
     EXPECT_TRUE(ctx->freeMemAlloc(outputBuffer));
 }
@@ -187,7 +189,7 @@ TEST_F(VPUCommandTest, graphExecuteCommandWithProfilingOutput) {
         0,
         blobId};
     uint8_t *exp = reinterpret_cast<uint8_t *>(&expKMDgraphExecCmd);
-    EXPECT_EQ(memcmp(exp, graphExecCmd->getCommitStream(), graphExecCmd->getCommitSize()), 0);
+    EXPECT_EQ(memcmp(exp, graphExecCmd->getCommitStream(), sizeof(vpu_cmd_ov_blob_execute_t)), 0);
     EXPECT_TRUE(ctx->freeMemAlloc(inputBuffer));
     EXPECT_TRUE(ctx->freeMemAlloc(outputBuffer));
     EXPECT_TRUE(ctx->freeMemAlloc(profilingOutputBuffer));
@@ -235,7 +237,8 @@ TEST_F(VPUCommandTest, barrierCommandShouldReturnExpectedProperties) {
     vpu_cmd_barrier_t expKMDBarrierCmd{{VPU_CMD_BARRIER, sizeof(vpu_cmd_barrier_t)}, 0};
     uint8_t *exp = reinterpret_cast<uint8_t *>(&expKMDBarrierCmd);
 
-    EXPECT_EQ(memcmp(exp, barrierCmd->getCommitStream(), barrierCmd->getCommitSize()), 0);
+    EXPECT_EQ(sizeof(vpu_cmd_barrier_t), barrierCmd->getCommitSize());
+    EXPECT_EQ(memcmp(exp, barrierCmd->getCommitStream(), sizeof(vpu_cmd_barrier)), 0);
 }
 
 TEST_F(VPUCommandTest, queryBeginShouldReturnExpectedProperties) {
@@ -254,7 +257,7 @@ TEST_F(VPUCommandTest, queryBeginShouldReturnExpectedProperties) {
         ctx->getBufferVPUAddress(mem)};
     uint8_t *exp = reinterpret_cast<uint8_t *>(&expKMDQBeginCmd);
 
-    EXPECT_EQ(memcmp(exp, queryBeginCmd->getCommitStream(), queryBeginCmd->getCommitSize()), 0);
+    EXPECT_EQ(memcmp(exp, queryBeginCmd->getCommitStream(), sizeof(vpu_cmd_metric_query_t)), 0);
     EXPECT_TRUE(ctx->freeMemAlloc(mem));
 }
 
@@ -274,7 +277,7 @@ TEST_F(VPUCommandTest, queryEndShouldReturnExpectedProperties) {
                                          ctx->getBufferVPUAddress(mem)};
     uint8_t *exp = reinterpret_cast<uint8_t *>(&expKMDQEndCmd);
 
-    EXPECT_EQ(memcmp(exp, queryEndCmd->getCommitStream(), queryEndCmd->getCommitSize()), 0);
+    EXPECT_EQ(memcmp(exp, queryEndCmd->getCommitStream(), sizeof(vpu_cmd_metric_query_t)), 0);
     EXPECT_TRUE(ctx->freeMemAlloc(mem));
 }
 
@@ -347,17 +350,16 @@ TEST_F(VPUEventCommandTest, eventSignalCommandsShouldReturnExpectedProperties) {
     expKMDSignalCmd.offset = 0;
     expKMDSignalCmd.value = VPUEventCommand::STATE_DEVICE_SIGNAL;
 
-    EXPECT_EQ(memcmp(&expKMDSignalCmd, signalCmd->getCommitStream(), signalCmd->getCommitSize()),
-              0);
+    EXPECT_EQ(memcmp(&expKMDSignalCmd, signalCmd->getCommitStream(), sizeof(vpu_cmd_fence_t)), 0);
 
     // 64bits offsetted event signal command.
     VPUEventCommand::KMDEventDataType *offsetEventHeapPtr = eventHeapPtr + 1;
     std::shared_ptr<VPUCommand> signalCmd2 = VPUEventSignalCommand::create(ctx, offsetEventHeapPtr);
     ASSERT_NE(signalCmd2, nullptr);
+    EXPECT_EQ(sizeof(vpu_cmd_fence_t), signalCmd2->getCommitSize());
 
     expKMDSignalCmd.offset = 8;
-    EXPECT_EQ(memcmp(&expKMDSignalCmd, signalCmd2->getCommitStream(), signalCmd2->getCommitSize()),
-              0);
+    EXPECT_EQ(memcmp(&expKMDSignalCmd, signalCmd2->getCommitStream(), sizeof(vpu_cmd_fence_t)), 0);
 }
 
 TEST_F(VPUEventCommandTest, eventResetCommandsShouldReturnExpectedProperties) {
@@ -375,5 +377,6 @@ TEST_F(VPUEventCommandTest, eventResetCommandsShouldReturnExpectedProperties) {
     expKMDResetCmd.offset = 0;
     expKMDResetCmd.value = VPUEventCommand::State::STATE_DEVICE_RESET;
 
-    EXPECT_EQ(memcmp(&expKMDResetCmd, resetCmd->getCommitStream(), resetCmd->getCommitSize()), 0);
+    EXPECT_EQ(sizeof(vpu_cmd_fence_t), resetCmd->getCommitSize());
+    EXPECT_EQ(memcmp(&expKMDResetCmd, resetCmd->getCommitStream(), sizeof(vpu_cmd_fence_t)), 0);
 }

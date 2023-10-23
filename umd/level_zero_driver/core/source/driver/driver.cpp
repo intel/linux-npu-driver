@@ -74,7 +74,7 @@ void Driver::driverInit(ze_init_flags_t flags) {
 
         initStatus = ZE_RESULT_SUCCESS;
     });
-    LOG_V("Driver init status to %u", safe_cast<uint32_t>(initStatus));
+    LOG_V("Driver init status to %u", initStatus);
 
     return;
 }
@@ -121,7 +121,7 @@ ze_result_t init(ze_init_flags_t flags) {
         return ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY;
 
     pDriver->driverInit(flags);
-    LOG_V("Updating driver init status to %u", safe_cast<uint32_t>(pDriver->getInitStatus()));
+    LOG_V("Updating driver init status to %u", pDriver->getInitStatus());
 
     return pDriver->getInitStatus();
 }
