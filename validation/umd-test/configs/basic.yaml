@@ -1,0 +1,20 @@
+# Copyright 2023 Intel Corporation.
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may
+# not use, modify, copy, publish, distribute, disclose or transmit this
+# software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in
+# the License.
+
+log_level: ERROR # supported levels:QUIET ERROR, WARNING, INFO, VERBOSE
+model_dir: models/
+
+compiler_in_driver:
+  # add_abc.xml can be copied from OpenVINO repository:
+  # https://raw.githubusercontent.com/openvinotoolkit/openvino/master/src/core/tests/models/ir/add_abc.xml
+  - path: add_abc/add_abc.xml
+    flags: --inputs_precisions="A:fp16 B:fp16 C:fp16" --inputs_layouts="A:C B:C C:C" --outputs_precisions="Y:fp16" --outputs_layouts="Y:C"

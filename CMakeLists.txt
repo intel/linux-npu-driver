@@ -48,6 +48,7 @@ add_subdirectory(compiler)
 add_subdirectory(firmware)
 add_subdirectory(third_party)
 add_subdirectory(umd)
+add_subdirectory(validation)
 
 include(cmake/detect_linux_system.cmake)
 include(cmake/packages.cmake)
