@@ -10,3 +10,7 @@ include(cmake/level-zero-vpu-extensions.cmake)
 
 set(INSTALL_GTEST OFF)
 add_subdirectory(googletest EXCLUDE_FROM_ALL)
+
+set(YAML_CPP_INSTALL OFF)
+set(BUILD_SHARED_LIBS OFF)
+add_subdirectory(yaml-cpp EXCLUDE_FROM_ALL)
