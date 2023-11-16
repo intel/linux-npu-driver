@@ -22,6 +22,7 @@ add_compile_definitions(
     VPU_VERSION_BUILD=${VPU_VERSION_BUILD})
 
 add_library(${TARGET_NAME_L0} SHARED)
+add_dependencies(${TARGET_NAME_L0} ze_loader)
 
 target_link_libraries(${TARGET_NAME_L0}
     vpu_driver
