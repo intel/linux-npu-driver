@@ -6,16 +6,17 @@ SPDX-License-Identifier: MIT
 
 -->
 
-# Intel(R) AI Boost
+# Intel NPU
 
 ## Introduction
 
-The Intel(R) AI Boost is an AI inference accelerator integrated with Intel
-non-server CPUs starting from 14th generation. It enables energy efficient
-execution of Deep Learning applications like object detection, classification etc.
+The Intel NPU is an AI inference accelerator integrated with Intel client CPUs,
+starting from its 14th generation - Meteor Lake (also known as Intel Core Ultra).
+It enables energy-efficient execution of Deep Learning models like object detection,
+classification etc.
 
-This type of device is called a Neural Processing Unit (NPU), and the Linux kernel
-uses the name Versatile Processing Unit (VPU).
+The full device name is Neural Processing Unit, but the Linux kernel driver uses
+the older name - Versatile Processing Unit (VPU).
 
 ### Build standalone driver
 
@@ -61,7 +62,7 @@ The compiler binary can be found in `build/lib/libvpux_driver_compiler.so`
 
 ## Components
 
-The repository collects components that are required to work with Intel(R) AI Boost
+The repository collects components that are required to work with Intel NPU
 in Linux systems.
 
 ```
@@ -74,6 +75,8 @@ linux-npu-driver/
 ├─ linux/include/uapi
 | # User Mode Driver source code
 └─ umd/
+| # Test application
+└─ validation/
 ```
 
 ### User Mode Driver (UMD)
@@ -119,18 +122,33 @@ Without the compiler, the driver can only push precompiled models.
 the compiler code together with various tools for NPU device. Thanks to NPU
 plugin user can access NPU device using OpenVINO API.
 
-The NPU plugin is included in the official OpenVINO Archives distribution
+*Note*: The NPU plugin is included in the official OpenVINO Archives distribution
 since OpenVINO 2023.1.
+([OpenVINO 2023.1](https://docs.openvino.ai/2023.1/openvino_docs_install_guides_overview.html?VERSION=v_2023_1_0&OP_SYSTEM=LINUX&DISTRIBUTION=ARCHIVE),
+[OpenVINO 2023.2](https://docs.openvino.ai/2023.2/openvino_docs_install_guides_overview.html?VERSION=v_2023_2_0&OP_SYSTEM=LINUX&DISTRIBUTION=ARCHIVE))
+
+## Driver test application
+
+The `validation/umd-test` directory contains `vpu-umd-test` application with functional tests.
+This application allows to configure test content thanks to YAML config.
+Information about YAML config can be found in [validation/umd-test/configs](/validation/umd-test/configs)
+
+The binary `vpu-umd-test` is located in the build folder, ex. `build/bin/`
+
+How to run:
+```
+./vpu-umd-test --config=basic.yaml
+```
 
 ## License
 
-The Intel(R) AI Boost Driver is distributed under the MIT License.
+The Intel NPU driver is distributed under the MIT License.
 
 You may obtain a copy of the License at: https://opensource.org/licenses/MIT
 
 ## See also
-* [oneAPI Level Zero specification](https://spec.oneapi.io/level-zero/1.6.0/index.html)
-* [Intel(R) OneApi Level Zero Specification API C/C++ header files](https://github.com/oneapi-src/level-zero/)
 * [OpenVINO documentation](https://docs.openvino.ai/2023.0/home.html)
 * [OpenVINO repository](https://github.com/openvinotoolkit/openvino.git)
 * [NPU plugin - compiler](https://github.com/openvinotoolkit/npu_plugin.git)
+* [oneAPI Level Zero specification](https://spec.oneapi.io/level-zero/1.6.0/index.html)
+* [Intel(R) OneApi Level Zero Specification API C/C++ header files](https://github.com/oneapi-src/level-zero/)
