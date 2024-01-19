@@ -18,6 +18,13 @@ classification etc.
 The full device name is Neural Processing Unit, but the Linux kernel driver uses
 the older name - Versatile Processing Unit (VPU).
 
+### Driver releases
+
+Release contain binaries targeted for specific system and list of components
+that has been used for testing.
+
+For more details, please, check [release page](https://github.com/intel/linux-npu-driver/releases)
+
 ### Build standalone driver
 
 Install required dependencies in Ubuntu
@@ -31,6 +38,7 @@ Commands to build driver
 
 ```
 cd linux-npu-driver
+git submodule update --init --recursive
 cmake -B build -S .
 cmake --build build --parallel $(nproc)
 ```
@@ -138,6 +146,46 @@ The binary `vpu-umd-test` is located in the build folder, ex. `build/bin/`
 How to run:
 ```
 ./vpu-umd-test --config=basic.yaml
+```
+
+## FAQ
+
+* User access to the NPU device
+
+The user to use intel_vpu kernel module requires to access /dev/accel/accel0
+device. The systemd or admin set specific group for accel devices. Usually the
+accel devices should be in "render" group. To let user access it, the user
+needs to be in "render" group as well.
+
+```
+# To check device permissions run following command:
+ls -l /dev/accel/
+
+# To check user group run `groups` command:
+groups
+
+# If user is not in "render" group admin can add it using following command:
+usermod -a -G render <user-name>
+```
+
+The patch for systemd to set "render" group for accel subsystem has been merged
+but might not be available in your Linux distribution. See
+[this PR](https://github.com/systemd/systemd/pull/27785) for more details.
+
+* Compilation issue
+
+The compilation might fail because of memory shortage. The recommendation is to
+try use Ninja generator instead of Unix Makefiles. If it won't help, please
+[file a new issue](https://github.com/intel/linux-npu-driver/issues/new).
+
+```
+# Install Ninja
+sudo apt update
+sudo apt install -y ninja
+
+# Remove old build directory and create new one with new CMake generator
+rm build -rf
+cmake -B build -S . -G Ninja
 ```
 
 ## License
