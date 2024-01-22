@@ -20,10 +20,10 @@ the older name - Versatile Processing Unit (VPU).
 
 ### Driver releases
 
-Release contain binaries targeted for specific system and list of components
+The release contain binaries targeted for specific system and list of components
 that has been used for testing.
 
-For more details, please, check [release page](https://github.com/intel/linux-npu-driver/releases)
+[Go to release page](https://github.com/intel/linux-npu-driver/releases)
 
 ### Build standalone driver
 
@@ -150,27 +150,35 @@ How to run:
 
 ## FAQ
 
-* User access to the NPU device
+* Non-root access to the NPU device
 
-The user to use intel_vpu kernel module requires to access /dev/accel/accel0
-device. The systemd or admin set specific group for accel devices. Usually the
-accel devices should be in "render" group. To let user access it, the user
-needs to be in "render" group as well.
+To access the NPU device the user needs to be in "render" or "video" group
+(depending on system configuration)
+
+```
+# To check user groups run `groups` command:
+groups
+
+# If user is not in "render" group admin can add it using following command:
+sudo usermod -a -G render <user-name>
+
+# User needs to log out and log in back to apply new group
+```
+
+The patch for systemd to set "render" group for accel subsystem has been merged
+but might not be available in your Linux distribution (
+[systemd change](https://github.com/systemd/systemd/pull/27785))
+
+If setting "render" group does not fix non-root access issue, admin needs to
+set group manually
 
 ```
 # To check device permissions run following command:
 ls -l /dev/accel/
 
-# To check user group run `groups` command:
-groups
-
-# If user is not in "render" group admin can add it using following command:
-usermod -a -G render <user-name>
+# If group is root, then admin needs to change:
+sudo chown root:render /dev/accel/accel0
 ```
-
-The patch for systemd to set "render" group for accel subsystem has been merged
-but might not be available in your Linux distribution. See
-[this PR](https://github.com/systemd/systemd/pull/27785) for more details.
 
 * Compilation issue
 
