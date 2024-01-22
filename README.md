@@ -156,13 +156,13 @@ To access the NPU device the user needs to be in "render" or "video" group
 (depending on system configuration)
 
 ```
-# To check user groups run `groups` command:
+# Check user groups
 groups
 
-# If user is not in "render" group admin can add it using following command:
+# Add user to render group
 sudo usermod -a -G render <user-name>
 
-# User needs to log out and log in back to apply new group
+# Log out and log in to apply new group
 ```
 
 The patch for systemd to set "render" group for accel subsystem has been merged
@@ -173,25 +173,25 @@ If setting "render" group does not fix non-root access issue, admin needs to
 set group manually
 
 ```
-# To check device permissions run following command:
+# Check device permissions
 ls -l /dev/accel/
 
-# If group is root, then admin needs to change:
+# Change group for accel device
 sudo chown root:render /dev/accel/accel0
 ```
 
 * Compilation issue
 
-The compilation might fail because of memory shortage. The recommendation is to
-try use Ninja generator instead of Unix Makefiles. If it won't help, please
-[file a new issue](https://github.com/intel/linux-npu-driver/issues/new).
+The compilation may fail due to memory shortage. The recommendation is to
+use Ninja generator instead of Unix Makefiles. If it won't help, please
+[file a new issue](https://github.com/intel/linux-npu-driver/issues/new)
 
 ```
 # Install Ninja
 sudo apt update
-sudo apt install -y ninja
+sudo apt install -y ninja-build
 
-# Remove old build directory and create new one with new CMake generator
+# Remove old build and create new one
 rm build -rf
 cmake -B build -S . -G Ninja
 ```
