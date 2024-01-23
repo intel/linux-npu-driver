@@ -18,6 +18,13 @@ classification etc.
 The full device name is Neural Processing Unit, but the Linux kernel driver uses
 the older name - Versatile Processing Unit (VPU).
 
+### Driver releases
+
+The release contains binaries targeted for specific system and list of components
+that has been used for testing.
+
+[Go to release page](https://github.com/intel/linux-npu-driver/releases)
+
 ### Build standalone driver
 
 Install required dependencies in Ubuntu
@@ -31,6 +38,7 @@ Commands to build driver
 
 ```
 cd linux-npu-driver
+git submodule update --init --recursive
 cmake -B build -S .
 cmake --build build --parallel $(nproc)
 ```
@@ -138,6 +146,54 @@ The binary `vpu-umd-test` is located in the build folder, ex. `build/bin/`
 How to run:
 ```
 ./vpu-umd-test --config=basic.yaml
+```
+
+## FAQ
+
+* Non-root access to the NPU device
+
+To access the NPU device the user needs to be in "render" or "video" group.
+Group depends on system configuration
+
+```
+# Check user groups
+groups
+
+# Add user to render group
+sudo usermod -a -G render <user-name>
+
+# Log out and log in to apply new group
+```
+
+The patch for systemd to set "render" group for accel subsystem has been merged
+but might not be available in your Linux distribution. See
+[systemd change](https://github.com/systemd/systemd/pull/27785)
+
+If setting "render" group does not fix non-root access issue, admin needs to
+set group manually
+
+```
+# Check device permissions
+ls -l /dev/accel/
+
+# Change group for accel device
+sudo chown root:render /dev/accel/accel0
+```
+
+* Compilation issue
+
+The compilation may fail due to memory shortage. The recommendation is to
+use Ninja generator instead of Unix Makefiles. If it won't help, please
+[file a new issue](https://github.com/intel/linux-npu-driver/issues/new)
+
+```
+# Install Ninja
+sudo apt update
+sudo apt install -y ninja-build
+
+# Remove old build and create new one
+rm build -rf
+cmake -B build -S . -G Ninja
 ```
 
 ## License
