@@ -20,7 +20,7 @@ the older name - Versatile Processing Unit (VPU).
 
 ### Driver releases
 
-The release contain binaries targeted for specific system and list of components
+The release contains binaries targeted for specific system and list of components
 that has been used for testing.
 
 [Go to release page](https://github.com/intel/linux-npu-driver/releases)
@@ -152,8 +152,8 @@ How to run:
 
 * Non-root access to the NPU device
 
-To access the NPU device the user needs to be in "render" or "video" group
-(depending on system configuration)
+To access the NPU device the user needs to be in "render" or "video" group.
+Group depends on system configuration
 
 ```
 # Check user groups
@@ -166,8 +166,8 @@ sudo usermod -a -G render <user-name>
 ```
 
 The patch for systemd to set "render" group for accel subsystem has been merged
-but might not be available in your Linux distribution (
-[systemd change](https://github.com/systemd/systemd/pull/27785))
+but might not be available in your Linux distribution. See
+[systemd change](https://github.com/systemd/systemd/pull/27785)
 
 If setting "render" group does not fix non-root access issue, admin needs to
 set group manually
