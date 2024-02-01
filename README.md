@@ -178,6 +178,13 @@ ls -l /dev/accel/
 
 # Change group for accel device
 sudo chown root:render /dev/accel/accel0
+
+# Allow to read/write from device for group
+chmod g+rw /dev/accel/accel0
+
+# Check final permissions
+$ ls -lah /dev/accel/accel0
+crw-rw---- 1 root render 261, 0 Jan 31 15:58 /dev/accel/accel0
 ```
 
 * Compilation issue
