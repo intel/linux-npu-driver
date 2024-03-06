@@ -12,6 +12,7 @@
 #include <stdexcept>
 #include <type_traits>
 #include <typeinfo>
+#include <cstdint>
 
 template <class To, class From>
 To safe_cast(From x) {
