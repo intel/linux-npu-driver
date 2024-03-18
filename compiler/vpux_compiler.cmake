@@ -11,19 +11,19 @@
 
 add_library(vpux_compiler INTERFACE)
 
-if(ENABLE_VPUX_COMPILER_CACHE OR ENABLE_VPUX_COMPILER_BUILD)
+if(ENABLE_VPUX_COMPILER_BUILD)
   if(ENABLE_VPUX_COMPILER_BUILD)
     include(vpux_compiler_build.cmake)
   endif()
 
   add_dependencies(vpux_compiler ${VPUX_COMPILER_DEPENDENCY})
-  install(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libvpux_driver_compiler.so
+  install(FILES ${VPUX_COMPILER_LIBS}
           TYPE LIB
           COMPONENT driver-compiler-npu)
 elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/include/)
   set(VPUX_COMPILER_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 else()
-  message(FATAL_ERROR "Missing compiler headers in path ${CMAKE_CURRENT_SOURCE_DIR}/include/")
+  message(FATAL_ERROR "Missing VPUXCompilerL0 headers in path ${CMAKE_CURRENT_SOURCE_DIR}/include/")
 endif()
 
 target_include_directories(vpux_compiler INTERFACE ${VPUX_COMPILER_INCLUDE_DIR})
