@@ -18,7 +18,8 @@ VPUCommandBuffer::VPUCommandBuffer(VPUDeviceContext *ctx, VPUBufferObject *buffe
     : ctx(ctx)
     , buffer(buffer)
     , targetEngine(target)
-    , jobStatus(std::numeric_limits<uint32_t>::max()) {
+    , jobStatus(std::numeric_limits<uint32_t>::max())
+    , priority(Priority::NORMAL) {
     bufferHandles.emplace_back(buffer->getHandle());
 }
 
@@ -54,9 +55,11 @@ VPUCommandBuffer::allocateCommandBuffer(VPUDeviceContext *ctx,
         cmdSize += sizeof(vpu_cmd_fence_t);
     }
 
-    VPUBufferObject *buffer = ctx->createInternalBufferObject(
-        sizeof(CommandHeader) + getFwDataCacheAlign(cmdSize) + descriptorSize,
-        VPUBufferObject::Type::CachedLow);
+    size_t cmdBufferSize = sizeof(CommandHeader) + getFwDataCacheAlign(cmdSize) + descriptorSize +
+                           ctx->getExtraDmaDescriptorSize();
+
+    VPUBufferObject *buffer =
+        ctx->createInternalBufferObject(cmdBufferSize, VPUBufferObject::Type::CachedFw);
     if (buffer == nullptr) {
         LOG_E("Failed to allocate buffer object for command buffer for %s engine",
               targetEngineToStr(engineType));
@@ -201,6 +204,7 @@ bool VPUCommandBuffer::addCommand(VPUCommand *cmd, uint64_t &cmdOffset, uint64_t
 
     cmdOffset += cmd->getCommitSize();
     descOffset += getFwDataCacheAlign(cmd->getDescriptorSize());
+
     return true;
 }
 

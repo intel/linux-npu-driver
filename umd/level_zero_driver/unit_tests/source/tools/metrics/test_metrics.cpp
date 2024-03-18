@@ -603,7 +603,6 @@ struct MetricGroupCalculateTest : public Test<MetricGroupShared> {
         auto metricQuery = MetricQuery::fromHandle(hMetricQuery);
 
         // Retrieve size and values of query data
-        size_t rawDataSize = 0u;
         EXPECT_EQ(metricQuery->getData(&rawDataSize, nullptr), ZE_RESULT_SUCCESS);
         ASSERT_GT(rawDataSize, 0u);
 
@@ -627,6 +626,7 @@ struct MetricGroupCalculateTest : public Test<MetricGroupShared> {
     zet_metric_query_pool_handle_t hMetricQueryPool = nullptr;
     zet_metric_query_handle_t hMetricQuery = nullptr;
     std::vector<uint64_t> rawData = {};
+    size_t rawDataSize = 0u;
 };
 
 TEST_F(MetricGroupCalculateTest, calculateMetricValuesReturnsFailureWithIncorrectInput) {
@@ -634,7 +634,7 @@ TEST_F(MetricGroupCalculateTest, calculateMetricValuesReturnsFailureWithIncorrec
     // Expect error when rawData is nullptr
     EXPECT_EQ(MetricGroup::fromHandle(metricGroups[0])
                   ->calculateMetricValues(ZET_METRIC_GROUP_CALCULATION_TYPE_METRIC_VALUES,
-                                          rawData.size(),
+                                          rawDataSize,
                                           nullptr,
                                           &metricValueCount,
                                           nullptr),
@@ -643,7 +643,7 @@ TEST_F(MetricGroupCalculateTest, calculateMetricValuesReturnsFailureWithIncorrec
     // Expect error when pMetricValueCount is nullptr
     EXPECT_EQ(MetricGroup::fromHandle(metricGroups[0])
                   ->calculateMetricValues(ZET_METRIC_GROUP_CALCULATION_TYPE_METRIC_VALUES,
-                                          rawData.size(),
+                                          rawDataSize,
                                           reinterpret_cast<uint8_t *>(rawData.data()),
                                           nullptr,
                                           nullptr),
@@ -652,7 +652,7 @@ TEST_F(MetricGroupCalculateTest, calculateMetricValuesReturnsFailureWithIncorrec
     // Expect error when metric group calculation type exceeding max
     EXPECT_EQ(MetricGroup::fromHandle(metricGroups[0])
                   ->calculateMetricValues(ZET_METRIC_GROUP_CALCULATION_TYPE_FORCE_UINT32,
-                                          rawData.size(),
+                                          rawDataSize,
                                           reinterpret_cast<uint8_t *>(rawData.data()),
                                           &metricValueCount,
                                           nullptr),
@@ -664,7 +664,7 @@ TEST_F(MetricGroupCalculateTest, calculateMetricValuesReturnsFailureWithIncorrec
     std::vector<zet_typed_value_t> metricValues(metricValueCount);
     EXPECT_EQ(MetricGroup::fromHandle(metricGroups[0])
                   ->calculateMetricValues(ZET_METRIC_GROUP_CALCULATION_TYPE_MAX_METRIC_VALUES,
-                                          rawData.size(),
+                                          rawDataSize,
                                           reinterpret_cast<uint8_t *>(rawData.data()),
                                           &metricValueCount,
                                           metricValues.data()),
@@ -675,7 +675,7 @@ TEST_F(MetricGroupCalculateTest, calculateMetricValuesReturnsExpectedResults) {
     uint32_t metricValueCount = 0;
     EXPECT_EQ(MetricGroup::fromHandle(metricGroups[0])
                   ->calculateMetricValues(ZET_METRIC_GROUP_CALCULATION_TYPE_METRIC_VALUES,
-                                          rawData.size(),
+                                          rawDataSize,
                                           reinterpret_cast<uint8_t *>(rawData.data()),
                                           &metricValueCount,
                                           nullptr),
@@ -685,7 +685,7 @@ TEST_F(MetricGroupCalculateTest, calculateMetricValuesReturnsExpectedResults) {
     std::vector<zet_typed_value_t> metricValues(metricValueCount);
     EXPECT_EQ(MetricGroup::fromHandle(metricGroups[0])
                   ->calculateMetricValues(ZET_METRIC_GROUP_CALCULATION_TYPE_METRIC_VALUES,
-                                          rawData.size(),
+                                          rawDataSize,
                                           reinterpret_cast<uint8_t *>(rawData.data()),
                                           &metricValueCount,
                                           metricValues.data()),

@@ -64,20 +64,6 @@ int OsInterfaceImp::osiIoctl(int fd, unsigned long request, void *args) {
     return ioctl(fd, request, args);
 }
 
-void *OsInterfaceImp::osiAlloc(size_t size) {
-    void *ptr;
-
-    if (posix_memalign(&ptr, osiGetSystemPageSize(), size))
-        return nullptr;
-
-    return ptr;
-}
-
-int OsInterfaceImp::osiFree(void *ptr) {
-    free(ptr);
-    return 0;
-}
-
 size_t OsInterfaceImp::osiGetSystemPageSize() {
     return safe_cast<size_t>(sysconf(_SC_PAGESIZE));
 }

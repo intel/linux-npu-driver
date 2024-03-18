@@ -72,20 +72,11 @@ TEST(zeDriverGet, returnsCorrectNumberOfDriverInstances) {
 using DriverVersionTest = Test<DeviceFixture>;
 
 TEST_F(DriverVersionTest, returnsExpectedDriverVersion) {
-    ze_result_t res = driverHandle->getProperties(nullptr);
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, res);
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, driverHandle->getProperties(nullptr));
 
     ze_driver_properties_t properties;
-    res = driverHandle->getProperties(&properties);
-    EXPECT_EQ(ZE_RESULT_SUCCESS, res);
-
-    uint32_t versionMajor = (properties.driverVersion & 0xFF000000) >> 24;
-    uint32_t versionMinor = (properties.driverVersion & 0x00FF0000) >> 16;
-    uint32_t versionBuild = properties.driverVersion & 0x0000FFFF;
-
-    EXPECT_EQ(L0_PROJECT_VERSION_MAJOR, versionMajor);
-    EXPECT_EQ(L0_PROJECT_VERSION_MINOR, versionMinor);
-    EXPECT_EQ(VPU_VERSION_BUILD, versionBuild);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, driverHandle->getProperties(&properties));
+    EXPECT_EQ(DRIVER_VERSION, properties.driverVersion);
 
     ze_driver_uuid_t uuid = ze_intel_vpu_driver_uuid;
     EXPECT_EQ(memcmp(&properties.uuid, &uuid, sizeof(properties.uuid)), 0);
@@ -263,13 +254,13 @@ TEST_F(DriverVersionTest, checkEnvironmentVariableInitialization) {
     char *enableMetricsDefault = getenv("ZET_ENABLE_METRICS");
     char *enablePciIdOrderDefault = getenv("ZE_ENABLE_PCI_ID_DEVICE_ORDER");
     char *sharedForceDeviceAllocDefault = getenv("ZE_SHARED_FORCE_DEVICE_ALLOC");
-    char *umdLogLevel = getenv("VPU_DRV_UMD_LOGLEVEL");
+    char *umdLogLevel = getenv("ZE_INTEL_NPU_LOGLEVEL");
 
     unsetenv("ZE_AFFINITY_MASK");
     unsetenv("ZET_ENABLE_METRICS");
     unsetenv("ZE_ENABLE_PCI_ID_DEVICE_ORDER");
     unsetenv("ZE_SHARED_FORCE_DEVICE_ALLOC");
-    unsetenv("VPU_DRV_UMD_LOGLEVEL");
+    unsetenv("ZE_INTEL_NPU_LOGLEVEL");
 
     driver.initializeEnvVariables();
     EXPECT_EQ(driver.getEnvVariables().affinityMask, "");
@@ -282,7 +273,7 @@ TEST_F(DriverVersionTest, checkEnvironmentVariableInitialization) {
     setenv("ZET_ENABLE_METRICS", "1", 1);
     setenv("ZE_ENABLE_PCI_ID_DEVICE_ORDER", "1", 1);
     setenv("ZE_SHARED_FORCE_DEVICE_ALLOC", "1", 1);
-    setenv("VPU_DRV_UMD_LOGLEVEL", "VERBOSE", 1);
+    setenv("ZE_INTEL_NPU_LOGLEVEL", "VERBOSE", 1);
 
     driver.initializeEnvVariables();
     EXPECT_EQ(driver.getEnvVariables().affinityMask, "0,1");
@@ -301,8 +292,8 @@ TEST_F(DriverVersionTest, checkEnvironmentVariableInitialization) {
     sharedForceDeviceAllocDefault == nullptr
         ? unsetenv("ZE_SHARED_FORCE_DEVICE_ALLOC")
         : setenv("ZE_SHARED_FORCE_DEVICE_ALLOC", sharedForceDeviceAllocDefault, 1);
-    umdLogLevel == nullptr ? unsetenv("VPU_DRV_UMD_LOGLEVEL")
-                           : setenv("VPU_DRV_UMD_LOGLEVEL", umdLogLevel, 1);
+    umdLogLevel == nullptr ? unsetenv("ZE_INTEL_NPU_LOGLEVEL")
+                           : setenv("ZE_INTEL_NPU_LOGLEVEL", umdLogLevel, 1);
 }
 
 } // namespace ult

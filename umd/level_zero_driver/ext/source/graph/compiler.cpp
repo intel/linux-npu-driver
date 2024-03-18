@@ -8,6 +8,7 @@
 #include "level_zero/ze_api.h"
 #include "level_zero_driver/ext/source/graph/compiler.hpp"
 #include "umd_common.hpp"
+#include "compiler_common.hpp"
 #include "vcl_symbols.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
@@ -15,10 +16,8 @@
 
 namespace L0 {
 
-static vcl_log_level_t cidLogLevel = VCL_LOG_NONE;
 static int compilerPlatform;
 static vcl_compiler_properties_t compilerProperties;
-static thread_local std::vector<char> lastCompilerLog = {};
 
 bool Compiler::compilerInit(int compilerPlatformType) {
     if (!Vcl::sym().ok())
@@ -29,7 +28,7 @@ bool Compiler::compilerInit(int compilerPlatformType) {
     vcl_log_handle_t logHandle = nullptr;
 
     compilerDesc.platform = static_cast<vcl_platform_t>(compilerPlatformType);
-    compilerDesc.debug_level = VCL_LOG_NONE;
+    compilerDesc.debug_level = cidLogLevel;
 
     auto ret = Vcl::sym().compilerCreate(compilerDesc, &compiler, &logHandle);
     if (ret) {
@@ -49,23 +48,7 @@ bool Compiler::compilerInit(int compilerPlatformType) {
     return true;
 }
 
-void Compiler::setCidLogLevel(std::string_view &str) {
-    if (str == "TRACE") {
-        cidLogLevel = VCL_LOG_TRACE;
-    } else if (str == "DEBUG") {
-        cidLogLevel = VCL_LOG_DEBUG;
-    } else if (str == "INFO") {
-        cidLogLevel = VCL_LOG_INFO;
-    } else if (str == "WARNING") {
-        cidLogLevel = VCL_LOG_WARNING;
-    } else if (str == "ERROR") {
-        cidLogLevel = VCL_LOG_ERROR;
-    } else {
-        cidLogLevel = VCL_LOG_NONE;
-    }
-}
-
-static void getInternalCompilerLastError(vcl_log_handle_t logHandle) {
+static void copyCompilerLog(vcl_log_handle_t logHandle, std::string &buffer) {
     if (!Vcl::sym().ok())
         return;
 
@@ -76,37 +59,42 @@ static void getInternalCompilerLastError(vcl_log_handle_t logHandle) {
     size_t compilerLogSize = 0;
     vcl_result_t logRet = Vcl::sym().logHandleGetString(logHandle, &compilerLogSize, NULL);
     if (logRet != VCL_RESULT_SUCCESS) {
+        buffer.clear();
         LOG_E("Failed to get size of error message.");
         return;
     }
 
     if (compilerLogSize == 0) {
-        // No logs
+        buffer.clear();
         return;
     }
 
-    lastCompilerLog.resize(compilerLogSize);
-    logRet = Vcl::sym().logHandleGetString(logHandle, &compilerLogSize, lastCompilerLog.data());
+    buffer.resize(compilerLogSize);
+    logRet = Vcl::sym().logHandleGetString(logHandle, &compilerLogSize, buffer.data());
     if (logRet != VCL_RESULT_SUCCESS) {
         LOG_E("Failed to get content of error message.");
         return;
     }
+
+    LOG_I("Saved compiler message to log buffer, message: %s", buffer.c_str());
 }
 
 static bool getCompilerExecutable(vcl_compiler_handle_t &comp,
                                   vcl_executable_handle_t *exec,
                                   ze_graph_desc_2_t &desc,
-                                  vcl_log_handle_t *logHandle) {
+                                  vcl_log_handle_t *logHandle,
+                                  std::string &logBuffer) {
     if (!Vcl::sym().ok())
         return false;
 
     std::string options = "";
 
-    if ((desc.pBuildFlags != nullptr) && (desc.pBuildFlags[0] != '\0')) {
+    if (desc.pBuildFlags != nullptr && desc.pBuildFlags[0] != '\0') {
         options = std::string(desc.pBuildFlags);
         LOG_V("Compiler options: %s", options.c_str());
     } else {
-        LOG_E("Invalid Build Flags!");
+        logBuffer = "Invalid pBuildFlags pointer!";
+        LOG_E("Invalid pBuildFlags pointer");
         return false;
     }
 
@@ -120,7 +108,7 @@ static bool getCompilerExecutable(vcl_compiler_handle_t &comp,
     vcl_executable_desc_t exeDesc = {desc.pInput, desc.inputSize, options.c_str(), options.size()};
     vcl_result_t ret = Vcl::sym().executableCreate(comp, exeDesc, exec);
     if (ret != VCL_RESULT_SUCCESS) {
-        getInternalCompilerLastError(*logHandle);
+        copyCompilerLog(*logHandle, logBuffer);
         LOG_E("Failed to create compiler executable! Result:%x", ret);
         return false;
     }
@@ -130,7 +118,8 @@ static bool getCompilerExecutable(vcl_compiler_handle_t &comp,
 
 bool Compiler::getCompiledBlob(size_t &graphSize,
                                std::vector<uint8_t> &graphBlob,
-                               ze_graph_desc_2_t &desc) {
+                               ze_graph_desc_2_t &desc,
+                               std::string &logBuffer) {
     if (!Vcl::sym().ok())
         return false;
 
@@ -149,26 +138,27 @@ bool Compiler::getCompiledBlob(size_t &graphSize,
               VCL_COMPILER_VERSION_MINOR,
               getCompilerVersionMajor(),
               getCompilerVersionMinor());
+        logBuffer = "Compiler version mismatch";
         return false;
     }
 
     ret = Vcl::sym().compilerCreate(compilerDesc, &compiler, &logHandle);
     if (ret != VCL_RESULT_SUCCESS) {
-        getInternalCompilerLastError(logHandle);
+        copyCompilerLog(logHandle, logBuffer);
         LOG_E("Failed to create compiler! Result:%x", ret);
         return false;
     }
 
     vcl_executable_handle_t executable;
-    if (!getCompilerExecutable(compiler, &executable, desc, &logHandle)) {
-        LOG_E("Failed to get compiler executable!");
+    if (!getCompilerExecutable(compiler, &executable, desc, &logHandle, logBuffer)) {
+        LOG_E("Failed to get compiler executable");
         Vcl::sym().compilerDestroy(compiler);
         return false;
     }
 
     ret = Vcl::sym().executableGetSerializableBlob(executable, NULL, &graphSize);
     if (ret != VCL_RESULT_SUCCESS || graphSize == 0) {
-        getInternalCompilerLastError(logHandle);
+        copyCompilerLog(logHandle, logBuffer);
         LOG_E("Failed to get blob size! Result:%x", ret);
         Vcl::sym().executableDestroy(executable);
         Vcl::sym().compilerDestroy(compiler);
@@ -178,7 +168,7 @@ bool Compiler::getCompiledBlob(size_t &graphSize,
     graphBlob.resize(graphSize);
     ret = Vcl::sym().executableGetSerializableBlob(executable, graphBlob.data(), &graphSize);
     if (ret != VCL_RESULT_SUCCESS) {
-        getInternalCompilerLastError(logHandle);
+        copyCompilerLog(logHandle, logBuffer);
         LOG_E("Failed to get blob! Result:%x", ret);
         Vcl::sym().executableDestroy(executable);
         Vcl::sym().compilerDestroy(compiler);
@@ -225,7 +215,8 @@ ze_result_t Compiler::getDecodedProfilingBuffer(ze_graph_profiling_type_t profil
                                                 const uint8_t *profData,
                                                 uint64_t profSize,
                                                 uint32_t *pSize,
-                                                void *pData) {
+                                                void *pData,
+                                                std::string &logBuffer) {
     if (!Vcl::sym().ok())
         return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
 
@@ -238,7 +229,7 @@ ze_result_t Compiler::getDecodedProfilingBuffer(ze_graph_profiling_type_t profil
 
     auto ret = Vcl::sym().profilingCreate(&profilingApiInput, &profHandle, &logHandle);
     if (ret != VCL_RESULT_SUCCESS) {
-        getInternalCompilerLastError(logHandle);
+        copyCompilerLog(logHandle, logBuffer);
         LOG_E("Failed to create profiling in compiler.");
         return ZE_RESULT_ERROR_UNKNOWN;
     }
@@ -250,7 +241,7 @@ ze_result_t Compiler::getDecodedProfilingBuffer(ze_graph_profiling_type_t profil
 
     ret = Vcl::sym().getDecodedProfilingBuffer(profHandle, profType, &profOutput);
     if (ret != VCL_RESULT_SUCCESS) {
-        getInternalCompilerLastError(logHandle);
+        copyCompilerLog(logHandle, logBuffer);
         LOG_E("Failed to get decoded profiling data in compiler.");
         Vcl::sym().profilingDestroy(profHandle);
         return ZE_RESULT_ERROR_UNKNOWN;
@@ -264,23 +255,6 @@ ze_result_t Compiler::getDecodedProfilingBuffer(ze_graph_profiling_type_t profil
 
     Vcl::sym().profilingDestroy(profHandle);
     return ZE_RESULT_SUCCESS;
-}
-
-bool Compiler::logGetString(uint32_t *pSize, char *pLog) {
-    if (*pSize == 0) {
-        *pSize = static_cast<uint32_t>(lastCompilerLog.size());
-        return true;
-    }
-
-    if (*pSize > lastCompilerLog.size()) {
-        *pSize = static_cast<uint32_t>(lastCompilerLog.size());
-    }
-
-    if (pLog != nullptr) {
-        memcpy(pLog, lastCompilerLog.data(), *pSize);
-    }
-
-    return true;
 }
 
 } // namespace L0

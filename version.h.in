@@ -7,6 +7,6 @@
 
 #pragma once
 
-#cmakedefine VPU_VERSION "${VPU_VERSION}"
+#cmakedefine BUILD_VERSION "${BUILD_VERSION}"
 
-const char vpu_drv_version_str[] = "VPU version: " VPU_VERSION;
+const char vpu_drv_version_str[] = "NPU version: " BUILD_VERSION;

@@ -13,7 +13,7 @@ namespace ult {
 void MockMetricQuery::injectDummyData() {
     size_t dataCount = metricGroup.getAllocationSize() / sizeof(uint64_t);
 
-    uint64_t *metricData64 = reinterpret_cast<uint64_t *>(dataAddress);
+    uint64_t *metricData64 = reinterpret_cast<uint64_t *>(dataPtr);
     for (uint64_t i = 0; i < dataCount; i++) {
         metricData64[i] = 10 * (i + 1);
     }

@@ -21,14 +21,14 @@ enum class EngineType { COMPUTE = 0, COPY, INVALID, ENGINE_MAX = INVALID };
 
 class VPUDevice {
   public:
-    bool init();
+    bool init(bool enableMetrics);
 
     VPUDevice(std::string devnode, OsInterface &osInfc);
     virtual ~VPUDevice() = default;
 
     const VPUHwInfo &getHwInfo() const;
     const std::vector<GroupInfo> getMetricGroupsInfo() const;
-    uint32_t getCapMetricStreamer() const;
+    bool getCapMetricStreamer() const;
     virtual std::unique_ptr<VPUDeviceContext> createDeviceContext();
 
     size_t getNumberOfEngineGroups(void) const;
@@ -52,7 +52,6 @@ class VPUDevice {
   protected:
     VPUHwInfo hwInfo = {};
     std::vector<GroupInfo> groupsInfo = {};
-    uint32_t capMetricStreamer = 0u;
 
   private:
     std::string devnode;

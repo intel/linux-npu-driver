@@ -19,7 +19,8 @@ namespace L0 {
 struct Device;
 
 struct DriverHandle : _ze_driver_handle_t {
-    ~DriverHandle();
+    DriverHandle(std::vector<std::unique_ptr<VPU::VPUDevice>> vpuDevices);
+
     ze_result_t createContext(const ze_context_desc_t *desc, ze_context_handle_t *phContext);
     ze_result_t getDevice(uint32_t *pCount, ze_device_handle_t *phDevices);
     ze_result_t getProperties(ze_driver_properties_t *properties);
@@ -39,15 +40,13 @@ struct DriverHandle : _ze_driver_handle_t {
 
     inline ze_driver_handle_t toHandle() { return this; }
 
-    DriverHandle &operator=(const DriverHandle &) = delete;
-    DriverHandle &operator=(DriverHandle &&) = delete;
-
-    static DriverHandle *create(std::vector<std::unique_ptr<VPU::VPUDevice>> devices);
+    static std::unique_ptr<DriverHandle>
+    create(std::vector<std::unique_ptr<VPU::VPUDevice>> devices);
 
     ze_result_t initialize(std::vector<std::unique_ptr<VPU::VPUDevice>> vpuDevices);
 
     uint32_t numDevices = 0;
-    std::vector<Device *> devices;
+    std::vector<std::unique_ptr<Device>> devices;
     Device *getPrimaryDevice();
 };
 

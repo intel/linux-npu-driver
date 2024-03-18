@@ -25,7 +25,7 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetDeviceProcAddrTable(
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
 
-    if (ZE_API_VERSION_CURRENT < version)
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
         return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     ze_result_t result = ZE_RESULT_SUCCESS;
@@ -96,7 +96,7 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetDriverProcAddrTable(
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
 
-    if (ZE_API_VERSION_CURRENT < version)
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
         return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     ze_result_t result = ZE_RESULT_SUCCESS;
@@ -123,7 +123,7 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetDiagnosticsProcAddrTable(
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
 
-    if (ZE_API_VERSION_CURRENT < version)
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
         return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     ze_result_t result = ZE_RESULT_SUCCESS;
@@ -152,7 +152,7 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetEngineProcAddrTable(
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
 
-    if (ZE_API_VERSION_CURRENT < version)
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
         return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     ze_result_t result = ZE_RESULT_SUCCESS;
@@ -179,7 +179,7 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetFabricPortProcAddrTable(
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
 
-    if (ZE_API_VERSION_CURRENT < version)
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
         return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     ze_result_t result = ZE_RESULT_SUCCESS;
@@ -214,7 +214,7 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetFanProcAddrTable(
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
 
-    if (ZE_API_VERSION_CURRENT < version)
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
         return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     ze_result_t result = ZE_RESULT_SUCCESS;
@@ -249,7 +249,7 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetFirmwareProcAddrTable(
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
 
-    if (ZE_API_VERSION_CURRENT < version)
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
         return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     ze_result_t result = ZE_RESULT_SUCCESS;
@@ -276,7 +276,7 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetFrequencyProcAddrTable(
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
 
-    if (ZE_API_VERSION_CURRENT < version)
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
         return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     ze_result_t result = ZE_RESULT_SUCCESS;
@@ -333,7 +333,7 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetLedProcAddrTable(
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
 
-    if (ZE_API_VERSION_CURRENT < version)
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
         return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     ze_result_t result = ZE_RESULT_SUCCESS;
@@ -364,7 +364,7 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetMemoryProcAddrTable(
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
 
-    if (ZE_API_VERSION_CURRENT < version)
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
         return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     ze_result_t result = ZE_RESULT_SUCCESS;
@@ -394,7 +394,7 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetPerformanceFactorProcAddrTable(
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
 
-    if (ZE_API_VERSION_CURRENT < version)
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
         return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     ze_result_t result = ZE_RESULT_SUCCESS;
@@ -423,7 +423,7 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetPowerProcAddrTable(
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
 
-    if (ZE_API_VERSION_CURRENT < version)
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
         return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     ze_result_t result = ZE_RESULT_SUCCESS;
@@ -458,7 +458,7 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetPsuProcAddrTable(
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
 
-    if (ZE_API_VERSION_CURRENT < version)
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
         return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     ze_result_t result = ZE_RESULT_SUCCESS;
@@ -485,7 +485,7 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetRasProcAddrTable(
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
 
-    if (ZE_API_VERSION_CURRENT < version)
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
         return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     ze_result_t result = ZE_RESULT_SUCCESS;
@@ -516,7 +516,7 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetSchedulerProcAddrTable(
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
 
-    if (ZE_API_VERSION_CURRENT < version)
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
         return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     ze_result_t result = ZE_RESULT_SUCCESS;
@@ -555,7 +555,7 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetStandbyProcAddrTable(
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
 
-    if (ZE_API_VERSION_CURRENT < version)
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
         return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     ze_result_t result = ZE_RESULT_SUCCESS;
@@ -584,7 +584,7 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetTemperatureProcAddrTable(
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
 
-    if (ZE_API_VERSION_CURRENT < version)
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
         return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     ze_result_t result = ZE_RESULT_SUCCESS;

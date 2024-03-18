@@ -195,7 +195,7 @@ TEST_F(VPUJobTest, createJobWithCopyCommandsforCopyEngine) {
 TEST_F(VPUJobTest, createJobWithDifferentTypesOfCommandExpectSuccess) {
     VPUBufferObject *event =
         ctx->createInternalBufferObject(sizeof(VPUEventCommand::KMDEventDataType),
-                                        VPU::VPUBufferObject::Type::CachedLow);
+                                        VPU::VPUBufferObject::Type::CachedFw);
     ASSERT_TRUE(event);
     uint64_t *tsHeap = reinterpret_cast<uint64_t *>(ctx->createSharedMemAlloc(sizeof(uint64_t)));
     ASSERT_NE(tsHeap, nullptr);

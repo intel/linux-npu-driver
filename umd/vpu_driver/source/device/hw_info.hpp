@@ -24,8 +24,6 @@ using PrintCopyDescriptor = void(void *, vpu_cmd_header_t *);
 
 struct VPUHwInfo {
     uint32_t deviceId = 0u;
-    uint32_t supportedDeviceIds[2] = {0, 0};
-    uint32_t numSupportedDevices = 0;
     int compilerPlatform = -1;
     uint32_t deviceRevision = 0u;
     uint32_t subdeviceId = 0u;
@@ -44,22 +42,28 @@ struct VPUHwInfo {
 
     char name[256] = "Intel(R) AI Boost";
 
-    uint64_t baseLowAddres = 0;
+    uint64_t baseLowAddress = 0;
+
+    uint32_t extraDmaDescriptorSize = 0;
+    uint32_t fwMappedInferenceIndex = 0;
+    uint64_t fwMappedInferenceVersion = 0;
+
+    bool metricStreamerCapability = false;
+    bool dmaMemoryRangeCapability = false;
 
     GetCopyCommand *getCopyCommand = nullptr;
     PrintCopyDescriptor *printCopyDescriptor = nullptr;
-
-    bool IsDeviceId(uint32_t deviceId) const {
-        for (uint32_t i = 0; i < numSupportedDevices; i++) {
-            if (deviceId == supportedDeviceIds[i])
-                return true;
-        }
-        return false;
-    }
 };
 
 extern VPUHwInfo vpuHwInfo37xx;
 
-const VPUHwInfo VPUHwInfos[] = {vpuHwInfo37xx};
+inline VPUHwInfo getHwInfoByDeviceId(uint32_t deviceId) {
+    switch (deviceId) {
+    case 0x7d1d:
+    case 0xad1d:
+        return vpuHwInfo37xx;
+    }
+    throw std::runtime_error("Unrecognized PCI device ID");
+}
 
 } // namespace VPU

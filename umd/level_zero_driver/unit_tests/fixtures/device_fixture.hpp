@@ -30,15 +30,14 @@ struct DeviceFixture {
         std::vector<std::unique_ptr<VPU::VPUDevice>> devices;
         devices.push_back(std::move(vpuDevice));
 
-        driverHandle->initialize(std::move(devices));
-        device = driverHandle->devices[0];
+        driverHandle = std::make_unique<L0::DriverHandle>(std::move(devices));
+        device = driverHandle->devices[0].get();
     }
 
     virtual void TearDown() {}
 
     Mock<Driver> driver;
-    std::unique_ptr<Mock<L0::DriverHandle>> driverHandle =
-        std::make_unique<Mock<L0::DriverHandle>>();
+    std::unique_ptr<L0::DriverHandle> driverHandle;
     L0::Device *device = nullptr;
 
     VPU::MockVPUDevice *mockVpuDevice = nullptr;
@@ -55,15 +54,13 @@ struct MultiDeviceFixture {
             devices.push_back(std::move(mockDevice));
         }
 
-        driverHandle = std::make_unique<Mock<L0::DriverHandle>>();
-        ze_result_t res = driverHandle->initialize(std::move(devices));
-        EXPECT_EQ(ZE_RESULT_SUCCESS, res);
+        driverHandle = std::make_unique<L0::DriverHandle>(std::move(devices));
     }
 
     virtual void TearDown() {}
     Mock<Driver> driver;
 
-    std::unique_ptr<Mock<L0::DriverHandle>> driverHandle;
+    std::unique_ptr<L0::DriverHandle> driverHandle;
     const uint32_t numDevices = 4u;
     VPU::MockOsInterfaceImp osInfc;
 };
@@ -93,7 +90,6 @@ struct ContextFixture : DeviceFixture {
 
     void TearDown() override {
         EXPECT_EQ(ctx->getBuffersCount(), 0u);
-
         if (context)
             context->destroy();
         DeviceFixture::TearDown();

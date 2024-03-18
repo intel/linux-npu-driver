@@ -28,7 +28,7 @@ namespace ult {
 TEST(DeviceCap, capabilitiesShouldBeInitializedWithDeviceInitialization) {
     VPU::MockOsInterfaceImp mockOSInfc;
     VPU::MockVPUDevice vpuDevice(FAKE_TEST_DEV_NODE, mockOSInfc);
-    EXPECT_TRUE(vpuDevice.init());
+    EXPECT_TRUE(vpuDevice.init(true));
 }
 
 using SingleDeviceTest = Test<DeviceFixture>;
@@ -99,7 +99,7 @@ TEST_F(SingleDeviceTest, givenCallToDevicePropertiesThenBasicPropertiesCorrectly
     EXPECT_EQ(l0DevProps.deviceId, hwInfo.deviceId);
 
     // Sub device ID.
-    EXPECT_EQ(l0DevProps.subdeviceId, hwInfo.subdeviceId);
+    EXPECT_EQ(l0DevProps.subdeviceId, hwInfo.deviceRevision);
 
     // Core clock rate.
     EXPECT_EQ(l0DevProps.coreClockRate, hwInfo.coreClockRate);

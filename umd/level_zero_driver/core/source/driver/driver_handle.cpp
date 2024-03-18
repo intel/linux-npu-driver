@@ -69,13 +69,8 @@ ze_result_t DriverHandle::getProperties(ze_driver_properties_t *properties) {
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    uint32_t versionMajor = L0_PROJECT_VERSION_MAJOR;
-    uint32_t versionMinor = L0_PROJECT_VERSION_MINOR;
-    uint32_t versionBuild = VPU_VERSION_BUILD;
-
     properties->uuid = ze_intel_vpu_driver_uuid;
-    properties->driverVersion = ((versionMajor << 24) & 0xFF000000) |
-                                ((versionMinor << 16) & 0x00FF0000) | (versionBuild & 0x0000FFFF);
+    properties->driverVersion = DRIVER_VERSION;
 
     LOG_I("Driver properties returned successfully.");
     return ZE_RESULT_SUCCESS;
@@ -137,40 +132,22 @@ DriverHandle::getMemAllocProperties(const void *ptr,
     return ZE_RESULT_SUCCESS;
 }
 
-DriverHandle::~DriverHandle() {
-    for (auto &device : devices)
-        delete device;
-}
-
-ze_result_t DriverHandle::initialize(std::vector<std::unique_ptr<VPU::VPUDevice>> vpuDevices) {
+DriverHandle::DriverHandle(std::vector<std::unique_ptr<VPU::VPUDevice>> vpuDevices) {
     for (auto &vpuDevice : vpuDevices)
-        devices.emplace_back(Device::create(this, vpuDevice.release()));
-
-    if (devices.size() == 0) {
-        LOG_W("No VPU devices found.");
-        return ZE_RESULT_ERROR_UNINITIALIZED;
-    }
+        devices.push_back(std::make_unique<Device>(this, std::move(vpuDevice)));
 
     numDevices = safe_cast<uint32_t>(devices.size());
     LOG_I("Update numDevices with '%d'.", numDevices);
-
-    return ZE_RESULT_SUCCESS;
 }
 
-DriverHandle *DriverHandle::create(std::vector<std::unique_ptr<VPU::VPUDevice>> devices) {
-    auto *driverHandle = new DriverHandle;
-    if (driverHandle == nullptr) {
-        LOG_E("New DriverHandle allocation failed!");
+std::unique_ptr<DriverHandle>
+DriverHandle::create(std::vector<std::unique_ptr<VPU::VPUDevice>> devices) {
+    if (devices.size() == 0) {
+        LOG_W("No VPU devices found.");
         return nullptr;
     }
 
-    ze_result_t res = driverHandle->initialize(std::move(devices));
-    if (res != ZE_RESULT_SUCCESS) {
-        delete driverHandle;
-        return nullptr;
-    }
-
-    return driverHandle;
+    return std::make_unique<DriverHandle>(std::move(devices));
 }
 
 ze_result_t DriverHandle::getDevice(uint32_t *pCount, ze_device_handle_t *phDevices) {
@@ -192,7 +169,7 @@ ze_result_t DriverHandle::getDevice(uint32_t *pCount, ze_device_handle_t *phDevi
     }
 
     for (uint32_t i = 0; i < *pCount; i++) {
-        phDevices[i] = devices[i];
+        phDevices[i] = devices[i].get();
     }
 
     return ZE_RESULT_SUCCESS;
@@ -203,7 +180,7 @@ ze_result_t DriverHandle::getDevice(uint32_t *pCount, ze_device_handle_t *phDevi
 // shall be utilised as primary device.
 Device *DriverHandle::getPrimaryDevice() {
     if (devices[0] != nullptr)
-        return devices[0];
+        return devices[0].get();
 
     return nullptr;
 }

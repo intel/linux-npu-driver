@@ -37,7 +37,7 @@ class Driver {
     virtual void driverInit(ze_init_flags_t flags);
     virtual ze_result_t getInitStatus();
     virtual const L0EnvVariables &getEnvVariables() { return envVariables; }
-    virtual DriverHandle *getDriverHandle() { return pGlobalDriverHandle; }
+    virtual DriverHandle *getDriverHandle() { return pGlobalDriverHandle.get(); }
 
   protected:
     static Driver *pDriver;
@@ -46,7 +46,7 @@ class Driver {
 
   private:
     const uint32_t driverCount = 1;
-    DriverHandle *pGlobalDriverHandle = nullptr;
+    std::unique_ptr<DriverHandle> pGlobalDriverHandle = nullptr;
     VPU::OsInterface *osInfc = nullptr;
     ze_result_t initStatus = ZE_RESULT_ERROR_UNINITIALIZED;
     std::once_flag initDriverOnce;

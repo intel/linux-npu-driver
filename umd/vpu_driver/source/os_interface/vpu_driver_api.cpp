@@ -5,17 +5,14 @@
  *
  */
 
-#include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
 
 #include <cerrno>
-#include <cstring>
+#include <string.h>
 #include <fcntl.h>
 #include <memory>
 #include <sys/mman.h>
-#include <thread>
 #include <uapi/drm/ivpu_accel.h>
-#include <vector>
 
 namespace VPU {
 
@@ -127,8 +124,22 @@ int VPUDriverApi::submitCommandBuffer(drm_ivpu_submit *arg) const {
     return doIoctl(DRM_IOCTL_IVPU_SUBMIT, arg);
 }
 
-int VPUDriverApi::getDeviceParam(drm_ivpu_param *arg) const {
-    return doIoctl(DRM_IOCTL_IVPU_GET_PARAM, arg);
+bool VPUDriverApi::checkDeviceCapability(uint32_t index) const {
+    struct drm_ivpu_param arg = {};
+    arg.param = DRM_IVPU_PARAM_CAPABILITIES;
+    arg.index = index;
+    if (doIoctl(DRM_IOCTL_IVPU_GET_PARAM, &arg)) {
+        LOG_W("Capability does not exist, index: %#x, errno: %d", index, errno);
+        return false;
+    }
+
+    if (arg.value == 0) {
+        LOG_W("Capability from index: %#x is not set", index);
+        return false;
+    }
+
+    LOG_I("Capability from index: %#x is set", index);
+    return true;
 }
 
 bool VPUDriverApi::checkDeviceStatus() const {
@@ -146,14 +157,6 @@ int VPUDriverApi::wait(void *args) const {
 int VPUDriverApi::closeBuffer(uint32_t handle) const {
     struct drm_gem_close args = {.handle = handle, .pad = 0};
     return doIoctl(DRM_IOCTL_GEM_CLOSE, &args);
-}
-
-void *VPUDriverApi::alloc(size_t size) const {
-    return osInfc.osiAlloc(size);
-}
-
-int VPUDriverApi::free(void *ptr) const {
-    return osInfc.osiFree(ptr);
 }
 
 int VPUDriverApi::createBuffer(size_t size,
@@ -186,11 +189,57 @@ int VPUDriverApi::getBufferInfo(uint32_t handle, uint64_t &mmap_offset) const {
     int ret = doIoctl(DRM_IOCTL_IVPU_BO_INFO, &args);
     if (ret) {
         LOG_E("Failed to call DRM_IOCTL_IVPU_BO_INFO");
-        closeBuffer(handle);
         return ret;
     }
 
     mmap_offset = args.mmap_offset;
+    return ret;
+}
+
+int VPUDriverApi::getExtBufferInfo(uint32_t handle,
+                                   uint32_t &flags,
+                                   uint64_t &vpu_address,
+                                   uint64_t &size,
+                                   uint64_t &mmap_offset) const {
+    drm_ivpu_bo_info args = {};
+    args.handle = handle;
+
+    int ret = doIoctl(DRM_IOCTL_IVPU_BO_INFO, &args);
+    if (ret) {
+        LOG_E("Failed to call DRM_IOCTL_IVPU_BO_INFO");
+        return ret;
+    }
+
+    flags = args.flags;
+    vpu_address = args.vpu_addr;
+    size = args.size;
+    mmap_offset = args.mmap_offset;
+    return ret;
+}
+
+int VPUDriverApi::exportBuffer(uint32_t handle, uint32_t flags, int32_t &fd) const {
+    drm_prime_handle args = {.handle = handle, .flags = flags, .fd = -1};
+
+    int ret = doIoctl(DRM_IOCTL_PRIME_HANDLE_TO_FD, &args);
+    if (ret) {
+        LOG_E("Failed to call DRM_IOCTL_PRIME_HANDLE_TO_FD");
+        return ret;
+    }
+
+    fd = args.fd;
+    return ret;
+}
+
+int VPUDriverApi::importBuffer(int32_t fd, uint32_t flags, uint32_t &handle) const {
+    drm_prime_handle args = {.handle = 0, .flags = flags, .fd = fd};
+
+    int ret = doIoctl(DRM_IOCTL_PRIME_FD_TO_HANDLE, &args);
+    if (ret) {
+        LOG_E("Failed to call DRM_IOCTL_PRIME_FD_TO_HANDLE");
+        return ret;
+    }
+
+    handle = args.handle;
     return ret;
 }
 

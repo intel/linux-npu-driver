@@ -46,7 +46,7 @@ class MockOsInterfaceImp : public OsInterface {
 
     int kmdIoctlRetCode = 0;
 
-    MockOsInterfaceImp(uint32_t pciDevId = vpuHwInfo37xx.supportedDeviceIds[0]);
+    MockOsInterfaceImp(uint32_t pciDevId = 0x7d1d);
     MockOsInterfaceImp(const MockOsInterfaceImp &) = delete;
     MockOsInterfaceImp &operator=(const MockOsInterfaceImp &) = delete;
     MockOsInterfaceImp(MockOsInterfaceImp &&) = delete;
@@ -58,14 +58,12 @@ class MockOsInterfaceImp : public OsInterface {
     int osiFcntl(int fd, int cmd) override;
     int osiIoctl(int fd, unsigned long request, void *args) override;
 
-    void *osiAlloc(size_t size) override;
-    int osiFree(void *ptr) override;
     size_t osiGetSystemPageSize() override;
 
     void *osiMmap(void *addr, size_t size, int prot, int flags, int fd, off_t offset) override;
     int osiMunmap(void *addr, size_t size) override;
 
-    void mockFailNextAlloc(); // Fails next call to osiAlloc
+    void mockFailNextAlloc(); // Fails next call to osiMmap
     void mockFailNextJobWait();
     void mockSuccessNextJobWait();
     void mockFailNextJobStatus();

@@ -15,8 +15,9 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetDriverProcAddrTable(ze_api_version_t ve
                                                              ze_driver_dditable_t *pDdiTable) {
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    if (ZE_API_VERSION_CURRENT < version)
-        return ZE_RESULT_ERROR_UNKNOWN;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     pDdiTable->pfnGet = L0::zeDriverGet;
     pDdiTable->pfnGetApiVersion = L0::zeDriverGetApiVersion;
@@ -31,8 +32,9 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zeGetMemProcAddrTable(ze_api_version_t versi
                                                           ze_mem_dditable_t *pDdiTable) {
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    if (ZE_API_VERSION_CURRENT < version)
-        return ZE_RESULT_ERROR_UNKNOWN;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     pDdiTable->pfnAllocShared = L0::zeMemAllocShared;
     pDdiTable->pfnAllocDevice = L0::zeMemAllocDevice;
@@ -50,8 +52,9 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zeGetContextProcAddrTable(ze_api_version_t v
                                                               ze_context_dditable_t *pDdiTable) {
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    if (ZE_API_VERSION_CURRENT < version)
-        return ZE_RESULT_ERROR_UNKNOWN;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     pDdiTable->pfnCreate = L0::zeContextCreate;
     pDdiTable->pfnDestroy = L0::zeContextDestroy;
@@ -68,8 +71,9 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL
 zeGetPhysicalMemProcAddrTable(ze_api_version_t version, ze_physical_mem_dditable_t *pDdiTable) {
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    if (ZE_API_VERSION_CURRENT < version)
-        return ZE_RESULT_ERROR_UNKNOWN;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     pDdiTable->pfnCreate = L0::zePhysicalMemCreate;
     pDdiTable->pfnDestroy = L0::zePhysicalMemDestroy;
@@ -80,8 +84,9 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL
 zeGetVirtualMemProcAddrTable(ze_api_version_t version, ze_virtual_mem_dditable_t *pDdiTable) {
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    if (ZE_API_VERSION_CURRENT < version)
-        return ZE_RESULT_ERROR_UNKNOWN;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     pDdiTable->pfnReserve = L0::zeVirtualMemReserve;
     pDdiTable->pfnFree = L0::zeVirtualMemFree;
@@ -97,8 +102,9 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetGlobalProcAddrTable(ze_api_version_t ve
                                                              ze_global_dditable_t *pDdiTable) {
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    if (ZE_API_VERSION_CURRENT < version)
-        return ZE_RESULT_ERROR_UNKNOWN;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     pDdiTable->pfnInit = L0::zeInit;
     return ZE_RESULT_SUCCESS;
@@ -108,8 +114,9 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetDeviceProcAddrTable(ze_api_version_t ve
                                                              ze_device_dditable_t *pDdiTable) {
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    if (ZE_API_VERSION_CURRENT < version)
-        return ZE_RESULT_ERROR_UNKNOWN;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     pDdiTable->pfnGet = L0::zeDeviceGet;
     pDdiTable->pfnGetCommandQueueGroupProperties = L0::zeDeviceGetCommandQueueGroupProperties;
@@ -132,8 +139,9 @@ ZE_APIEXPORT ze_result_t ZE_APICALL
 zeGetCommandQueueProcAddrTable(ze_api_version_t version, ze_command_queue_dditable_t *pDdiTable) {
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    if (ZE_API_VERSION_CURRENT < version)
-        return ZE_RESULT_ERROR_UNKNOWN;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     pDdiTable->pfnCreate = L0::zeCommandQueueCreate;
     pDdiTable->pfnDestroy = L0::zeCommandQueueDestroy;
@@ -146,8 +154,9 @@ ZE_APIEXPORT ze_result_t ZE_APICALL
 zeGetCommandListProcAddrTable(ze_api_version_t version, ze_command_list_dditable_t *pDdiTable) {
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    if (ZE_API_VERSION_CURRENT < version)
-        return ZE_RESULT_ERROR_UNKNOWN;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     pDdiTable->pfnAppendBarrier = L0::zeCommandListAppendBarrier;
     pDdiTable->pfnAppendMemoryRangesBarrier = L0::zeCommandListAppendMemoryRangesBarrier;
@@ -183,8 +192,9 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetFenceProcAddrTable(ze_api_version_t ver
                                                             ze_fence_dditable_t *pDdiTable) {
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    if (ZE_API_VERSION_CURRENT < version)
-        return ZE_RESULT_ERROR_UNKNOWN;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     pDdiTable->pfnCreate = L0::zeFenceCreate;
     pDdiTable->pfnDestroy = L0::zeFenceDestroy;
@@ -198,8 +208,9 @@ ZE_APIEXPORT ze_result_t ZE_APICALL
 zeGetEventPoolProcAddrTable(ze_api_version_t version, ze_event_pool_dditable_t *pDdiTable) {
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    if (ZE_API_VERSION_CURRENT < version)
-        return ZE_RESULT_ERROR_UNKNOWN;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     pDdiTable->pfnCreate = L0::zeEventPoolCreate;
     pDdiTable->pfnDestroy = L0::zeEventPoolDestroy;
@@ -213,8 +224,9 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetEventProcAddrTable(ze_api_version_t ver
                                                             ze_event_dditable_t *pDdiTable) {
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    if (ZE_API_VERSION_CURRENT < version)
-        return ZE_RESULT_ERROR_UNKNOWN;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     pDdiTable->pfnCreate = L0::zeEventCreate;
     pDdiTable->pfnDestroy = L0::zeEventDestroy;
@@ -230,8 +242,9 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetImageProcAddrTable(ze_api_version_t ver
                                                             ze_image_dditable_t *pDdiTable) {
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    if (ZE_API_VERSION_CURRENT < version)
-        return ZE_RESULT_ERROR_UNKNOWN;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     pDdiTable->pfnGetProperties = nullptr; // zeImageGetProperties
     pDdiTable->pfnCreate = nullptr;        // zeImageCreate
@@ -243,8 +256,9 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetModuleProcAddrTable(ze_api_version_t ve
                                                              ze_module_dditable_t *pDdiTable) {
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    if (ZE_API_VERSION_CURRENT < version)
-        return ZE_RESULT_ERROR_UNKNOWN;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     pDdiTable->pfnCreate = nullptr;             // zeModuleCreate
     pDdiTable->pfnDestroy = nullptr;            // zeModuleDestroy
@@ -262,8 +276,9 @@ zeGetModuleBuildLogProcAddrTable(ze_api_version_t version,
                                  ze_module_build_log_dditable_t *pDdiTable) {
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    if (ZE_API_VERSION_CURRENT < version)
-        return ZE_RESULT_ERROR_UNKNOWN;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     pDdiTable->pfnDestroy = nullptr;   // zeModuleBuildLogDestroy
     pDdiTable->pfnGetString = nullptr; // zeModuleBuildLogGetString
@@ -274,8 +289,9 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetKernelProcAddrTable(ze_api_version_t ve
                                                              ze_kernel_dditable_t *pDdiTable) {
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    if (ZE_API_VERSION_CURRENT < version)
-        return ZE_RESULT_ERROR_UNKNOWN;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     pDdiTable->pfnCreate = nullptr;           // zeKernelCreate
     pDdiTable->pfnDestroy = nullptr;          // zeKernelDestroy
@@ -297,8 +313,9 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetSamplerProcAddrTable(ze_api_version_t v
                                                               ze_sampler_dditable_t *pDdiTable) {
     if (nullptr == pDdiTable)
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    if (ZE_API_VERSION_CURRENT < version)
-        return ZE_RESULT_ERROR_UNKNOWN;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     pDdiTable->pfnCreate = nullptr;  // zeSamplerCreate
     pDdiTable->pfnDestroy = nullptr; // zeSamplerDestroy

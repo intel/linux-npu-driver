@@ -222,7 +222,7 @@ ze_result_t CommandList::appendMemoryFill(void *ptr,
     }
 
     auto patternBo =
-        ctx->createInternalBufferObject(size + patternSize, VPU::VPUBufferObject::Type::CachedHigh);
+        ctx->createInternalBufferObject(size + patternSize, VPU::VPUBufferObject::Type::CachedDma);
     if (patternBo == nullptr) {
         LOG_E("Failed to allocate memory");
         return ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY;
@@ -260,7 +260,7 @@ ze_result_t CommandList::appendWriteGlobalTimestamp(uint64_t *dstptr,
     }
 
     auto allignedBo =
-        ctx->createInternalBufferObject(sizeof(uint64_t), VPU::VPUBufferObject::Type::CachedLow);
+        ctx->createInternalBufferObject(sizeof(uint64_t), VPU::VPUBufferObject::Type::CachedFw);
 
     if (allignedBo == nullptr) {
         LOG_E("Failed to allocate memory");

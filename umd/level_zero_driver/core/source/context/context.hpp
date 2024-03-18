@@ -10,6 +10,7 @@
 #include "level_zero_driver/core/source/driver/driver_handle.hpp"
 #include "level_zero_driver/include/l0_exception.hpp"
 #include "level_zero_driver/include/l0_handler.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 
 #include <level_zero/ze_api.h>
@@ -34,18 +35,29 @@ struct Context : _ze_context_handle_t {
 
     ze_result_t checkMemInputs(size_t size, size_t alignment, void **ptr);
     ze_result_t
-    allocHostMem(ze_host_mem_alloc_flags_t flags, size_t size, size_t alignment, void **ptr);
-    ze_result_t allocSharedMem(ze_device_handle_t hDevice,
-                               ze_device_mem_alloc_flags_t flagsDev,
-                               ze_host_mem_alloc_flags_t flagsHost,
-                               size_t size,
-                               size_t alignment,
-                               void **ptr);
-    ze_result_t allocDeviceMem(ze_device_handle_t hDevice,
-                               ze_device_mem_alloc_flags_t flags,
-                               size_t size,
-                               size_t alignment,
-                               void **ptr);
+    allocHostMem(ze_host_mem_alloc_flags_t flags,
+                 size_t size,
+                 size_t alignment,
+                 void **ptr,
+                 VPU::VPUBufferObject::Location location = VPU::VPUBufferObject::Location::Host);
+
+    ze_result_t allocSharedMem(
+        ze_device_handle_t hDevice,
+        ze_device_mem_alloc_flags_t flagsDev,
+        ze_host_mem_alloc_flags_t flagsHost,
+        size_t size,
+        size_t alignment,
+        void **ptr,
+        VPU::VPUBufferObject::Location location = VPU::VPUBufferObject::Location::Shared);
+
+    ze_result_t allocDeviceMem(
+        ze_device_handle_t hDevice,
+        ze_device_mem_alloc_flags_t flags,
+        size_t size,
+        size_t alignment,
+        void **ptr,
+        VPU::VPUBufferObject::Location location = VPU::VPUBufferObject::Location::Device);
+    ze_result_t importMemory(VPU::VPUBufferObject::Location type, int32_t fd, void **ptr);
     ze_result_t freeMem(void *ptr);
 
     ze_result_t getMemAllocProperties(const void *ptr,

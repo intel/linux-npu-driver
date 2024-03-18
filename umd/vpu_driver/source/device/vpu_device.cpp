@@ -18,6 +18,7 @@
 
 #include <cerrno>
 #include <limits>
+#include <stdexcept>
 #include <sys/mman.h>
 #include <uapi/drm/ivpu_accel.h>
 #include <cassert>
@@ -28,92 +29,37 @@ VPUDevice::VPUDevice(std::string devnode, OsInterface &osInfc)
     , osInfc(osInfc) {}
 
 bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
-    struct drm_ivpu_param arg = {};
-    uint32_t deviceId;
+    try {
+        uint32_t deviceId = drvApi->getDeviceParam<uint32_t>(DRM_IVPU_PARAM_DEVICE_ID);
+        LOG_I("PCI device ID: %#x", deviceId);
 
-    arg.param = DRM_IVPU_PARAM_DEVICE_ID;
-    if (drvApi->getDeviceParam(&arg)) {
-        LOG_E("Failed to call device config ioctl. -errno: %d", errno);
+        hwInfo = getHwInfoByDeviceId(deviceId);
+        hwInfo.deviceId = deviceId;
+        hwInfo.deviceRevision = drvApi->getDeviceParam<uint32_t>(DRM_IVPU_PARAM_DEVICE_REVISION);
+        hwInfo.maxHardwareContexts = drvApi->getDeviceParam<uint32_t>(DRM_IVPU_PARAM_NUM_CONTEXTS);
+        hwInfo.coreClockRate = drvApi->getDeviceParam<uint32_t>(DRM_IVPU_PARAM_CORE_CLOCK_RATE);
+        hwInfo.platformType = drvApi->getDeviceParam<uint32_t>(DRM_IVPU_PARAM_PLATFORM_TYPE);
+        hwInfo.baseLowAddress = drvApi->getDeviceParam(DRM_IVPU_PARAM_CONTEXT_BASE_ADDRESS);
+        hwInfo.fwMappedInferenceVersion =
+            drvApi->getDeviceParam(DRM_IVPU_PARAM_FW_API_VERSION, hwInfo.fwMappedInferenceIndex);
+        LOG_I("Base address of device is %#lx", hwInfo.baseLowAddress);
+
+        uint32_t tileConfigParam = drvApi->getDeviceParam<uint32_t>(DRM_IVPU_PARAM_TILE_CONFIG);
+        hwInfo.tileConfig = ~tileConfigParam & hwInfo.tileFuseMask;
+    } catch (const std::exception &err) {
+        LOG_E("Failed to initialize hardware info, error: %s", err.what());
         return false;
     }
 
-    deviceId = safe_cast<uint32_t>(arg.value);
-
-    LOG_I("Pci device ID: %#llx", arg.value);
-    for (auto &info : VPUHwInfos) {
-        if (info.IsDeviceId(deviceId)) {
-            hwInfo = info;
-            hwInfo.deviceId = deviceId;
-            break;
-        }
-    }
-
-    if (hwInfo.deviceId == 0) {
-        LOG_E("Failed to find a device with PCI ID: %#llx", arg.value);
-        return false;
-    }
-
-    arg.param = DRM_IVPU_PARAM_DEVICE_REVISION;
-    if (drvApi->getDeviceParam(&arg)) {
-        LOG_E("Failed to get device revision using ioctl. -errno: %d", errno);
-        return false;
-    }
-    hwInfo.deviceRevision = safe_cast<uint32_t>(arg.value);
-
-    arg.param = DRM_IVPU_PARAM_NUM_CONTEXTS;
-    if (drvApi->getDeviceParam(&arg)) {
-        LOG_E("Failed to get number of contexts using ioctl. -errno: %d", errno);
-        return false;
-    }
-    hwInfo.maxHardwareContexts = safe_cast<uint32_t>(arg.value);
-
-    arg.param = DRM_IVPU_PARAM_CORE_CLOCK_RATE;
-    if (drvApi->getDeviceParam(&arg)) {
-        LOG_E("Failed to get core clock rate using ioctl. -errno: %d", errno);
-        return false;
-    }
-    hwInfo.coreClockRate = safe_cast<uint32_t>(arg.value);
-
-    arg.param = DRM_IVPU_PARAM_PLATFORM_TYPE;
-    if (drvApi->getDeviceParam(&arg)) {
-        LOG_E("Failed to get platform type using ioctl. -errno: %d", errno);
-        return false;
-    }
-    hwInfo.platformType = safe_cast<uint32_t>(arg.value);
-
-    arg.param = DRM_IVPU_PARAM_TILE_CONFIG;
-    if (drvApi->getDeviceParam(&arg)) {
-        LOG_E("Failed to get tile config using ioctl. -errno: %d", errno);
-        return false;
-    }
-    hwInfo.tileConfig = (~safe_cast<uint32_t>(arg.value)) & hwInfo.tileFuseMask;
-
-    arg.param = DRM_IVPU_PARAM_CONTEXT_BASE_ADDRESS;
-    if (drvApi->getDeviceParam(&arg) != 0) {
-        LOG_E("Failed to get context base address using ioctl. -errno: %d", errno);
-        return false;
-    }
-
-    hwInfo.baseLowAddres = arg.value;
-    LOG_I("Base address of device is %#lx", hwInfo.baseLowAddres);
-
-    arg.param = DRM_IVPU_PARAM_CAPABILITIES;
-    arg.index = DRM_IVPU_CAP_METRIC_STREAMER;
-    if (drvApi->getDeviceParam(&arg)) {
-        LOG_W("Failed to get metric streamer capabilities using ioctl. -errno: %d", errno);
-    } else {
-        capMetricStreamer = safe_cast<uint32_t>(arg.value);
-    }
+    if (drvApi->checkDeviceCapability(DRM_IVPU_CAP_METRIC_STREAMER))
+        hwInfo.metricStreamerCapability = true;
+    if (drvApi->checkDeviceCapability(DRM_IVPU_CAP_DMA_MEMORY_RANGE))
+        hwInfo.dmaMemoryRangeCapability = true;
 
     return true;
 }
 
 bool VPUDevice::initializeMetricGroups(VPUDriverApi *drvApi) {
-    if (capMetricStreamer != 1) {
-        LOG_W("Metrics are not supported.");
-        return true;
-    }
-
     uint64_t metricGroupMask = -1llu;
     drm_ivpu_metric_streamer_get_data get_info_params = {};
 
@@ -272,7 +218,7 @@ bool VPUDevice::initializeMetricGroups(VPUDriverApi *drvApi) {
     return true;
 }
 
-bool VPUDevice::init() {
+bool VPUDevice::init(bool enableMetrics) {
     LOG_V("Initializing VPU device.");
 
     if (devnode.empty()) {
@@ -289,9 +235,11 @@ bool VPUDevice::init() {
         return false;
     }
 
-    if (!initializeMetricGroups(drvApi.get())) {
-        LOG_W("Failed to initialize metric groups.");
-        return false;
+    if (enableMetrics && getCapMetricStreamer()) {
+        if (!initializeMetricGroups(drvApi.get())) {
+            LOG_W("Failed to initialize metric groups.");
+            return false;
+        }
     }
 
     LOG_V("VPU device initialized successfully.");
@@ -306,8 +254,8 @@ const std::vector<GroupInfo> VPUDevice::getMetricGroupsInfo() const {
     return groupsInfo;
 }
 
-uint32_t VPUDevice::getCapMetricStreamer() const {
-    return capMetricStreamer;
+bool VPUDevice::getCapMetricStreamer() const {
+    return hwInfo.metricStreamerCapability;
 }
 
 bool VPUDevice::isConnected() {

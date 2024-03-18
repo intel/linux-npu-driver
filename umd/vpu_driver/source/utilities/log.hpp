@@ -27,7 +27,7 @@ void printLog(LogLevel debugLevel,
               ...) __attribute__((format(printf, 5, 6)));
 
 void setLogLevel(LogLevel level);
-void setLogLevel(std::string_view &str);
+void setLogLevel(std::string_view str);
 
 LogLevel getLogLevel();
 

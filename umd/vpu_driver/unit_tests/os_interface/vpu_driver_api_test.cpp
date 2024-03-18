@@ -10,6 +10,7 @@
 
 #include <memory>
 #include <gtest/gtest.h>
+#include <stdexcept>
 #include <uapi/drm/ivpu_accel.h>
 
 #define FAKE_TEST_DEV_NODE "dev/node/fake"
@@ -58,9 +59,9 @@ struct VPUDriverApiIoctlTest : public VPUDriverApiTest {
 };
 
 TEST_F(VPUDriverApiIoctlTest, getDeviceParamIoctl) {
-    struct drm_ivpu_param param = {};
-    param.param = DRM_IVPU_PARAM_DEVICE_ID;
-    EXPECT_EQ(0, driverApi->getDeviceParam(&param));
+    uint64_t deviceId = 0;
+    EXPECT_NO_THROW(deviceId = driverApi->getDeviceParam(DRM_IVPU_PARAM_DEVICE_ID));
+    EXPECT_EQ(deviceId, 0x7d1d);
 
     EXPECT_EQ(1u, mockOsInfc.callCntIoctl);
     EXPECT_EQ(DRM_IOCTL_IVPU_GET_PARAM, mockOsInfc.ioctlLastCommand);
@@ -80,9 +81,7 @@ TEST_F(VPUDriverApiIoctlTest, ioctlError) {
     struct drm_ivpu_submit exec = {};
     EXPECT_EQ(-1, driverApi->submitCommandBuffer(&exec));
 
-    struct drm_ivpu_param param = {};
-    param.param = DRM_IVPU_PARAM_DEVICE_ID;
-    EXPECT_EQ(-1, driverApi->getDeviceParam(&param));
+    EXPECT_THROW(driverApi->getDeviceParam(DRM_IVPU_PARAM_DEVICE_ID), std::runtime_error);
 
     struct drm_ivpu_bo_wait args = {};
     EXPECT_EQ(-1, driverApi->wait(&args));

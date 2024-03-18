@@ -7,22 +7,23 @@
 
 #pragma once
 
+#include "level_zero_driver/core/source/context/context.hpp"
+#include <level_zero/ze_graph_ext.h>
+
 struct _ze_graph_profiling_query_handle_t {};
 struct _ze_graph_profiling_pool_handle_t {};
 
-#include <level_zero/ze_graph_ext.h>
-
 namespace L0 {
+
 struct Graph;
 struct GraphProfilingPool;
 
 struct GraphProfilingQuery : _ze_graph_profiling_query_handle_t {
   public:
-    GraphProfilingQuery(VPU::VPUDeviceContext *ctx,
-                        GraphProfilingPool *poolInput,
-                        const uint32_t index,
+    GraphProfilingQuery(std::vector<uint8_t> *graphBlobRaw,
                         const uint32_t size,
-                        void *queryPtrInput);
+                        void *queryPtrInput,
+                        std::function<void()> &&destroyCb);
 
     ze_result_t destroy();
     ze_result_t getData(ze_graph_profiling_type_t profilingType, uint32_t *pSize, uint8_t *pData);
@@ -33,15 +34,13 @@ struct GraphProfilingQuery : _ze_graph_profiling_query_handle_t {
         return static_cast<GraphProfilingQuery *>(handle);
     }
 
-    inline uint32_t getIndex() const { return index; }
-    inline uint32_t getSize() const { return size; }
-    inline void *getQueryPtr() const { return queryPtr; }
+    inline void *getQueryPtr() const { return data; }
 
   private:
-    GraphProfilingPool *pool = nullptr;
-    uint32_t index = 0u;
     uint32_t size = 0u;
-    void *queryPtr = nullptr;
+    void *data = nullptr;
+    std::vector<uint8_t> *graphBlobRaw;
+    std::function<void()> destroyCb;
 };
 
 struct GraphProfilingPool : _ze_graph_profiling_pool_handle_t {
@@ -49,15 +48,13 @@ struct GraphProfilingPool : _ze_graph_profiling_pool_handle_t {
     GraphProfilingPool(VPU::VPUDeviceContext *ctx,
                        const uint32_t size,
                        const uint32_t count,
-                       VPU::VPUBufferObject *profilingPoolBuffer,
-                       std::vector<uint8_t> *graphBlobRaw);
-    ze_result_t destroy();
+                       std::vector<uint8_t> *graphBlobRaw,
+                       std::function<void(GraphProfilingPool *)> destroyCb);
+    ~GraphProfilingPool();
 
+    ze_result_t destroy();
     ze_result_t createProfilingQuery(const uint32_t index,
                                      ze_graph_profiling_query_handle_t *phProfilingQuery);
-    void removeQuery(GraphProfilingQuery *profilingQuery);
-
-    std::vector<uint8_t> *getGraphBlobRaw() { return graphBlobRaw; };
 
     inline ze_graph_profiling_pool_handle_t toHandle() { return this; }
     static GraphProfilingPool *fromHandle(ze_graph_profiling_pool_handle_t handle) {
@@ -65,12 +62,13 @@ struct GraphProfilingPool : _ze_graph_profiling_pool_handle_t {
     }
 
   private:
-    VPU::VPUDeviceContext *ctx;
+    VPU::VPUDeviceContext *ctx = nullptr;
     uint32_t querySize = 0u;
-    VPU::VPUBufferObject *profilingPool = nullptr;
+    VPU::VPUBufferObject *poolBuffer = nullptr;
     std::vector<uint8_t> *graphBlobRaw;
 
-    std::vector<GraphProfilingQuery *> queryAllocation;
+    std::vector<std::unique_ptr<GraphProfilingQuery>> queries;
+    std::function<void(GraphProfilingPool *)> destroyCb;
 };
 
 }; // namespace L0

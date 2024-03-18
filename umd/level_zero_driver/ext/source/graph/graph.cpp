@@ -16,9 +16,10 @@
 #include "vpu_driver/source/device/vpu_device.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
-#include <string.h>
-
 namespace L0 {
+
+static thread_local std::string lastErrorMsg = {};
+
 Graph::Graph(Context *pCtx, const ze_graph_desc_2_t *pDesc)
     : pContext(pCtx)
     , ctx(pCtx->getDeviceContext())
@@ -60,9 +61,8 @@ ze_result_t Graph::create(const ze_context_handle_t hContext,
 }
 
 ze_result_t Graph::destroy() {
-    LOG_V("Destroying graph.");
-
     pContext->removeObject(this);
+    LOG_I("Graph destroyed - %p", this);
     return ZE_RESULT_SUCCESS;
 }
 
@@ -209,24 +209,24 @@ ze_result_t Graph::createProfilingPool(uint32_t count,
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    size_t profilingPoolSize = count * getFwDataCacheAlign(profilingOutputSize);
-    auto *profilingPoolBuffer =
-        ctx->createInternalBufferObject(profilingPoolSize, VPU::VPUBufferObject::Type::CachedHigh);
-    if (profilingPoolBuffer == nullptr) {
-        LOG_E("Failed to allocate buffer object for profiling pool");
-        return ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY;
+    try {
+        auto profilingPool =
+            std::make_unique<GraphProfilingPool>(ctx,
+                                                 profilingOutputSize,
+                                                 count,
+                                                 &graphBlobRaw,
+                                                 [this](auto *x) { profilingPools.erase(x); });
+        auto [it, success] = profilingPools.emplace(profilingPool.get(), std::move(profilingPool));
+        L0_THROW_WHEN(!success,
+                      "Failed to place new GraphProfilingPool in profiling pools map",
+                      ZE_RESULT_ERROR_UNKNOWN);
+
+        *phProfilingPool = it->second.get();
+        LOG_I("GraphProfilingPool created - %p", *phProfilingPool);
+    } catch (const DriverError &err) {
+        return err.result();
     }
 
-    auto *profilingPool =
-        new GraphProfilingPool(ctx, profilingOutputSize, count, profilingPoolBuffer, &graphBlobRaw);
-    if (profilingPool == nullptr) {
-        LOG_E("Failed to create profiling pool");
-        if (!ctx->freeMemAlloc(profilingPoolBuffer))
-            LOG_W("Failed to free profiling pool");
-        return ZE_RESULT_ERROR_UNKNOWN;
-    }
-
-    *phProfilingPool = profilingPool->toHandle();
     return ZE_RESULT_SUCCESS;
 };
 
@@ -298,7 +298,7 @@ void Graph::initialize() {
 
     size_t graphSize = desc.inputSize;
     if (desc.format == ZE_GRAPH_FORMAT_NGRAPH_LITE) {
-        if (!Compiler::getCompiledBlob(graphSize, graphBlobRaw, desc)) {
+        if (!Compiler::getCompiledBlob(graphSize, graphBlobRaw, desc, lastErrorMsg)) {
             LOG_E("Failed to get compiled blob!");
             throw DriverError(ZE_RESULT_ERROR_UNKNOWN);
         }
@@ -309,9 +309,11 @@ void Graph::initialize() {
 
     if (ElfParser::checkMagic(graphBlobRaw.data(), graphBlobRaw.size())) {
         LOG_I("Detected Elf format");
-        parser = ElfParser::getElfParser(ctx, graphBlobRaw.data(), graphBlobRaw.size());
+        parser =
+            ElfParser::getElfParser(ctx, graphBlobRaw.data(), graphBlobRaw.size(), lastErrorMsg);
     } else {
         LOG_E("Failed to recognize blob format");
+        lastErrorMsg = "Failed to recognize native binary format";
         throw DriverError(ZE_RESULT_ERROR_INVALID_ARGUMENT);
     }
 
@@ -330,8 +332,6 @@ void Graph::initialize() {
             outputArgs.emplace_back(nullptr, size);
         }
     }
-
-    LOG_V("Graph initialized.");
 }
 
 std::shared_ptr<VPU::VPUCommand> Graph::allocateGraphInitCommand(VPU::VPUDeviceContext *ctx) {
@@ -354,10 +354,18 @@ ze_result_t Graph::getLogString(uint32_t *pSize, char *pBuildLog) {
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    if (!Compiler::logGetString(pSize, pBuildLog)) {
-        LOG_E("Failed to get error message!");
-        return ZE_RESULT_ERROR_UNKNOWN;
+    if (*pSize == 0) {
+        *pSize = static_cast<uint32_t>(lastErrorMsg.size());
+        return ZE_RESULT_SUCCESS;
     }
+
+    if (pBuildLog == nullptr) {
+        LOG_E("Invalid pBuildLog pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    *pSize = std::min(*pSize, static_cast<uint32_t>(lastErrorMsg.size()));
+    memcpy(pBuildLog, lastErrorMsg.data(), *pSize);
 
     return ZE_RESULT_SUCCESS;
 }

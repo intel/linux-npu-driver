@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2022 Intel Corporation
+# Copyright (C) 2022-2023 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 #
@@ -11,6 +11,9 @@ include(CheckCXXCompilerFlag)
 if (NOT UMD_LOGLEVEL)
   set(UMD_LOGLEVEL ERROR)
 endif()
+
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -g")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g")
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DUMD_LOGLEVEL=${UMD_LOGLEVEL}")
 
@@ -36,11 +39,6 @@ endif()
 
 if(${CMAKE_CXX_COMPILER} MATCHES "clang")
     add_compile_options(-Wno-sign-conversion)
-endif()
-
-if(NOT ${BUILD_TYPE_LOWER} STREQUAL "debug")
-    # TODO: Consider to move debug symbols to file and then strip the library
-    add_link_options(-s)
 endif()
 
 add_subdirectory_unique(vpu_driver/source)

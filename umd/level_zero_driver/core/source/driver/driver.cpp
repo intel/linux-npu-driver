@@ -6,6 +6,7 @@
  */
 
 #include "umd_common.hpp"
+#include "level_zero_driver/ext/source/graph/compiler_common.hpp"
 
 #include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/core/source/driver/driver.hpp"
@@ -34,10 +35,10 @@ void Driver::initializeEnvVariables() {
     envVariables.sharedForceDeviceAlloc =
         env == nullptr || env[0] == '0' || env[0] == '\0' ? false : true;
 
-    env = getenv("VPU_DRV_UMD_LOGLEVEL");
+    env = getenv("ZE_INTEL_NPU_LOGLEVEL");
     envVariables.umdLogLevel = env == nullptr ? "" : env;
 
-    env = getenv("VPU_DRV_CID_LOGLEVEL");
+    env = getenv("ZE_INTEL_NPU_COMPILER_LOGLEVEL");
     envVariables.cidLogLevel = env == nullptr ? "" : env;
 }
 
@@ -50,7 +51,7 @@ void Driver::driverInit(ze_init_flags_t flags) {
     std::call_once(this->initDriverOnce, [&]() {
         initializeEnvVariables();
         VPU::setLogLevel(envVariables.umdLogLevel);
-        Compiler::setCidLogLevel(envVariables.cidLogLevel);
+        setCidLogLevel(envVariables.cidLogLevel);
 
         if (osInfc == nullptr) {
             LOG_V("OS interface updated.");
@@ -62,7 +63,7 @@ void Driver::driverInit(ze_init_flags_t flags) {
             }
         }
 
-        auto vpuDevices = VPU::DeviceFactory::createDevices(osInfc);
+        auto vpuDevices = VPU::DeviceFactory::createDevices(osInfc, envVariables.metrics);
         LOG_W("%zu VPU device(s) found.", vpuDevices.size());
         if (!vpuDevices.empty()) {
             pGlobalDriverHandle = DriverHandle::create(std::move(vpuDevices));

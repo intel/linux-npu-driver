@@ -277,6 +277,10 @@ zeGraphQueryNetworkCreate(ze_context_handle_t hContext,
 
 ze_result_t ZE_APICALL
 zeGraphQueryNetworkDestroy(ze_graph_query_network_handle_t hGraphQueryNetwork) {
+    if (hGraphQueryNetwork == nullptr) {
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+    }
+
     return L0::QueryNetwork::fromHandle(hGraphQueryNetwork)->destroy();
 }
 
@@ -284,6 +288,10 @@ ze_result_t ZE_APICALL
 zeGraphQueryNetworkGetSupportedLayers(ze_graph_query_network_handle_t hGraphQueryNetwork,
                                       size_t *pSize,
                                       char *pSupportedLayers) {
+    if (hGraphQueryNetwork == nullptr) {
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+    }
+
     return L0::QueryNetwork::fromHandle(hGraphQueryNetwork)
         ->getSupportedLayers(pSize, pSupportedLayers);
 }

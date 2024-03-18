@@ -10,6 +10,7 @@
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include "compiler.hpp"
+#include "compiler_common.hpp"
 #include "query_network.hpp"
 #include "level_zero/ze_api.h"
 
@@ -49,7 +50,7 @@ ze_result_t QueryNetwork::create(ze_context_handle_t hContext,
 
     vcl_compiler_desc_t compilerDesc = {};
     compilerDesc.platform = static_cast<vcl_platform_t>(pCtx->getCompilerPlatform());
-    compilerDesc.debug_level = VCL_LOG_NONE;
+    compilerDesc.debug_level = cidLogLevel;
 
     vcl_compiler_handle_t compiler = NULL;
     vcl_log_handle_t logHandle = NULL;

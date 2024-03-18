@@ -17,10 +17,14 @@ struct _ze_command_queue_handle_t {};
 namespace L0 {
 
 struct CommandQueue : _ze_command_queue_handle_t, IContextObject {
-    CommandQueue(Context *context, Device *device, bool isCopyOnly)
+    CommandQueue(Context *context,
+                 Device *device,
+                 bool isCopyOnly,
+                 ze_command_queue_priority_t priority)
         : pContext(context)
         , device(device)
-        , isCopyOnlyCommandQueue(isCopyOnly) {}
+        , isCopyOnlyCommandQueue(isCopyOnly)
+        , priority(priority) {}
     ~CommandQueue() = default;
 
     static ze_result_t create(ze_context_handle_t hContext,
@@ -56,7 +60,9 @@ struct CommandQueue : _ze_command_queue_handle_t, IContextObject {
     Context *pContext = nullptr;
     Device *device = nullptr;
     bool isCopyOnlyCommandQueue = false;
+    ze_command_queue_priority_t priority;
     std::vector<std::shared_ptr<VPU::VPUJob>> trackedJobs;
+    std::timed_mutex trackedJobsMutex;
 };
 
 } // namespace L0

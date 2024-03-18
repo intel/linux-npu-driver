@@ -18,9 +18,10 @@ class VPUEventCommand : public VPUCommand {
   public:
     typedef uint64_t KMDEventDataType;
     enum State : KMDEventDataType {
-        STATE_EVENT_INITIAL,
+        STATE_EVENT_INITIAL = 0,
         STATE_DEVICE_RESET,
         STATE_HOST_RESET,
+        STATE_WAIT,
         STATE_DEVICE_SIGNAL,
         STATE_HOST_SIGNAL,
     };
@@ -84,7 +85,7 @@ class VPUEventWaitCommand : public VPUEventCommand {
                                        EngineSupport::Forward,
                                        VPU_CMD_FENCE_WAIT,
                                        eventHeapPtr,
-                                       VPUEventCommand::STATE_DEVICE_SIGNAL);
+                                       VPUEventCommand::STATE_WAIT);
     }
 };
 

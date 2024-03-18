@@ -12,9 +12,23 @@
 #include "vpu_driver/source/utilities/timer.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
+#include <chrono>
+#include <mutex>
 #include <thread>
 
 namespace L0 {
+
+static VPU::VPUCommandBuffer::Priority toDriverPriority(ze_command_queue_priority_t p) {
+    switch (p) {
+    case ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_LOW:
+        return VPU::VPUCommandBuffer::Priority::IDLE;
+    case ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH:
+        return VPU::VPUCommandBuffer::Priority::REALTIME;
+    case ZE_COMMAND_QUEUE_PRIORITY_NORMAL:
+    default:
+        return VPU::VPUCommandBuffer::Priority::NORMAL;
+    }
+}
 
 ze_result_t CommandQueue::create(ze_context_handle_t hContext,
                                  ze_device_handle_t hDevice,
@@ -45,7 +59,8 @@ ze_result_t CommandQueue::create(ze_context_handle_t hContext,
 
         Context *pContext = Context::fromHandle(hContext);
         bool isCopyOnly = flags == ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY;
-        auto commandQueue = std::make_unique<CommandQueue>(pContext, pDevice, isCopyOnly);
+        auto commandQueue =
+            std::make_unique<CommandQueue>(pContext, pDevice, isCopyOnly, desc->priority);
 
         *phCommandQueue = commandQueue.get();
         pContext->appendObject(std::move(commandQueue));
@@ -140,6 +155,7 @@ ze_result_t CommandQueue::executeCommandLists(uint32_t nCommandLists,
             return ZE_RESULT_ERROR_UNKNOWN;
         }
 
+        job->setPriority(toDriverPriority(priority));
         if (!pContext->getDeviceContext()->submitJob(job.get())) {
             LOG_E("VPUJob submission failed");
             if (errno == -EBADFD)
@@ -162,11 +178,24 @@ ze_result_t CommandQueue::executeCommandLists(uint32_t nCommandLists,
         fence->setTrackedJobs(jobs);
     }
 
+    const std::lock_guard<std::timed_mutex> trackedJobsLock(trackedJobsMutex);
     std::copy(jobs.begin(), jobs.end(), std::back_inserter(trackedJobs));
     return ZE_RESULT_SUCCESS;
 }
 
 ze_result_t CommandQueue::synchronize(uint64_t timeout) {
+    auto timeoutPoint = VPU::getAbsoluteTimePoint(timeout);
+    /*
+     * try_lock_until raise SIGABRT signal when timeout is => ~INT64_MAX in Ubuntu20.04 because
+     * of signed overflow, detected by compiler flag '-ftrapv'. try_lock_for is free from this
+     * limitation and is a first waiting function
+     */
+    if (!trackedJobsMutex.try_lock_for(std::chrono::nanoseconds(timeout))) {
+        LOG_W("Failed to lock mutex on tracked jobs");
+        return ZE_RESULT_NOT_READY;
+    }
+
+    const std::lock_guard<std::timed_mutex> trackedJobsLock(trackedJobsMutex, std::adopt_lock);
     if (trackedJobs.empty()) {
         LOG_W("No command execution to observe");
         return ZE_RESULT_SUCCESS;
@@ -174,10 +203,11 @@ ze_result_t CommandQueue::synchronize(uint64_t timeout) {
 
     LOG_V("Synchronize for %lu ns, %zu job count", timeout, trackedJobs.size());
 
-    bool allSignaled = waitForSignal(timeout, trackedJobs);
-    if (!allSignaled) {
-        LOG_W("Commands execution is not finished");
-        return ZE_RESULT_NOT_READY;
+    for (auto const &job : trackedJobs) {
+        if (!job->waitForCompletion(timeoutPoint.time_since_epoch().count())) {
+            LOG_W("Commands execution is not finished");
+            return ZE_RESULT_NOT_READY;
+        }
     }
 
     ze_result_t result = Device::jobStatusToResult(trackedJobs);

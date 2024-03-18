@@ -13,6 +13,11 @@
 #include <type_traits>
 #include <typeinfo>
 
+template <typename T>
+bool checkPtrAlignment(const void *p) noexcept {
+    return !(reinterpret_cast<std::uintptr_t>(p) % alignof(T));
+};
+
 template <class To, class From>
 To safe_cast(From x) {
     static_assert(!std::is_floating_point_v<From>,

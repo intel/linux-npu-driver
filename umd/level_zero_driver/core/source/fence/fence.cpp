@@ -35,10 +35,12 @@ ze_result_t Fence::hostSynchronize(uint64_t timeout) {
 
     LOG_V("Synchronize for %lu ns, %zu jobs count", timeout, trackedJobs.size());
 
-    bool allSignaled = waitForSignal(timeout, trackedJobs);
-    if (!allSignaled) {
-        LOG_W("Commands execution is not finished");
-        return ZE_RESULT_NOT_READY;
+    auto absTimeout = VPU::getAbsoluteTimeoutNanoseconds(timeout);
+    for (auto const &job : trackedJobs) {
+        if (!job->waitForCompletion(absTimeout)) {
+            LOG_W("Commands execution is not finished");
+            return ZE_RESULT_NOT_READY;
+        }
     }
 
     ze_result_t result = Device::jobStatusToResult(trackedJobs);

@@ -36,19 +36,19 @@ class VPUDeviceContext {
 
     inline void *
     createHostMemAlloc(size_t size,
-                       VPUBufferObject::Type type = VPUBufferObject::Type::CachedHigh) {
+                       VPUBufferObject::Type type = VPUBufferObject::Type::CachedShave) {
         return createMemAlloc(size, type, VPUBufferObject::Location::Host);
     };
 
     inline void *
     createDeviceMemAlloc(size_t size,
-                         VPUBufferObject::Type type = VPUBufferObject::Type::WriteCombineLow) {
+                         VPUBufferObject::Type type = VPUBufferObject::Type::WriteCombineFw) {
         return createMemAlloc(size, type, VPUBufferObject::Location::Device);
     };
 
     inline void *
     createSharedMemAlloc(size_t size,
-                         VPUBufferObject::Type type = VPUBufferObject::Type::CachedLow) {
+                         VPUBufferObject::Type type = VPUBufferObject::Type::CachedFw) {
         return createMemAlloc(size, type, VPUBufferObject::Location::Shared);
     };
 
@@ -96,7 +96,7 @@ class VPUDeviceContext {
        @return pointer to buffer object
      */
     VPUBufferObject *createInternalBufferObject(size_t size, VPUBufferObject::Type type);
-
+    VPUBufferObject *importBufferObject(VPUBufferObject::Location type, int32_t fd);
     int getFd() const { return drvApi->getFd(); }
 
     /**
@@ -117,7 +117,11 @@ class VPUDeviceContext {
     /**
      * Return the lowest VPU address from VPU low range that is accessible by firmware device
      */
-    uint64_t getVPULowBaseAddress() const { return hwInfo->baseLowAddres; }
+    uint64_t getVPULowBaseAddress() const { return hwInfo->baseLowAddress; }
+
+    uint32_t getExtraDmaDescriptorSize() const { return hwInfo->extraDmaDescriptorSize; }
+
+    uint64_t getFwMappedInferenceVersion() const { return hwInfo->fwMappedInferenceVersion; }
 
     /**
      * Return number of currently tracking buffer objects in the structure
@@ -153,9 +157,9 @@ class VPUDeviceContext {
        @param location memory type being identified
        @return pointer to VPUBufferObject, on failure return nullptr
      */
-    VPUBufferObject *createBufferObject(const size_t size,
-                                        const VPUBufferObject::Type range,
-                                        const VPUBufferObject::Location location);
+    VPUBufferObject *createBufferObject(size_t size,
+                                        VPUBufferObject::Type range,
+                                        VPUBufferObject::Location location);
 
     bool submitCommandBuffer(const VPUCommandBuffer *cmdBuffer);
 

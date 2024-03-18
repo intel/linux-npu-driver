@@ -26,6 +26,7 @@ struct QueryNetwork : _ze_graph_query_network_handle_t {
     static QueryNetwork *fromHandle(ze_graph_query_network_handle_t handle) {
         return static_cast<QueryNetwork *>(handle);
     }
+
     inline ze_graph_query_network_handle_t toHandle() { return this; }
 
   private:

@@ -21,6 +21,7 @@
 #include <level_zero/ze_graph_ext.h>
 
 #include <vector>
+#include <unordered_map>
 
 struct _ze_graph_handle_t {};
 
@@ -104,6 +105,7 @@ struct Graph : _ze_graph_handle_t, IContextObject {
     uint32_t profilingOutputSize = 0u;
 
     std::shared_ptr<IParser> parser = nullptr;
+    std::unordered_map<void *, std::unique_ptr<GraphProfilingPool>> profilingPools;
 };
 
 } // namespace L0

@@ -8,6 +8,7 @@
 #pragma once
 
 #include "level_zero_driver/core/source/driver/driver_handle.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include <level_zero/ze_api.h>
 
 namespace L0 {
@@ -22,12 +23,48 @@ ze_result_t zeMemAllocShared(ze_context_handle_t hContext,
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
 
-    if (deviceDesc == nullptr || hostDesc == nullptr) {
+    if (deviceDesc == nullptr || hostDesc == nullptr ||
+        (deviceDesc->pNext && !checkPtrAlignment<ze_structure_type_t *>(deviceDesc->pNext))) {
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    return L0::Context::fromHandle(hContext)
-        ->allocSharedMem(hDevice, 0, hostDesc->flags, size, alignment, pptr);
+    ze_structure_type_t extendedAllocType =
+        deviceDesc->pNext ? *reinterpret_cast<const ze_structure_type_t *>(deviceDesc->pNext)
+                          : ZE_STRUCTURE_TYPE_FORCE_UINT32;
+
+    /* For alloc exportable buffer single ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF flag is supported,
+     * combination  flags not allowed
+     */
+    switch (extendedAllocType) {
+    case ZE_STRUCTURE_TYPE_EXTERNAL_MEMORY_EXPORT_DESC: {
+        const ze_external_memory_export_desc_t *pExtMemDesc =
+            reinterpret_cast<const ze_external_memory_export_desc_t *>(deviceDesc->pNext);
+
+        if (pExtMemDesc->flags == ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF)
+            return L0::Context::fromHandle(hContext)->allocSharedMem(
+                hDevice,
+                0,
+                hostDesc->flags,
+                size,
+                alignment,
+                pptr,
+                VPU::VPUBufferObject::Location::ExternalShared);
+        return ZE_RESULT_ERROR_INVALID_ENUMERATION;
+    }
+    case ZE_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMPORT_FD: {
+        const ze_external_memory_import_fd_t *pImportMemDesc =
+            reinterpret_cast<const ze_external_memory_import_fd_t *>(deviceDesc->pNext);
+        if (pImportMemDesc->flags == ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF)
+            return L0::Context::fromHandle(hContext)->importMemory(
+                VPU::VPUBufferObject::Location::ExternalShared,
+                pImportMemDesc->fd,
+                pptr);
+        return ZE_RESULT_ERROR_INVALID_ENUMERATION;
+    }
+    default:
+        return L0::Context::fromHandle(hContext)
+            ->allocSharedMem(hDevice, 0, hostDesc->flags, size, alignment, pptr);
+    }
 }
 
 ze_result_t zeMemAllocDevice(ze_context_handle_t hContext,
@@ -40,11 +77,46 @@ ze_result_t zeMemAllocDevice(ze_context_handle_t hContext,
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
 
-    if (deviceDesc == nullptr) {
+    if (deviceDesc == nullptr ||
+        (deviceDesc->pNext && !checkPtrAlignment<ze_structure_type_t *>(deviceDesc->pNext))) {
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    return L0::Context::fromHandle(hContext)->allocDeviceMem(hDevice, 0, size, alignment, pptr);
+    ze_structure_type_t extendedAllocType =
+        deviceDesc->pNext ? *reinterpret_cast<const ze_structure_type_t *>(deviceDesc->pNext)
+                          : ZE_STRUCTURE_TYPE_FORCE_UINT32;
+
+    /* For alloc exportable buffer single ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF flag is supported,
+     * combination  flags not allowed
+     */
+    switch (extendedAllocType) {
+    case ZE_STRUCTURE_TYPE_EXTERNAL_MEMORY_EXPORT_DESC: {
+        const ze_external_memory_export_desc_t *pExtMemDesc =
+            reinterpret_cast<const ze_external_memory_export_desc_t *>(deviceDesc->pNext);
+
+        if (pExtMemDesc->flags == ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF)
+            return L0::Context::fromHandle(hContext)->allocDeviceMem(
+                hDevice,
+                0,
+                size,
+                alignment,
+                pptr,
+                VPU::VPUBufferObject::Location::ExternalDevice);
+        return ZE_RESULT_ERROR_INVALID_ENUMERATION;
+    }
+    case ZE_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMPORT_FD: {
+        const ze_external_memory_import_fd_t *pImportMemDesc =
+            reinterpret_cast<const ze_external_memory_import_fd_t *>(deviceDesc->pNext);
+        if (pImportMemDesc->flags == ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF)
+            return L0::Context::fromHandle(hContext)->importMemory(
+                VPU::VPUBufferObject::Location::ExternalDevice,
+                pImportMemDesc->fd,
+                pptr);
+        return ZE_RESULT_ERROR_INVALID_ENUMERATION;
+    }
+    default:
+        return L0::Context::fromHandle(hContext)->allocDeviceMem(hDevice, 0, size, alignment, pptr);
+    }
 }
 
 ze_result_t zeMemAllocHost(ze_context_handle_t hContext,
@@ -56,11 +128,48 @@ ze_result_t zeMemAllocHost(ze_context_handle_t hContext,
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
 
-    if (hostDesc == nullptr) {
+    if (hostDesc == nullptr ||
+        (hostDesc->pNext && !checkPtrAlignment<ze_structure_type_t *>(hostDesc->pNext))) {
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    return L0::Context::fromHandle(hContext)->allocHostMem(hostDesc->flags, size, alignment, pptr);
+    ze_structure_type_t extendedAllocType =
+        hostDesc->pNext ? *reinterpret_cast<const ze_structure_type_t *>(hostDesc->pNext)
+                        : ZE_STRUCTURE_TYPE_FORCE_UINT32;
+
+    /* For alloc exportable buffer single ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF flag is supported,
+     * combination  flags not allowed
+     */
+    switch (extendedAllocType) {
+    case ZE_STRUCTURE_TYPE_EXTERNAL_MEMORY_EXPORT_DESC: {
+        const ze_external_memory_export_desc_t *pExtMemDesc =
+            reinterpret_cast<const ze_external_memory_export_desc_t *>(hostDesc->pNext);
+
+        if (pExtMemDesc->flags == ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF)
+            return L0::Context::fromHandle(hContext)->allocHostMem(
+                hostDesc->flags,
+                size,
+                alignment,
+                pptr,
+                VPU::VPUBufferObject::Location::ExternalHost);
+        return ZE_RESULT_ERROR_INVALID_ENUMERATION;
+    }
+    case ZE_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMPORT_FD: {
+        const ze_external_memory_import_fd_t *pImportMemDesc =
+            reinterpret_cast<const ze_external_memory_import_fd_t *>(hostDesc->pNext);
+        if (pImportMemDesc->flags == ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF)
+            return L0::Context::fromHandle(hContext)->importMemory(
+                VPU::VPUBufferObject::Location::ExternalHost,
+                pImportMemDesc->fd,
+                pptr);
+        return ZE_RESULT_ERROR_INVALID_ENUMERATION;
+    }
+    default:
+        return L0::Context::fromHandle(hContext)->allocHostMem(hostDesc->flags,
+                                                               size,
+                                                               alignment,
+                                                               pptr);
+    }
 }
 
 ze_result_t zeMemFree(ze_context_handle_t hContext, void *ptr) {

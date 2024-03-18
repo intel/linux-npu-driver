@@ -7,7 +7,6 @@
 
 #pragma once
 
-#include "level_zero_driver/tools/source/metrics/metric_streamer.hpp"
 #include "level_zero_driver/core/source/device/device.hpp"
 #include <level_zero/zet_api.h>
 
@@ -31,7 +30,6 @@ struct Metric : _zet_metric_handle_t {
     ze_result_t getProperties(zet_metric_properties_t *pProperties);
     static zet_metric_type_t getMetricType(VPU::CounterInfo::MetricType metricTypeInput);
     static zet_value_type_t getValueType(VPU::CounterInfo::ValueType valueTypeInput);
-
     static size_t getMetricValueSize(VPU::CounterInfo::ValueType valueTypeInput);
 
   private:
@@ -58,12 +56,14 @@ struct MetricGroup : _zet_metric_group_handle_t {
                                       const uint8_t *pRawData,
                                       uint32_t *pMetricValueCount,
                                       zet_typed_value_t *pMetricValues);
-    void calculateMetricValues(const uint8_t *pRawData,
-                               uint32_t *pMetricValueCount,
-                               zet_typed_value_t *pMetricValues);
-    void calculateMaxMetricValues(const uint8_t *pRawData,
-                                  uint32_t *pMetricValueCount,
-                                  zet_typed_value_t *pMetricValues);
+    ze_result_t calculateMetricValues(size_t rawDataSize,
+                                      const uint8_t *pRawData,
+                                      uint32_t *pMetricValueCount,
+                                      zet_typed_value_t *pMetricValues);
+    ze_result_t calculateMaxMetricValues(size_t rawDataSize,
+                                         const uint8_t *pRawData,
+                                         uint32_t *pMetricValueCount,
+                                         zet_typed_value_t *pMetricValues);
 
     void setActivationStatus(bool activationStatus) { activated = activationStatus; }
     bool isActivated() const { return activated; }
@@ -87,15 +87,9 @@ struct MetricContext {
     ~MetricContext() = default;
     ze_result_t
     activateMetricGroups(int vpuFd, uint32_t count, zet_metric_group_handle_t *phMetricGroups);
-    MetricStreamer *getMetricStreamer() const { return pMetricStreamer; }
-    void setMetricStreamer(MetricStreamer *metricStreamerInput) {
-        pMetricStreamer = metricStreamerInput;
-    }
 
     // Value from FW - 10 [ms]
     constexpr static uint32_t MIN_SAMPLING_RATE_NS = 10'000'000;
-    uint32_t sampleSize = 0u;
-    uint64_t actualBufferSize = 0u;
 
   protected:
     /**
@@ -107,7 +101,6 @@ struct MetricContext {
 
   private:
     Device *device = nullptr;
-    MetricStreamer *pMetricStreamer = nullptr;
 
     /**
        Deactivate all metric groups in activatedMetricGroups map.

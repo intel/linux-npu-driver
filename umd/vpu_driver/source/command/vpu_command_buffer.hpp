@@ -21,6 +21,12 @@ namespace VPU {
 class VPUCommandBuffer {
   public:
     enum class Target { COMPUTE = DRM_IVPU_ENGINE_COMPUTE, COPY = DRM_IVPU_ENGINE_COPY };
+    enum class Priority : uint32_t {
+        IDLE = DRM_IVPU_JOB_PRIORITY_IDLE,
+        NORMAL = DRM_IVPU_JOB_PRIORITY_NORMAL,
+        FOCUS = DRM_IVPU_JOB_PRIORITY_FOCUS,
+        REALTIME = DRM_IVPU_JOB_PRIORITY_REALTIME,
+    };
 
     static const char *targetEngineToStr(Target type) {
         switch (type) {
@@ -90,6 +96,9 @@ class VPUCommandBuffer {
      */
     uint64_t getFenceAddr() const { return syncFenceVpuAddr; }
 
+    void setPriority(Priority p) { priority = p; }
+    Priority getPriority() const { return priority; }
+
   private:
     /**
      * Initialize command buffer header
@@ -140,6 +149,7 @@ class VPUCommandBuffer {
     VPUBufferObject *buffer;
     Target targetEngine;
     uint32_t jobStatus;
+    Priority priority;
 
     uint64_t syncFenceVpuAddr = 0;
     std::vector<uint32_t> bufferHandles;

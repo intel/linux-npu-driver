@@ -23,9 +23,9 @@
 
 namespace L0 {
 
-Device::Device(DriverHandle *driverHandle, VPU::VPUDevice *vpuDevice)
+Device::Device(DriverHandle *driverHandle, std::unique_ptr<VPU::VPUDevice> device)
     : driverHandle(driverHandle)
-    , vpuDevice(vpuDevice)
+    , vpuDevice(std::move(device))
     , metricContext(std::make_shared<MetricContext>(this)) {
     if (vpuDevice != nullptr) {
         Driver *pDriver = Driver::getInstance();
@@ -77,7 +77,7 @@ ze_result_t Device::getProperties(ze_device_properties_t *pDeviceProperties) {
     pDeviceProperties->type = ZE_DEVICE_TYPE_VPU;
     pDeviceProperties->vendorId = INTEL_PCI_VENDOR_ID;
     pDeviceProperties->deviceId = hwInfo.deviceId;
-    pDeviceProperties->subdeviceId = hwInfo.subdeviceId;
+    pDeviceProperties->subdeviceId = hwInfo.deviceRevision;
     pDeviceProperties->coreClockRate = hwInfo.coreClockRate;
     pDeviceProperties->maxMemAllocSize = hwInfo.maxMemAllocSize;
     pDeviceProperties->maxHardwareContexts = hwInfo.maxHardwareContexts;
@@ -126,23 +126,9 @@ ze_result_t Device::getSubDevices(uint32_t *pCount, ze_device_handle_t *phSubdev
         LOG_E("Invalid pCount pointer.");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
-    if (*pCount == 0) {
-        *pCount = numSubDevices;
-        return ZE_RESULT_SUCCESS;
-    }
 
-    if (phSubdevices == nullptr) {
-        LOG_E("Invalid phSubdevices pointer.");
-        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
-    if (*pCount > numSubDevices) {
-        *pCount = numSubDevices;
-    }
-
-    for (uint32_t i = 0; i < *pCount; i++) {
-        phSubdevices[i] = subDevices[i];
-    }
+    if (*pCount > 0)
+        *pCount = 0;
 
     return ZE_RESULT_SUCCESS;
 }
@@ -344,29 +330,8 @@ ze_result_t Device::getStatus() const {
     return vpuDevice->isConnected() ? ZE_RESULT_SUCCESS : ZE_RESULT_ERROR_DEVICE_LOST;
 }
 
-// Create L0 device from VPUDevice.
-Device *Device::create(DriverHandle *driverHandle, VPU::VPUDevice *vpuDevice) {
-    auto device = new Device(driverHandle, vpuDevice);
-    if (device == nullptr) {
-        LOG_E("New Device creation failed!");
-        return nullptr;
-    }
-
-    return device;
-}
-
-Device::~Device() {
-    if (vpuDevice != nullptr) {
-        delete vpuDevice;
-    }
-
-    for (uint32_t i = 0; i < numSubDevices; i++) {
-        delete subDevices[i];
-    }
-}
-
 VPU::VPUDevice *Device::getVPUDevice() {
-    return vpuDevice;
+    return vpuDevice.get();
 }
 
 void Device::loadMetricGroupsInfo(std::vector<VPU::GroupInfo> &metricGroupsInfo) {
@@ -431,7 +396,7 @@ bool Device::isMetricGroupAvailable(MetricGroup *metricGroup) const {
 }
 
 ze_result_t Device::metricGroupGet(uint32_t *pCount, zet_metric_group_handle_t *phMetricGroups) {
-    if (getVPUDevice()->getCapMetricStreamer() != 1) {
+    if (!getVPUDevice()->getCapMetricStreamer()) {
         LOG_E("Metrics are not supported.");
         return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
     }
