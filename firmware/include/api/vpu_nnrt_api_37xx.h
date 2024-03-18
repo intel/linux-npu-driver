@@ -26,18 +26,12 @@
  * Note: VPU_NNRT_37XX_API_VER_PATCH is not stored in the VpuMappedInference as
  * compatibility is not affected if this changes.
  */
-#define VPU_NNRT_37XX_API_VER_MAJOR 6
-#define VPU_NNRT_37XX_API_VER_MINOR 2
-#define VPU_NNRT_37XX_API_VER_PATCH 0
+#define VPU_NNRT_37XX_API_VER_MAJOR 7
+#define VPU_NNRT_37XX_API_VER_MINOR 0
+#define VPU_NNRT_37XX_API_VER_PATCH 1
 #define VPU_NNRT_37XX_API_VER ((VPU_NNRT_37XX_API_VER_MAJOR << 16) | VPU_NNRT_37XX_API_VER_MINOR)
 
-// Temporarily define VPU_NNRT_API_VER until all consumers of this header are updated
-// to use VPU_NNRT_37XX_API_VER
-#define VPU_NNRT_API_VER VPU_NNRT_37XX_API_VER
-
-/*
- * Index in the API version table
- */
+/* Index in the API version table, same for all HW generations */
 #define VPU_NNRT_37XX_API_VER_INDEX 7
 
 /*
@@ -121,6 +115,10 @@ struct VPU_ALIGNED_STRUCT(8) VpuTaskReference {
     //
     // Use the methods data(int64_t offset) and at(uint32_t index, int64_t offset) to
     // apply the aperture offset to convert address to the bridge aperture.
+    uint64_t reserved1;
+    uint64_t reserved2;
+    uint64_t reserved3;
+
     uint64_t address;
     uint64_t count;
 
@@ -142,19 +140,19 @@ struct VPU_ALIGNED_STRUCT(8) VpuTaskReference {
         address = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(fixedVector.data())) - fixedVector.apertureOffset();
         count = static_cast<uint64_t>(fixedVector.size());
         return *this;
-    };
+    }
 };
 
-static_assert(sizeof(VpuTaskReference<uint32_t>) == 16, "VpuTaskReference size != 16");
+static_assert(sizeof(VpuTaskReference<uint32_t>) == 40, "VpuTaskReference size != 40");
 
 typedef void(actKernelEntryFunction)(void *);
 
-struct VPU_ALIGNED_STRUCT(2) VpuTaskSchedulingBarrierConfig {
-    uint16_t start_after_;
-    uint16_t clean_after_;
+struct VPU_ALIGNED_STRUCT(4) VpuTaskSchedulingBarrierConfig {
+    uint32_t start_after_;
+    uint32_t clean_after_;
 };
 
-static_assert(sizeof(VpuTaskSchedulingBarrierConfig) == 4, "VpuTaskSchedulingBarrierConfig size != 4");
+static_assert(sizeof(VpuTaskSchedulingBarrierConfig) == 8, "VpuTaskSchedulingBarrierConfig size != 8");
 
 struct VPU_ALIGNED_STRUCT(8) VpuTaskBarrierDependency {
     uint64_t wait_mask_;
@@ -166,36 +164,33 @@ struct VPU_ALIGNED_STRUCT(8) VpuTaskBarrierDependency {
 
 static_assert(sizeof(VpuTaskBarrierDependency) == 24, "VpuTaskBarrierDependency size != 24");
 
-struct VPU_ALIGNED_STRUCT(2) VpuBarrierCountConfig {
-    uint16_t next_same_id_;
+struct VPU_ALIGNED_STRUCT(4) VpuBarrierCountConfig {
+    uint32_t next_same_id_;
     uint16_t producer_count_;
     uint16_t consumer_count_;
     uint8_t real_id_;
-    uint8_t pad_;
+    uint8_t pad_[3];
 };
 
-static_assert(sizeof(VpuBarrierCountConfig) == 8, "VpuBarrierCountConfig size != 8");
+static_assert(sizeof(VpuBarrierCountConfig) == 12, "VpuBarrierCountConfig size != 12");
 
 struct VPU_ALIGNED_STRUCT(8) VpuDPUInvariant {
     VpuDPUInvariantRegisters registers_;
-    // breaking-change: change this
-    uint32_t hwp_cmx_base_offset_; // int32_t hwp_cmx_base_offset_;
+    int32_t hwp_cmx_base_offset_;
     VpuTaskBarrierDependency barriers_;
     VpuTaskSchedulingBarrierConfig barriers_sched_;
     uint16_t variant_count_;
     uint8_t cluster_;
     uint8_t is_cont_conv_;
-    // breaking-change: add this
-    // VpuHWPStatMode dpu_prof_mode; // add this
-    // uint8_t pad_[7]; // add this
+    VpuHWPStatMode dpu_prof_mode_;
+    uint8_t pad_[3];
 };
 
-// breaking-change: change this
-// static_assert(sizeof(VpuDPUInvariant) == 304, "DPUInvariant size != 304");
-static_assert(sizeof(VpuDPUInvariant) == 296, "DPUInvariant size != 296"); // == 304
+static_assert(sizeof(VpuDPUInvariant) == 304, "DPUInvariant size != 304");
 static_assert(offsetof(VpuDPUInvariant, hwp_cmx_base_offset_) % 4 == 0, "Alignment error");
 static_assert(offsetof(VpuDPUInvariant, barriers_) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuDPUInvariant, barriers_sched_) % 4 == 0, "Alignment error");
+static_assert(offsetof(VpuDPUInvariant, variant_count_) % 2 == 0, "Alignment error");
 
 struct VPU_ALIGNED_STRUCT(4) VpuDPUVariant {
     VpuDPUVariantRegisters registers_;
@@ -222,6 +217,8 @@ struct VPU_ALIGNED_STRUCT(4) VpuResourceRequirements {
 static_assert(sizeof(VpuResourceRequirements) == 12, "VpuResourceRequirements size != 12");
 
 struct VPU_ALIGNED_STRUCT(4) VpuNNShaveRuntimeConfigs {
+    uint32_t reserved1;
+    uint32_t reserved2;
     uint32_t runtime_entry; // when useScheduleEmbeddedRt = true this is a windowed address
     uint32_t act_rt_window_base;
     uint32_t stack_frames[VPU_AS_TOTAL]; // UNUSED - to be removed
@@ -235,7 +232,7 @@ struct VPU_ALIGNED_STRUCT(4) VpuNNShaveRuntimeConfigs {
     uint8_t pad_[2];
 };
 
-static_assert(sizeof(VpuNNShaveRuntimeConfigs) == 44, "VpuNNShaveRuntimeConfigs size != 44");
+static_assert(sizeof(VpuNNShaveRuntimeConfigs) == 52, "VpuNNShaveRuntimeConfigs size != 52");
 
 // Forcing struct padding so we have same sizeof() of the structure both on x86 compilation and Sparc
 // compilation.
@@ -274,9 +271,10 @@ struct VPU_ALIGNED_STRUCT(8) VpuActKernelInvocation {
     uint32_t invo_index;
     uint32_t invo_tile;
     uint32_t kernel_range_index;
+    uint8_t pad_[4];
 };
 
-static_assert(sizeof(VpuActKernelInvocation) == 56, "VpuActKernelInvocation size != 56");
+static_assert(sizeof(VpuActKernelInvocation) == 64, "VpuActKernelInvocation size != 64");
 static_assert(offsetof(VpuActKernelInvocation, kernel_args) % 4 == 0, "Alignment error");
 static_assert(offsetof(VpuActKernelInvocation, data_window_base) % 4 == 0, "Alignment error");
 static_assert(offsetof(VpuActKernelInvocation, perf_packet_out) % 4 == 0, "Alignment error");
@@ -297,38 +295,47 @@ struct VPU_ALIGNED_STRUCT(64) VpuDescriptorWrapper {
 
 static_assert(sizeof(VpuDescriptorWrapper) == 128, "DMA descriptor wrapper size != 128");
 
+struct VPU_ALIGNED_STRUCT(4) VpuTaskCounts {
+    uint32_t reserved1;
+    uint32_t reserved2;
+    uint32_t dma_count;
+    uint32_t dpu_invariant_count;
+    uint32_t dpu_variant_count;
+    uint32_t act_range_count;
+    uint32_t act_invo_count;
+};
+
+static_assert(sizeof(VpuTaskCounts) == 28, "VpuTaskCounts size != 28");
+
 struct VPU_ALIGNED_STRUCT(64) VpuMappedInference {
     uint32_t vpu_nnrt_api_ver;
     uint8_t pad0_[4];
+    uint64_t reserved0_;
+    VpuTaskCounts task_storage_counts_;
+    uint32_t task_storage_size_;
     VpuTaskReference<VpuDMATask> dma_tasks[VPU_MAX_DMA_ENGINES];
     VpuTaskReference<VpuDPUInvariant> invariants;
     VpuTaskReference<VpuDPUVariant> variants;
-    VpuTaskReference<VpuBarrierCountConfig> barrier_configs;
     VpuTaskReference<VpuActKernelRange> act_kernel_ranges;
     VpuTaskReference<VpuActKernelInvocation> act_kernel_invocations;
-    uint8_t pad1_[8];
-    VpuDescriptorWrapper feeder_descriptors[VPU_NUM_METADATA_FEEDERS];
-    uint32_t leading_dma_tasks[VPU_MAX_DMA_ENGINES];
+    VpuTaskReference<VpuBarrierCountConfig> barrier_configs;
     VpuNNShaveRuntimeConfigs shv_rt_configs;
-    uint8_t pad2_[12];
-    // for unification might be added field: see updated system/nn/include/nn_public.h
-    // from version VPU_NN_PUBLIC_VER_MAJOR 6
-    // logaddr_dma_hwp_ , padding. assert size checking added
+    uint8_t pad1_[4];
+    VpuTaskReference<uint8_t> reserved1_; // reserved for workload management
+    uint8_t pad2_[24];
 };
 
-static_assert(sizeof(VpuMappedInference) == 960, "VpuMappedInference size != 960");
-static_assert(sizeof(VpuMappedInference::feeder_descriptors) ==
-                  (VPU_NUM_METADATA_FEEDERS * sizeof(VpuDescriptorWrapper)),
-              "Sizeof feeder_descriptors != VPU_NUM_METADATA_FEEDERS * VpuDescriptorWrapper");
+static_assert(sizeof(VpuMappedInference) == 448, "VpuMappedInference size != 448");
+static_assert(offsetof(VpuMappedInference, task_storage_counts_) % 4 == 0, "Alignment error");
+static_assert(offsetof(VpuMappedInference, task_storage_size_) % 4 == 0, "Alignment error");
 static_assert(offsetof(VpuMappedInference, dma_tasks) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuMappedInference, invariants) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuMappedInference, variants) % 8 == 0, "Alignment error");
-static_assert(offsetof(VpuMappedInference, barrier_configs) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuMappedInference, act_kernel_ranges) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuMappedInference, act_kernel_invocations) % 8 == 0, "Alignment error");
-static_assert(offsetof(VpuMappedInference, feeder_descriptors) % 64 == 0, "Alignment error");
-static_assert(offsetof(VpuMappedInference, leading_dma_tasks) % 4 == 0, "Alignment error");
-static_assert(offsetof(VpuMappedInference, shv_rt_configs) % 8 == 0, "Alignment error");
+static_assert(offsetof(VpuMappedInference, barrier_configs) % 8 == 0, "Alignment error");
+static_assert(offsetof(VpuMappedInference, shv_rt_configs) % 4 == 0, "Alignment error");
+static_assert(offsetof(VpuMappedInference, reserved1_) % 8 == 0, "Alignment error");
 
 struct VPU_ALIGNED_STRUCT(8) VpuPerformanceMetrics {
     uint32_t freq_base; ///< Base of frequency values used in tables (in MHz).
@@ -347,13 +354,14 @@ struct VPU_ALIGNED_STRUCT(8) VpuPerformanceMetrics {
 static_assert(sizeof(VpuPerformanceMetrics) == 320, "VpuPerformanceMetrics size != 320");
 
 struct VPU_ALIGNED_STRUCT(8) VpuHostParsedInference {
+    uint64_t reserved;
     VpuResourceRequirements resource_requirements_;
     uint8_t pad_[4];
     VpuPerformanceMetrics performance_metrics_;
     VpuTaskReference<VpuMappedInference> mapped_;
 };
 
-static_assert(sizeof(VpuHostParsedInference) == 352, "VpuHostParsedInference size != 352");
+static_assert(sizeof(VpuHostParsedInference) == 384, "VpuHostParsedInference size != 384");
 static_assert(offsetof(VpuHostParsedInference, resource_requirements_) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuHostParsedInference, performance_metrics_) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuHostParsedInference, mapped_) % 8 == 0, "Alignment error");

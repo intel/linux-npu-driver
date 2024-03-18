@@ -14,7 +14,7 @@ target_include_directories(${PROJECT_NAME} INTERFACE include)
 file(GLOB FIRMWARE_BINARIES ${CMAKE_CURRENT_SOURCE_DIR}/bin/*.bin)
 if (FIRMWARE_BINARIES)
   install(FILES ${FIRMWARE_BINARIES}
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/firmware/intel/vpu/
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/firmware/updates/intel/vpu/
     PERMISSIONS OWNER_READ
     COMPONENT fw-npu)
 endif()
