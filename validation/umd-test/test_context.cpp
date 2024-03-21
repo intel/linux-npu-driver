@@ -30,16 +30,6 @@ class Context : public UmdTest {
                                           .pNext = nullptr,
                                           .commandQueueGroupOrdinal = 0,
                                           .flags = 0};
-
-    ze_host_mem_alloc_desc_t hostMemAllocDesc = {.stype = ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC,
-                                                 .pNext = nullptr,
-                                                 .flags = 0};
-
-    ze_device_mem_alloc_desc_t deviceMemAllocDesc = {.stype =
-                                                         ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC,
-                                                     .pNext = nullptr,
-                                                     .flags = 0,
-                                                     .ordinal = 0};
 };
 
 TEST_F(Context, CreateContextRepeat) {
@@ -98,7 +88,7 @@ TEST_P(MultiContext, AllocatedMemoryCannotBeUsedInDifferentContext) {
         ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
         auto list = scopedList.get();
 
-        auto mem = zeScope::memAllocHost(ctx2, hostMemAllocDesc, size, 0, ret);
+        auto mem = zeMemory::allocHost(ctx2, size);
         ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
 
         uint64_t *ts = static_cast<uint64_t *>(mem.get());
@@ -108,22 +98,10 @@ TEST_P(MultiContext, AllocatedMemoryCannotBeUsedInDifferentContext) {
 }
 
 void MultiContext::AllocateAndFreeMemory(ze_context_handle_t ctx, size_t size, uint32_t iteration) {
-    ze_result_t ret;
     for (uint32_t i = 0; i < iteration; i++) {
-        auto memHost = zeScope::memAllocHost(ctx, hostMemAllocDesc, size, 0, ret);
-        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
-
-        auto memShared = zeScope::memAllocShared(ctx,
-                                                 deviceMemAllocDesc,
-                                                 hostMemAllocDesc,
-                                                 size,
-                                                 0,
-                                                 zeDevice,
-                                                 ret);
-        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
-
-        auto memDevice = zeScope::memAllocDevice(ctx, deviceMemAllocDesc, size, 0, zeDevice, ret);
-        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+        auto memHost = zeMemory::allocHost(ctx, size);
+        auto memShared = zeMemory::allocShared(ctx, zeDevice, size);
+        auto memDevice = zeMemory::allocDevice(ctx, zeDevice, size);
     }
 }
 
@@ -163,9 +141,7 @@ void MultiContext::RunAppendGlobalTimestampAndSynchronize(ze_context_handle_t ct
     ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
     ze_command_list_handle_t list = scopedList.get();
 
-    auto sharedMem =
-        zeScope::memAllocShared(ctx, deviceMemAllocDesc, hostMemAllocDesc, size, 0, zeDevice, ret);
-    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+    auto sharedMem = zeMemory::allocShared(ctx, zeDevice, size);
     uint64_t *ts = static_cast<uint64_t *>(sharedMem.get());
     ASSERT_TRUE(ts) << "Failed to allocate memory";
 
@@ -202,10 +178,6 @@ class MultiContextGraph : public Context,
     void SetUp() override {
         Context::SetUp();
 
-        YAML::Node &configuration = Environment::getConfiguration();
-        if (configuration["blob_dir"].IsDefined())
-            blobDir = configuration["blob_dir"].as<std::string>();
-
         auto [numOfContext, node] = GetParam();
 
         ze_result_t ret;
@@ -232,7 +204,6 @@ class MultiContextGraph : public Context,
 
     std::vector<std::vector<char>> inputBin, outputBin;
     std::vector<char> vpuBlob, vpuBin;
-    std::string blobDir = "";
 };
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MultiContextGraph);
@@ -263,27 +234,21 @@ void MultiContextGraph::RunInference(ze_context_handle_t ctx) {
     ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
     ze_command_list_handle_t list = scopedList.get();
 
-    ze_graph_desc_t graphDesc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES,
-                                 .pNext = nullptr,
-                                 .format = ZE_GRAPH_FORMAT_NATIVE,
-                                 .inputSize = vpuBlob.size(),
-                                 .pInput = reinterpret_cast<const uint8_t *>(vpuBlob.data()),
-                                 .pBuildFlags = nullptr};
+    ze_graph_desc_2_t graphDesc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES,
+                                   .pNext = nullptr,
+                                   .format = ZE_GRAPH_FORMAT_NATIVE,
+                                   .inputSize = vpuBlob.size(),
+                                   .pInput = reinterpret_cast<const uint8_t *>(vpuBlob.data()),
+                                   .pBuildFlags = nullptr,
+                                   .flags = ZE_GRAPH_FLAG_NONE};
 
-    auto scopedGraph = zeScope::graphCreate(zeGraphDDITableExt, ctx, zeDevice, graphDesc, ret);
+    auto scopedGraph = zeScope::graphCreate2(zeGraphDDITableExt, ctx, zeDevice, graphDesc, ret);
     ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
     ze_graph_handle_t graph = scopedGraph.get();
 
     uint32_t index = 0;
     for (auto &input : inputBin) {
-        auto memInput = zeScope::memAllocShared(ctx,
-                                                deviceMemAllocDesc,
-                                                hostMemAllocDesc,
-                                                input.size(),
-                                                0,
-                                                zeDevice,
-                                                ret);
-        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+        auto memInput = zeMemory::allocShared(ctx, zeDevice, input.size());
 
         mem.push_back(memInput);
         memcpy(memInput.get(), input.data(), input.size());
@@ -293,14 +258,7 @@ void MultiContextGraph::RunInference(ze_context_handle_t ctx) {
     }
 
     for (auto &output : outputBin) {
-        auto memOutput = zeScope::memAllocShared(ctx,
-                                                 deviceMemAllocDesc,
-                                                 hostMemAllocDesc,
-                                                 output.size(),
-                                                 0,
-                                                 zeDevice,
-                                                 ret);
-        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+        auto memOutput = zeMemory::allocShared(ctx, zeDevice, output.size());
 
         mem.push_back(memOutput);
         graphOutput.push_back(memOutput.get());

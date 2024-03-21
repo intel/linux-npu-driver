@@ -66,7 +66,8 @@ class Command : public UmdTest {
     ze_result_t ret;
 };
 
-TEST_F(Command, CommandListDestroyErrorHandle) {
+// TODO: Validation layer is disabled. OpenVino issue: EISW-113275
+TEST_F(Command, DISABLED_CommandListDestroyErrorHandle) {
     EXPECT_EQ(zeCommandListDestroy(nullptr), ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
 }
 
@@ -79,7 +80,12 @@ TEST_F(Command, CreateCloseResetAndDestroyList) {
     ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
 }
 
+// TODO: Validation layer is disabled when OpenVino is used, test will fail, issue: EISW-101738
+#ifdef UMD_TESTS_USE_OPENVINO
+TEST_F(Command, DISABLED_CreateAndDestroyQueueErrorHandle) {
+#else
 TEST_F(Command, CreateAndDestroyQueueErrorHandle) {
+#endif
     EXPECT_EQ(zeCommandQueueCreate(nullptr, nullptr, &cmdQueueDesc, &queue),
               ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
     EXPECT_EQ(zeCommandQueueCreate(zeContext, nullptr, &cmdQueueDesc, &queue),
@@ -93,7 +99,8 @@ TEST_F(Command, CreateSynchronizeAndDestroyQueue) {
     ASSERT_EQ(zeCommandQueueSynchronize(queue, 0), ZE_RESULT_SUCCESS);
 }
 
-TEST_F(Command, CreateExecuteSynchronizeAndDestroyQueueErrorHandle) {
+// TODO: Validation layer is disabled. OpenVino issue: EISW-113275
+TEST_F(Command, DISABLED_CreateExecuteSynchronizeAndDestroyQueueErrorHandle) {
     EXPECT_EQ(zeCommandQueueExecuteCommandLists(nullptr, 1, &list, nullptr),
               ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
     EXPECT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, nullptr, nullptr),
@@ -1087,9 +1094,8 @@ TEST_F(CommandStress, MultipleVPUCommandBuffers) {
 TEST_F(CommandStress, MultipleVPUJobs) {
     /*
      * VPUJob is created for every zeCommandList. The test is similar to MultipleVPUCommandBuffers.
-     * The limit of job submission is 63 in KMD before VPU consumes them.
      */
-    const size_t listCount = 8;
+    const size_t listCount = 16;
     const size_t copyCount = 7;
     const uint64_t referenceValue = 0x1234567890abcd00;
     const uint64_t copySize = 4 * KB;

@@ -6,9 +6,9 @@
  */
 
 #include <exception>
-#include <filesystem>
 #include <fstream>
 #include <functional>
+#include <random>
 
 #include "umd_test.h"
 #include "testenv.hpp"
@@ -78,6 +78,17 @@ void UmdTest::SetUp() {
         syncTimeout = 30'000'000'000;       // 30 seconds
         graphSyncTimeout = 600'000'000'000; // 10 minutes
     }
+
+    /*Get base configuration from config file*/
+    YAML::Node &configuration = Environment::getConfiguration();
+    if (configuration["blob_dir"].IsDefined())
+        blobDir = configuration["blob_dir"].as<std::string>();
+
+    if (configuration["image_dir"].IsDefined())
+        imageDir = configuration["image_dir"].as<std::string>();
+
+    if (configuration["model_dir"].IsDefined())
+        modelDir = configuration["model_dir"].as<std::string>();
 }
 
 void UmdTest::TearDown() {
@@ -117,58 +128,82 @@ bool UmdTest::isSilicon() {
 }
 
 std::shared_ptr<void> UmdTest::AllocSharedMemory(size_t size, ze_host_mem_alloc_flags_t flagsHost) {
-    ze_device_mem_alloc_desc_t deviceMemAllocDesc = {.stype =
-                                                         ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC,
-                                                     .pNext = nullptr,
-                                                     .flags = 0,
-                                                     .ordinal = 0};
-
-    ze_host_mem_alloc_desc_t hostMemAllocDesc = {.stype = ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC,
-                                                 .pNext = nullptr,
-                                                 .flags = flagsHost};
-
-    ze_result_t ret;
-    auto scopedMem = zeScope::memAllocShared(zeContext,
-                                             deviceMemAllocDesc,
-                                             hostMemAllocDesc,
-                                             size,
-                                             0,
-                                             zeDevice,
-                                             ret);
-    if (ret != ZE_RESULT_SUCCESS)
-        throw std::runtime_error("Failed to allocate shared memory");
-
-    memset(scopedMem.get(), 0, size);
-    return scopedMem;
+    return zeMemory::allocShared(zeContext, zeDevice, size, flagsHost);
 }
 
 std::shared_ptr<void> UmdTest::AllocDeviceMemory(size_t size) {
-    ze_device_mem_alloc_desc_t deviceMemAllocDesc = {.stype =
-                                                         ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC,
-                                                     .pNext = nullptr,
-                                                     .flags = 0,
-                                                     .ordinal = 0};
-
-    ze_result_t ret;
-    auto scopedMem = zeScope::memAllocDevice(zeContext, deviceMemAllocDesc, size, 0, zeDevice, ret);
-    if (ret != ZE_RESULT_SUCCESS)
-        throw std::runtime_error("Failed to allocate device memory");
-
-    return scopedMem;
+    return zeMemory::allocDevice(zeContext, zeDevice, size);
 }
 
 std::shared_ptr<void> UmdTest::AllocHostMemory(size_t size, ze_host_mem_alloc_flags_t flagsHost) {
-    ze_host_mem_alloc_desc_t hostMemAllocDesc = {.stype = ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC,
-                                                 .pNext = nullptr,
-                                                 .flags = flagsHost};
+    return zeMemory::allocHost(zeContext, size, flagsHost);
+}
 
-    ze_result_t ret;
-    auto scopedMem = zeScope::memAllocHost(zeContext, hostMemAllocDesc, size, 0, ret);
-    if (ret != ZE_RESULT_SUCCESS)
-        throw std::runtime_error("Failed to allocate host memory");
+std::vector<char> UmdTest::getFlagsFromString(std::string flags) {
+    std::vector<char> buildFlags;
 
-    memset(scopedMem.get(), 0, size);
-    return scopedMem;
+    for (auto c : flags)
+        buildFlags.push_back(c);
+    buildFlags.push_back('\0');
+    return buildFlags;
+}
+
+void UmdTest::createGraphDescriptorForModel(const std::string &modelPath,
+                                            const std::vector<char> &modelBuildFlags,
+                                            std::vector<uint8_t> &testModelIR,
+                                            ze_graph_desc_2_t &graphDesc) {
+    std::vector<char> testModelXml, testModelBin;
+    ze_device_graph_properties_t pDeviceGraphProperties;
+
+    ASSERT_TRUE(getModelFromPath(modelPath, testModelXml, testModelBin));
+
+    ASSERT_EQ(zeGraphDDITableExt->pfnDeviceGetGraphProperties(zeDevice, &pDeviceGraphProperties),
+              ZE_RESULT_SUCCESS);
+
+    ze_graph_compiler_version_info_t version = {
+        .major = pDeviceGraphProperties.compilerVersion.major,
+        .minor = pDeviceGraphProperties.compilerVersion.minor};
+
+    uint64_t xml_len = testModelXml.size();
+    uint64_t bin_len = testModelBin.size();
+    uint32_t numInputs = 2;
+    uint64_t modelSize =
+        sizeof(version) + sizeof(numInputs) + sizeof(xml_len) + xml_len + sizeof(bin_len) + bin_len;
+
+    testModelIR.resize(modelSize);
+
+    uint64_t offset = 0;
+    memcpy(&testModelIR[0], &version, sizeof(version));
+    offset += sizeof(version);
+
+    memcpy(&testModelIR[offset], &numInputs, sizeof(numInputs));
+    offset += sizeof(numInputs);
+
+    memcpy(&testModelIR[offset], &xml_len, sizeof(xml_len));
+    offset += sizeof(xml_len);
+
+    memcpy(&testModelIR[offset], testModelXml.data(), xml_len);
+    offset += xml_len;
+
+    memcpy(&testModelIR[offset], &bin_len, sizeof(bin_len));
+    offset += sizeof(bin_len);
+
+    memcpy(&testModelIR[offset], testModelBin.data(), bin_len);
+
+    graphDesc.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES;
+    graphDesc.pNext = nullptr;
+    graphDesc.format = ZE_GRAPH_FORMAT_NGRAPH_LITE;
+    graphDesc.inputSize = testModelIR.size();
+    graphDesc.pInput = testModelIR.data();
+    graphDesc.pBuildFlags = modelBuildFlags.data();
+    graphDesc.flags = ZE_GRAPH_FLAG_NONE;
+}
+
+bool UmdTest::isHwsModeEnabled() {
+    std::vector<char> out;
+    if (!loadFile("/sys/module/intel_vpu/parameters/sched_mode", out))
+        return false;
+    return out.size() > 0 && out[0] == 'Y';
 }
 
 TEST(Umd, ZeDevTypeStr) {

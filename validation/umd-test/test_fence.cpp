@@ -45,11 +45,13 @@ class Fence : public UmdTest {
     ze_result_t ret;
 };
 
-TEST_F(Fence, CreateFenceWithQueueEqualToNull) {
+// TODO: Validation layer is disabled. OpenVino issue: EISW-113275
+TEST_F(Fence, DISABLED_CreateFenceWithQueueEqualToNull) {
     ASSERT_EQ(zeFenceCreate(nullptr, &fenceDesc, &fence), ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
 }
 
-TEST_F(Fence, DestroyUsingNullptr) {
+// TODO: Validation layer is disabled. OpenVino issue: EISW-113275
+TEST_F(Fence, DISABLED_DestroyUsingNullptr) {
     ASSERT_EQ(zeFenceDestroy(nullptr), ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
 }
 

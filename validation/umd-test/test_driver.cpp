@@ -9,7 +9,8 @@
 
 class Driver : public UmdTest {};
 
-TEST(Init, HandleWrongInitFlagError) {
+/* TODO: Test disabled: EISW-107116 */
+TEST(Init, DISABLED_HandleWrongInitFlagError) {
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_ENUMERATION, zeInit(ZE_INIT_FLAG_GPU_ONLY));
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_ENUMERATION, zeInit(0x04));
 }

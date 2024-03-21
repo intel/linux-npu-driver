@@ -18,4 +18,7 @@ TEST_F(Device, GetProperties) {
     EXPECT_EQ(devProp.vendorId, 0x8086u);
     EXPECT_TRUE(test_app::is_vpu(devProp.deviceId)) << "Invalid PCI Device ID" << devProp.deviceId;
     EXPECT_STREQ(devProp.name, "Intel(R) AI Boost");
+
+    TRACE("PCI Device ID: %#x\n", devProp.deviceId);
+    TRACE("Tile count: %u\n", devProp.numSlices);
 }

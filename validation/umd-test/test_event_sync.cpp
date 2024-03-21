@@ -154,12 +154,6 @@ void EventSync::WaitHostSignal(bool computeEngineWait) {
         queue = cpQue;
     }
 
-    // Copy command list.
-    // for copy queue.
-    // | Wait on event (0x101) | Timestamp (0x100) |
-    //
-    // for NN queue.
-    // | Wait on event (0x101) | Timestamp (0x100) |
     ASSERT_EQ(zeCommandListAppendWaitOnEvents(cmdlist, 1, &event), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandListAppendWriteGlobalTimestamp(cmdlist, ts, nullptr, 0, nullptr),
               ZE_RESULT_SUCCESS);
@@ -168,7 +162,7 @@ void EventSync::WaitHostSignal(bool computeEngineWait) {
     // Execute command lists.
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &cmdlist, nullptr), ZE_RESULT_SUCCESS);
 
-    std::thread hostSignalThread(&EventSync::HostSignalTask, this, event, 1000);
+    std::thread hostSignalThread(&EventSync::HostSignalTask, this, event, 100);
 
     // Command queue host sync.
     EXPECT_EQ(zeCommandQueueSynchronize(queue, syncTimeout), ZE_RESULT_SUCCESS);
@@ -225,11 +219,6 @@ void EventSync::WaitAndSignalBetweenEngines(bool computeEngineWait, bool testEve
         signalCmdlist = nnCmdlist;
     }
 
-    // Waiting engine.
-    // If compute engine.
-    //   | Wait on event(0x101) | Timestamp(0x100) | (Reset event:0x102) |
-    // If copy engine.
-    //   | Wait on event(0x101) | Timestamp(0x100) | (Reset event:0x102) |
     ASSERT_EQ(zeCommandListAppendWaitOnEvents(waitCmdlist, 1, &event), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandListAppendWriteGlobalTimestamp(waitCmdlist, ts, nullptr, 0, nullptr),
               ZE_RESULT_SUCCESS);
@@ -245,12 +234,6 @@ void EventSync::WaitAndSignalBetweenEngines(bool computeEngineWait, bool testEve
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(waitQue, 1, &waitCmdlist, nullptr),
               ZE_RESULT_SUCCESS);
 
-    // Signal engine.
-    // If compute engine.
-    //   | Timestamp(0x100) | Signal event(0x102) |
-    //
-    // If copy engine.
-    //   | Timestamp(0x100) | Signal event(0x102) |
     ASSERT_EQ(zeCommandListAppendWriteGlobalTimestamp(signalCmdlist, ts1, nullptr, 0, nullptr),
               ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandListAppendSignalEvent(signalCmdlist, event), ZE_RESULT_SUCCESS);
@@ -346,10 +329,6 @@ void EventSync::MultiCommandListSyncOnSingleEngine(bool runOnComputeEngine) {
     auto cmdlist1 = scopedCmdList1.get();
     auto cmdlist2 = scopedCmdList2.get();
 
-    // Multi cmdlist sync tests
-    // Command list 0.
-    // NN command list0 : | Wait on event0 | L2L copy | Signal event1 |
-    // CP command list0 : | Wait on event0 | L2S copy | Signal event1 |
     ASSERT_EQ(zeCommandListAppendWaitOnEvents(cmdlist0, 1, &event0), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandListAppendMemoryCopy(cmdlist0,
                                             destMem0Ptr,
@@ -362,9 +341,6 @@ void EventSync::MultiCommandListSyncOnSingleEngine(bool runOnComputeEngine) {
     ASSERT_EQ(zeCommandListAppendSignalEvent(cmdlist0, event1), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandListClose(cmdlist0), ZE_RESULT_SUCCESS);
 
-    // Command list 1.
-    // NN command list1 : | Wait on event1 | L2L copy | Signal event2 |
-    // CP command list1 : | Wait on event1 | L2S copy | Signal event2 |
     ASSERT_EQ(zeCommandListAppendWaitOnEvents(cmdlist1, 1, &event1), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandListAppendMemoryCopy(cmdlist1,
                                             destMem1Ptr,
@@ -377,9 +353,6 @@ void EventSync::MultiCommandListSyncOnSingleEngine(bool runOnComputeEngine) {
     ASSERT_EQ(zeCommandListAppendSignalEvent(cmdlist1, event2), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandListClose(cmdlist1), ZE_RESULT_SUCCESS);
 
-    // COmmand list 2.
-    // NN command list2 : | Wait on event2 | L2L copy |
-    // CP command list2 : | Wait on event2 | L2S copy |
     ASSERT_EQ(zeCommandListAppendWaitOnEvents(cmdlist2, 1, &event2), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandListAppendMemoryCopy(cmdlist2,
                                             destMem2Ptr,

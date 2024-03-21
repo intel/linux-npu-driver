@@ -33,11 +33,12 @@ class GraphObject : public UmdTest {
         fence = scopedFence.get();
     }
 
-    void GraphInitialize(const ze_graph_desc_t graphDesc,
+    void GraphInitialize(const ze_graph_desc_2_t graphDesc,
                          std::vector<uint32_t> &sizeGraphInput,
                          std::vector<uint32_t> &sizeGraphOutput) {
         ze_result_t ret;
-        scopedGraph = zeScope::graphCreate(zeGraphDDITableExt, zeContext, zeDevice, graphDesc, ret);
+        scopedGraph =
+            zeScope::graphCreate2(zeGraphDDITableExt, zeContext, zeDevice, graphDesc, ret);
         ASSERT_EQ(ret, ZE_RESULT_SUCCESS) << "Failed to create Graph Object";
         graph = scopedGraph.get();
 
@@ -275,11 +276,6 @@ class GraphInferenceT : public GraphPipeline {
     void SetUp() override {
         GraphPipeline::SetUp();
 
-        /*Get base configuration from config file*/
-        YAML::Node &configuration = Environment::getConfiguration();
-        if (configuration["blob_dir"].IsDefined())
-            blobDir = configuration["blob_dir"].as<std::string>();
-
         for (uint32_t index = 0; index < stage::COUNT; ++index) {
             ASSERT_NE(queueVec[index], nullptr);
             ASSERT_NE(listVec[index], nullptr);
@@ -324,8 +320,6 @@ class GraphInferenceT : public GraphPipeline {
             EXPECT_EQ(zeFenceReset(fence), ZE_RESULT_SUCCESS) << "Failed to reset Fence";
         }
     }
-
-    std::string blobDir = "";
 };
 
 class GraphInference : public GraphInferenceT, public ::testing::WithParamInterface<YAML::Node> {
@@ -368,12 +362,13 @@ TEST_P(GraphInference, InferenceTest) {
         .kernelDataSize = vpuBin.size(),
         .pKernelData = reinterpret_cast<uint8_t *>(vpuBin.data())};
 
-    const ze_graph_desc_t graphDesc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES,
-                                       .pNext = &actShaveKernel,
-                                       .format = ZE_GRAPH_FORMAT_NATIVE,
-                                       .inputSize = vpuBlob.size(),
-                                       .pInput = reinterpret_cast<uint8_t *>(vpuBlob.data()),
-                                       .pBuildFlags = nullptr};
+    const ze_graph_desc_2_t graphDesc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES,
+                                         .pNext = &actShaveKernel,
+                                         .format = ZE_GRAPH_FORMAT_NATIVE,
+                                         .inputSize = vpuBlob.size(),
+                                         .pInput = reinterpret_cast<uint8_t *>(vpuBlob.data()),
+                                         .pBuildFlags = nullptr,
+                                         .flags = ZE_GRAPH_FLAG_NONE};
 
     GraphInitialize(graphDesc, graphInputSize, graphOutputSize);
 

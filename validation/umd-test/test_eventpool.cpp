@@ -9,7 +9,8 @@
 
 struct EventPool : public UmdTest {};
 
-TEST_F(EventPool, CreateEventPoolWithInvalidParameters) {
+// TODO: Validation layer is disabled. OpenVino issue: EISW-113275
+TEST_F(EventPool, DISABLED_CreateEventPoolWithInvalidParameters) {
     ze_event_pool_handle_t eventPool = nullptr;
     ze_event_pool_desc_t eventPoolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC,
                                           nullptr,
@@ -46,6 +47,7 @@ TEST_F(EventPool, CreateEventPoolShouldBeSuccessful) {
     EXPECT_EQ(zeEventPoolDestroy(eventPool), ZE_RESULT_SUCCESS);
 }
 
-TEST_F(EventPool, DestroyEventPoolWithInvalidParameter) {
+// TODO: Validation layer is disabled. OpenVino issue: EISW-113275
+TEST_F(EventPool, DISABLED_DestroyEventPoolWithInvalidParameter) {
     EXPECT_EQ(zeEventPoolDestroy(nullptr), ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
 }

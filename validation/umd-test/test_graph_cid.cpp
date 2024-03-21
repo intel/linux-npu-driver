@@ -1,101 +1,26 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
-#include "model_params.hpp"
-#include "umd_test.h"
+#include "graph_utilities.hpp"
+#include "umd_prime_buffers.h"
 
+#include <chrono>
 #include <future>
-#include <random>
-
-struct __attribute__((packed)) BmpFormat {
-    uint16_t header;
-    uint32_t size;
-    uint32_t reserve;
-    uint32_t offset;
-};
+#include <level_zero/ze_api.h>
+#include <stdexcept>
 
 class CompilerInDriverBase : public UmdTest {
   protected:
-    void SetUp() override {
-        UmdTest::SetUp();
+    void SetUp() override { UmdTest::SetUp(); }
 
-        /*Get base configuration from config file*/
-        YAML::Node &configuration = Environment::getConfiguration();
-        if (configuration["model_dir"].IsDefined())
-            modelDir = configuration["model_dir"].as<std::string>();
-
-        if (configuration["image_dir"].IsDefined())
-            imageDir = configuration["image_dir"].as<std::string>();
-    }
-
-    void createModelData(std::vector<uint8_t> &model,
-                         std::vector<char> &xml,
-                         std::vector<char> &bin,
-                         std::vector<char> &flags,
-                         ze_graph_desc_t &desc) {
-        ze_device_graph_properties_t pDeviceGraphProperties;
-        EXPECT_EQ(
-            zeGraphDDITableExt->pfnDeviceGetGraphProperties(zeDevice, &pDeviceGraphProperties),
-            ZE_RESULT_SUCCESS);
-
-        ze_graph_compiler_version_info_t version = {
-            .major = pDeviceGraphProperties.compilerVersion.major,
-            .minor = pDeviceGraphProperties.compilerVersion.minor};
-
-        uint64_t xml_len = xml.size();
-        uint64_t bin_len = bin.size();
-        uint32_t numInputs = 2;
-        uint64_t modelSize = sizeof(version) + sizeof(numInputs) + sizeof(xml_len) + xml_len +
-                             sizeof(bin_len) + bin_len;
-
-        model.resize(modelSize);
-
-        uint64_t offset = 0;
-        memcpy(&model[0], &version, sizeof(version));
-        offset += sizeof(version);
-
-        memcpy(&model[offset], &numInputs, sizeof(numInputs));
-        offset += sizeof(numInputs);
-
-        memcpy(&model[offset], &xml_len, sizeof(xml_len));
-        offset += sizeof(xml_len);
-
-        memcpy(&model[offset], xml.data(), xml_len);
-        offset += xml_len;
-
-        memcpy(&model[offset], &bin_len, sizeof(bin_len));
-        offset += sizeof(bin_len);
-
-        memcpy(&model[offset], bin.data(), bin_len);
-
-        desc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES,
-                .pNext = nullptr,
-                .format = ZE_GRAPH_FORMAT_NGRAPH_LITE,
-                .inputSize = model.size(),
-                .pInput = model.data(),
-                .pBuildFlags = flags.data()};
-    }
-
-    std::vector<char> getFlagsFromString(std::string flags) {
-        std::vector<char> buildFlags;
-
-        for (auto c : flags)
-            buildFlags.push_back(c);
-        buildFlags.push_back('\0');
-        return buildFlags;
-    }
-
-    ze_graph_handle_t graphHandle = nullptr;
-    ze_graph_desc_t graphDesc = {};
+    zeScope::SharedPtr<ze_graph_handle_t> scopedGraphHandle = nullptr;
+    ze_graph_desc_2_t graphDesc = {};
     std::vector<uint8_t> modelIR = {};
-    std::vector<char> modelXml, modelBin, buildFlags;
-
-    std::string modelDir = "";
-    std::string imageDir = "";
+    std::vector<char> buildFlags = {};
 };
 
 class CompilerInDriver : public CompilerInDriverBase {
@@ -114,46 +39,78 @@ class CompilerInDriver : public CompilerInDriverBase {
         ASSERT_GT(node["flags"].as<std::string>().size(), 0);
 
         /* Setup */
-        ASSERT_TRUE(
-            getModelFromPath(modelDir + node["path"].as<std::string>(), modelXml, modelBin));
-
         buildFlags = getFlagsFromString(node["flags"].as<std::string>());
-
-        createModelData(modelIR, modelXml, modelBin, buildFlags, graphDesc);
+        createGraphDescriptorForModel(modelDir + node["path"].as<std::string>(),
+                                      buildFlags,
+                                      modelIR,
+                                      graphDesc);
     }
 };
 
 TEST_F(CompilerInDriver, CreatingGraphWithNullptrInputGraphExpectFailure) {
+    ze_graph_handle_t handle = nullptr;
     graphDesc.pInput = nullptr;
-    EXPECT_EQ(zeGraphDDITableExt->pfnCreate(zeContext, zeDevice, &graphDesc, &graphHandle),
+    EXPECT_EQ(zeGraphDDITableExt->pfnCreate2(zeContext, zeDevice, &graphDesc, &handle),
               ZE_RESULT_ERROR_INVALID_NULL_POINTER);
 }
 
 TEST_F(CompilerInDriver, CreatingGraphWithZeroGraphSizeExpectFailure) {
+    ze_graph_handle_t handle = nullptr;
     graphDesc.inputSize = 0u;
-    EXPECT_EQ(zeGraphDDITableExt->pfnCreate(zeContext, zeDevice, &graphDesc, &graphHandle),
+    EXPECT_EQ(zeGraphDDITableExt->pfnCreate2(zeContext, zeDevice, &graphDesc, &handle),
               ZE_RESULT_ERROR_INVALID_SIZE);
 }
 
 TEST_F(CompilerInDriver, CreatingGraphCorrectBlobFileAndDescExpectSuccess) {
-    ze_result_t ret;
-    auto scopedGraphHandle =
-        zeScope::graphCreate(zeGraphDDITableExt, zeContext, zeDevice, graphDesc, ret);
+    ze_result_t ret = ZE_RESULT_SUCCESS;
+    scopedGraphHandle =
+        zeScope::graphCreate2(zeGraphDDITableExt, zeContext, zeDevice, graphDesc, ret);
     EXPECT_EQ(ret, ZE_RESULT_SUCCESS);
+}
+
+class CompilerInDriverLayers : public CompilerInDriver,
+                               public ::testing::WithParamInterface<YAML::Node> {
+  protected:
+    void SetUp() override { CompilerInDriver::SetUp(); }
+};
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilerInDriverLayers);
+
+INSTANTIATE_TEST_SUITE_P(,
+                         CompilerInDriverLayers,
+                         ::testing::ValuesIn(Environment::getConfiguration("compiler_in_driver")),
+                         [](const testing::TestParamInfo<YAML::Node> &p) {
+                             return generateTestNameFromNode(p.param);
+                         });
+
+TEST_P(CompilerInDriverLayers, QueryNetworkLayers) {
+    ze_graph_query_network_handle_t hQuery = nullptr;
+
+    ASSERT_EQ(zeGraphDDITableExt->pfnQueryNetworkCreate2(zeContext, zeDevice, &graphDesc, &hQuery),
+              ZE_RESULT_SUCCESS);
+
+    size_t size = 0;
+    EXPECT_EQ(zeGraphDDITableExt->pfnQueryNetworkGetSupportedLayers(hQuery, &size, nullptr),
+              ZE_RESULT_SUCCESS);
+    EXPECT_GT(size, 0);
+
+    std::vector<char> layers(size, '\0');
+    EXPECT_EQ(zeGraphDDITableExt->pfnQueryNetworkGetSupportedLayers(hQuery, &size, layers.data()),
+              ZE_RESULT_SUCCESS);
+
+    EXPECT_GT(layers.size(), 0);
+
+    TRACE("Supported layers: %s\n", layers.data());
+
+    ASSERT_EQ(zeGraphDDITableExt->pfnQueryNetworkDestroy(hQuery), ZE_RESULT_SUCCESS);
 }
 
 class CompilerInDriverLongT : public CompilerInDriverBase {
   protected:
-    enum MemType : uint8_t {
-        DEVICE_MEMORY,
-        HOST_MEMORY,
-        SHARED_MEMORY,
-    };
-
     void SetUp() override {
         CompilerInDriverBase::SetUp();
 
-        ze_result_t ret;
+        ze_result_t ret = ZE_RESULT_SUCCESS;
         scopedQueue = zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDesc, ret);
         ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
         queue = scopedQueue.get();
@@ -163,121 +120,99 @@ class CompilerInDriverLongT : public CompilerInDriverBase {
         list = scopedList.get();
     }
 
-    void getGraphArgumentSize(ze_graph_handle_t hGraph,
-                              std::vector<uint32_t> &inputSize,
-                              std::vector<uint32_t> &outputSize) {
-        ze_graph_properties_t graphProps{};
-        ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties(hGraph, &graphProps), ZE_RESULT_SUCCESS);
+    ze_command_queue_desc_t cmdQueueDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
+                                            .pNext = nullptr,
+                                            .ordinal = 0,
+                                            .index = 0,
+                                            .flags = 0,
+                                            .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
+                                            .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
 
-        for (uint32_t i = 0; i < graphProps.numGraphArgs; i++) {
-            ze_graph_argument_properties_t graphArgProps{};
+    ze_command_list_desc_t cmdListDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
+                                          .pNext = nullptr,
+                                          .commandQueueGroupOrdinal = 0,
+                                          .flags = 0};
 
-            ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties(hGraph, i, &graphArgProps),
-                      ZE_RESULT_SUCCESS);
+    ze_command_queue_handle_t queue = nullptr;
+    ze_command_list_handle_t list = nullptr;
 
-            size_t size = 1u;
-            for (int i = 0; i < ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE; i++)
-                size *= graphArgProps.dims[i];
+  private:
+    zeScope::SharedPtr<ze_command_queue_handle_t> scopedQueue = nullptr;
+    zeScope::SharedPtr<ze_command_list_handle_t> scopedList = nullptr;
+};
 
-            switch (graphArgProps.devicePrecision) {
-            case ZE_GRAPH_ARGUMENT_PRECISION_FP32:
-            case ZE_GRAPH_ARGUMENT_PRECISION_INT32:
-            case ZE_GRAPH_ARGUMENT_PRECISION_UINT32:
-                size *= sizeof(uint32_t);
-                break;
-            case ZE_GRAPH_ARGUMENT_PRECISION_BF16:
-            case ZE_GRAPH_ARGUMENT_PRECISION_FP16:
-            case ZE_GRAPH_ARGUMENT_PRECISION_INT16:
-            case ZE_GRAPH_ARGUMENT_PRECISION_UINT16:
-                size *= sizeof(uint16_t);
-                break;
-            case ZE_GRAPH_ARGUMENT_PRECISION_INT8:
-            case ZE_GRAPH_ARGUMENT_PRECISION_UINT8:
-                size *= sizeof(uint8_t);
-                break;
-            case ZE_GRAPH_ARGUMENT_PRECISION_INT4:
-            case ZE_GRAPH_ARGUMENT_PRECISION_UINT4:
-                size /= 2;
-                break;
-            default:
-                ASSERT_TRUE(false) << "Invalid Graph Argument Precision";
-            }
+class CompilerInDriverLong : public CompilerInDriverLongT,
+                             public ::testing::WithParamInterface<YAML::Node> {
+  protected:
+    void SetUp() override {
+        CompilerInDriverLongT::SetUp();
 
-            ASSERT_NE(size, 0u);
-            if (graphArgProps.type == ZE_GRAPH_ARGUMENT_TYPE_INPUT) {
-                inputSize.push_back(size);
-            } else {
-                outputSize.push_back(size);
-            }
+        const YAML::Node node = GetParam();
 
-            EXPECT_NE(graphArgProps.name, "");
-        }
+        ASSERT_GT(node["path"].as<std::string>().size(), 0);
+
+        graph = Graph::create(zeContext,
+                              zeDevice,
+                              zeGraphDDITableExt,
+                              modelDir + node["path"].as<std::string>(),
+                              node);
+
+        graph->allocateArguments(MemType::SHARED_MEMORY);
     }
 
-    bool loadImageData(void *graphInput, size_t graphInputSize, const std::string &imagePath) {
-        std::vector<char> bmp;
+    std::shared_ptr<Graph> graph;
+};
 
-        if (!UmdTest::loadFile(imagePath, bmp)) {
-            PRINTF("Image file %s not found.\n", imagePath.c_str());
-            return false;
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilerInDriverLong);
+
+INSTANTIATE_TEST_SUITE_P(,
+                         CompilerInDriverLong,
+                         ::testing::ValuesIn(Environment::getConfiguration("compiler_in_driver")),
+                         [](const testing::TestParamInfo<YAML::Node> &p) {
+                             return generateTestNameFromNode(p.param);
+                         });
+
+TEST_P(CompilerInDriverLong, CompileModelWithGraphInitAndExecute) {
+    ASSERT_EQ(
+        zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
+        ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
+
+    graph->setRandomInput();
+
+    ASSERT_EQ(zeGraphDDITableExt
+                  ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+}
+
+class CompilerInDriverWithProfiling : public CompilerInDriverLongT,
+                                      public ::testing::WithParamInterface<YAML::Node> {
+  protected:
+    void SetUp() override {
+        CompilerInDriverLongT::SetUp();
+
+        const YAML::Node node = GetParam();
+        if (node["graph_profiling"].IsDefined() && node["graph_profiling"].as<bool>() == false) {
+            SKIP_("The profiling graph test has been disabled.");
         }
 
-        auto *bmpHeader = reinterpret_cast<const BmpFormat *>(bmp.data());
+        ASSERT_GT(node["path"].as<std::string>().size(), 0);
 
-        size_t imgSize = bmpHeader->size - bmpHeader->offset;
-        if (imgSize > graphInputSize) {
-            PRINTF("Image file %s too large.\n", imagePath.c_str());
-            return false;
-        }
+        graph = Graph::create(zeContext,
+                              zeDevice,
+                              zeGraphDDITableExt,
+                              modelDir + node["path"].as<std::string>(),
+                              node,
+                              ZE_GRAPH_FLAG_ENABLE_PROFILING);
 
-        memcpy(graphInput, (char *)bmpHeader + bmpHeader->offset, imgSize);
-        return true;
-    }
-
-    bool checkOutputDataset(void *graphOutput,
-                            size_t graphOutputSize,
-                            uint16_t imageClass,
-                            bool verbose = false) {
-        std::vector<float> output_data(graphOutputSize / sizeof(float));
-        memcpy(output_data.data(), graphOutput, graphOutputSize);
-
-        auto it = std::max_element(output_data.begin(), output_data.end());
-        size_t index = std::distance(output_data.begin(), it);
-
-        if (verbose)
-            PRINTF("Class = %li, Accuracy = %f\n", index, *it);
-
-        EXPECT_EQ(index, imageClass) << "Class index does not match!" << std::endl
-                                     << "Class: " << index << "!=" << imageClass;
-        return index == imageClass;
-    }
-
-    void allocListOfMemory(std::vector<uint32_t> &listOfMemSize,
-                           std::vector<void *> &listOfMem,
-                           MemType memType) {
-        for (const auto &m : listOfMemSize) {
-            {
-                std::lock_guard<std::mutex> lock(memMutex);
-                if (memType == DEVICE_MEMORY) {
-                    mem.push_back(AllocDeviceMemory(m));
-                } else if (memType == HOST_MEMORY) {
-                    mem.push_back(AllocHostMemory(m));
-                } else {
-                    mem.push_back(AllocSharedMemory(m));
-                }
-                listOfMem.push_back(mem.back().get());
-            }
-        }
-    }
-
-    inline void generateRandomData(std::vector<char> &data, size_t size) {
-        std::random_device rd;
-        std::uniform_int_distribution<int8_t> dist;
-
-        data.reserve(size);
-        for (size_t i = 0; i < size; i++) {
-            data.push_back(dist(rd));
-        }
+        graph->allocateArguments(MemType::SHARED_MEMORY);
     }
 
     template <class ProfilingData>
@@ -330,196 +265,48 @@ class CompilerInDriverLongT : public CompilerInDriverBase {
         }
     }
 
-    inline void addGraphProfilingOption(std::vector<char> &flags) {
-        while (!flags.empty() && flags.back() == '\0')
-            flags.pop_back();
-
-        for (char c : " --config PERF_COUNT=\"YES\"\0")
-            flags.push_back(c);
-        /* Reassign flags pointer, vector was extended data buffer could be changed */
-        graphDesc.pBuildFlags = flags.data();
-    }
-
-    ze_command_queue_handle_t queue = nullptr;
-    ze_command_list_handle_t list = nullptr;
-    std::vector<void *> graphInput, graphOutput;
-
-    ze_command_queue_desc_t cmdQueueDesc{.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
-                                         .pNext = nullptr,
-                                         .ordinal = 0,
-                                         .index = 0,
-                                         .flags = 0,
-                                         .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
-                                         .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
-
-    ze_command_list_desc_t cmdListDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
-                                          .pNext = nullptr,
-                                          .commandQueueGroupOrdinal = 0,
-                                          .flags = 0};
-
-  private:
-    zeScope::SharedPtr<ze_command_queue_handle_t> scopedQueue = nullptr;
-    zeScope::SharedPtr<ze_command_list_handle_t> scopedList = nullptr;
-    std::vector<std::shared_ptr<void>> mem;
-    std::mutex memMutex;
+    std::shared_ptr<Graph> graph;
 };
 
-class CompilerInDriverLong : public CompilerInDriverLongT,
-                             public ::testing::WithParamInterface<YAML::Node> {
-  protected:
-    void SetUp() override {
-        CompilerInDriverLongT::SetUp();
-
-        const YAML::Node node = GetParam();
-
-        /* Validate configuration */
-        ASSERT_GT(node["path"].as<std::string>().size(), 0);
-        ASSERT_GT(node["flags"].as<std::string>().size(), 0);
-
-        /* Setup */
-        ASSERT_TRUE(
-            getModelFromPath(modelDir + node["path"].as<std::string>(), modelXml, modelBin));
-
-        buildFlags = getFlagsFromString(node["flags"].as<std::string>());
-
-        createModelData(modelIR, modelXml, modelBin, buildFlags, graphDesc);
-    }
-};
-
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilerInDriverLong);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilerInDriverWithProfiling);
 
 INSTANTIATE_TEST_SUITE_P(,
-                         CompilerInDriverLong,
+                         CompilerInDriverWithProfiling,
                          ::testing::ValuesIn(Environment::getConfiguration("compiler_in_driver")),
                          [](const testing::TestParamInfo<YAML::Node> &p) {
                              return generateTestNameFromNode(p.param);
                          });
 
-TEST_P(CompilerInDriverLong, QueryNetwork) {
-    ze_graph_query_network_handle_t hQuery = nullptr;
-    ASSERT_EQ(zeGraphDDITableExt->pfnQueryNetworkCreate(zeContext, zeDevice, &graphDesc, &hQuery),
-              ZE_RESULT_SUCCESS);
-
-    size_t size = 0;
-    EXPECT_EQ(zeGraphDDITableExt->pfnQueryNetworkGetSupportedLayers(hQuery, &size, nullptr),
-              ZE_RESULT_SUCCESS);
-    EXPECT_GT(size, 0);
-
-    std::vector<char> layers(size, '\0');
-    EXPECT_EQ(zeGraphDDITableExt->pfnQueryNetworkGetSupportedLayers(hQuery, &size, layers.data()),
-              ZE_RESULT_SUCCESS);
-
-    EXPECT_GT(size, 0);
-
-    ASSERT_EQ(zeGraphDDITableExt->pfnQueryNetworkDestroy(hQuery), ZE_RESULT_SUCCESS);
-}
-
-TEST_P(CompilerInDriverLong, CompileModelWithGraphInitAndExecute) {
-    ze_result_t ret;
-    auto scopedGraphHandle =
-        zeScope::graphCreate(zeGraphDDITableExt, zeContext, zeDevice, graphDesc, ret);
-    EXPECT_EQ(ret, ZE_RESULT_SUCCESS);
-    graphHandle = scopedGraphHandle.get();
-
-    std::vector<uint32_t> graphInputSize;
-    std::vector<uint32_t> graphOutputSize;
-    getGraphArgumentSize(graphHandle, graphInputSize, graphOutputSize);
-    ASSERT_NE(graphInputSize.size(), 0);
-    ASSERT_NE(graphOutputSize.size(), 0);
-
-    ASSERT_EQ(zeGraphDDITableExt->pfnAppendGraphInitialize(list, graphHandle, nullptr, 0, nullptr),
-              ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
-
-    ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
-
-    allocListOfMemory(graphInputSize, graphInput, SHARED_MEMORY);
-    allocListOfMemory(graphOutputSize, graphOutput, SHARED_MEMORY);
-
-    for (size_t i = 0; i < graphInputSize.size(); ++i) {
-        std::vector<char> inputData;
-        generateRandomData(inputData, graphInputSize[i]);
-        memcpy(graphInput[i], inputData.data(), graphInputSize[i]);
-    }
-
-    uint32_t argIndex = 0;
-    for (const auto &ptr : graphInput) {
-        ASSERT_EQ(zeGraphDDITableExt->pfnSetArgumentValue(graphHandle, argIndex++, ptr),
-                  ZE_RESULT_SUCCESS);
-    }
-    for (const auto &ptr : graphOutput) {
-        ASSERT_EQ(zeGraphDDITableExt->pfnSetArgumentValue(graphHandle, argIndex++, ptr),
-                  ZE_RESULT_SUCCESS);
-    }
+TEST_P(CompilerInDriverWithProfiling, CompileModelWithGraphProfilingFlag) {
+    ze_result_t ret = ZE_RESULT_SUCCESS;
 
     ASSERT_EQ(
-        zeGraphDDITableExt->pfnAppendGraphExecute(list, graphHandle, nullptr, nullptr, 0, nullptr),
+        zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
         ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
-}
-
-TEST_P(CompilerInDriverLong, CompileModelWithGraphProfilingAndRunInference) {
-    addGraphProfilingOption(buildFlags);
-    ze_result_t ret;
-    auto scopedGraphHandle =
-        zeScope::graphCreate(zeGraphDDITableExt, zeContext, zeDevice, graphDesc, ret);
-    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
-    graphHandle = scopedGraphHandle.get();
-
-    std::vector<uint32_t> graphInputSize;
-    std::vector<uint32_t> graphOutputSize;
-    getGraphArgumentSize(graphHandle, graphInputSize, graphOutputSize);
-    ASSERT_NE(graphInputSize.size(), 0);
-    ASSERT_NE(graphOutputSize.size(), 0);
-
-    ASSERT_EQ(zeGraphDDITableExt->pfnAppendGraphInitialize(list, graphHandle, nullptr, 0, nullptr),
-              ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
     ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
 
-    allocListOfMemory(graphInputSize, graphInput, SHARED_MEMORY);
-    allocListOfMemory(graphOutputSize, graphOutput, SHARED_MEMORY);
-
-    for (size_t i = 0; i < graphInputSize.size(); ++i) {
-        std::vector<char> inputData;
-        generateRandomData(inputData, graphInputSize[i]);
-        memcpy(graphInput[i], inputData.data(), graphInputSize[i]);
-    }
-
-    uint32_t argIndex = 0;
-    for (const auto &ptr : graphInput) {
-        ASSERT_EQ(zeGraphDDITableExt->pfnSetArgumentValue(graphHandle, argIndex++, ptr),
-                  ZE_RESULT_SUCCESS);
-    }
-    for (const auto &ptr : graphOutput) {
-        ASSERT_EQ(zeGraphDDITableExt->pfnSetArgumentValue(graphHandle, argIndex++, ptr),
-                  ZE_RESULT_SUCCESS);
-    }
+    graph->setRandomInput();
 
     uint32_t poolSize = 1;
     auto scopedProfilingPool =
-        zeScope::profilingPoolCreate(zeGraphProfilingDDITableExt, graphHandle, poolSize, ret);
-
+        zeScope::profilingPoolCreate(zeGraphProfilingDDITableExt, graph->handle, poolSize, ret);
     ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
     ze_graph_profiling_pool_handle_t hProfilingPool = scopedProfilingPool.get();
 
     uint32_t index = 0;
     auto scopedProfilingQuery =
         zeScope::profilingQueryCreate(zeGraphProfilingDDITableExt, hProfilingPool, index, ret);
-
     ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
     ze_graph_profiling_query_handle_t hProfilingQuery = scopedProfilingQuery.get();
 
-    ASSERT_EQ(zeGraphDDITableExt
-                  ->pfnAppendGraphExecute(list, graphHandle, hProfilingQuery, nullptr, 0, nullptr),
-              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(
+        zeGraphDDITableExt
+            ->pfnAppendGraphExecute(list, graph->handle, hProfilingQuery, nullptr, 0, nullptr),
+        ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
@@ -575,31 +362,31 @@ class CompilerInDriverLongBmp : public CompilerInDriverLongT,
 
         const YAML::Node node = GetParam();
 
-        /* Validate configuration */
         ASSERT_GT(node["path"].as<std::string>().size(), 0);
-        ASSERT_GT(node["flags"].as<std::string>().size(), 0);
-        ASSERT_EQ(node["output"].as<std::vector<uint16_t>>().size(),
+        ASSERT_EQ(node["class_index"].as<std::vector<uint16_t>>().size(),
                   node["input"].as<std::vector<std::string>>().size());
 
-        /* Setup */
-        ASSERT_TRUE(
-            getModelFromPath(modelDir + node["path"].as<std::string>(), modelXml, modelBin));
+        graph = Graph::create(zeContext,
+                              zeDevice,
+                              zeGraphDDITableExt,
+                              modelDir + node["path"].as<std::string>(),
+                              node);
 
-        buildFlags = getFlagsFromString(node["flags"].as<std::string>());
+        graph->allocateArguments(MemType::SHARED_MEMORY);
 
-        createModelData(modelIR, modelXml, modelBin, buildFlags, graphDesc);
+        /* Set expected output */
+        imageClassIndexes = node["class_index"].as<std::vector<uint16_t>>();
 
-        /*Set expected output*/
-        imageClass = node["output"].as<std::vector<uint16_t>>();
-
-        /*Create list of images to load*/
+        /* Create list of images to load */
         for (auto &image : node["input"].as<std::vector<std::string>>()) {
             testImages.push_back(imageDir + image);
         }
     }
 
-    std::vector<std::string> testImages; // paths to test images
-    std::vector<uint16_t> imageClass;    // expected result
+    std::vector<std::string> testImages;     // paths to test images
+    std::vector<uint16_t> imageClassIndexes; // expected result
+
+    std::shared_ptr<Graph> graph;
 };
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilerInDriverLongBmp);
@@ -611,53 +398,135 @@ INSTANTIATE_TEST_SUITE_P(
     [](const testing::TestParamInfo<YAML::Node> &p) { return generateTestNameFromNode(p.param); });
 
 TEST_P(CompilerInDriverLongBmp, CompileModelWithGraphInitAndExecuteThenCheckAccuracy) {
-    ze_result_t ret;
-    auto scopedGraphHandle =
-        zeScope::graphCreate(zeGraphDDITableExt, zeContext, zeDevice, graphDesc, ret);
-    EXPECT_EQ(ret, ZE_RESULT_SUCCESS);
-    graphHandle = scopedGraphHandle.get();
-
-    std::vector<uint32_t> graphInputSize;
-    std::vector<uint32_t> graphOutputSize;
-    getGraphArgumentSize(graphHandle, graphInputSize, graphOutputSize);
-    ASSERT_NE(graphInputSize.size(), 0);
-    ASSERT_NE(graphOutputSize.size(), 0);
-
-    ASSERT_EQ(zeGraphDDITableExt->pfnAppendGraphInitialize(list, graphHandle, nullptr, 0, nullptr),
-              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(
+        zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
+        ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
     ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
 
-    allocListOfMemory(graphInputSize, graphInput, SHARED_MEMORY);
-    allocListOfMemory(graphOutputSize, graphOutput, SHARED_MEMORY);
-
-    for (uint32_t imageIndex = 0; imageIndex < imageClass.size(); imageIndex++) {
-        ASSERT_TRUE(loadImageData(graphInput.at(0), graphInputSize.at(0), testImages[imageIndex]));
-        uint32_t argIndex = 0;
-        for (const auto &ptr : graphInput) {
-            ASSERT_EQ(zeGraphDDITableExt->pfnSetArgumentValue(graphHandle, argIndex++, ptr),
-                      ZE_RESULT_SUCCESS);
-        }
-        for (const auto &ptr : graphOutput) {
-            ASSERT_EQ(zeGraphDDITableExt->pfnSetArgumentValue(graphHandle, argIndex++, ptr),
-                      ZE_RESULT_SUCCESS);
-        }
+    for (size_t i = 0; i < imageClassIndexes.size(); i++) {
+        graph->loadInputData(testImages[i]);
 
         ASSERT_EQ(zeGraphDDITableExt
-                      ->pfnAppendGraphExecute(list, graphHandle, nullptr, nullptr, 0, nullptr),
+                      ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),
                   ZE_RESULT_SUCCESS);
         ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
         ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
         ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-        ASSERT_TRUE(checkOutputDataset(graphOutput.at(0),
-                                       graphOutputSize.at(0),
-                                       imageClass[imageIndex],
-                                       true));
-        memset(graphOutput.at(0), 0, graphOutputSize.at(0));
+        graph->checkResults(imageClassIndexes[i]);
+        graph->clearOutput();
+
+        ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
+    }
+}
+
+class CompilerInDriverBmpWithPrimeBuffers : public CompilerInDriverLongBmp {
+  public:
+    void SetUp() override {
+        if (!primeHelper.hasDMABufferSupport())
+            GTEST_SKIP() << "Missed support or insufficient permissions for"
+                         << " dma buffer allocation in the system. Skip test";
+        CompilerInDriverLongT::SetUp();
+
+        const YAML::Node node = GetParam();
+
+        ASSERT_GT(node["path"].as<std::string>().size(), 0);
+        ASSERT_EQ(node["class_index"].as<std::vector<uint16_t>>().size(),
+                  node["input"].as<std::vector<std::string>>().size());
+
+        graph = Graph::create(zeContext,
+                              zeDevice,
+                              zeGraphDDITableExt,
+                              modelDir + node["path"].as<std::string>(),
+                              node);
+
+        /* Create list of DMA memory buffers outside driver and use it as network inputs */
+
+        ze_device_mem_alloc_desc_t pDeviceMemAllocDesc = {
+            .stype = ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC,
+            .pNext = &primeHelper.externalImportFromFdDesc,
+            .flags = 0,
+            .ordinal = 0};
+        dmaBuffers.resize(graph->inputSize.size(), nullptr);
+        uint32_t argIndex = 0;
+        uint32_t bufferIndex = 0;
+        for (auto &dmaBuffer : dmaBuffers) {
+            size_t size = graph->inputSize[bufferIndex++];
+            ze_result_t ret;
+            int32_t dmaBufferFd = -1;
+            ASSERT_TRUE(primeHelper.createDMABuffer(size, dmaBufferFd));
+            ASSERT_GE(dmaBufferFd, 0);
+            dmaBuffer = primeHelper.mmapDmaBuffer(dmaBufferFd);
+            /* Import buffer as device memory */
+            primeHelper.externalImportFromFdDesc.fd = dmaBufferFd;
+            auto scopedImportedMemory =
+                zeScope::memAllocDevice(zeContext, pDeviceMemAllocDesc, size, 0, zeDevice, ret);
+            ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+            ASSERT_NE(scopedImportedMemory.get(), nullptr);
+            /* Set as input imported buffer, alocated by device alloc from dma file descriptor
+               it should consit image loaded above
+             */
+            graph->setArgumentValue(argIndex++, scopedImportedMemory.get());
+            importedGraphInput.push_back(scopedImportedMemory);
+        }
+
+        graph->allocateOutputArguments(MemType::SHARED_MEMORY);
+
+        imageClassIndexes = node["class_index"].as<std::vector<uint16_t>>();
+
+        for (auto &image : node["input"].as<std::vector<std::string>>()) {
+            testImages.push_back(imageDir + image);
+        }
+    }
+
+    void TearDown() override {
+        importedGraphInput.clear();
+        dmaBuffers.clear();
+        UmdTest::TearDown();
+    }
+    std::vector<void *> dmaBuffers;
+    std::vector<std::shared_ptr<void>> importedGraphInput;
+    PrimeBufferHelper primeHelper;
+};
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilerInDriverBmpWithPrimeBuffers);
+
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    CompilerInDriverBmpWithPrimeBuffers,
+    ::testing::ValuesIn(Environment::getConfiguration("image_classification_imagenet")),
+    [](const testing::TestParamInfo<YAML::Node> &p) { return generateTestNameFromNode(p.param); });
+
+TEST_P(CompilerInDriverBmpWithPrimeBuffers, CompileInitExecuteUsingPrimeBufferInput) {
+    ASSERT_EQ(
+        zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
+        ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
+
+    for (uint32_t i = 0; i < imageClassIndexes.size(); i++) {
+        /* Load image to dma buffer created by mmap dma file descriptor */
+        Image image(testImages[i]);
+        ASSERT_EQ(graph->inputSize.at(0), image.getSizeInBytes());
+        memcpy(dmaBuffers[0], image.getPtr(), image.getSizeInBytes());
+
+        ASSERT_EQ(zeGraphDDITableExt
+                      ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),
+                  ZE_RESULT_SUCCESS);
+        ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+
+        graph->checkResults(imageClassIndexes[i]);
+        graph->clearOutput();
+
         ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
     }
 }
@@ -670,30 +539,18 @@ class CompilerInDriverThreaded : public CompilerInDriverLongT,
 
         const YAML::Node node = GetParam();
 
-        /* Validate configuration */
         ASSERT_GT(node["path"].as<std::string>().size(), 0);
-        ASSERT_GT(node["flags"].as<std::string>().size(), 0);
-        ASSERT_EQ(node["output"].as<std::vector<uint16_t>>().size(),
+        ASSERT_EQ(node["class_index"].as<std::vector<uint16_t>>().size(),
                   node["input"].as<std::vector<std::string>>().size());
 
-        /* Setup */
         threads = node["input"].as<std::vector<std::string>>().size();
         if (node["iterations"].IsDefined())
             iterations = node["iterations"].as<uint32_t>();
         else
             iterations = 1;
 
-        ASSERT_TRUE(
-            getModelFromPath(modelDir + node["path"].as<std::string>(), modelXml, modelBin));
+        imageClassIndexes = node["class_index"].as<std::vector<uint16_t>>();
 
-        buildFlags = getFlagsFromString(node["flags"].as<std::string>());
-
-        createModelData(modelIR, modelXml, modelBin, buildFlags, graphDesc);
-
-        /*Set expected output*/
-        imageClass = node["output"].as<std::vector<uint16_t>>();
-
-        /*Create list of images to load*/
         for (auto &image : node["input"].as<std::vector<std::string>>()) {
             testImages.push_back(imageDir + image);
         }
@@ -701,8 +558,8 @@ class CompilerInDriverThreaded : public CompilerInDriverLongT,
 
     uint32_t threads;
     uint32_t iterations;
-    std::vector<std::string> testImages; // paths to test images
-    std::vector<uint16_t> imageClass;    // expected result
+    std::vector<std::string> testImages;
+    std::vector<uint16_t> imageClassIndexes;
 };
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilerInDriverThreaded);
@@ -714,75 +571,52 @@ INSTANTIATE_TEST_SUITE_P(
     [](const testing::TestParamInfo<YAML::Node> &p) { return generateTestNameFromNode(p.param); });
 
 TEST_P(CompilerInDriverThreaded, ImageClassificationUsingImagenet) {
-    auto runInference = [&](uint16_t imageClass, std::string testImagePath) -> void {
-        ze_result_t ret;
+    auto runInference = [&](uint16_t imageClassIndex, std::string testImagePath) -> void {
+        const YAML::Node node = GetParam();
+
+        ze_result_t ret = ZE_RESULT_SUCCESS;
 
         auto scopedQueue = zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDesc, ret);
         ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+        auto queue = scopedQueue.get();
 
         auto scopedList = zeScope::commandListCreate(zeContext, zeDevice, cmdListDesc, ret);
         ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
         auto list = scopedList.get();
-        zeScope::SharedPtr<ze_graph_handle_t> scopedGraphHandle =
-            zeScope::graphCreate(zeGraphDDITableExt, zeContext, zeDevice, graphDesc, ret);
-        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
 
-        std::vector<uint32_t> graphInputSize, graphOutputSize;
-        getGraphArgumentSize(scopedGraphHandle.get(), graphInputSize, graphOutputSize);
-        ASSERT_NE(graphInputSize.size(), 0);
-        ASSERT_NE(graphOutputSize.size(), 0);
+        std::shared_ptr<Graph> graph = Graph::create(zeContext,
+                                                     zeDevice,
+                                                     zeGraphDDITableExt,
+                                                     modelDir + node["path"].as<std::string>(),
+                                                     node);
 
-        std::vector<void *> in, out;
-        allocListOfMemory(graphInputSize, in, SHARED_MEMORY);
-        allocListOfMemory(graphOutputSize, out, SHARED_MEMORY);
+        graph->allocateArguments(MemType::SHARED_MEMORY);
 
-        ASSERT_TRUE(loadImageData(in.at(0), graphInputSize.at(0), testImagePath));
+        graph->loadInputData(testImagePath);
 
-        ASSERT_EQ(zeGraphDDITableExt->pfnAppendGraphInitialize(list,
-                                                               scopedGraphHandle.get(),
-                                                               nullptr,
-                                                               0,
-                                                               nullptr),
-                  ZE_RESULT_SUCCESS);
+        ASSERT_EQ(
+            zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
+            ZE_RESULT_SUCCESS);
         ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
-        ASSERT_EQ(zeCommandQueueExecuteCommandLists(scopedQueue.get(), 1, &list, nullptr),
-                  ZE_RESULT_SUCCESS);
-        ASSERT_EQ(zeCommandQueueSynchronize(scopedQueue.get(), graphSyncTimeout),
-                  ZE_RESULT_SUCCESS);
+        ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
         ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
 
-        uint32_t argIndex = 0;
-        for (const auto &ptr : in) {
-            ASSERT_EQ(
-                zeGraphDDITableExt->pfnSetArgumentValue(scopedGraphHandle.get(), argIndex++, ptr),
-                ZE_RESULT_SUCCESS);
-        }
-        for (const auto &ptr : out) {
-            ASSERT_EQ(
-                zeGraphDDITableExt->pfnSetArgumentValue(scopedGraphHandle.get(), argIndex++, ptr),
-                ZE_RESULT_SUCCESS);
-        }
-
-        ASSERT_EQ(zeGraphDDITableExt->pfnAppendGraphExecute(list,
-                                                            scopedGraphHandle.get(),
-                                                            nullptr,
-                                                            nullptr,
-                                                            0,
-                                                            nullptr),
+        ASSERT_EQ(zeGraphDDITableExt
+                      ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),
                   ZE_RESULT_SUCCESS);
         ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
 
         for (uint32_t iteration = 0; iteration < iterations; iteration++) {
-            memset(out.at(0), 0, graphOutputSize.at(0));
+            memset(graph->outArgs.at(0), 0, graph->outputSize.at(0));
 
-            ASSERT_EQ(zeCommandQueueExecuteCommandLists(scopedQueue.get(), 1, &list, nullptr),
+            ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr),
                       ZE_RESULT_SUCCESS);
-            ASSERT_EQ(zeCommandQueueSynchronize(scopedQueue.get(), graphSyncTimeout),
-                      ZE_RESULT_SUCCESS);
+            ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-            ASSERT_TRUE(checkOutputDataset(out.at(0), graphOutputSize.at(0), imageClass))
-                << "Failed on iteration: " << iteration;
+            graph->checkResults(imageClassIndex);
+            graph->clearOutput();
         }
         ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
     }; // end of runInference
@@ -790,38 +624,39 @@ TEST_P(CompilerInDriverThreaded, ImageClassificationUsingImagenet) {
     std::vector<std::future<void>> results;
     for (uint32_t i = 0; i < threads; i++)
         results.push_back(
-            std::async(std::launch::async, runInference, imageClass[i], testImages[i]));
+            std::async(std::launch::async, runInference, imageClassIndexes[i], testImages[i]));
 
     for (auto &r : results) {
         r.wait();
     }
 }
 
-class CompilerInDriverMultiinference : public CompilerInDriverThreaded {
+class CompilerInDriverMultiInference : public CompilerInDriverThreaded {
   public:
     struct localInference {
         std::string modelName;
-        ze_graph_desc_t graphDesc = {};
-        std::shared_ptr<_ze_graph_handle_t> scopedGraphHandle;
-        std::vector<uint8_t> modelIR = {};
+        std::shared_ptr<Graph> graph;
+
         uint32_t time;
         uint32_t targetFps;
-        std::vector<std::string> testImages; // paths to test images
-        std::vector<uint16_t> imageClass;    // expected result
+        std::vector<std::string> testImages;     // paths to test images
+        std::vector<uint16_t> imageClassIndexes; // expected result
+        ze_command_queue_priority_t priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL;
+        size_t delayInUs = 0;
     };
+
     std::vector<localInference> testInferences = {};
 
     void SetUp() override {
         CompilerInDriverLongT::SetUp();
 
-        const YAML::Node modelsSet = GetParam();
+        const YAML::Node modelsSet = GetParam()["pipeline"];
 
         if (modelsSet.size() == 0)
             SKIP_("Missing models for testing");
 
         for (auto &model : modelsSet) {
             ASSERT_GT(model["path"].as<std::string>().size(), 0);
-            ASSERT_GT(model["flags"].as<std::string>().size(), 0);
 
             localInference inference;
 
@@ -834,99 +669,101 @@ class CompilerInDriverMultiinference : public CompilerInDriverThreaded {
                 inference.time = model["exec_time_in_secs"].as<uint32_t>();
             else
                 inference.time = 3;
-
-            ASSERT_TRUE(
-                getModelFromPath(modelDir + model["path"].as<std::string>(), modelXml, modelBin));
-            buildFlags = getFlagsFromString(model["flags"].as<std::string>());
-
-            createModelData(inference.modelIR, modelXml, modelBin, buildFlags, inference.graphDesc);
-
             if (model["input"].IsDefined() &&
                 model["input"].as<std::vector<std::string>>().size()) {
                 for (auto &image : model["input"].as<std::vector<std::string>>())
                     inference.testImages.push_back(imageDir + image);
             }
-            if (model["output"].IsDefined() && model["output"].as<std::vector<uint16_t>>().size())
-                inference.imageClass = model["output"].as<std::vector<uint16_t>>();
+            if (model["class_index"].IsDefined() &&
+                model["class_index"].as<std::vector<uint16_t>>().size())
+                inference.imageClassIndexes = model["class_index"].as<std::vector<uint16_t>>();
 
-            ze_result_t ret;
-            inference.scopedGraphHandle = zeScope::graphCreate(zeGraphDDITableExt,
-                                                               zeContext,
-                                                               zeDevice,
-                                                               inference.graphDesc,
-                                                               ret);
-            ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+            if (model["priority"].IsDefined() && model["priority"].as<std::string>().size())
+                inference.priority = toZePriority(model["priority"].as<std::string>());
+
+            if (model["delay_in_us"].IsDefined())
+                inference.delayInUs = model["delay_in_us"].as<size_t>();
+
+            std::shared_ptr<Graph> graph = Graph::create(zeContext,
+                                                         zeDevice,
+                                                         zeGraphDDITableExt,
+                                                         modelDir + model["path"].as<std::string>(),
+                                                         model);
+
+            inference.graph = std::move(graph);
+
             inference.modelName = model["path"].as<std::string>();
             testInferences.push_back(inference);
         }
     }
+
+    ze_command_queue_priority_t toZePriority(const std::string &p) {
+        if (p == "high") {
+            return ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH;
+        } else if (p == "low") {
+            return ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_LOW;
+        } else if (p == "normal") {
+            return ZE_COMMAND_QUEUE_PRIORITY_NORMAL;
+        }
+        throw std::runtime_error("Invalid priority, should be: high, low or normal");
+    }
 };
 
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilerInDriverMultiinference);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilerInDriverMultiInference);
 
 INSTANTIATE_TEST_SUITE_P(,
-                         CompilerInDriverMultiinference,
-                         ::testing::Values(Environment::getConfiguration("multi_inference")),
+                         CompilerInDriverMultiInference,
+                         ::testing::ValuesIn(Environment::getConfiguration("multi_inference")),
                          [](const testing::TestParamInfo<YAML::Node> &p) {
-                             return std::to_string(p.param.size()) + std::string("_Inferences");
+                             return p.param["name"].as<std::string>();
                          });
 
-#define BREAK_ON_FAIL(operResult, retStats)    \
-    {                                          \
-        if (operResult != ZE_RESULT_SUCCESS) { \
-            retStats.status = operResult;      \
-            return retStats;                   \
-        }                                      \
+#define BREAK_ON_FAIL(ret, stats)          \
+    if (ret != ZE_RESULT_SUCCESS) {        \
+        EXPECT_EQ(ret, ZE_RESULT_SUCCESS); \
+        stats.status = ret;                \
+        return stats;                      \
     }
 
-TEST_P(CompilerInDriverMultiinference, ImageClassification) {
+TEST_P(CompilerInDriverMultiInference, Pipeline) {
     struct inferenceStats {
-        std::string model;
         ze_result_t status;
-        uint32_t totalFrames = 0;
-        uint32_t droppedFrames = 0;
+        int totalFrames = 0;
+        int droppedFrames = 0;
         double realFPS = 0;
         double maxExecTimePerFrame;
         double minExecTimePerFrame;
     };
 
     auto runInference =
-        [&](const CompilerInDriverMultiinference::localInference &inference) -> inferenceStats {
-        ze_result_t ret;
+        [&](const CompilerInDriverMultiInference::localInference &inference) -> inferenceStats {
+        ze_result_t ret = ZE_RESULT_SUCCESS;
         inferenceStats stats = {};
 
         stats.status = ZE_RESULT_SUCCESS;
         stats.minExecTimePerFrame = DBL_MAX;
-        stats.model = inference.modelName;
 
-        auto scopedQueue = zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDesc, ret);
+        auto cmdQueueDescInference = cmdQueueDesc;
+        cmdQueueDescInference.priority = inference.priority;
+        auto scopedQueue =
+            zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDescInference, ret);
         BREAK_ON_FAIL(ret, stats);
+        auto queue = scopedQueue.get();
 
         auto scopedList = zeScope::commandListCreate(zeContext, zeDevice, cmdListDesc, ret);
         BREAK_ON_FAIL(ret, stats);
         auto list = scopedList.get();
-        BREAK_ON_FAIL(ret, stats);
 
-        std::vector<uint32_t> inSize, outSize;
-        getGraphArgumentSize(inference.scopedGraphHandle.get(), inSize, outSize);
-        EXPECT_NE(inSize.size(), 0);
-        EXPECT_NE(outSize.size(), 0);
-
-        std::vector<void *> in, out;
-        allocListOfMemory(inSize, in, SHARED_MEMORY);
-        allocListOfMemory(outSize, out, SHARED_MEMORY);
+        inference.graph->allocateArguments(MemType::SHARED_MEMORY);
 
         if (inference.testImages.size()) {
-            EXPECT_TRUE(loadImageData(in.at(0), inSize.at(0), inference.testImages[0]));
+            inference.graph->loadInputData(inference.testImages[0]);
         } else {
-            for (size_t i = 0; i < inSize.size(); ++i) {
-                std::vector<char> inputData;
-                generateRandomData(inputData, inSize[i]);
-                memcpy(in[i], inputData.data(), inSize[i]);
-            }
+            inference.graph->setRandomInput();
         }
+
         ret = zeGraphDDITableExt->pfnAppendGraphInitialize(list,
-                                                           inference.scopedGraphHandle.get(),
+                                                           inference.graph->handle,
                                                            nullptr,
                                                            0,
                                                            nullptr);
@@ -934,31 +771,18 @@ TEST_P(CompilerInDriverMultiinference, ImageClassification) {
 
         ret = zeCommandListClose(list);
         BREAK_ON_FAIL(ret, stats);
-        ret = zeCommandQueueExecuteCommandLists(scopedQueue.get(), 1, &list, nullptr);
+
+        ret = zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr);
         BREAK_ON_FAIL(ret, stats);
 
-        ret = zeCommandQueueSynchronize(scopedQueue.get(), graphSyncTimeout);
+        ret = zeCommandQueueSynchronize(queue, graphSyncTimeout);
         BREAK_ON_FAIL(ret, stats);
 
         ret = zeCommandListReset(list);
         BREAK_ON_FAIL(ret, stats);
 
-        uint32_t argIndex = 0;
-        for (const auto &ptr : in) {
-            ret = zeGraphDDITableExt->pfnSetArgumentValue(inference.scopedGraphHandle.get(),
-                                                          argIndex++,
-                                                          ptr);
-            BREAK_ON_FAIL(ret, stats);
-        }
-        for (const auto &ptr : out) {
-            ret = zeGraphDDITableExt->pfnSetArgumentValue(inference.scopedGraphHandle.get(),
-                                                          argIndex++,
-                                                          ptr);
-            BREAK_ON_FAIL(ret, stats);
-        }
-
         ret = zeGraphDDITableExt->pfnAppendGraphExecute(list,
-                                                        inference.scopedGraphHandle.get(),
+                                                        inference.graph->handle,
                                                         nullptr,
                                                         nullptr,
                                                         0,
@@ -967,6 +791,9 @@ TEST_P(CompilerInDriverMultiinference, ImageClassification) {
 
         ret = zeCommandListClose(list);
         BREAK_ON_FAIL(ret, stats);
+
+        std::this_thread::sleep_for(std::chrono::microseconds(inference.delayInUs));
+
         auto endInferenceTime =
             std::chrono::steady_clock::now() + std::chrono::seconds(inference.time);
         double summaryInferenceTimeMs = 0;
@@ -975,16 +802,16 @@ TEST_P(CompilerInDriverMultiinference, ImageClassification) {
 
         while (std::chrono::steady_clock::now() < endInferenceTime) {
             auto frameBeginIncludingWait = std::chrono::steady_clock::now();
-            if (std::chrono::steady_clock::now() > nextFrameStartPoint)
-                stats.droppedFrames++;
-
             while (std::chrono::steady_clock::now() < nextFrameStartPoint)
                 std::this_thread::yield();
 
             auto frameBegin = std::chrono::steady_clock::now();
-            ret = zeCommandQueueExecuteCommandLists(scopedQueue.get(), 1, &list, nullptr);
+            ret = zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr);
             BREAK_ON_FAIL(ret, stats);
-            ret = zeCommandQueueSynchronize(scopedQueue.get(), graphSyncTimeout);
+
+            ret = zeCommandQueueSynchronize(
+                queue,
+                std::chrono::nanoseconds(std::chrono::seconds(inference.time)).count());
             BREAK_ON_FAIL(ret, stats);
 
             nextFrameStartPoint = frameBegin + frameTargetTimeUs;
@@ -993,7 +820,7 @@ TEST_P(CompilerInDriverMultiinference, ImageClassification) {
                 std::chrono::steady_clock::now() - frameBeginIncludingWait;
             summaryInferenceTimeMs += durationMs.count();
 
-            /* calculate min max frame time*/
+            /* Calculate min max frame time */
             durationMs = std::chrono::steady_clock::now() - frameBegin;
 
             stats.maxExecTimePerFrame = std::max(stats.maxExecTimePerFrame, durationMs.count());
@@ -1001,34 +828,35 @@ TEST_P(CompilerInDriverMultiinference, ImageClassification) {
 
             stats.totalFrames++;
 
-            if (inference.imageClass.size()) {
-                EXPECT_TRUE(checkOutputDataset(out.at(0), outSize.at(0), inference.imageClass[0]))
-                    << "Failed ";
-                memset(out.at(0), 0, outSize.at(0));
+            if (inference.imageClassIndexes.size()) {
+                inference.graph->checkResults(inference.imageClassIndexes[0]);
+                inference.graph->clearOutput();
             }
         }
         stats.realFPS = 1000 * stats.totalFrames / summaryInferenceTimeMs;
+        int targetFrames = inference.targetFps * inference.time;
+        stats.droppedFrames = std::max(targetFrames - stats.totalFrames, 0);
 
         return stats;
     }; // end of runInference
 
     std::vector<std::future<inferenceStats>> results;
-    for (uint32_t i = 0; i < testInferences.size(); i++)
+    for (size_t i = 0; i < testInferences.size(); i++)
         results.push_back(std::async(std::launch::async, runInference, testInferences[i]));
 
-    for (auto &r : results) {
-        r.wait();
-        inferenceStats s = r.get();
+    for (size_t i = 0; i < results.size(); i++) {
+        inferenceStats stats = results[i].get();
+
         PRINTF("----------------------------------------------------\n");
-        PRINTF("Model:                %s \n", s.model.c_str());
-        if (s.status == ZE_RESULT_SUCCESS)
+        PRINTF("Model:                %s \n", testInferences[i].modelName.c_str());
+        if (stats.status == ZE_RESULT_SUCCESS)
             PRINTF("Status:               SUCCESS \n");
         else
-            PRINTF("Status:               FAIL %d \n", s.status);
-        PRINTF("FramesExecuted:       %d \n", s.totalFrames);
-        PRINTF("FramesDropped:        %d \n", s.droppedFrames);
-        PRINTF("CalculatedFPS:        %f \n", s.realFPS);
-        PRINTF("MaxFrameExecTime[ms]: %f \n", s.maxExecTimePerFrame);
-        PRINTF("MinFrameExecTime[ms]: %f \n", s.minExecTimePerFrame);
+            PRINTF("Status:               FAIL (%#x) \n", stats.status);
+        PRINTF("FramesExecuted:       %d \n", stats.totalFrames);
+        PRINTF("FramesDropped:        %d \n", stats.droppedFrames);
+        PRINTF("CalculatedFPS:        %f \n", stats.realFPS);
+        PRINTF("MaxFrameExecTime[ms]: %f \n", stats.maxExecTimePerFrame);
+        PRINTF("MinFrameExecTime[ms]: %f \n", stats.minExecTimePerFrame);
     }
 }

@@ -31,7 +31,12 @@ struct Event : public UmdTest {
     zeScope::SharedPtr<ze_event_pool_handle_t> scopedEventPool = nullptr;
 };
 
+// TODO: Validation layer is disabled when OpenVino is used, test will fail, issue: EISW-101738
+#ifdef UMD_TESTS_USE_OPENVINO
+TEST_F(Event, DISABLED_CreateEventWithInvalidParameters) {
+#else
 TEST_F(Event, CreateEventWithInvalidParameters) {
+#endif
     ze_event_desc_t eventDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC,
                                  nullptr,
                                  0,
@@ -68,7 +73,8 @@ TEST_F(Event, AllocateEventTwiceExpectError) {
     EXPECT_EQ(expectNullptr, nullptr);
 }
 
-TEST_F(Event, DestroyEventWithInvalidParameter) {
+// TODO: Validation layer is disabled. OpenVino issue: EISW-113275
+TEST_F(Event, DISABLED_DestroyEventWithInvalidParameter) {
     EXPECT_EQ(zeEventDestroy(nullptr), ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
 }
 

@@ -31,7 +31,7 @@ Empty configuration causes that Umd.ConfigurationCheck test fails.
 ## Global variables
 Defines directories where models, blobs and pictures are stored that are used by tests
 
-In this section is also defined logging level, accepted values are: QUIET ERROR, WARNING, INFO, VERBOSE
+In this section is also defined logging level, accepted values are: QUIET, ERROR, WARNING, INFO, VERBOSE
 
 Example:
 ```
@@ -44,7 +44,7 @@ image_dir: /opt/user/sample-images/
 
 ## Section "graph\_execution"
 Defines list of compiled blobs used for graph execution tests from groups:
-"CommandGraph\*.\* , GraphInference.\* , GraphNative.\* , InferencePerformance.\*"
+"CommandGraph\*.\*, GraphInference.\*, GraphNative\*.\*, InferencePerformance.\*"
 
 Order of defining blobs is significant, simple tests takes only first blob from this
 section most complex executes all defined.
@@ -84,17 +84,18 @@ graph_metrics:
      name: mobilenet-v2
      in: [ input-0.bin ]
      out: [ exp-output-0.bin ]
-     act_shave_tasks: false
+     metric_groups: [ NOC ]
 ```
 
 
 ## Section "compiler\_in\_driver"
 Defines list of models used to test compiler in driver.
 It is used by tests:
-"CompilerInDriver.\*, CompilerInDriverLong.\*"
+"CompilerInDriver.\*, CompilerInDriverLayers.\*, CompilerInDriverLong.\*, CompilerInDriverWithProfiling.\*"
 There must be specified:
 - **path:** path to model to compile, the generated test name will be the name of model
 - **flags:** compilation flags passed directly to compiler
+- **graph_profiling:** if the flag is set to "false", graph profiling tests are disabled
 
 Example:
 
@@ -104,6 +105,7 @@ compiler_in_driver:
     flags: --inputs_precisions="A:fp16 B:fp16 C:fp16" --inputs_layouts="A:C B:C C:C" --outputs_precisions="Y:fp16" --outputs_layouts="Y:C"
   - path: mobilenet-v2/onnx/FP16-INT8/mobilenet-v2.xml
     flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NHWC" --outputs_precisions="473:fp32" --outputs_layouts="473:NC"
+    graph_profiling: false
 ```
 
 ## Section "image\_classification\_imagenet"
@@ -113,7 +115,7 @@ For each model must be specified:
 - **path:** path to model to compile, the generated test name will be the name of model
 - **flags:** compilation flags passed directly to compiler
 - **input:** images list used as an input for network, "image\_dir" prefix will added to this by default
-- **output:** expected output class for each image
+- **class_index:** expected class index for each image
 - **iterations:** number of iterations for each network
 
 Example:
@@ -122,35 +124,39 @@ image_classification_imagenet:
   - path: resnet-50-pytorch/onnx/FP16-INT8/resnet-50-pytorch.xml
     flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NHWC" --outputs_precisions="495:fp32" --outputs_layouts="495:NC"
     input: [ cat3.bmp, watch.bmp ]
-    output: [ 283, 531 ]
+    class_index: [ 283, 531 ]
     iterations: 100
 ```
 ## Section "multi\_inference"
-This configuration is used by single CompilerInDriverMultiinference.ImageClassification test
+This configuration is used by single CompilerInDriverMultiInference.Pipeline test
 All defined models are compiled and then executed simultanously in separate threads with target fps rate.
-The input and output are optional, when input is not defined the random data is passed to network
+The input and class_index are optional, when input is not defined the random data is passed to network
 
 For each model can be specified:
 - **path:** path to model to compile, the generated test name will be the name of model
 - **flags:** compilation flags passed directly to compiler
 - **input:** optional, images list used as an input for network, "image\_dir" prefix will added to this by default
-- **output:** optional, expected output class for each image
+- **class_index:** optional, expected class index for each image
 - **target\_fps:** target fps rate
 - **exec\_time\_in\_secs:** execution time in seconds
+- **priority:** set command queue priority, available priority levels: high, low, normal
+- **delay_in_us:** wait for specific time before starting the inference
 
 Example:
 ```
 multi_inference:
-  - path: resnet-50-pytorch/onnx/FP16-INT8/resnet-50-pytorch.xml
-    flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NHWC" --outputs_precisions="495:fp32" --outputs_layouts="495:NC"
-    input: [ watch.bmp ]
-    output: [ 531 ]
-    target_fps: 30
-    exec_time_in_secs: 10
-  - path: mobilenet-v2/onnx/FP16-INT8/mobilenet-v2.xml
-    flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NHWC" --outputs_precisions="473:fp32" --outputs_layouts="473:NC"
-    target_fps: 30
-    exec_time_in_secs: 10
+  - name: "ImageClassificationNetworks"
+    pipeline:
+    - path: resnet-50-pytorch/onnx/FP16-INT8/resnet-50-pytorch.xml
+      flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NHWC" --outputs_precisions="495:fp32" --outputs_layouts="495:NC"
+      input: [ watch.bmp ]
+      class_index: [ 531 ]
+      target_fps: 30
+      exec_time_in_secs: 10
+    - path: mobilenet-v2/onnx/FP16-INT8/mobilenet-v2.xml
+      flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NHWC" --outputs_precisions="473:fp32" --outputs_layouts="473:NC"
+      target_fps: 30
+      exec_time_in_secs: 10
 ```
 
 ---

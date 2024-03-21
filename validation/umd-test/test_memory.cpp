@@ -239,7 +239,7 @@ TEST_P(MemoryExecution, ExecuteCopyCommandInMemoryHighRange) {
     EXPECT_EQ(*copySrc, *copyDst) << "Value after copy should be equal";
 }
 
-// TODO: Allow copy from user pointer
+// TODO: Allow copy from user pointer, EISW-19284
 TEST_F(MemoryExecution, DISABLED_CopyingFromUnpinnedHostMemoryShouldBeAllowed) {
     size_t size = 4 * 1024;
 

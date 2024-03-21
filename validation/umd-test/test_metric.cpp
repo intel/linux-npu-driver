@@ -5,9 +5,14 @@
  *
  */
 
-#include "umd_test.h"
+#include "graph_utilities.hpp"
 
 #include <vector>
+
+/*test case definition:
+ * std::tuple<network definition node, metric group name, queryIndex >
+ */
+using metricTestCase_t = std::tuple<YAML::Node, std::string, uint32_t>;
 
 class MetricGroup : public UmdTest {
   public:
@@ -39,7 +44,6 @@ TEST_F(MetricGroup, RetrieveMetricGroupProperties) {
     for (auto &v : properties)
         v.stype = ZET_STRUCTURE_TYPE_METRIC_GROUP_PROPERTIES;
 
-    // Retrieve all metric group properties and compare
     for (uint8_t i = 0; i < metricGroupsCount; i++) {
         EXPECT_EQ(zetMetricGroupGetProperties(metricGroups[i], &properties[i]), ZE_RESULT_SUCCESS);
 
@@ -89,7 +93,6 @@ class Metric : public MetricGroup {
 };
 
 TEST_F(Metric, ValidatePropertiesForMetric) {
-    // Group index 0, first metric
     EXPECT_GT(metricsPropertiesAll[0][0].metricType, 0);
     EXPECT_GT(metricsPropertiesAll[0][0].resultType, 0);
     EXPECT_GE(metricsPropertiesAll[0][0].tierNumber, 0);
@@ -143,21 +146,18 @@ TEST_F(MetricQueryPool, ActivateAndCreateMetricQuery) {
     ASSERT_EQ(zetContextActivateMetricGroups(zeContext, zeDevice, 0u, nullptr), ZE_RESULT_SUCCESS);
 }
 
-struct MetricQueryExecParam {
-    std::string groupName;
-    uint8_t groupIndex;
-    uint8_t queryIndex;
-};
+class MetricQuery : public Metric, public ::testing::WithParamInterface<metricTestCase_t> {
+  public:
+    void SetUp() override { Metric::SetUp(); }
 
-class MetricQuery
-    : public Metric,
-      public ::testing::WithParamInterface<std::tuple<YAML::Node, MetricQueryExecParam>> {
-    void SetUp() override {
-        Metric::SetUp();
-
-        YAML::Node &configuration = Environment::getConfiguration();
-        if (configuration["blob_dir"].IsDefined())
-            blobDir = configuration["blob_dir"].as<std::string>();
+    uint32_t findMetricGroupIndex(std::string groupName) {
+        uint32_t index;
+        for (index = 0; index < groupProperties.size(); index++) {
+            if (groupName == groupProperties[index].name)
+                break;
+        }
+        EXPECT_LT(index, groupProperties.size());
+        return index;
     }
 
     void TearDown() override {
@@ -175,30 +175,32 @@ class MetricQuery
         Metric::TearDown();
     }
 
-  protected:
-    zet_metric_query_pool_desc_t desc = {.stype = ZET_STRUCTURE_TYPE_METRIC_QUERY_POOL_DESC,
-                                         .pNext = nullptr,
-                                         .type = ZET_METRIC_QUERY_POOL_TYPE_PERFORMANCE,
-                                         .count = 2u};
-    zet_metric_query_pool_handle_t pool = nullptr;
-    zet_metric_query_handle_t query = nullptr;
+    /* Functions returns combinations of network and defined
+     * for this network metric groups and queryIndex.
+     */
+    static std::vector<metricTestCase_t>
+    createCasesForMetricsTest(std::vector<uint32_t> &queryIndexes) {
+        std::vector<metricTestCase_t> combinations;
+        try {
+            std::vector<YAML::Node> networkList = Environment::getConfiguration("graph_metrics");
 
-    ze_command_queue_desc_t cmdQueueDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
-                                            .pNext = nullptr,
-                                            .ordinal = 0,
-                                            .index = 0,
-                                            .flags = 0,
-                                            .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
-                                            .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
-    ze_command_list_desc_t cmdListDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
-                                          .pNext = nullptr,
-                                          .commandQueueGroupOrdinal = 0,
-                                          .flags = 0};
-    ze_command_queue_handle_t queue = nullptr;
-    ze_command_list_handle_t list = nullptr;
-    std::string blobDir = "";
+            if (networkList.empty())
+                return combinations;
 
-    void MetricInitialize(uint8_t groupIndex, uint8_t queryIndex) {
+            for (auto &network : networkList)
+                for (auto &groupName : network["metric_groups"].as<std::vector<std::string>>())
+                    for (auto index : queryIndexes)
+                        combinations.push_back({network, groupName, index});
+
+            return combinations;
+        } catch (YAML::Exception &e) {
+            PRINTF("Bad node: Reason: %s\n", e.what());
+            combinations.clear();
+            return combinations;
+        }
+    }
+
+    void MetricInitialize(uint8_t groupIndex, uint8_t queryIndex, uint32_t ordinal) {
         ASSERT_EQ(
             zetContextActivateMetricGroups(zeContext, zeDevice, 1u, &metricGroups[groupIndex]),
             ZE_RESULT_SUCCESS);
@@ -211,7 +213,21 @@ class MetricQuery
         ASSERT_EQ(zetMetricQueryCreate(pool, queryIndex, &query), ZE_RESULT_SUCCESS);
         ASSERT_NE(query, nullptr);
 
-        ze_result_t ret;
+        ze_command_queue_desc_t cmdQueueDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
+                                                .pNext = nullptr,
+                                                .ordinal = 0,
+                                                .index = 0,
+                                                .flags = 0,
+                                                .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
+                                                .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
+        ze_command_list_desc_t cmdListDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
+                                              .pNext = nullptr,
+                                              .commandQueueGroupOrdinal = 0,
+                                              .flags = 0};
+
+        cmdQueueDesc.ordinal = ordinal;
+        cmdListDesc.commandQueueGroupOrdinal = ordinal;
+
         scopedQueue = zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDesc, ret);
         ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
         queue = scopedQueue.get();
@@ -221,28 +237,22 @@ class MetricQuery
         list = scopedList.get();
     }
 
-  private:
+    zet_metric_query_pool_desc_t desc = {.stype = ZET_STRUCTURE_TYPE_METRIC_QUERY_POOL_DESC,
+                                         .pNext = nullptr,
+                                         .type = ZET_METRIC_QUERY_POOL_TYPE_PERFORMANCE,
+                                         .count = 2u};
+    zet_metric_query_pool_handle_t pool = nullptr;
+    zet_metric_query_handle_t query = nullptr;
+    uint8_t testedMetricIndex = 0xff;
+
     zeScope::SharedPtr<ze_command_queue_handle_t> scopedQueue = nullptr;
     zeScope::SharedPtr<ze_command_list_handle_t> scopedList = nullptr;
+    ze_command_queue_handle_t queue = nullptr;
+    ze_command_list_handle_t list = nullptr;
 };
 
 TEST_F(MetricQuery, RunMetricQueryOnEmptyCommandList) {
-    MetricInitialize(0u, 0u);
-
-    EXPECT_EQ(zetCommandListAppendMetricQueryBegin(list, query), ZE_RESULT_SUCCESS);
-
-    EXPECT_EQ(zetCommandListAppendMetricQueryEnd(list, query, nullptr, 0u, nullptr),
-              ZE_RESULT_SUCCESS);
-    EXPECT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
-
-    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandQueueSynchronize(queue, syncTimeout), ZE_RESULT_SUCCESS);
-}
-
-TEST_F(MetricQuery, RunMetricQueryOnEmptyCommandList_CopyEngine) {
-    cmdQueueDesc.ordinal = 1;
-    cmdListDesc.commandQueueGroupOrdinal = 1;
-    MetricInitialize(0u, 0u);
+    MetricInitialize(0u, 0u, computeGrpOrdinal);
 
     EXPECT_EQ(zetCommandListAppendMetricQueryBegin(list, query), ZE_RESULT_SUCCESS);
 
@@ -256,7 +266,7 @@ TEST_F(MetricQuery, RunMetricQueryOnEmptyCommandList_CopyEngine) {
 
 TEST_F(MetricQuery, MetricGroupCalculateEmptyMetricQuery) {
     size_t groupIndex = 1;
-    MetricInitialize(groupIndex, 0);
+    MetricInitialize(groupIndex, 0, computeGrpOrdinal);
 
     size_t queryDataSize = 0u;
     EXPECT_EQ(zetMetricQueryGetData(query, &queryDataSize, nullptr), ZE_RESULT_SUCCESS);
@@ -295,106 +305,56 @@ TEST_F(MetricQuery, MetricGroupCalculateEmptyMetricQuery) {
         EXPECT_EQ(metricValues[i].type, metricsPropertiesAll[groupIndex][i].resultType);
         EXPECT_EQ(metricValues[i].value.ui64, 0llu);
     }
+
+    TRACE_BUF(metricValues.data(), metricValues.size() * sizeof(zet_typed_value_t));
 }
+
+std::vector<uint32_t> queryIndexesComputeEngine = {0, 1};
+
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MetricQuery);
 
 INSTANTIATE_TEST_SUITE_P(
     ,
     MetricQuery,
-    ::testing::Combine(::testing::ValuesIn(Environment::getConfiguration("graph_metrics")),
-                       ::testing::Values(MetricQueryExecParam{"ShaveIL1Cache", 0u, 0u},
-                                         MetricQueryExecParam{"ShaveIL1Cache", 0u, 1u},
-                                         MetricQueryExecParam{"ShaveDL1Cache", 1u, 0u},
-                                         MetricQueryExecParam{"ShaveDL1Cache", 1u, 1u},
-                                         MetricQueryExecParam{"ShaveL2Cache", 2u, 0u},
-                                         MetricQueryExecParam{"ShaveL2Cache", 2u, 1u},
-                                         MetricQueryExecParam{"NOC", 3u, 0u},
-                                         MetricQueryExecParam{"NOC", 3u, 1u})),
-    [](const testing::TestParamInfo<std::tuple<YAML::Node, MetricQueryExecParam>> &info) {
-        auto node = std::get<0>(info.param);
-        auto metricParam = std::get<1>(info.param);
-        std::string postfix = metricParam.groupName;
-        postfix += (metricParam.queryIndex != 0u)
-                       ? "OnIndex" + std::to_string(metricParam.queryIndex)
-                       : "";
-        return generateTestNameFromNode(node) + postfix;
+    ::testing::ValuesIn(MetricQuery::createCasesForMetricsTest(queryIndexesComputeEngine)),
+    [](const testing::TestParamInfo<metricTestCase_t> &p) {
+        auto node = std::get<0>(p.param);
+        auto metricGroupName = std::get<1>(p.param);
+        auto queryIndex = std::get<2>(p.param);
+
+        return generateTestNameFromNode(node) + "_" + metricGroupName + "_OnIndex" +
+               std::to_string(queryIndex);
     });
 
 TEST_P(MetricQuery, GetDataValueCheck) {
-    auto &[node, metricParam] = GetParam();
+    auto &[node, metricGroupName, queryIndex] = GetParam();
+    std::filesystem::path path(node["path"].as<std::string>());
 
-    if (!isSilicon() && metricParam.groupName == "NOC")
-        SKIP_("Feature not supported");
+    std::shared_ptr<Graph> graph =
+        Graph::create(zeContext,
+                      zeDevice,
+                      zeGraphDDITableExt,
+                      path.extension() == ".xml" ? modelDir + node["path"].as<std::string>()
+                                                 : blobDir + node["path"].as<std::string>(),
+                      node);
 
-    std::vector<std::vector<char>> inputBin, outputBin;
-    std::vector<char> vpuBlob, vpuBin;
+    graph->allocateArguments(MemType::SHARED_MEMORY);
 
-    ASSERT_TRUE(getBlobFromPath(blobDir + node["path"].as<std::string>(),
-                                node["in"].as<std::vector<std::string>>(),
-                                node["out"].as<std::vector<std::string>>(),
-                                vpuBlob,
-                                inputBin,
-                                outputBin,
-                                vpuBin));
-    bool checkShaveCounters = false;
-    if (node["act_shave_tasks"].IsDefined())
-        checkShaveCounters = node["act_shave_tasks"].as<bool>();
-
-    MetricInitialize(metricParam.groupIndex, metricParam.queryIndex);
-
-    ze_activation_kernel_desc_t actKernelDesc = {};
-    if (!vpuBin.empty()) {
-        actKernelDesc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_ACTIVATION_KERNEL,
-                         .pNext = nullptr,
-                         .kernelDataSize = vpuBin.size(),
-                         .pKernelData = reinterpret_cast<uint8_t *>(vpuBin.data())};
+    if (path.extension() == ".xml") {
+        graph->setRandomInput();
     }
 
-    const ze_graph_desc_t graphDesc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES,
-                                       .pNext = !vpuBin.empty() ? &actKernelDesc : nullptr,
-                                       .format = ZE_GRAPH_FORMAT_NATIVE,
-                                       .inputSize = vpuBlob.size(),
-                                       .pInput = reinterpret_cast<uint8_t *>(vpuBlob.data()),
-                                       .pBuildFlags = nullptr};
+    uint32_t groupIndex = findMetricGroupIndex(metricGroupName);
 
-    ze_result_t ret;
-    auto scopedGraphHandle =
-        zeScope::graphCreate(zeGraphDDITableExt, zeContext, zeDevice, graphDesc, ret);
-    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
-    auto graphHandle = scopedGraphHandle.get();
-
-    std::vector<std::shared_ptr<void>> mem;
-    std::vector<void *> graphInput, graphOutput;
-    for (const auto &s : inputBin) {
-        mem.push_back(AllocHostMemory(s.size()));
-        graphInput.push_back(mem.back().get());
-    }
-
-    for (const auto &s : outputBin) {
-        mem.push_back(AllocHostMemory(s.size()));
-        graphOutput.push_back(mem.back().get());
-    }
-
-    for (size_t i = 0; i < graphInput.size(); i++) {
-        memcpy(graphInput[i], inputBin[i].data(), inputBin[i].size());
-    }
-
-    uint32_t argIndex = 0;
-    for (const auto &s : graphInput) {
-        ASSERT_EQ(zeGraphDDITableExt->pfnSetArgumentValue(graphHandle, argIndex++, s),
-                  ZE_RESULT_SUCCESS);
-    }
-    for (const auto &s : graphOutput) {
-        ASSERT_EQ(zeGraphDDITableExt->pfnSetArgumentValue(graphHandle, argIndex++, s),
-                  ZE_RESULT_SUCCESS);
-    }
+    MetricInitialize(groupIndex, queryIndex, computeGrpOrdinal);
 
     ASSERT_EQ(zetCommandListAppendMetricQueryBegin(list, query), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeGraphDDITableExt->pfnAppendGraphInitialize(list, graphHandle, nullptr, 0, nullptr),
-              ZE_RESULT_SUCCESS);
     ASSERT_EQ(
-        zeGraphDDITableExt->pfnAppendGraphExecute(list, graphHandle, nullptr, nullptr, 0, nullptr),
+        zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
         ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeGraphDDITableExt
+                  ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),
+              ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandListAppendBarrier(list, nullptr, 0, nullptr), ZE_RESULT_SUCCESS);
 
     ASSERT_EQ(zetCommandListAppendMetricQueryEnd(list, query, nullptr, 0u, nullptr),
@@ -415,48 +375,167 @@ TEST_P(MetricQuery, GetDataValueCheck) {
               ZE_RESULT_SUCCESS);
 
     TRACE_BUF(queryRawData.data(), queryDataSize);
-    if (metricParam.groupName == "NOC" || checkShaveCounters) {
-        // TODO: Temporary WA to 0 value in hit counter
-        if (metricParam.groupName == "ShaveDL1Cache") {
-            ASSERT_GT(queryRawData.size(), 1);
-            EXPECT_TRUE(queryRawData[0] > 0 || queryRawData[1] > 0);
-        } else {
-            EXPECT_GT(queryRawData[0], 0u);
-        }
-    } else {
-        EXPECT_EQ(queryRawData[0], 0u);
-    }
+
+    EXPECT_GT(queryRawData[0], 0u);
 
     uint32_t metricValueCount = 0;
-    EXPECT_EQ(zetMetricGroupCalculateMetricValues(metricGroups[metricParam.groupIndex],
+    EXPECT_EQ(zetMetricGroupCalculateMetricValues(metricGroups[groupIndex],
                                                   ZET_METRIC_GROUP_CALCULATION_TYPE_METRIC_VALUES,
-                                                  queryRawData.size(),
+                                                  queryDataSize,
                                                   reinterpret_cast<uint8_t *>(queryRawData.data()),
                                                   &metricValueCount,
                                                   nullptr),
               ZE_RESULT_SUCCESS);
 
-    EXPECT_EQ(metricValueCount, groupProperties[metricParam.groupIndex].metricCount);
+    EXPECT_EQ(metricValueCount, groupProperties[groupIndex].metricCount);
 
     std::vector<zet_typed_value_t> metricValues(metricValueCount);
-    EXPECT_EQ(zetMetricGroupCalculateMetricValues(metricGroups[metricParam.groupIndex],
+    EXPECT_EQ(zetMetricGroupCalculateMetricValues(metricGroups[groupIndex],
                                                   ZET_METRIC_GROUP_CALCULATION_TYPE_METRIC_VALUES,
-                                                  queryRawData.size(),
+                                                  queryDataSize,
                                                   reinterpret_cast<uint8_t *>(queryRawData.data()),
                                                   &metricValueCount,
                                                   metricValues.data()),
               ZE_RESULT_SUCCESS);
 
-    EXPECT_EQ(metricValues[0].type, metricsPropertiesAll[metricParam.groupIndex][0].resultType);
-    if (metricParam.groupName == "NOC" || checkShaveCounters) {
-        // TODO: Temporary WA to 0 value in hit counter
-        if (metricParam.groupName == "ShaveDL1Cache") {
-            ASSERT_GT(metricValues.size(), 1u);
-            EXPECT_TRUE(metricValues[0].value.ui64 > 0llu || metricValues[1].value.ui64 > 0llu);
-        } else {
-            EXPECT_GT(metricValues[0].value.ui64, 0llu);
-        }
-    } else {
-        EXPECT_EQ(metricValues[0].value.ui64, 0llu);
+    EXPECT_EQ(metricValues[0].type, metricsPropertiesAll[groupIndex][0].resultType);
+
+    EXPECT_GT(metricValues[0].value.ui64, 0llu);
+
+    TRACE_BUF(metricValues.data(), metricValues.size() * sizeof(zet_typed_value_t));
+
+    for (uint32_t i = 0; i < metricValueCount; i++) {
+        TRACE("Metric %lu -> type: %#x, value: %lu\n",
+              static_cast<unsigned long>(i),
+              metricValues[i].type,
+              metricValues[i].value.ui64);
     }
+}
+
+class MetricQueryCopyEngine : public MetricQuery {
+  public:
+    void SetUp() override { Metric::SetUp(); }
+
+    void TearDown() override { MetricQuery::TearDown(); }
+
+    /* Functions returns combinations of network and defined
+     * for this network metric groups and queryIndex.
+     */
+    static std::vector<metricTestCase_t>
+    createCasesForMetricsTest(std::vector<uint32_t> &queryIndexes) {
+        std::vector<metricTestCase_t> combinations;
+        try {
+            std::vector<YAML::Node> network = Environment::getConfiguration("graph_metrics");
+
+            if (network.empty())
+                return combinations;
+
+            for (auto index : queryIndexes)
+                combinations.push_back({network[0], std::string("NOC"), index});
+
+            return combinations;
+        } catch (YAML::Exception &e) {
+            PRINTF("Bad node: Reason: %s\n", e.what());
+            combinations.clear();
+            return combinations;
+        }
+    }
+};
+
+TEST_F(MetricQueryCopyEngine, RunMetricQueryOnEmptyCommandList) {
+    MetricInitialize(0u, 0u, copyGrpOrdinal);
+
+    EXPECT_EQ(zetCommandListAppendMetricQueryBegin(list, query), ZE_RESULT_SUCCESS);
+
+    EXPECT_EQ(zetCommandListAppendMetricQueryEnd(list, query, nullptr, 0u, nullptr),
+              ZE_RESULT_SUCCESS);
+    EXPECT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(queue, syncTimeout), ZE_RESULT_SUCCESS);
+}
+
+std::vector<uint32_t> queryIndexesCopyEngine = {0};
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MetricQueryCopyEngine);
+
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    MetricQueryCopyEngine,
+    ::testing::ValuesIn(MetricQueryCopyEngine::createCasesForMetricsTest(queryIndexesCopyEngine)),
+    [](const testing::TestParamInfo<metricTestCase_t> &p) {
+        auto metricGroupName = std::get<1>(p.param);
+        auto queryIndex = std::get<2>(p.param);
+        return metricGroupName + "_OnIndex" + std::to_string(queryIndex);
+    });
+
+TEST_P(MetricQueryCopyEngine, GetDataValue) {
+    auto &[node, metricGroupName, queryIndex] = GetParam();
+    const size_t allocSize = 2048 * 1024;
+
+    std::shared_ptr<void> srcMem, dstMem;
+    srcMem = AllocSharedMemory(allocSize);
+    dstMem = AllocSharedMemory(allocSize);
+
+    uint32_t groupIndex = findMetricGroupIndex(metricGroupName);
+    MetricInitialize(groupIndex, queryIndex, copyGrpOrdinal);
+
+    ASSERT_EQ(zetCommandListAppendMetricQueryBegin(list, query), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListAppendMemoryCopy(list,
+                                            dstMem.get(),
+                                            srcMem.get(),
+                                            allocSize,
+                                            nullptr,
+                                            0,
+                                            nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListAppendBarrier(list, nullptr, 0, nullptr), ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zetCommandListAppendMetricQueryEnd(list, query, nullptr, 0u, nullptr),
+              ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+
+    size_t queryDataSize = 0u;
+    EXPECT_EQ(zetMetricQueryGetData(query, &queryDataSize, nullptr), ZE_RESULT_SUCCESS);
+    EXPECT_GT(queryDataSize, 0u);
+
+    std::vector<uint64_t> queryRawData(queryDataSize / sizeof(uint64_t), 0u);
+    EXPECT_EQ(zetMetricQueryGetData(query,
+                                    &queryDataSize,
+                                    reinterpret_cast<uint8_t *>(queryRawData.data())),
+              ZE_RESULT_SUCCESS);
+
+    TRACE_BUF(queryRawData.data(), queryDataSize);
+
+    EXPECT_GT(queryRawData[0], 0u);
+
+    uint32_t metricValueCount = 0;
+    EXPECT_EQ(zetMetricGroupCalculateMetricValues(metricGroups[groupIndex],
+                                                  ZET_METRIC_GROUP_CALCULATION_TYPE_METRIC_VALUES,
+                                                  queryDataSize,
+                                                  reinterpret_cast<uint8_t *>(queryRawData.data()),
+                                                  &metricValueCount,
+                                                  nullptr),
+              ZE_RESULT_SUCCESS);
+
+    EXPECT_EQ(metricValueCount, groupProperties[groupIndex].metricCount);
+
+    std::vector<zet_typed_value_t> metricValues(metricValueCount);
+    EXPECT_EQ(zetMetricGroupCalculateMetricValues(metricGroups[groupIndex],
+                                                  ZET_METRIC_GROUP_CALCULATION_TYPE_METRIC_VALUES,
+                                                  queryDataSize,
+                                                  reinterpret_cast<uint8_t *>(queryRawData.data()),
+                                                  &metricValueCount,
+                                                  metricValues.data()),
+              ZE_RESULT_SUCCESS);
+
+    TRACE_BUF(metricValues.data(), metricValues.size() * sizeof(zet_typed_value_t));
+
+    EXPECT_EQ(metricValues[0].type, metricsPropertiesAll[groupIndex][0].resultType);
+
+    EXPECT_GT(metricValues[0].value.ui64, 0llu);
 }
