@@ -24,18 +24,37 @@ namespace VPU {
 class VPUBufferObject {
   public:
     enum class Type {
-        CachedLow = DRM_IVPU_BO_CACHED | DRM_IVPU_BO_MAPPABLE,
-        CachedHigh = DRM_IVPU_BO_CACHED | DRM_IVPU_BO_MAPPABLE | DRM_IVPU_BO_HIGH_MEM,
-        UncachedLow = DRM_IVPU_BO_UNCACHED,
-        UncachedHigh = DRM_IVPU_BO_UNCACHED | DRM_IVPU_BO_HIGH_MEM,
-        WriteCombineLow = DRM_IVPU_BO_WC | DRM_IVPU_BO_MAPPABLE,
-        WriteCombineHigh = DRM_IVPU_BO_WC | DRM_IVPU_BO_MAPPABLE | DRM_IVPU_BO_HIGH_MEM,
+        CachedFw = DRM_IVPU_BO_CACHED | DRM_IVPU_BO_MAPPABLE,
+        CachedShave = DRM_IVPU_BO_CACHED | DRM_IVPU_BO_MAPPABLE | DRM_IVPU_BO_HIGH_MEM,
+        CachedDma = DRM_IVPU_BO_CACHED | DRM_IVPU_BO_MAPPABLE | DRM_IVPU_BO_DMA_MEM,
+        UncachedFw = DRM_IVPU_BO_UNCACHED,
+        UncachedShave = DRM_IVPU_BO_UNCACHED | DRM_IVPU_BO_HIGH_MEM,
+        UncachedDma = DRM_IVPU_BO_UNCACHED | DRM_IVPU_BO_DMA_MEM,
+        WriteCombineFw = DRM_IVPU_BO_WC | DRM_IVPU_BO_MAPPABLE,
+        WriteCombineShave = DRM_IVPU_BO_WC | DRM_IVPU_BO_MAPPABLE | DRM_IVPU_BO_HIGH_MEM,
+        WriteCombineDma = DRM_IVPU_BO_WC | DRM_IVPU_BO_MAPPABLE | DRM_IVPU_BO_DMA_MEM,
+        ImportedMemory = 0,
     };
-
-    enum class Location { Internal, Host, Device, Shared };
+    const uint32_t externalMemMask = 0x8000;
+    enum class Location {
+        Internal = 0x1,
+        Host = 0x2,
+        Device = 0x4,
+        Shared = 0x8,
+        ExternalHost = 0x8002,
+        ExternalDevice = 0x8004,
+        ExternalShared = 0x8008,
+    };
 
     static std::unique_ptr<VPUBufferObject>
     create(const VPUDriverApi &drvApi, Location type, Type range, size_t size);
+
+    /**
+     * @brief Import Buffer from file descriptor
+     *
+     */
+    static std::unique_ptr<VPUBufferObject>
+    importFromFd(const VPUDriverApi &drvApi, Location type, int32_t fd);
 
     VPUBufferObject(const VPUDriverApi &drvApi,
                     Location memoryType,
@@ -60,6 +79,22 @@ class VPUBufferObject {
       Returns current range.
      */
     Type getType() const { return type; }
+
+    void allowDeleteExternalHandle() {
+        switch (location) {
+        case Location::ExternalHost:
+            location = Location::Host;
+            break;
+        case Location::ExternalDevice:
+            location = Location::Device;
+            break;
+        case Location::ExternalShared:
+            location = Location::Shared;
+            break;
+        default:
+            break;
+        }
+    }
 
     /**
        Returns memory size of the buffer object.
@@ -108,6 +143,12 @@ class VPUBufferObject {
        @return true on successful fill, false otherwise.
      */
     bool fillBuffer(const void *pattern, size_t patternSize);
+
+    /**
+     * @brief Export Buffer to file descriptor
+     *
+     */
+    bool exportToFd(int32_t &fd);
 
   private:
     const VPUDriverApi &drvApi;

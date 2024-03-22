@@ -14,11 +14,11 @@
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
-#include <cassert>
+#include <chrono>
 #include <memory>
-#include <map>
-#include <sys/mman.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <thread>
 
 namespace VPU {
 
@@ -28,9 +28,44 @@ VPUDeviceContext::VPUDeviceContext(std::unique_ptr<VPUDriverApi> drvApi, VPUHwIn
     LOG_I("VPUDeviceContext is created");
 }
 
-VPUBufferObject *VPUDeviceContext::createBufferObject(const size_t size,
-                                                      const VPUBufferObject::Type type,
-                                                      const VPUBufferObject::Location loc) {
+VPUBufferObject::Type convertDmaToShaveRange(VPUBufferObject::Type type) {
+    switch (type) {
+    case VPUBufferObject::Type::WriteCombineDma:
+        return VPUBufferObject::Type::WriteCombineShave;
+    case VPUBufferObject::Type::UncachedDma:
+        return VPUBufferObject::Type::UncachedShave;
+    case VPUBufferObject::Type::CachedDma:
+        return VPUBufferObject::Type::CachedShave;
+    default:
+        break;
+    }
+    return type;
+}
+
+VPUBufferObject *VPUDeviceContext::importBufferObject(VPUBufferObject::Location type, int32_t fd) {
+    std::unique_ptr<VPUBufferObject> bo = VPUBufferObject::importFromFd(*drvApi, type, fd);
+    if (bo == nullptr) {
+        LOG_E("Failed to import VPUBufferObject from file descriptor");
+        return nullptr;
+    }
+    void *ptr = bo->getBasePointer();
+
+    const std::lock_guard<std::mutex> lock(mtx);
+    auto [it, success] = trackedBuffers.try_emplace(ptr, std::move(bo));
+    if (!success) {
+        LOG_E("Failed to add buffer object to trackedBuffers");
+        return nullptr;
+    }
+    LOG_I("Buffer object %p successfully imported and added to trackedBuffers", &it->second);
+    return it->second.get();
+}
+
+VPUBufferObject *VPUDeviceContext::createBufferObject(size_t size,
+                                                      VPUBufferObject::Type type,
+                                                      VPUBufferObject::Location loc) {
+    if (!hwInfo->dmaMemoryRangeCapability && (static_cast<uint32_t>(type) & DRM_IVPU_BO_DMA_MEM))
+        type = convertDmaToShaveRange(type);
+
     std::unique_ptr<VPUBufferObject> bo = VPUBufferObject::create(*drvApi, loc, type, size);
     if (bo == nullptr) {
         LOG_E("Failed to create VPUBufferObject");
@@ -65,6 +100,8 @@ bool VPUDeviceContext::freeMemAlloc(void *ptr) {
         LOG_E("Pointer is not tracked or not a based pointer is passed");
         return false;
     }
+
+    bo->allowDeleteExternalHandle();
 
     return freeMemAlloc(bo);
 }
@@ -125,8 +162,8 @@ VPUBufferObject *VPUDeviceContext::createInternalBufferObject(size_t size,
         return nullptr;
     }
 
-    if (!(range == VPUBufferObject::Type::UncachedHigh ||
-          range == VPUBufferObject::Type::UncachedLow)) {
+    if (!(range == VPUBufferObject::Type::UncachedShave ||
+          range == VPUBufferObject::Type::UncachedFw)) {
         memset(bo->getBasePointer(), 0, bo->getAllocSize());
     }
 
@@ -156,18 +193,36 @@ bool VPUDeviceContext::submitCommandBuffer(const VPUCommandBuffer *cmdBuffer) {
     execParam.buffers_ptr = reinterpret_cast<uint64_t>(cmdBuffer->getBufferHandles().data());
     execParam.buffer_count = safe_cast<uint32_t>(cmdBuffer->getBufferHandles().size());
     execParam.engine = cmdBuffer->getEngine();
+    execParam.priority = static_cast<uint32_t>(cmdBuffer->getPriority());
 
-    LOG_I("Buffer type: %s.", cmdBuffer->getName());
-    LOG_I("Exec engine: %u, flags: %u, commands_offset: %u, buffer_count: %u, buffers_ptr: %#llx",
+    LOG_I("Submit buffer type: %s.", cmdBuffer->getName());
+    LOG_I("Submit params -> engine: %u, flags: %u, offset: %u, count: %u, ptr: %#llx, prior: %u",
           execParam.engine,
           execParam.flags,
           execParam.commands_offset,
           execParam.buffer_count,
-          execParam.buffers_ptr);
+          execParam.buffers_ptr,
+          execParam.priority);
 
-    if (drvApi->submitCommandBuffer(&execParam) < 0) {
-        LOG_E("Failed to submit %s command buffer: %p", cmdBuffer->getName(), cmdBuffer);
-        return false;
+    constexpr auto pollTime = std::chrono::seconds(2);
+    const auto timeoutPoint = std::chrono::steady_clock::now() + pollTime;
+    while (drvApi->submitCommandBuffer(&execParam) < 0) {
+        /*
+         * SUBMIT ioctl returns EBUSY if command queue is full. Driver should wait till firmware
+         * completes a job and make a space for new job in queue. Polling time is set to 2 seconds
+         * to match with TDR timeout.
+         */
+        if (errno != EBUSY) {
+            LOG_E("Failed to submit %s command buffer: %p", cmdBuffer->getName(), cmdBuffer);
+            return false;
+        }
+
+        if (std::chrono::steady_clock::now() > timeoutPoint) {
+            LOG_E("Timed out waiting for driver to submit a job");
+            return false;
+        }
+
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
     return true;
 }
@@ -216,14 +271,12 @@ void VPUDeviceContext::printCopyDescriptor(void *desc, vpu_cmd_header_t *cmd) {
 }
 
 bool VPUDeviceContext::getUniqueInferenceId(uint64_t &inferenceId) {
-    struct drm_ivpu_param deviceParameter = {};
-    deviceParameter.param = DRM_IVPU_PARAM_UNIQUE_INFERENCE_ID;
-    if (drvApi->getDeviceParam(&deviceParameter)) {
-        LOG_E("Failed to get inference ID");
+    try {
+        inferenceId = drvApi->getDeviceParam(DRM_IVPU_PARAM_UNIQUE_INFERENCE_ID);
+    } catch (const std::exception &err) {
+        LOG_E("Failed to get unique inference id, error: %s", err.what());
         return false;
     }
-
-    inferenceId = deviceParameter.value;
     return true;
 }
 

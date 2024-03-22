@@ -138,14 +138,14 @@ TEST_F(DeviceContextTest, freeDeviceMemoryUsingNonBasePointerExpectFail) {
 }
 
 TEST_F(DeviceContextTest, createAndFreeDeviceMemoryInHighRangeExpectSuccess) {
-    auto ptr = ctx->createSharedMemAlloc(allocSize, VPUBufferObject::Type::CachedHigh);
+    auto ptr = ctx->createSharedMemAlloc(allocSize, VPUBufferObject::Type::CachedShave);
     EXPECT_NE(nullptr, ptr);
     EXPECT_EQ(1u, ctx->getBuffersCount());
     EXPECT_TRUE(ctx->freeMemAlloc(ptr));
 }
 
 TEST_F(DeviceContextTest, createAndFreeHostMemoryInHighRangeExpectSuccess) {
-    auto ptr = ctx->createHostMemAlloc(allocSize, VPUBufferObject::Type::CachedHigh);
+    auto ptr = ctx->createHostMemAlloc(allocSize, VPUBufferObject::Type::CachedShave);
     EXPECT_NE(nullptr, ptr);
     EXPECT_EQ(1u, ctx->getBuffersCount());
     EXPECT_TRUE(ctx->freeMemAlloc(ptr));
@@ -289,7 +289,7 @@ TEST_F(DeviceContextTest,
     ASSERT_NE(commands.back(), nullptr);
     EXPECT_EQ(commands.size(), 4u);
 
-    auto descBuffer = ctx->createInternalBufferObject(allocSize, VPUBufferObject::Type::CachedLow);
+    auto descBuffer = ctx->createInternalBufferObject(allocSize, VPUBufferObject::Type::CachedFw);
     ASSERT_NE(descBuffer, nullptr);
 
     checkOffsets(commands, descBuffer);
@@ -328,7 +328,7 @@ TEST_F(DeviceContextTest, createTimestampAndCopyCommandListToCheckCommandsOffset
     EXPECT_EQ(commands.size(), 3u);
 
     // replicating functionality from commandqueueExecuteCommandLists
-    auto descBuffer = ctx->createInternalBufferObject(allocSize, VPUBufferObject::Type::CachedLow);
+    auto descBuffer = ctx->createInternalBufferObject(allocSize, VPUBufferObject::Type::CachedFw);
     ASSERT_NE(descBuffer, nullptr);
 
     checkOffsets(commands, descBuffer);
@@ -368,7 +368,7 @@ TEST_F(DeviceContextTest,
     EXPECT_EQ(commands.size(), 2u);
 
     // replicating functionality from commandqueueExecuteCommandLists
-    auto descBuffer = ctx->createInternalBufferObject(allocSize, VPUBufferObject::Type::CachedLow);
+    auto descBuffer = ctx->createInternalBufferObject(allocSize, VPUBufferObject::Type::CachedFw);
     ASSERT_NE(descBuffer, nullptr);
 
     checkOffsets(commands, descBuffer);
@@ -410,7 +410,7 @@ TEST_F(DeviceContextTest, createMemAndAppendCommandListNotInOrderOffsetReturnsCo
     EXPECT_EQ(commands.size(), 3u);
 
     // replicating functionality from commandqueueExecuteCommandLists
-    auto descBuffer = ctx->createInternalBufferObject(allocSize, VPUBufferObject::Type::CachedLow);
+    auto descBuffer = ctx->createInternalBufferObject(allocSize, VPUBufferObject::Type::CachedFw);
     ASSERT_NE(descBuffer, nullptr);
 
     checkOffsets(commands, descBuffer);
@@ -465,7 +465,7 @@ TEST_F(DeviceContextTest, createMemAndAppendLargeCommandListOffsetReturnsCorrect
     EXPECT_EQ(commands.size(), 7u);
 
     // replicating functionality from commandqueueExecuteCommandLists
-    auto descBuffer = ctx->createInternalBufferObject(allocSize, VPUBufferObject::Type::CachedLow);
+    auto descBuffer = ctx->createInternalBufferObject(allocSize, VPUBufferObject::Type::CachedFw);
     ASSERT_NE(descBuffer, nullptr);
 
     checkOffsets(commands, descBuffer);
@@ -570,7 +570,7 @@ TEST_F(DeviceContextTest, createGraphCommandOffsetsReturnsCorrectly) {
 
     EXPECT_EQ(commands.size(), 8u);
 
-    auto descBuffer = ctx->createInternalBufferObject(allocSize, VPUBufferObject::Type::CachedLow);
+    auto descBuffer = ctx->createInternalBufferObject(allocSize, VPUBufferObject::Type::CachedFw);
     ASSERT_NE(descBuffer, nullptr);
 
     checkOffsets(commands, descBuffer);

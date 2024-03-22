@@ -5,12 +5,11 @@
  *
  */
 
-#include "model_params.hpp"
-#include "umd_test.h"
+#include "graph_utilities.hpp"
 
 #include <climits>
 
-class GraphNative : public UmdTest {
+class GraphNativeBase : public UmdTest {
   public:
     void SetUp() override {
         UmdTest::SetUp();
@@ -18,10 +17,6 @@ class GraphNative : public UmdTest {
         if (!Environment::getConfiguration("graph_execution").size())
             GTEST_SKIP() << "Do not find blobs to execute test";
 
-        std::string blobDir = "";
-        YAML::Node &configuration = Environment::getConfiguration();
-        if (configuration["blob_dir"].IsDefined())
-            blobDir = configuration["blob_dir"].as<std::string>();
         /* Tests from this group will be run on first blob taken from configuration */
         const YAML::Node node = Environment::getConfiguration("graph_execution")[0];
 
@@ -39,78 +34,88 @@ class GraphNative : public UmdTest {
                                     vpuBin));
     }
 
-    ze_graph_desc_t graphDesc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES,
-                                 .pNext = nullptr,
-                                 .format = ZE_GRAPH_FORMAT_NATIVE,
-                                 .inputSize = 0,
-                                 .pInput = nullptr,
-                                 .pBuildFlags = nullptr};
+    void TearDown() override { UmdTest::TearDown(); }
+
+    ze_graph_desc_2_t graphDesc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES,
+                                   .pNext = nullptr,
+                                   .format = ZE_GRAPH_FORMAT_NATIVE,
+                                   .inputSize = 0,
+                                   .pInput = nullptr,
+                                   .pBuildFlags = nullptr,
+                                   .flags = ZE_GRAPH_FLAG_NONE};
 
     ze_graph_handle_t graphHandle = nullptr;
-    ze_result_t ret;
+    ze_result_t ret = ZE_RESULT_SUCCESS;
     size_t size = 0;
 
     std::vector<std::vector<char>> inputBin, outputBin;
     std::vector<char> vpuBlob, vpuBin;
 };
 
-TEST_F(GraphNative, CreatingGraphWithNullptrInputGraph) {
+TEST_F(GraphNativeBase, CreatingGraphWithNullptrInputGraph) {
     graphDesc.inputSize = vpuBlob.size();
     graphDesc.pInput = nullptr;
-    EXPECT_EQ(zeGraphDDITableExt->pfnCreate(zeContext, zeDevice, &graphDesc, &graphHandle),
+    EXPECT_EQ(zeGraphDDITableExt->pfnCreate2(zeContext, zeDevice, &graphDesc, &graphHandle),
               ZE_RESULT_ERROR_INVALID_NULL_POINTER);
 }
 
-TEST_F(GraphNative, CreatingGraphWithNullPtrDesc) {
-    const ze_graph_desc_t *graphDesc = nullptr;
-    EXPECT_EQ(zeGraphDDITableExt->pfnCreate(zeContext, zeDevice, graphDesc, &graphHandle),
+TEST_F(GraphNativeBase, CreatingGraphWithNullPtrDesc) {
+    const ze_graph_desc_2_t *graphDesc = nullptr;
+    EXPECT_EQ(zeGraphDDITableExt->pfnCreate2(zeContext, zeDevice, graphDesc, &graphHandle),
               ZE_RESULT_ERROR_INVALID_NULL_POINTER);
 }
 
-TEST_F(GraphNative, CreatingGraphCorrectBlobFileAndDesc) {
-    graphDesc.inputSize = vpuBlob.size();
-    graphDesc.pInput = reinterpret_cast<uint8_t *>(vpuBlob.data());
-    auto scopedGraphHandle =
-        zeScope::graphCreate(zeGraphDDITableExt, zeContext, zeDevice, graphDesc, ret);
-    EXPECT_EQ(ret, ZE_RESULT_SUCCESS);
-}
-
-TEST_F(GraphNative, GetGraphNativeBinaryWithoutGraphNativeBinaryPointerExpectSuccess) {
-    graphDesc.inputSize = vpuBlob.size();
-    graphDesc.pInput = reinterpret_cast<uint8_t *>(vpuBlob.data());
-    auto scopedGraphHandle =
-        zeScope::graphCreate(zeGraphDDITableExt, zeContext, zeDevice, graphDesc, ret);
-    EXPECT_EQ(ret, ZE_RESULT_SUCCESS);
-    graphHandle = scopedGraphHandle.get();
-    EXPECT_EQ(zeGraphDDITableExt->pfnGetNativeBinary(graphHandle, &size, nullptr),
-              ZE_RESULT_SUCCESS);
-    EXPECT_EQ(size, vpuBlob.size());
-}
-
-TEST_F(GraphNative, GetGraphNativeBinaryWithAndWithoutGraphNativeBinaryPointerExpectSuccess) {
-    std::vector<uint8_t> graphNativeBinary;
-    graphDesc.inputSize = vpuBlob.size();
-    graphDesc.pInput = reinterpret_cast<uint8_t *>(vpuBlob.data());
-    auto scopedGraphHandle =
-        zeScope::graphCreate(zeGraphDDITableExt, zeContext, zeDevice, graphDesc, ret);
-    EXPECT_EQ(ret, ZE_RESULT_SUCCESS);
-    graphHandle = scopedGraphHandle.get();
-
-    EXPECT_EQ(zeGraphDDITableExt->pfnGetNativeBinary(graphHandle, &size, nullptr),
-              ZE_RESULT_SUCCESS);
-    EXPECT_EQ(size, vpuBlob.size());
-    graphNativeBinary.resize(size, 0xAA);
-
-    EXPECT_EQ(zeGraphDDITableExt->pfnGetNativeBinary(graphHandle, &size, graphNativeBinary.data()),
-              ZE_RESULT_SUCCESS);
-    EXPECT_EQ(size, vpuBlob.size());
-    EXPECT_EQ(memcmp(graphNativeBinary.data(), vpuBlob.data(), vpuBlob.size()), 0);
-}
-
-TEST_F(GraphNative, GetProfilingDataPropertiesExpectSuccess) {
+TEST_F(GraphNativeBase, GetProfilingDataPropertiesExpectSuccess) {
     ze_device_profiling_data_properties_t pDeviceProfilingDataProperties;
     EXPECT_EQ(zeGraphProfilingDDITableExt->pfnDeviceGetProfilingDataProperties(
                   zeDevice,
                   &pDeviceProfilingDataProperties),
               ZE_RESULT_SUCCESS);
+}
+
+class GraphNativeBinary : public UmdTest {
+  public:
+    void SetUp() override {
+        UmdTest::SetUp();
+
+        if (!Environment::getConfiguration("graph_execution").size())
+            GTEST_SKIP() << "Do not find blobs to execute test";
+
+        /* CommandGraph test will be run on first blob taken from configuration */
+        const YAML::Node node = Environment::getConfiguration("graph_execution")[0];
+
+        /* Validate configuration */
+        ASSERT_GT(node["path"].as<std::string>().size(), 0);
+
+        graph = Graph::create(zeContext,
+                              zeDevice,
+                              zeGraphDDITableExt,
+                              blobDir + node["path"].as<std::string>(),
+                              node);
+    }
+
+    void TearDown() override { UmdTest::TearDown(); }
+
+    size_t size = 0;
+    std::shared_ptr<Graph> graph;
+};
+
+TEST_F(GraphNativeBinary, GetGraphNativeBinaryWithoutGraphNativeBinaryPointerExpectSuccess) {
+    EXPECT_EQ(zeGraphDDITableExt->pfnGetNativeBinary(graph->handle, &size, nullptr),
+              ZE_RESULT_SUCCESS);
+    EXPECT_EQ(size, graph->vpuBlob.size());
+}
+
+TEST_F(GraphNativeBinary, GetGraphNativeBinaryWithAndWithoutGraphNativeBinaryPointerExpectSuccess) {
+    std::vector<uint8_t> graphNativeBinary;
+    EXPECT_EQ(zeGraphDDITableExt->pfnGetNativeBinary(graph->handle, &size, nullptr),
+              ZE_RESULT_SUCCESS);
+    EXPECT_EQ(size, graph->vpuBlob.size());
+    graphNativeBinary.resize(size, 0xAA);
+
+    EXPECT_EQ(
+        zeGraphDDITableExt->pfnGetNativeBinary(graph->handle, &size, graphNativeBinary.data()),
+        ZE_RESULT_SUCCESS);
+
+    EXPECT_EQ(memcmp(graphNativeBinary.data(), graph->vpuBlob.data(), graph->vpuBlob.size()), 0);
 }

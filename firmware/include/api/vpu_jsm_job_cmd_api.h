@@ -25,7 +25,7 @@
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
  */
-#define VPU_JSM_JOB_CMD_API_VER_PATCH 1
+#define VPU_JSM_JOB_CMD_API_VER_PATCH 4
 
 /*
  * Index in the API version table
@@ -33,8 +33,11 @@
  */
 #define VPU_JSM_JOB_CMD_API_VER_INDEX 3
 
-/** Pack the API structures for now, once alignment issues are fixed this can be removed */
-#pragma pack(push, 1)
+/*
+ * Pack the API structures to enforce binary compatibility
+ * Align to 8 bytes for optimal performance
+ */
+#pragma pack(push, 8)
 
 /** Maximum number of descriptors in a copy command. */
 #define VPU_CMD_COPY_DESC_COUNT_MAX 4096
@@ -145,6 +148,19 @@ typedef struct vpu_cmd_resource_descriptor_table {
 /**
  * @brief Copy command descriptor on VPU 37xx
  * Note VPU 37xx does not have a LOCAL memory
+ *
+ * NOTE: Due to the presence of optional fields
+ * unused in copy commands context, this copy
+ * descriptor is 64B in size but DMA HW will in
+ * practice read 80B of data each time it fetches
+ * a given descriptor. The extra 16B are discarded
+ * as soon as the DMA HW understands the optional
+ * fields are unused so this does not prevent
+ * allocating contiguous 64B descriptors. But this
+ * means that UMD must ensure there is always an
+ * extra 16B of memory accessible to the DMA HW
+ * immediately after the memory allocated for any
+ * descriptor.
  *
  * @see VPU_CMD_COPY_SYSTEM_TO_SYSTEM
  */
@@ -345,7 +361,7 @@ typedef struct vpu_cmd_timestamp {
     uint32_t reserved_0;
     /**
      * Timestamp address
-     * NOTE: Address must be aligned on a 64B boundary to allow proper handling of
+     * NOTE: (MTL) - Address must be aligned on a 64B boundary to allow proper handling of
      * VPU cache operations.
      */
     uint64_t timestamp_address;

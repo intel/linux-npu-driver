@@ -131,6 +131,8 @@ ze_result_t MetricGroup::calculateMetricValues(zet_metric_group_calculation_type
                                                const uint8_t *pRawData,
                                                uint32_t *pMetricValueCount,
                                                zet_typed_value_t *pMetricValues) {
+    ze_result_t result = ZE_RESULT_SUCCESS;
+
     if (pRawData == nullptr) {
         LOG_E("Invalid pRawData pointer.");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
@@ -146,38 +148,43 @@ ze_result_t MetricGroup::calculateMetricValues(zet_metric_group_calculation_type
         return ZE_RESULT_ERROR_INVALID_ENUMERATION;
     }
 
-    uint32_t metricSize = safe_cast<uint32_t>(metrics.size());
-    if (*pMetricValueCount == 0) {
-        *pMetricValueCount = metricSize;
-        return ZE_RESULT_SUCCESS;
-    } else if (*pMetricValueCount > metricSize) {
-        *pMetricValueCount = metricSize;
+    switch (type) {
+    case ZET_METRIC_GROUP_CALCULATION_TYPE_METRIC_VALUES:
+        result = calculateMetricValues(rawDataSize, pRawData, pMetricValueCount, pMetricValues);
+        break;
+    case ZET_METRIC_GROUP_CALCULATION_TYPE_MAX_METRIC_VALUES:
+        result = calculateMaxMetricValues(rawDataSize, pRawData, pMetricValueCount, pMetricValues);
+        break;
+    default:
+        result = ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    if (pMetricValues != nullptr) {
-        if (type == ZET_METRIC_GROUP_CALCULATION_TYPE_MAX_METRIC_VALUES) {
-            if (*pMetricValueCount != metrics.size()) {
-                LOG_E("Invalid pMetricValueCount.");
-                return ZE_RESULT_ERROR_INVALID_SIZE;
-            }
-            calculateMaxMetricValues(pRawData, pMetricValueCount, pMetricValues);
-        } else {
-            calculateMetricValues(pRawData, pMetricValueCount, pMetricValues);
-        }
-    } else {
-        LOG_I("Input pMetricValues pointer is NULL.");
-    }
-
-    return ZE_RESULT_SUCCESS;
+    return result;
 }
 
-void MetricGroup::calculateMetricValues(const uint8_t *pRawData,
-                                        uint32_t *pMetricValueCount,
-                                        zet_typed_value_t *pMetricValues) {
+ze_result_t MetricGroup::calculateMetricValues(size_t rawDataSize,
+                                               const uint8_t *pRawData,
+                                               uint32_t *pMetricValueCount,
+                                               zet_typed_value_t *pMetricValues) {
+    size_t sampleCount = rawDataSize / allocationSize;
+
+    uint32_t metricCount = safe_cast<uint32_t>(metrics.size());
+
+    size_t metricValueCount = sampleCount * metricCount;
+
+    if (*pMetricValueCount == 0) {
+        *pMetricValueCount = static_cast<uint32_t>(metricValueCount);
+        return ZE_RESULT_SUCCESS;
+    }
+
+    *pMetricValueCount = std::min(*pMetricValueCount, static_cast<uint32_t>(metricValueCount));
+
     for (uint32_t i = 0; i < *pMetricValueCount; i++) {
-        zet_metric_properties_t properties;
-        metrics[i]->getProperties(&properties);
+        zet_metric_properties_t properties = {};
+        metrics[i % metricCount]->getProperties(&properties);
+
         pMetricValues[i].type = properties.resultType;
+
         auto rawData = const_cast<uint8_t *>(pRawData);
 
         switch (properties.resultType) {
@@ -202,44 +209,66 @@ void MetricGroup::calculateMetricValues(const uint8_t *pRawData,
 
         pRawData += allocationSize / metrics.size();
     }
+
+    return ZE_RESULT_SUCCESS;
 }
 
-void MetricGroup::calculateMaxMetricValues(const uint8_t *pRawData,
-                                           uint32_t *pMetricValueCount,
-                                           zet_typed_value_t *pMetricValues) {
-    std::vector<zet_typed_value_t> metricValues(*pMetricValueCount);
-    calculateMetricValues(pRawData, pMetricValueCount, metricValues.data());
+ze_result_t MetricGroup::calculateMaxMetricValues(size_t rawDataSize,
+                                                  const uint8_t *pRawData,
+                                                  uint32_t *pMetricValueCount,
+                                                  zet_typed_value_t *pMetricValues) {
+    uint32_t metricCount = safe_cast<uint32_t>(metrics.size());
 
-    for (uint8_t i = 0; i < *pMetricValueCount; i++) {
-        zet_metric_properties_t properties;
-        metrics[i]->getProperties(&properties);
-        pMetricValues[i].type = properties.resultType;
+    if (*pMetricValueCount == 0) {
+        *pMetricValueCount = metricCount;
+        return ZE_RESULT_SUCCESS;
+    }
+
+    if (*pMetricValueCount != metricCount) {
+        LOG_E(
+            "The *pMetricValueCount should be equal to the number of metrics from a given group.");
+        return ZE_RESULT_ERROR_INVALID_SIZE;
+    }
+
+    uint32_t count = 0;
+    calculateMetricValues(rawDataSize, pRawData, &count, nullptr);
+
+    std::vector<zet_typed_value_t> metricValues(count);
+    calculateMetricValues(rawDataSize, pRawData, &count, metricValues.data());
+
+    for (uint8_t i = 0; i < count; i++) {
+        zet_metric_properties_t properties = {};
+        metrics[i % metricCount]->getProperties(&properties);
+
+        pMetricValues[i % metricCount].type = properties.resultType;
 
         switch (properties.resultType) {
         case ZET_VALUE_TYPE_UINT32:
-            pMetricValues[i].value.ui32 =
-                std::max(pMetricValues[i].value.ui32, metricValues[i].value.ui32);
+            pMetricValues[i % metricCount].value.ui32 =
+                std::max(pMetricValues[i % metricCount].value.ui32, metricValues[i].value.ui32);
             break;
         case ZET_VALUE_TYPE_UINT64:
-            pMetricValues[i].value.ui64 =
-                std::max(pMetricValues[i].value.ui64, metricValues[i].value.ui64);
+            pMetricValues[i % metricCount].value.ui64 =
+                std::max(pMetricValues[i % metricCount].value.ui64, metricValues[i].value.ui64);
             break;
         case ZET_VALUE_TYPE_FLOAT32:
-            pMetricValues[i].value.fp32 =
-                std::max(pMetricValues[i].value.fp32, metricValues[i].value.fp32);
+            pMetricValues[i % metricCount].value.fp32 =
+                std::max(pMetricValues[i % metricCount].value.fp32, metricValues[i].value.fp32);
             break;
         case ZET_VALUE_TYPE_FLOAT64:
-            pMetricValues[i].value.fp64 =
-                std::max(pMetricValues[i].value.fp64, metricValues[i].value.fp64);
+            pMetricValues[i % metricCount].value.fp64 =
+                std::max(pMetricValues[i % metricCount].value.fp64, metricValues[i].value.fp64);
             break;
         case ZET_VALUE_TYPE_BOOL8:
-            pMetricValues[i].value.b8 =
-                std::max(pMetricValues[i].value.b8, metricValues[i].value.b8);
+            pMetricValues[i % metricCount].value.b8 =
+                std::max(pMetricValues[i % metricCount].value.b8, metricValues[i].value.b8);
             break;
         default:
             break;
         }
     }
+
+    return ZE_RESULT_SUCCESS;
 }
 
 void MetricContext::deactivateMetricGroups(const int vpuFd) {

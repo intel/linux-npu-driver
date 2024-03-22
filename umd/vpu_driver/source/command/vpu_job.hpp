@@ -66,6 +66,11 @@ class VPUJob {
     /* Job is closed, no more append commands is allowed. Job is ready for submission */
     bool isClosed() const { return closed; }
 
+    void setPriority(VPUCommandBuffer::Priority p) {
+        for (auto &c : cmdBuffers)
+            c->setPriority(p);
+    }
+
   private:
     /**
      * @brief Segregate commands into command buffers based on following rules:

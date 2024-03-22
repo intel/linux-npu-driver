@@ -285,7 +285,7 @@ struct VPUEventCommandTest : public VPUCommandTest {
     void SetUp() {
         VPUCommandTest::SetUp();
 
-        eventBuffer = ctx->createInternalBufferObject(4096, VPUBufferObject::Type::CachedLow);
+        eventBuffer = ctx->createInternalBufferObject(4096, VPUBufferObject::Type::CachedFw);
         ASSERT_TRUE(eventBuffer);
 
         cmdBufferHeader.fence_heap_base_address = ctx->getVPULowBaseAddress();
@@ -320,7 +320,7 @@ TEST_F(VPUEventCommandTest, eventWaitCommandsShouldReturnExpectedProperties) {
     EXPECT_EQ(VPU_CMD_FENCE_WAIT, actual->header.type);
     EXPECT_EQ(sizeof(vpu_cmd_fence_t), actual->header.size);
     EXPECT_EQ(0u, actual->offset);
-    EXPECT_EQ(VPUEventCommand::STATE_DEVICE_SIGNAL, actual->value);
+    EXPECT_EQ(VPUEventCommand::STATE_WAIT, actual->value);
 
     // 64bits offsetted event wait command.
     VPUEventCommand::KMDEventDataType *offsetEventHeapPtr = eventHeapPtr + 1;
@@ -332,7 +332,7 @@ TEST_F(VPUEventCommandTest, eventWaitCommandsShouldReturnExpectedProperties) {
     EXPECT_EQ(VPU_CMD_FENCE_WAIT, actual->header.type);
     EXPECT_EQ(sizeof(vpu_cmd_fence_t), actual->header.size);
     EXPECT_EQ(8u, actual->offset);
-    EXPECT_EQ(VPUEventCommand::STATE_DEVICE_SIGNAL, actual->value);
+    EXPECT_EQ(VPUEventCommand::STATE_WAIT, actual->value);
 }
 
 TEST_F(VPUEventCommandTest, eventSignalCommandsShouldReturnExpectedProperties) {

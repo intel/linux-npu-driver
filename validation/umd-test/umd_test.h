@@ -10,9 +10,10 @@
 #include "blob_params.hpp"
 #include "model_params.hpp"
 #include "test_app.h"
-#include "umd_extensions.h"
-#include "ze_scope.hpp"
 #include "testenv.hpp"
+#include "umd_extensions.h"
+#include "ze_memory.hpp"
+#include "ze_scope.hpp"
 
 #include <memory>
 #include <string>
@@ -26,6 +27,16 @@ void PrintTo(const ze_result_t &ze_result, std::ostream *os);
 #define SKIP_(msg)                      \
     if (!test_app::run_skipped_tests) { \
         GTEST_SKIP_(msg);               \
+    }
+
+#define SKIP_PRESILICON(msg) \
+    if (!isSilicon()) {      \
+        SKIP_(msg);          \
+    }
+
+#define SKIP_NO_HWS(msg)       \
+    if (!isHwsModeEnabled()) { \
+        SKIP_(msg);            \
     }
 
 #define KB (1024llu)
@@ -92,6 +103,9 @@ class UmdTest : public ::testing::Test {
 
     static constexpr int PAGE_SIZE = 4096;
 
+    uint32_t computeGrpOrdinal = std::numeric_limits<uint32_t>::max();
+    uint32_t copyGrpOrdinal = std::numeric_limits<uint32_t>::max();
+
   protected:
     void SetUp() override;
     void TearDown() override;
@@ -99,8 +113,14 @@ class UmdTest : public ::testing::Test {
     std::shared_ptr<void> AllocSharedMemory(size_t size, ze_host_mem_alloc_flags_t flagsHost = 0);
     std::shared_ptr<void> AllocDeviceMemory(size_t size);
     std::shared_ptr<void> AllocHostMemory(size_t size, ze_host_mem_alloc_flags_t flagsHost = 0);
+    std::vector<char> getFlagsFromString(std::string flags);
+    void createGraphDescriptorForModel(const std::string &modelPath,
+                                       const std::vector<char> &modelBuildFlags,
+                                       std::vector<uint8_t> &testModelIR,
+                                       ze_graph_desc_2_t &graphDesc);
 
     bool isSilicon();
+    bool isHwsModeEnabled();
 
     /** @brief Handle to the Level Zero API driver object */
     ze_driver_handle_t zeDriver = nullptr;
@@ -116,14 +136,16 @@ class UmdTest : public ::testing::Test {
 
     /** @brief Retrieve command group ordinals for compute and copy engine usage */
     void CommandQueueGroupSetUp();
-    uint32_t computeGrpOrdinal = std::numeric_limits<uint32_t>::max();
-    uint32_t copyGrpOrdinal = std::numeric_limits<uint32_t>::max();
 
     uint16_t pciDevId = 0u;
     uint32_t platformType = 0u;
 
     uint64_t syncTimeout = 2'000'000'000;    // 2 seconds
     uint64_t graphSyncTimeout = syncTimeout; // 2 seconds
+
+    std::string blobDir = "";
+    std::string imageDir = "";
+    std::string modelDir = "";
 
   private:
     zeScope::SharedPtr<ze_context_handle_t> scopedContext;

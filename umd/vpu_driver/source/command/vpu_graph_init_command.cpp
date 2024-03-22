@@ -62,7 +62,7 @@ std::shared_ptr<VPUGraphInitCommand> VPUGraphInitCommand::create(VPUDeviceContex
     }
 
     auto kernelBuffer = ctx->createInternalBufferObject(ctx->getPageAlignedSize(blobSize),
-                                                        VPUBufferObject::Type::WriteCombineLow);
+                                                        VPUBufferObject::Type::WriteCombineFw);
     if (kernelBuffer == nullptr) {
         LOG_E("Failed to allocate kernel heap for graph data.");
         return nullptr;
@@ -76,7 +76,7 @@ std::shared_ptr<VPUGraphInitCommand> VPUGraphInitCommand::create(VPUDeviceContex
     const size_t bufferCount = getBufferCount(metadataSize);
     auto scratchBuffer =
         ctx->createInternalBufferObject(ctx->getPageAlignedSize(scratchSize) * bufferCount,
-                                        VPUBufferObject::Type::WriteCombineHigh);
+                                        VPUBufferObject::Type::WriteCombineShave);
     if (scratchBuffer == nullptr) {
         LOG_E("Failed to allocate memory for scratch pointer!");
         return nullptr;
@@ -84,7 +84,7 @@ std::shared_ptr<VPUGraphInitCommand> VPUGraphInitCommand::create(VPUDeviceContex
 
     auto metadataBuffer =
         ctx->createInternalBufferObject(ctx->getPageAlignedSize(metadataSize) * bufferCount,
-                                        VPUBufferObject::Type::WriteCombineLow);
+                                        VPUBufferObject::Type::WriteCombineFw);
     if (metadataBuffer == nullptr) {
         LOG_E("Failed to allocate memory for metadata pointer!");
         return nullptr;
@@ -93,7 +93,7 @@ std::shared_ptr<VPUGraphInitCommand> VPUGraphInitCommand::create(VPUDeviceContex
     VPUBufferObject *actKernelBuffer = nullptr;
     if (kernelData != nullptr && kernelDataSize != 0) {
         actKernelBuffer = ctx->createInternalBufferObject(ctx->getPageAlignedSize(kernelDataSize),
-                                                          VPUBufferObject::Type::WriteCombineHigh);
+                                                          VPUBufferObject::Type::WriteCombineShave);
         if (actKernelBuffer == nullptr) {
             LOG_E("Failed to allocate kernel data pointer!");
             return nullptr;

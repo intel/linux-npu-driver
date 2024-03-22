@@ -40,8 +40,7 @@ class Vcl {
     Vcl() {
         std::string errorMsg;
         for (auto name : compilerNames) {
-            // TODO: Used RTLD_NODELETE as WA for segfault on dlclose())
-            handle = VclHandle(dlopen(name, RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE), &closeHandle);
+            handle = VclHandle(dlopen(name, RTLD_LAZY | RTLD_LOCAL), &closeHandle);
             if (handle)
                 break;
 

@@ -30,12 +30,7 @@ struct MetricContext;
 struct MetricGroup;
 
 struct Device : _ze_device_handle_t {
-    Device(DriverHandle *driverHandle, VPU::VPUDevice *vpuDevice);
-    ~Device();
-
-    // Block copy constructor and assign operator.
-    Device &operator=(const Device &) = delete;
-    Device(const Device &rhs) = delete;
+    Device(DriverHandle *driverHandle, std::unique_ptr<VPU::VPUDevice> device);
 
     ze_result_t getP2PProperties(ze_device_handle_t hPeerDevice,
                                  ze_device_p2p_properties_t *pP2PProperties);
@@ -70,7 +65,6 @@ struct Device : _ze_device_handle_t {
     static Device *fromHandle(ze_device_handle_t handle) { return static_cast<Device *>(handle); }
     inline ze_device_handle_t toHandle() { return this; }
 
-    static Device *create(DriverHandle *driverHandle, VPU::VPUDevice *vpuDevice);
     static ze_result_t jobStatusToResult(const std::vector<std::shared_ptr<VPU::VPUJob>> &jobs) {
         for (const auto &job : jobs) {
             auto jobStatus = job->getStatus();
@@ -99,14 +93,10 @@ struct Device : _ze_device_handle_t {
 
   private:
     DriverHandle *driverHandle = nullptr;
-    VPU::VPUDevice *vpuDevice = nullptr;
+    std::unique_ptr<VPU::VPUDevice> vpuDevice = nullptr;
 
     std::shared_ptr<MetricContext> metricContext = nullptr;
     bool metricsLoaded = false;
-
-    // According to SAS this could be used for NCE compute tiles in the future
-    uint32_t numSubDevices = 0;
-    std::vector<Device *> subDevices;
 
     const int NS_IN_SEC = 1'000'000'000;
 };

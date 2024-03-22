@@ -20,8 +20,6 @@ class GMockOsInterfaceImp : public OsInterface {
     MOCK_METHOD(int, osiClose, (int), (override));
     MOCK_METHOD(int, osiFcntl, (int, int), (override));
     MOCK_METHOD(int, osiIoctl, (int, unsigned long, void *), (override));
-    MOCK_METHOD(void *, osiAlloc, (size_t), (override));
-    MOCK_METHOD(int, osiFree, (void *), (override));
     MOCK_METHOD(size_t, osiGetSystemPageSize, (), (override));
     MOCK_METHOD(void *,
                 osiMmap,

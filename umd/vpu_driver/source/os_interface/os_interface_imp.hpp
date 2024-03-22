@@ -23,8 +23,6 @@ class OsInterfaceImp : public OsInterface {
     int osiFcntl(int fd, int cmd) override;
     int osiIoctl(int fd, unsigned long request, void *arg) override;
 
-    void *osiAlloc(size_t size) override;
-    int osiFree(void *ptr) override;
     size_t osiGetSystemPageSize() override;
 
     void *osiMmap(void *addr, size_t size, int prot, int flags, int fd, off_t offset) override;

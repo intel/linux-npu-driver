@@ -21,14 +21,17 @@ set(CPACK_GENERATOR DEB)
 set(CPACK_PACKAGE_NAME "intel")
 set(CPACK_PACKAGE_VENDOR "Intel")
 set(CPACK_PACKAGE_CONTACT "Intel Corporation")
-set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION}.${VPU_VERSION})
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION}.${BUILD_NUMBER})
 
 # Create package per component
 set(CPACK_DEB_COMPONENT_INSTALL ON)
 
 # Enable detection of component dependencies
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS_PRIVATE_DIRS ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+list(APPEND SHLIBDEPS_PRIVATE_DIRS ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+list(APPEND SHLIBDEPS_PRIVATE_DIRS ${CMAKE_BINARY_DIR}/_deps/openvino-src/runtime/lib/intel64/)
+list(APPEND SHLIBDEPS_PRIVATE_DIRS ${CMAKE_BINARY_DIR}/_deps/openvino-src/opencv/lib/)
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS_PRIVATE_DIRS ${SHLIBDEPS_PRIVATE_DIRS})
 
 # Component dependencies
 set(CPACK_DEBIAN_VALIDATION-NPU_PACKAGE_DEPENDS "level-zero (>=1.10.0) | intel-level-zero")
@@ -63,5 +66,16 @@ set(CPACK_COMPONENT_LEVEL-ZERO-NPU_DESCRIPTION "Intel(R) Level Zero Driver for N
 Library implements Level Zero API to interract with NPU hardware.")
 set(CPACK_COMPONENT_VALIDATION-NPU_DESCRIPTION "Intel(R) Validation applications for NPU\n\
 Set of application required for testing of Intel(R) Level Zero Driver for NPU hardware.")
+
+set(CPACK_DEBIAN_DEBUGINFO_PACKAGE OFF)
+if(${BUILD_TYPE_LOWER} STREQUAL "release")
+  set(CPACK_DEBIAN_DEBUGINFO_PACKAGE ON)
+
+  if (NOT CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    FILE(WRITE "${CMAKE_BINARY_DIR}/post_package.cmake" "execute_process(COMMAND sh -c \"cp -r ${CMAKE_BINARY_DIR}/_CPack_Packages/Linux/DEB/intel-${CPACK_PACKAGE_VERSION}-Linux/level-zero-npu-dbgsym/usr/lib ${CMAKE_INSTALL_PREFIX}/\") \n")
+    FILE(APPEND "${CMAKE_BINARY_DIR}/post_package.cmake" "execute_process(COMMAND sh -c \"cp -r ${CMAKE_BINARY_DIR}/_CPack_Packages/Linux/DEB/intel-${CPACK_PACKAGE_VERSION}-Linux/level-zero-npu/usr/lib ${CMAKE_INSTALL_PREFIX}/\") \n")
+    LIST(APPEND CPACK_POST_BUILD_SCRIPTS "${CMAKE_BINARY_DIR}/post_package.cmake")
+  endif()
+endif()
 
 include(CPack)

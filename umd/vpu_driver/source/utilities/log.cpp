@@ -63,16 +63,16 @@ void setLogLevel(LogLevel level) {
     LOG_W("Invalid log level(%d) keeping current level(%d)\n", level, curLogLevel);
 }
 
-void setLogLevel(std::string_view &str) {
-    if (str == "QUIET") {
+void setLogLevel(std::string_view str) {
+    if (str == "QUIET" || str == "quiet") {
         setLogLevel(QUIET);
-    } else if (str == "ERROR") {
+    } else if (str == "ERROR" || str == "error") {
         setLogLevel(ERROR);
-    } else if (str == "WARNING") {
+    } else if (str == "WARNING" || str == "warning") {
         setLogLevel(WARNING);
-    } else if (str == "INFO") {
+    } else if (str == "INFO" || str == "info") {
         setLogLevel(INFO);
-    } else if (str == "VERBOSE") {
+    } else if (str == "VERBOSE" || str == "verbose") {
         setLogLevel(VERBOSE);
     }
 }

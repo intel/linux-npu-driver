@@ -6,6 +6,7 @@
  */
 
 #include <errno.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -13,6 +14,7 @@
 #include <api/vpu_jsm_api.h>
 #include <uapi/drm/ivpu_accel.h>
 
+#include "api/vpu_nnrt_api_37xx.h"
 #include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
 
@@ -86,13 +88,18 @@ int MockOsInterfaceImp::osiIoctl(int fd, unsigned long request, void *data) {
             break;
         case DRM_IVPU_PARAM_UNIQUE_INFERENCE_ID:
             args->value = unique_id++;
+            break;
+        case DRM_IVPU_PARAM_FW_API_VERSION:
+            if (args->index == VPU_NNRT_37XX_API_VER_INDEX)
+                args->value = VPU_NNRT_37XX_API_VER;
+            break;
         default:
             break;
         }
     } else if (request == DRM_IOCTL_IVPU_BO_CREATE) {
         if (failNextAlloc) {
             failNextAlloc = false;
-            errno = -ENOMEM;
+            errno = ENOMEM;
             return -1;
         }
 
@@ -106,7 +113,7 @@ int MockOsInterfaceImp::osiIoctl(int fd, unsigned long request, void *data) {
         bool timeout = waitFailed.test(0);
         waitFailed >>= 1;
         if (timeout) {
-            errno = -ETIMEDOUT;
+            errno = ETIMEDOUT;
             return -1;
         }
 
@@ -193,7 +200,11 @@ int MockOsInterfaceImp::osiIoctl(int fd, unsigned long request, void *data) {
     return -1;
 }
 
-void *MockOsInterfaceImp::osiAlloc(size_t size) {
+void *
+MockOsInterfaceImp::osiMmap(void *addr, size_t size, int prot, int flags, int fd, off_t offset) {
+    if (offset == 0)
+        return nullptr;
+
     if (failNextAlloc) {
         failNextAlloc = false;
         return nullptr;
@@ -207,22 +218,10 @@ void *MockOsInterfaceImp::osiAlloc(size_t size) {
     return ptr;
 }
 
-int MockOsInterfaceImp::osiFree(void *ptr) {
-    callCntFree++;
-    free(ptr);
-    return 0;
-}
-
-void *
-MockOsInterfaceImp::osiMmap(void *addr, size_t size, int prot, int flags, int fd, off_t offset) {
-    if (offset == 0)
-        return nullptr;
-
-    return osiAlloc(size);
-}
-
 int MockOsInterfaceImp::osiMunmap(void *addr, size_t size) {
-    return osiFree(addr);
+    callCntFree++;
+    free(addr);
+    return 0;
 }
 
 size_t MockOsInterfaceImp::osiGetSystemPageSize() {

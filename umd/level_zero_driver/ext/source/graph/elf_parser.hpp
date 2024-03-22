@@ -31,7 +31,7 @@ class ElfParser : public IParser {
 
     static bool checkMagic(uint8_t *ptr, size_t size);
     static std::unique_ptr<ElfParser>
-    getElfParser(VPU::VPUDeviceContext *ctx, uint8_t *ptr, size_t size);
+    getElfParser(VPU::VPUDeviceContext *ctx, uint8_t *ptr, size_t size, std::string &logBuffer);
 
     bool getArgumentProperties(std::vector<ze_graph_argument_properties_3_t> &props) const;
     bool getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &args) const;
@@ -59,8 +59,6 @@ class ElfParser : public IParser {
                            std::shared_ptr<elf::HostParsedInference> &execHpi) override;
 
   private:
-    static ze_graph_argument_precision_t getTensorPrecision(elf::DType type);
-
     bool applyInputOutputs(elf::HostParsedInference &hpi,
                            const std::vector<std::pair<const void *, uint32_t>> &inputs,
                            const std::vector<std::pair<const void *, uint32_t>> &outputs,

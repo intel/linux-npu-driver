@@ -136,6 +136,27 @@ inline SharedPtr<ze_graph_handle_t> graphCreate(graph_dditable_ext_t *ddi,
     });
 }
 
+inline SharedPtr<ze_graph_handle_t> graphCreate2(graph_dditable_ext_t *ddi,
+                                                 ze_context_handle_t ctx,
+                                                 ze_device_handle_t dev,
+                                                 const ze_graph_desc_2_t &desc,
+                                                 ze_result_t &ret) {
+    ze_graph_handle_t handle = nullptr;
+
+    if (!ddi) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        return nullptr;
+    }
+
+    ret = ddi->pfnCreate2(ctx, dev, &desc, &handle);
+    if (ret != ZE_RESULT_SUCCESS)
+        return nullptr;
+
+    return SharedPtr<ze_graph_handle_t>(std::move(handle), [ddi](auto x) {
+        EXPECT_EQ(ddi->pfnDestroy(x), ZE_RESULT_SUCCESS);
+    });
+}
+
 inline SharedPtr<ze_fence_handle_t>
 fenceCreate(ze_command_queue_handle_t queue, const ze_fence_desc_t &desc, ze_result_t &ret) {
     ze_fence_handle_t handle = nullptr;

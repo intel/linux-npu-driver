@@ -30,8 +30,6 @@ class OsInterface {
     virtual int osiFcntl(int fd, int cmd) = 0;
     virtual int osiIoctl(int fd, unsigned long request, void *arg) = 0;
 
-    virtual void *osiAlloc(size_t size) = 0;
-    virtual int osiFree(void *ptr) = 0;
     virtual size_t osiGetSystemPageSize() = 0;
 
     virtual void *osiMmap(void *addr, size_t size, int prot, int flags, int fd, off_t offset) = 0;

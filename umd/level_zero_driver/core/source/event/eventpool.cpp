@@ -72,7 +72,7 @@ EventPool::EventPool(Context *pContext, const ze_event_pool_desc_t *desc)
     , events(desc->count) {
     pEventPool =
         ctx->createInternalBufferObject(sizeof(VPU::VPUEventCommand::JsmEventData) * events.size(),
-                                        VPU::VPUBufferObject::Type::CachedLow);
+                                        VPU::VPUBufferObject::Type::CachedFw);
     L0_THROW_WHEN(pEventPool == nullptr,
                   "Failed to allocate buffer object for event pool",
                   ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY);
@@ -117,8 +117,9 @@ ze_result_t EventPool::createEvent(const ze_event_desc_t *desc, ze_event_handle_
                       "Failed to get VPU address from cpu pointer",
                       ZE_RESULT_ERROR_UNKNOWN);
 
-        events[index] =
-            std::make_unique<Event>(eventPtr, vpuAddr, [this, index]() { events[index].reset(); });
+        events[index] = std::make_unique<Event>(ctx, eventPtr, vpuAddr, [this, index]() {
+            events[index].reset();
+        });
         *phEvent = events[index].get();
 
         LOG_I("Event created - %p", *phEvent);

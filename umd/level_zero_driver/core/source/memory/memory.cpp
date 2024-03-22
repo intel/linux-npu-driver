@@ -15,28 +15,17 @@
 
 namespace L0 {
 
-static VPU::VPUBufferObject::Type hostFlagToVPUBufferObjectType(ze_host_mem_alloc_flags_t flag) {
+static VPU::VPUBufferObject::Type flagToVPUBufferObjectType(ze_host_mem_alloc_flags_t flag) {
+    // TODO: Fallback to shave range to fix incorrect address in Dma tasks for kernels (EISW-108894)
     switch (flag) {
     case ZE_HOST_MEM_ALLOC_FLAG_BIAS_CACHED:
-        return VPU::VPUBufferObject::Type::CachedHigh;
+        return VPU::VPUBufferObject::Type::CachedShave;
     case ZE_HOST_MEM_ALLOC_FLAG_BIAS_UNCACHED:
-        return VPU::VPUBufferObject::Type::UncachedHigh;
+        return VPU::VPUBufferObject::Type::UncachedShave;
     case ZE_HOST_MEM_ALLOC_FLAG_BIAS_WRITE_COMBINED:
-        return VPU::VPUBufferObject::Type::WriteCombineHigh;
+        return VPU::VPUBufferObject::Type::WriteCombineShave;
     };
-    return VPU::VPUBufferObject::Type::CachedHigh;
-}
-
-static VPU::VPUBufferObject::Type sharedFlagToVPUBufferObjectType(ze_host_mem_alloc_flags_t flag) {
-    switch (flag) {
-    case ZE_HOST_MEM_ALLOC_FLAG_BIAS_CACHED:
-        return VPU::VPUBufferObject::Type::CachedLow;
-    case ZE_HOST_MEM_ALLOC_FLAG_BIAS_UNCACHED:
-        return VPU::VPUBufferObject::Type::UncachedLow;
-    case ZE_HOST_MEM_ALLOC_FLAG_BIAS_WRITE_COMBINED:
-        return VPU::VPUBufferObject::Type::WriteCombineLow;
-    };
-    return VPU::VPUBufferObject::Type::CachedLow;
+    return VPU::VPUBufferObject::Type::CachedShave;
 }
 
 ze_result_t Context::checkMemInputs(size_t size, size_t alignment, void **ptr) {
@@ -61,16 +50,21 @@ ze_result_t Context::checkMemInputs(size_t size, size_t alignment, void **ptr) {
     return ZE_RESULT_SUCCESS;
 }
 
-ze_result_t
-Context::allocHostMem(ze_host_mem_alloc_flags_t flags, size_t size, size_t alignment, void **ptr) {
+ze_result_t Context::allocHostMem(ze_host_mem_alloc_flags_t flags,
+                                  size_t size,
+                                  size_t alignment,
+                                  void **ptr,
+                                  VPU::VPUBufferObject::Location location) {
     ze_result_t ret = checkMemInputs(size, alignment, ptr);
     if (ret != ZE_RESULT_SUCCESS)
         return ret;
 
-    if (0x7 < flags)
+    if (0x7 < flags || (location != VPU::VPUBufferObject::Location::Host &&
+                        location != VPU::VPUBufferObject::Location::ExternalHost))
         return ZE_RESULT_ERROR_INVALID_ENUMERATION;
 
-    *ptr = ctx->createHostMemAlloc(size, hostFlagToVPUBufferObjectType(flags));
+    *ptr = ctx->createMemAlloc(size, flagToVPUBufferObjectType(flags), location);
+
     if (*ptr == nullptr) {
         LOG_E("Failed to allocate host memory");
         return ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY;
@@ -84,15 +78,18 @@ ze_result_t Context::allocSharedMem(ze_device_handle_t hDevice,
                                     ze_host_mem_alloc_flags_t flagsHost,
                                     size_t size,
                                     size_t alignment,
-                                    void **ptr) {
+                                    void **ptr,
+                                    VPU::VPUBufferObject::Location location) {
     ze_result_t ret = checkMemInputs(size, alignment, ptr);
     if (ret != ZE_RESULT_SUCCESS)
         return ret;
 
-    if (0x7 < flagsDev || 0xf < flagsHost)
+    if (0x7 < flagsDev || 0xf < flagsHost ||
+        (location != VPU::VPUBufferObject::Location::Shared &&
+         location != VPU::VPUBufferObject::Location::ExternalShared))
         return ZE_RESULT_ERROR_INVALID_ENUMERATION;
 
-    *ptr = ctx->createSharedMemAlloc(size, sharedFlagToVPUBufferObjectType(flagsHost));
+    *ptr = ctx->createMemAlloc(size, flagToVPUBufferObjectType(flagsHost), location);
     if (*ptr == nullptr) {
         LOG_E("Failed to allocate shared memory");
         return ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY;
@@ -105,20 +102,34 @@ ze_result_t Context::allocDeviceMem(ze_device_handle_t hDevice,
                                     ze_device_mem_alloc_flags_t flags,
                                     size_t size,
                                     size_t alignment,
-                                    void **ptr) {
+                                    void **ptr,
+                                    VPU::VPUBufferObject::Location location) {
     ze_result_t ret = checkMemInputs(size, alignment, ptr);
     if (ret != ZE_RESULT_SUCCESS)
         return ret;
 
-    if (0x3 < flags)
+    if (0x3 < flags || (location != VPU::VPUBufferObject::Location::Device &&
+                        location != VPU::VPUBufferObject::Location::ExternalDevice))
         return ZE_RESULT_ERROR_INVALID_ENUMERATION;
 
-    *ptr = ctx->createDeviceMemAlloc(size);
+    // TODO: Fallback to shave range to fix incorrect address in Dma tasks for kernels (EISW-108894)
+    *ptr = ctx->createMemAlloc(size, VPU::VPUBufferObject::Type::WriteCombineShave, location);
+
     if (*ptr == nullptr) {
         LOG_E("Failed to allocate device memory");
         return ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY;
     }
 
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t Context::importMemory(VPU::VPUBufferObject::Location type, int32_t fd, void **ptr) {
+    VPU::VPUBufferObject *bo = ctx->importBufferObject(type, fd);
+    if (bo == nullptr) {
+        LOG_E("Failed to import buffer");
+        return ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY;
+    }
+    *ptr = bo->getBasePointer();
     return ZE_RESULT_SUCCESS;
 }
 
@@ -147,12 +158,15 @@ ze_result_t Context::getMemAllocProperties(const void *ptr,
 
     switch (bo->getLocation()) {
     case VPU::VPUBufferObject::Location::Device:
+    case VPU::VPUBufferObject::Location::ExternalDevice:
         pMemAllocProperties->type = ZE_MEMORY_TYPE_DEVICE;
         break;
     case VPU::VPUBufferObject::Location::Host:
+    case VPU::VPUBufferObject::Location::ExternalHost:
         pMemAllocProperties->type = ZE_MEMORY_TYPE_HOST;
         break;
     case VPU::VPUBufferObject::Location::Shared:
+    case VPU::VPUBufferObject::Location::ExternalShared:
         pMemAllocProperties->type = ZE_MEMORY_TYPE_SHARED;
         break;
     default:
@@ -162,6 +176,18 @@ ze_result_t Context::getMemAllocProperties(const void *ptr,
     pMemAllocProperties->id = 0u; // No specific ID for allocated memory, set as 0
     pMemAllocProperties->pageSize = bo->getAllocSize();
 
+    if (pMemAllocProperties->pNext &&
+        checkPtrAlignment<ze_external_memory_export_fd_t *>(pMemAllocProperties->pNext)) {
+        ze_external_memory_export_fd_t *pExtAllocProps =
+            reinterpret_cast<ze_external_memory_export_fd_t *>(pMemAllocProperties->pNext);
+
+        if (pExtAllocProps->stype == ZE_STRUCTURE_TYPE_EXTERNAL_MEMORY_EXPORT_FD &&
+            pExtAllocProps->flags == ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF) {
+            if (!bo->exportToFd(pExtAllocProps->fd)) {
+                return ZE_RESULT_ERROR_NOT_AVAILABLE;
+            }
+        }
+    }
     return ZE_RESULT_SUCCESS;
 }
 

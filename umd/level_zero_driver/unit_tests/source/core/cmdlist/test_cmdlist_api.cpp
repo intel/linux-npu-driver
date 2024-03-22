@@ -13,6 +13,8 @@
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
 #include "level_zero_driver/tools/source/metrics/metric_query.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
+#include "level_zero_driver/unit_tests/options.hpp"
+#include "level_zero_driver/unit_tests/utils.hpp"
 
 #include <level_zero/ze_api.h>
 #include <level_zero/ze_graph_ext.h>
@@ -102,6 +104,42 @@ struct CommandListFixture : CommandQueueFixture {
     uint64_t *ptrAlloc2 = nullptr;
 };
 
+struct CommandListGraphFixture : CommandListFixture {
+    void SetUp() override {
+        CommandListFixture::SetUp();
+
+        ASSERT_FALSE(TestOptions::blobPath.empty()) << "Blob path has not been provided";
+
+        loadBlobFromFile(TestOptions::blobPath, blob);
+        ASSERT_NE(0u, blob.size());
+
+        const ze_graph_desc_2_t graphDesc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES,
+                                             .pNext = nullptr,
+                                             .format = ZE_GRAPH_FORMAT_NATIVE,
+                                             .inputSize = blob.size(),
+                                             .pInput = blob.data(),
+                                             .pBuildFlags = nullptr,
+                                             .flags = 0};
+
+        auto res = L0::Graph::create(context, device, &graphDesc, &hGraph);
+        ASSERT_EQ(ZE_RESULT_SUCCESS, res);
+        ASSERT_NE(nullptr, hGraph);
+        pGraph = L0::Graph::fromHandle(hGraph);
+    }
+
+    void TearDown() override {
+        if (pGraph != nullptr) {
+            pGraph->destroy();
+        }
+
+        CommandListFixture::TearDown();
+    }
+
+    L0::Graph *pGraph = nullptr;
+    std::vector<uint8_t> blob;
+    ze_graph_handle_t hGraph = nullptr;
+};
+
 struct CommandListMetricFixture : CommandListFixture {
     void SetUp() override {
         CommandListFixture::SetUp();
@@ -164,6 +202,7 @@ struct CommandListMetricFixture : CommandListFixture {
 };
 
 using CommandListApiTest = Test<CommandListFixture>;
+using CommandListGraphApiTest = Test<CommandListGraphFixture>;
 using CommandListMetricsApiTest = Test<CommandListMetricFixture>;
 
 TEST_F(CommandListApiTest, whenCalledCloseSuccessIsReturned) {
@@ -349,6 +388,75 @@ TEST_F(CommandListMetricsApiTest,
 TEST_F(CommandListApiTest, whenCalledAppendGraphInitializeWithoutInitGraphFailureIsReturned) {
     auto result = commandList->appendGraphInitialize(nullptr, nullptr, 0u, nullptr);
     EXPECT_EQ(ZE_RESULT_ERROR_UNINITIALIZED, result);
+}
+
+TEST_F(CommandListGraphApiTest,
+       givenCallAppendGraphInitializeAndExecuteWithEventGetExpectedResults) {
+    auto result = commandList->appendGraphInitialize(hGraph, nullptr, 0u, nullptr);
+    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
+
+    result = commandList->appendGraphInitialize(hGraph, nullptr, 1u, nullptr);
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_SIZE, result);
+    result = commandList->appendGraphInitialize(hGraph, nullptr, 0u, &event0);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+
+    result = commandList->appendGraphInitialize(hGraph, nullptr, 1u, &event0);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+    result = commandList->appendGraphInitialize(hGraph, event1, 1u, &event0);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+
+    EXPECT_EQ(ZE_RESULT_SUCCESS, pGraph->setArgumentValue(0, reinterpret_cast<void *>(ptrAlloc)));
+    EXPECT_EQ(ZE_RESULT_SUCCESS, pGraph->setArgumentValue(1, reinterpret_cast<void *>(ptrAlloc2)));
+
+    result = commandList->appendGraphExecute(hGraph, nullptr, nullptr, 0u, nullptr);
+    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
+
+    result = commandList->appendGraphExecute(hGraph, nullptr, nullptr, 1u, nullptr);
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_SIZE, result);
+    result = commandList->appendGraphExecute(hGraph, nullptr, nullptr, 0u, &event0);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+
+    result = commandList->appendGraphExecute(hGraph, nullptr, nullptr, 1u, &event0);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+    result = commandList->appendGraphExecute(hGraph, nullptr, event1, 1u, &event0);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+}
+
+TEST_F(CommandListGraphApiTest,
+       resetCommandListAfterGraphInitThenAppendingGraphExecAndExecuteReturnsSuccess) {
+    ze_command_queue_handle_t hCommandQueue = createCommandQueue(0);
+    ASSERT_NE(hCommandQueue, nullptr);
+
+    auto commandQueue = L0::CommandQueue::fromHandle(hCommandQueue);
+    ASSERT_TRUE(commandQueue);
+
+    auto result = commandList->appendGraphInitialize(hGraph, nullptr, 0u, nullptr);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+    commandList->close();
+
+    auto cmdListHandle = commandList->toHandle();
+    result = commandQueue->executeCommandLists(1, &cmdListHandle, nullptr);
+    EXPECT_EQ(result, ZE_RESULT_SUCCESS);
+
+    result = commandList->reset();
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+
+    pGraph->setArgumentValue(0, reinterpret_cast<void *>(ptrAlloc));
+    pGraph->setArgumentValue(1, reinterpret_cast<void *>(ptrAlloc2));
+
+    result = commandList->appendGraphExecute(hGraph, nullptr, nullptr, 0u, nullptr);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+    result = commandList->close();
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+
+    EXPECT_EQ(1u, commandList->getCommands().size());
+    EXPECT_EQ(VPU_CMD_INFERENCE_EXECUTE, commandList->getCommands()[0]->getCommandType());
+
+    result = commandQueue->executeCommandLists(1, &cmdListHandle, nullptr);
+    EXPECT_EQ(result, ZE_RESULT_SUCCESS);
+
+    result = commandQueue->destroy();
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
 }
 
 struct CommandListEventApiTest : Test<CommandListFixture> {

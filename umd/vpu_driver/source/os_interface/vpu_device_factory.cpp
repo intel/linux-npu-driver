@@ -16,27 +16,19 @@
 
 namespace VPU {
 
-std::vector<std::unique_ptr<VPUDevice>> DeviceFactory::createDevices(OsInterface *osi) {
+std::vector<std::unique_ptr<VPUDevice>> DeviceFactory::createDevices(OsInterface *osi,
+                                                                     bool enableMetrics) {
     std::vector<std::unique_ptr<VPUDevice>> devices;
-    std::string devPrefix;
     std::string devPath;
-    std::error_code ec;
-    int maxMinor;
-    int minMinor;
 
-    if (std::filesystem::exists("/sys/class/accel", ec)) {
-        devPrefix = "/dev/accel/accel";
-        minMinor = 0;
-    } else {
-        devPrefix = "/dev/dri/renderD";
-        minMinor = 128;
-    }
-    maxMinor = minMinor + 63;
+    constexpr std::string_view devPrefix = "/dev/accel/accel";
+    int minMinor = 0;
+    int maxMinor = minMinor + 63;
 
     for (int minor = minMinor; minor <= maxMinor; minor++) {
-        devPath = devPrefix + std::to_string(minor);
+        devPath = std::string(devPrefix) + std::to_string(minor);
         auto device = std::make_unique<VPUDevice>(devPath, *osi);
-        if (!device->init()) {
+        if (!device->init(enableMetrics)) {
             continue;
         }
         devices.push_back(std::move(device));

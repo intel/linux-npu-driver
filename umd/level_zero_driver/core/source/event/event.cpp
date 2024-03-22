@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -13,13 +13,16 @@
 #include "vpu_driver/source/utilities/timer.hpp"
 
 #include <level_zero/ze_api.h>
+#include <thread>
 
 namespace L0 {
 
-Event::Event(VPU::VPUEventCommand::KMDEventDataType *ptr,
+Event::Event(VPU::VPUDeviceContext *ctx,
+             VPU::VPUEventCommand::KMDEventDataType *ptr,
              uint64_t vpuAddr,
              std::function<void()> &&destroyCb)
-    : eventState(ptr)
+    : pDevCtx(ctx)
+    , eventState(ptr)
     , eventVpuAddr(vpuAddr)
     , destroyCb(std::move(destroyCb)) {
     setEventState(VPU::VPUEventCommand::STATE_EVENT_INITIAL);
@@ -36,6 +39,25 @@ ze_result_t Event::hostSignal() {
     return ZE_RESULT_SUCCESS;
 }
 
+void Event::trackMetricData(int64_t timeoutNs) {
+    auto timeOut = std::chrono::steady_clock::time_point(std::chrono::nanoseconds(timeoutNs));
+
+    if (!msExpectedDataSize || !msGroupMask)
+        return;
+
+    do {
+        size_t dataSize = 0;
+        if (MetricStreamer::getData(pDevCtx->getDriverApi(), msGroupMask, dataSize, nullptr) ==
+            ZE_RESULT_SUCCESS) {
+            if (dataSize >= msExpectedDataSize) {
+                hostSignal();
+                break;
+            }
+        }
+        std::this_thread::yield();
+    } while (std::chrono::steady_clock::now() < timeOut);
+}
+
 ze_result_t Event::hostSynchronize(uint64_t timeout) {
     auto absoluteTimeout = VPU::getAbsoluteTimeoutNanoseconds(timeout);
 
@@ -46,7 +68,7 @@ ze_result_t Event::hostSynchronize(uint64_t timeout) {
                          associatedJobs.end());
 
     LOG_I("Waiting for fence in VPUAddr: %#lx", eventVpuAddr);
-    /* Check if all jobs with this event are finished */
+
     for (auto &jobWeak : associatedJobs) {
         if (auto job = jobWeak.lock()) {
             for (const auto &cmdBuffer : job->getCommandBuffers()) {
@@ -60,10 +82,13 @@ ze_result_t Event::hostSynchronize(uint64_t timeout) {
         }
     }
 
-    return queryStatus();
+    return queryStatus(absoluteTimeout);
 }
 
-ze_result_t Event::queryStatus() {
+ze_result_t Event::queryStatus(uint64_t timeout) {
+    if (msExpectedDataSize && *eventState < VPU::VPUEventCommand::STATE_DEVICE_SIGNAL)
+        trackMetricData(timeout);
+
     switch (*eventState) {
     case VPU::VPUEventCommand::STATE_EVENT_INITIAL:
         LOG_V("Sync point %p is still in initial state.", eventState);

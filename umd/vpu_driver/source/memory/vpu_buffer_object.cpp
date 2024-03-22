@@ -35,6 +35,12 @@ VPUBufferObject::~VPUBufferObject() {
         LOG_E("Failed to unmap handle %d", handle);
     }
 
+    /* The exportable buffers are managed by user space, driver never closes
+     * handle without direct api call from user space.
+     */
+    if (static_cast<uint32_t>(location) & externalMemMask)
+        return;
+
     if (drvApi.closeBuffer(handle) != 0) {
         LOG_E("Failed to close handle %d", handle);
     }
@@ -61,6 +67,42 @@ VPUBufferObject::create(const VPUDriverApi &drvApi, Location type, Type range, s
     if (ptr == nullptr) {
         LOG_E("Failed to mmap the created buffer");
         drvApi.closeBuffer(handle);
+        return nullptr;
+    }
+
+    return std::make_unique<VPUBufferObject>(drvApi, type, range, ptr, size, handle, vpuAddr);
+}
+
+std::unique_ptr<VPUBufferObject>
+VPUBufferObject::importFromFd(const VPUDriverApi &drvApi, Location type, int32_t fd) {
+    uint32_t handle = 0;
+
+    int32_t err = drvApi.importBuffer(fd, 0, handle);
+    if (err != 0) {
+        LOG_E("Buffer import failed, system error code = %d", err);
+        return nullptr;
+    }
+    /* Kernel doesn't track how many imports was done from single descriptor,
+     * if there would be situation that user-space imports the same memory object twice
+     * on the same DRM file description, the same GEM handle would be returned by both imports,
+     * and user-space needs to ensure * &DRM_IOCTL_GEM_CLOSE is performed once only.
+     * Here in case of fail we can't invoke close operation, this instance doesn't know how many
+     * instances of handle is in use.
+     */
+    void *ptr = nullptr;
+    uint64_t offset = 0, size = 0, vpuAddr = 0;
+    uint32_t flags = 0;
+
+    if (drvApi.getExtBufferInfo(handle, flags, vpuAddr, size, offset)) {
+        LOG_E("Failed to get info about buffer");
+        return nullptr;
+    }
+    /* Flags are ignored, range is set always to Type::ExternalMemory */
+    Type range = Type::ImportedMemory;
+
+    ptr = drvApi.mmap(size, safe_cast<off_t>(offset));
+    if (ptr == nullptr) {
+        LOG_E("Failed to mmap the imported buffer");
         return nullptr;
     }
 
@@ -115,6 +157,21 @@ bool VPUBufferObject::fillBuffer(const void *pattern, size_t patternSize) {
         break;
     default:
         LOG_E("Unsupported pattern size");
+        return false;
+    }
+    return true;
+}
+
+bool VPUBufferObject::exportToFd(int32_t &fd) {
+    if ((static_cast<uint32_t>(getLocation()) & VPUBufferObject::externalMemMask) !=
+        VPUBufferObject::externalMemMask) {
+        LOG_E("Buffer should be created as exportable");
+        return false;
+    }
+
+    int32_t err = drvApi.exportBuffer(handle, O_RDWR, fd);
+    if (err != 0) {
+        LOG_E("Buffer export failed, system error code = %d", err);
         return false;
     }
     return true;

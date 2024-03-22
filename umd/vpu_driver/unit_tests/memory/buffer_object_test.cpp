@@ -28,14 +28,14 @@ struct VPUBufferObjectTest : public ::testing::Test {
 TEST_F(VPUBufferObjectTest, createBufferObject) {
     EXPECT_TRUE(VPUBufferObject::create(ctx->getDriverApi(),
                                         VPUBufferObject::Location::Host,
-                                        VPUBufferObject::Type::CachedLow,
+                                        VPUBufferObject::Type::CachedFw,
                                         4096) != nullptr);
 }
 
 TEST_F(VPUBufferObjectTest, supportRangeTestForGivenArgument) {
     auto bo = VPUBufferObject::create(ctx->getDriverApi(),
                                       VPUBufferObject::Location::Host,
-                                      VPUBufferObject::Type::CachedLow,
+                                      VPUBufferObject::Type::CachedFw,
                                       4096);
     uint8_t *ptr = bo->getBasePointer();
     EXPECT_TRUE(bo->isInRange(ptr));
@@ -53,7 +53,7 @@ TEST_F(VPUBufferObjectTest, copyToBufferMethodExpectSuccess) {
 
     auto bo = VPUBufferObject::create(ctx->getDriverApi(),
                                       VPUBufferObject::Location::Host,
-                                      VPUBufferObject::Type::CachedLow,
+                                      VPUBufferObject::Type::CachedFw,
                                       data.size());
     EXPECT_TRUE(bo->copyToBuffer(data.data(), data.size(), 0));
 
@@ -66,7 +66,7 @@ TEST_F(VPUBufferObjectTest, copyToBufferOutsideRangeExpectFailure) {
 
     auto bo = VPUBufferObject::create(ctx->getDriverApi(),
                                       VPUBufferObject::Location::Host,
-                                      VPUBufferObject::Type::CachedLow,
+                                      VPUBufferObject::Type::CachedFw,
                                       size);
     EXPECT_FALSE(bo->copyToBuffer(data.data(), data.size(), size / 2));
 }
@@ -77,7 +77,7 @@ TEST_F(VPUBufferObjectTest, copyToBufferGreaterThenBufferSizeExpectFailure) {
 
     auto bo = VPUBufferObject::create(ctx->getDriverApi(),
                                       VPUBufferObject::Location::Host,
-                                      VPUBufferObject::Type::CachedLow,
+                                      VPUBufferObject::Type::CachedFw,
                                       size);
     EXPECT_FALSE(bo->copyToBuffer(data.data(), data.size(), 0));
 }
@@ -88,7 +88,7 @@ TEST_F(VPUBufferObjectTest, copyToBufferNullptrDataExpectFailure) {
 
     auto bo = VPUBufferObject::create(ctx->getDriverApi(),
                                       VPUBufferObject::Location::Host,
-                                      VPUBufferObject::Type::CachedLow,
+                                      VPUBufferObject::Type::CachedFw,
                                       size);
     EXPECT_FALSE(bo->copyToBuffer(nullptr, size, 0));
 }
