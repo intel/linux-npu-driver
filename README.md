@@ -133,7 +133,7 @@ Command line:
 <details>
 <summary>Non-root access to the NPU device</summary>
 
-To access the NPU device the user needs to be in "render" or "video" group.
+To access the NPU device, the user must be in the "render" or "video" group.
 A group depends on system configuration:
 ```
 # check user groups
@@ -145,7 +145,7 @@ sudo usermod -a -G render <user-name>
 # log out and log in to apply the new group
 ```
 
-The patch for systemd to set he "render" group for accel subsystem has been merged
+The patch for systemd to set the "render" group for accel subsystem has been merged,
 but might not be available in your Linux distribution. See
 [systemd change](https://github.com/systemd/systemd/pull/27785).
 
