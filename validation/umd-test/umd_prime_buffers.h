@@ -6,12 +6,17 @@
  */
 
 #pragma once
+
+#include "umd_test.h"
+
 #include <fcntl.h>
-#include <linux/kernel.h>
 #include <linux/dma-buf.h>
 #include <linux/dma-heap.h>
+#include <linux/kernel.h>
+#include <stdint.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 #define ALLIGN_TO_PAGE(x) __ALIGN_KERNEL((x), (UmdTest::PAGE_SIZE))
 
@@ -60,7 +65,7 @@ class PrimeBufferHelper {
             return false;
 
         bufferFd = heapAlloc.fd;
-        buffers.insert({heapAlloc.fd, {size, nullptr}});
+        buffers.insert({static_cast<int>(heapAlloc.fd), {size, nullptr}});
         return true;
     }
 

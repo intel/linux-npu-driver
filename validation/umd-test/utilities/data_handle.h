@@ -6,6 +6,7 @@
  */
 
 #include <linux/kernel.h>
+#include <stdint.h>
 #include <string>
 #include <vector>
 
