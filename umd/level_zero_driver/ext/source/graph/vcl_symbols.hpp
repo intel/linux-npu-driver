@@ -5,11 +5,12 @@
  *
  */
 
-#include <dlfcn.h>
-#include <memory>
-
 #include "vpux_driver_compiler.h"
 #include "vpu_driver/source/utilities/log.hpp"
+
+#include <array>
+#include <dlfcn.h>
+#include <memory>
 
 class Vcl {
   public:
