@@ -7,6 +7,7 @@
 
 #include <dlfcn.h>
 #include <memory>
+#include <array>
 
 #include "vpux_driver_compiler.h"
 #include "vpu_driver/source/utilities/log.hpp"
