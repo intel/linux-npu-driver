@@ -127,7 +127,7 @@ int MockOsInterfaceImp::osiIoctl(int fd, unsigned long request, void *data) {
     } else if (request == DRM_IOCTL_IVPU_METRIC_STREAMER_GET_INFO) {
         drm_ivpu_metric_streamer_get_data *args =
             static_cast<struct drm_ivpu_metric_streamer_get_data *>(data);
-        if (args->size == 0) {
+        if (args->buffer_size == 0) {
             /*
             size = sizeof(vpu_jsm_metric_group_descriptor) +
                    group_desc->name_string_size +
@@ -138,8 +138,8 @@ int MockOsInterfaceImp::osiIoctl(int fd, unsigned long request, void *data) {
                    counter_desc->component_string_size +
                    counter_desc->units_string_size
             */
-            args->size = sizeof(vpu_jsm_metric_group_descriptor) + 80 +
-                         sizeof(vpu_jsm_metric_counter_descriptor) + 80;
+            args->data_size = sizeof(vpu_jsm_metric_group_descriptor) + 80 +
+                              sizeof(vpu_jsm_metric_counter_descriptor) + 80;
         } else {
             vpu_jsm_metric_counter_descriptor *counter_desc = nullptr;
 

@@ -65,7 +65,7 @@ bool VPUDevice::initializeMetricGroups(VPUDriverApi *drvApi) {
 
     // to obtain all metric groups
     get_info_params.metric_group_mask = metricGroupMask;
-    get_info_params.size = 0;
+    get_info_params.buffer_size = 0;
     get_info_params.buffer_ptr = 0;
 
     if (drvApi->metricStreamerGetInfo(&get_info_params)) {
@@ -75,7 +75,7 @@ bool VPUDevice::initializeMetricGroups(VPUDriverApi *drvApi) {
         return false;
     }
 
-    uint64_t metricGroupsInfoSize = get_info_params.size;
+    uint64_t metricGroupsInfoSize = get_info_params.data_size;
     LOG_V("Metric Groups Info Size: %lu\n", metricGroupsInfoSize);
 
     if (metricGroupsInfoSize == 0) {
@@ -88,7 +88,7 @@ bool VPUDevice::initializeMetricGroups(VPUDriverApi *drvApi) {
 
     get_info_params = {};
     get_info_params.metric_group_mask = metricGroupMask;
-    get_info_params.size = metricGroupsInfoSize;
+    get_info_params.buffer_size = metricGroupsInfoSize;
     get_info_params.buffer_ptr = reinterpret_cast<uint64_t>(metricGroupsInfo.data());
 
     if (drvApi->metricStreamerGetInfo(&get_info_params)) {

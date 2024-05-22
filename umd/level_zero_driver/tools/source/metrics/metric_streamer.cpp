@@ -25,8 +25,8 @@ MetricStreamer::MetricStreamer(Context *pContext,
     drm_ivpu_metric_streamer_start startData = {};
     startData.metric_group_mask = 0x1 << metricGroup->getGroupIndex();
     // Sampling rate expressed in nanoseconds
-    startData.sampling_rate_ns = desc->samplingPeriod;
-    startData.read_rate = desc->notifyEveryNReports;
+    startData.sampling_period_ns = desc->samplingPeriod;
+    startData.read_period_samples = desc->notifyEveryNReports;
 
     L0_THROW_WHEN(ctx->getDriverApi().metricStreamerStart(&startData) < 0,
                   "Failed to start metric streamer",
@@ -61,7 +61,7 @@ ze_result_t MetricStreamer::getData(const VPU::VPUDriverApi &drvApi,
                                     uint8_t *pRawData) {
     drm_ivpu_metric_streamer_get_data data = {};
     data.metric_group_mask = groupMask;
-    data.size = rawDataSize;
+    data.buffer_size = rawDataSize;
     data.buffer_ptr = reinterpret_cast<long long unsigned int>(pRawData);
 
     if (drvApi.metricStreamerGetData(&data) < 0) {
@@ -69,7 +69,7 @@ ze_result_t MetricStreamer::getData(const VPU::VPUDriverApi &drvApi,
         return ZE_RESULT_ERROR_UNKNOWN;
     }
 
-    rawDataSize = data.size;
+    rawDataSize = data.data_size;
 
     return ZE_RESULT_SUCCESS;
 }
