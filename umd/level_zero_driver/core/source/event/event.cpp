@@ -14,6 +14,7 @@
 
 #include <level_zero/ze_api.h>
 #include <thread>
+#include <algorithm>
 
 namespace L0 {
 

@@ -21,6 +21,7 @@
 #include <vpux_headers/metadata.hpp>
 #include <vpux_elf/types/vpu_extensions.hpp>
 #include <vpux_elf/utils/error.hpp>
+#include <algorithm>
 
 namespace L0 {
 
