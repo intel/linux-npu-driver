@@ -11,6 +11,7 @@
 #include "vpu_driver/source/command/vpu_command_buffer.hpp"
 #include "vpu_driver/source/command/vpu_copy_command.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
+#include <algorithm>
 
 namespace VPU {
 
