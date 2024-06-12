@@ -22,12 +22,12 @@
 /*
  * Minor version changes when API backward compatibility is preserved.
  */
-#define VPU_JSM_API_VER_MINOR 16
+#define VPU_JSM_API_VER_MINOR 19
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
  */
-#define VPU_JSM_API_VER_PATCH 0
+#define VPU_JSM_API_VER_PATCH 1
 
 /*
  * Index in the API version table
@@ -36,7 +36,7 @@
 
 /*
  * Number of Priority Bands for Hardware Scheduling
- * Bands: RealTime, Focus, Normal, Idle
+ * Bands: Idle(0), Normal(1), Focus(2), RealTime(3)
  */
 #define VPU_HWS_NUM_PRIORITY_BANDS 4
 
@@ -90,16 +90,6 @@
 #define VPU_JOB_FLAGS_PRIVATE_DATA_MASK 0xFF000000
 
 /*
- * Sizes of the reserved areas in jobs, in bytes.
- */
-#define VPU_JOB_RESERVED_BYTES 8
-
-/*
- * Sizes of the reserved areas in job queues, in bytes.
- */
-#define VPU_JOB_QUEUE_RESERVED_BYTES 52
-
-/*
  * Max length (including trailing NULL char) of trace entity name (e.g., the
  * name of a logging destination or a loggable HW component).
  */
@@ -141,19 +131,42 @@
 #define VPU_HWS_INVALID_CMDQ_HANDLE 0ULL
 
 /*
+ * Job scheduling priority bands for both hardware scheduling and OS scheduling.
+ */
+enum vpu_job_scheduling_priority_band {
+    VPU_JOB_SCHEDULING_PRIORITY_BAND_IDLE = 0,
+    VPU_JOB_SCHEDULING_PRIORITY_BAND_NORMAL = 1,
+    VPU_JOB_SCHEDULING_PRIORITY_BAND_FOCUS = 2,
+    VPU_JOB_SCHEDULING_PRIORITY_BAND_REALTIME = 3,
+    VPU_JOB_SCHEDULING_PRIORITY_BAND_COUNT = 4,
+};
+
+/*
  * Job format.
  */
 struct vpu_job {
-    volatile uint64_t batch_buf_addr;                 /**< Address of VPU commands batch buffer */
-    volatile uint32_t job_id;                         /**< Job ID */
-    volatile uint32_t flags;                          /**< Flags bit field, see VPU_JOB_FLAGS_* above */
-    volatile uint64_t root_page_table_addr;           /**< Address of root page table to use for this job */
-    volatile uint64_t root_page_table_update_counter; /**< Page tables update events counter */
+    volatile uint64_t batch_buf_addr; /**< Address of VPU commands batch buffer */
+    volatile uint32_t job_id;         /**< Job ID */
+    volatile uint32_t flags;          /**< Flags bit field, see VPU_JOB_FLAGS_* above */
+    union {
+        struct {
+            /**
+             * Doorbell ring timestamp taken by KMD from SoC's global system clock, in microseconds.
+             * NPU can convert this value to its own fixed clock's timebase, to match other profiling timestamps.
+             */
+            volatile uint64_t doorbell_timestamp;
+            volatile uint64_t host_tracking_id; /**< Extra id for job tracking, used only in the firmware perf traces */
+        };
+        struct {
+            volatile uint64_t root_page_table_addr;           /**< Address of root page table to use for this job */
+            volatile uint64_t root_page_table_update_counter; /**< Page tables update events counter */
+        };
+    };
     volatile uint64_t primary_preempt_buf_addr;   /**< Address of the primary preemption buffer to use for this job */
     volatile uint32_t primary_preempt_buf_size;   /**< Size of the primary preemption buffer to use for this job */
     volatile uint32_t secondary_preempt_buf_size; /**< Size of secondary preemption buffer to use for this job */
     volatile uint64_t secondary_preempt_buf_addr; /**< Address of secondary preemption buffer to use for this job */
-    uint8_t reserved_0[VPU_JOB_RESERVED_BYTES];
+    uint64_t reserved_0;
 };
 typedef struct vpu_job vpu_job_t;
 
@@ -164,7 +177,21 @@ struct vpu_job_queue_header {
     volatile uint32_t engine_idx;
     uint32_t head;
     volatile uint32_t tail;
-    uint8_t reserved_0[VPU_JOB_QUEUE_RESERVED_BYTES];
+    uint32_t reserved_0;
+    /* Set to 1 to indicate priority_band filed is valid */
+    uint32_t priority_band_valid;
+    /*
+     * Priority for the work of this job queue, valid only if the HWS is NOT used
+     * and the `priority_band_valid` is set to 1. It is applied only during
+     * the VPU_IPC_MSG_REGISTER_DB message processing.
+     * The device firmware might use the `priority_band` to optimize the power
+     * management logic, but it will not affect the order of jobs.
+     * Available priority bands: @see enum vpu_job_scheduling_priority_band
+     */
+    uint32_t priority_band;
+    /* Inside realtime band assigns a further priority, limited to 0..31 range */
+    uint32_t realtime_priority_level;
+    uint32_t reserved_1[9];
 };
 typedef struct vpu_job_queue_header vpu_job_queue_header_t;
 
@@ -235,6 +262,15 @@ enum vpu_ipc_msg_type {
     /* IPC Host -> Device, Async commands */
     VPU_IPC_MSG_ASYNC_CMD = 0x1100,
     VPU_IPC_MSG_ENGINE_RESET = VPU_IPC_MSG_ASYNC_CMD,
+    /**
+     * Preempt engine. The NPU stops (preempts) all the jobs currently
+     * executing on the target engine making the engine become idle and ready to
+     * execute new jobs.
+     * NOTE: The NPU does not remove unstarted jobs (if any) from job queues of
+     * the target engine, but it stops processing them (until the queue doorbell
+     * is rung again); the host is responsible to reset the job queue, either
+     * after preemption or when resubmitting jobs to the queue.
+     */
     VPU_IPC_MSG_ENGINE_PREEMPT = 0x1101,
     VPU_IPC_MSG_REGISTER_DB = 0x1102,
     VPU_IPC_MSG_UNREGISTER_DB = 0x1103,
@@ -811,7 +847,10 @@ struct vpu_ipc_msg_payload_hws_set_context_sched_properties {
     uint32_t reserved_0;
     /* Command queue id */
     uint64_t cmdq_id;
-    /* Priority band to assign to work of this context */
+    /*
+     * Priority band to assign to work of this context.
+     * Available priority bands: @see enum vpu_job_scheduling_priority_band
+     */
     uint32_t priority_band;
     /* Inside realtime band assigns a further priority */
     uint32_t realtime_priority_level;
