@@ -31,8 +31,9 @@
 #define TRACE_STRUCT(s) test_app::hex_dump(&s, sizeof(s), #s)
 #define TRACE_BUF(b, size) test_app::hex_dump(b, size, #b)
 
-#define PCI_ID_MTL_H 0x7D1D
-#define PCI_ID_MTL_S 0xAD1D
+#define PCI_ID_MTL 0x7D1D
+#define PCI_ID_ARL 0xAD1D
+#define PCI_ID_LNL 0x643E
 
 namespace test_app {
 
@@ -40,7 +41,9 @@ enum LogLevel { NONE = 0, DEBUG = 1 };
 
 extern LogLevel log_level;
 
+extern std::string app_path;
 extern bool run_skipped_tests;
+extern bool use_sleep_wait;
 extern unsigned pause_after_test_ms;
 
 int hex_dump(void *data, long size, const char *name);
@@ -50,6 +53,7 @@ void append_negative_filter(const char *negative_pattern);
 int run();
 
 bool is_vpu37xx(uint16_t pci_id);
+bool is_vpu40xx(uint16_t pci_id);
 bool is_vpu(uint16_t pci_id);
 
 } // namespace test_app
