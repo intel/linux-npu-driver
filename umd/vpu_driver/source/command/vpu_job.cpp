@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -36,14 +36,14 @@ bool VPUJob::closeCommands() {
         return false;
     }
 
-    LOG_I("Schedule commands, number of commands %lu", commands.size());
+    LOG(VPU_JOB, "Schedule commands, number of commands %lu", commands.size());
 
     VPUEventCommand::KMDEventDataType *lastEvent = nullptr;
     for (auto it = commands.begin(); it != commands.end();) {
         auto [next, target] = scheduleCommands(it);
 
         long jump = std::distance(it, next);
-        LOG_I("Passing %lu commands for target %u", jump, static_cast<uint32_t>(target));
+        LOG(VPU_JOB, "Passing %lu commands for target %u", jump, static_cast<uint32_t>(target));
 
         if (safe_cast<size_t>(jump) == commands.size()) {
             if (!createCommandBuffer(commands, target, nullptr)) {
@@ -106,9 +106,10 @@ uint64_t VPUJob::getStatus() const {
 void VPUJob::printResult() const {
     for (const auto &cmdBuffer : cmdBuffers) {
         if (cmdBuffer->getResult() == DRM_IVPU_JOB_STATUS_SUCCESS) {
-            LOG_V("%s Command Buffer (%p): execution is completed with success",
-                  cmdBuffer->getName(),
-                  cmdBuffer.get());
+            LOG(VPU_JOB,
+                "%s Command Buffer (%p): execution is completed with success",
+                cmdBuffer->getName(),
+                cmdBuffer.get());
         } else {
             LOG_E("%s Command Buffer (%p): execution failed with status %#lx",
                   cmdBuffer->getName(),
@@ -130,7 +131,7 @@ bool VPUJob::appendCommand(std::shared_ptr<VPUCommand> cmd) {
     }
 
     if (cmd->getCommitSize() == 0) {
-        LOG_I("Command is empty, skipping it");
+        LOG(VPU_JOB, "Command is empty, skipping it");
         return true;
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -9,6 +9,7 @@
 
 #include "level_zero_driver/core/source/context/context.hpp"
 #include "level_zero_driver/core/source/driver/driver_handle.hpp"
+#include "level_zero_driver/include/l0_exception.hpp"
 #include <level_zero/ze_api.h>
 
 namespace L0 {
@@ -18,21 +19,22 @@ ze_result_t zeContextCreate(ze_driver_handle_t hDriver,
     if (hDriver == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::DriverHandle::fromHandle(hDriver)->createContext(desc, phContext);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::DriverHandle::fromHandle(hDriver)->createContext(desc, phContext));
 }
 
 ze_result_t zeContextDestroy(ze_context_handle_t hContext) {
     if (hContext == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Context::fromHandle(hContext)->destroy();
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::Context::fromHandle(hContext)->destroy());
 }
 
 ze_result_t zeContextGetStatus(ze_context_handle_t hContext) {
     if (hContext == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Context::fromHandle(hContext)->getStatus();
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::Context::fromHandle(hContext)->getStatus());
 }
 
 ze_result_t

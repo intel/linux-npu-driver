@@ -13,8 +13,6 @@
 #include "vpu_driver/source/command/vpu_barrier_command.hpp"
 #include "vpu_driver/source/command/vpu_copy_command.hpp"
 #include "vpu_driver/source/command/vpu_event_command.hpp"
-#include "vpu_driver/source/command/vpu_graph_exe_command.hpp"
-#include "vpu_driver/source/command/vpu_graph_init_command.hpp"
 #include "vpu_driver/source/command/vpu_ts_command.hpp"
 
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
@@ -36,8 +34,8 @@ struct VPUJobTest : public ::testing::Test {
 
     MockOsInterfaceImp osInfc;
     std::unique_ptr<MockVPUDevice> vpuDevice = MockVPUDevice::createWithDefaultHardwareInfo(osInfc);
-    std::unique_ptr<VPUDeviceContext> deviceContext = vpuDevice->createDeviceContext();
-    VPUDeviceContext *ctx = deviceContext.get();
+    std::unique_ptr<MockVPUDeviceContext> deviceContext = vpuDevice->createMockDeviceContext();
+    MockVPUDeviceContext *ctx = deviceContext.get();
 
     const uint32_t allocSize = 4 * 1024;
 };
@@ -134,40 +132,6 @@ TEST_F(VPUJobTest, createJobWithTimestampCommandsForCopyEngine) {
     }
 
     EXPECT_TRUE(ctx->freeMemAlloc(mem));
-}
-
-TEST_F(VPUJobTest, createJobWithGraphInitAndExecuteCommands) {
-    uint64_t umdBlobId = 0xcafebebedeadbeef;
-
-    const size_t blobSize = 4 * 1024;
-    uint8_t blobData[blobSize] = {};
-    const uint32_t scratchSize = 4 * 1024;
-
-    void *inputData = ctx->createSharedMemAlloc(allocSize);
-    void *outputData = ctx->createSharedMemAlloc(allocSize);
-
-    auto job = std::make_unique<VPUJob>(ctx, false);
-    EXPECT_TRUE(job->appendCommand(
-        VPUGraphInitCommand::create(ctx, umdBlobId, blobData, blobSize, scratchSize, scratchSize)));
-
-    auto &graphInitBufferObjects = job->getCommands().back()->getAssociateBufferObjects();
-    EXPECT_TRUE(job->appendCommand(VPUGraphExecuteCommand::create(
-        ctx,
-        umdBlobId,
-        std::vector<std::pair<const void *, uint32_t>>{{std::make_pair(inputData, allocSize)}},
-        std::vector<std::pair<const void *, uint32_t>>{{std::make_pair(outputData, allocSize)}},
-        graphInitBufferObjects)));
-    EXPECT_TRUE(job->closeCommands());
-
-    EXPECT_EQ(1u, job->getCommandBuffers().size());
-    for (const auto &cmdBuffer : job->getCommandBuffers()) {
-        EXPECT_EQ(DRM_IVPU_ENGINE_COMPUTE, cmdBuffer->getEngine());
-        EXPECT_EQ(getExpBufferCount(cmdBuffer->getBufferHandles()),
-                  cmdBuffer->getBufferHandles().size());
-    }
-
-    EXPECT_TRUE(ctx->freeMemAlloc(inputData));
-    EXPECT_TRUE(ctx->freeMemAlloc(outputData));
 }
 
 TEST_F(VPUJobTest, createJobWithCopyCommandsforCopyEngine) {

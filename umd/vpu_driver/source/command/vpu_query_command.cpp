@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -37,13 +37,14 @@ VPUQueryCommand::VPUQueryCommand(VPUDeviceContext *ctx,
     // dataAddress       - table address containing pointers to buffers storing metric data
     // metricDataAddress - VPU address of the table containing pointers to buffers storing metric
     //                     data
-    LOG_V("Query %s command args: \n"
-          "\tgroupMask: %u, dataAddress: %p, metricDataAddress %ld (%#lx)",
-          getQueryCommandStr(cmdType),
-          groupMask,
-          dataAddress,
-          metricDataAddress,
-          metricDataAddress);
+    LOG(VPU_CMD,
+        "Query %s command args: \n"
+        "\tgroupMask: %u, dataAddress: %p, metricDataAddress %ld (%#lx)",
+        getQueryCommandStr(cmdType),
+        groupMask,
+        dataAddress,
+        metricDataAddress,
+        metricDataAddress);
 
     vpu_cmd_metric_query_t cmd = {};
     cmd.header.type = cmdType;
@@ -66,12 +67,12 @@ const char *VPUQueryCommand::getQueryCommandStr(const vpu_cmd_type cmdType) {
 
 uint64_t VPUQueryCommand::getMetricDataAddress(VPUDeviceContext *ctx, void *dataAddress) {
     if (ctx == nullptr) {
-        LOG_E("Failed to get device context.");
+        LOG_E("Failed to get device context");
         return 0;
     }
 
     if (dataAddress == nullptr) {
-        LOG_E("Invalid data address pointer.");
+        LOG_E("Invalid data address pointer");
         return 0;
     }
 

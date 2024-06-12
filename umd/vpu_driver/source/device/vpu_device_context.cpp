@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -25,7 +25,7 @@ namespace VPU {
 VPUDeviceContext::VPUDeviceContext(std::unique_ptr<VPUDriverApi> drvApi, VPUHwInfo *info)
     : drvApi(std::move(drvApi))
     , hwInfo(info) {
-    LOG_I("VPUDeviceContext is created");
+    LOG(DEVICE, "VPUDeviceContext is created");
 }
 
 VPUBufferObject::Type convertDmaToShaveRange(VPUBufferObject::Type type) {
@@ -56,7 +56,7 @@ VPUBufferObject *VPUDeviceContext::importBufferObject(VPUBufferObject::Location 
         LOG_E("Failed to add buffer object to trackedBuffers");
         return nullptr;
     }
-    LOG_I("Buffer object %p successfully imported and added to trackedBuffers", &it->second);
+    LOG(DEVICE, "Buffer object %p successfully imported and added to trackedBuffers", &it->second);
     return it->second.get();
 }
 
@@ -85,7 +85,7 @@ VPUBufferObject *VPUDeviceContext::createBufferObject(size_t size,
         return nullptr;
     }
 
-    LOG_I("Buffer object %p successfully added to trackedBuffers", &it->second);
+    LOG(DEVICE, "Buffer object %p successfully added to trackedBuffers", &it->second);
     return it->second.get();
 }
 
@@ -140,10 +140,11 @@ VPUBufferObject *VPUDeviceContext::findBuffer(const void *ptr) const {
         return nullptr;
     }
 
-    LOG_I("Pointer %p was found in device context(type: %d, range: %d).",
-          ptr,
-          static_cast<int>(bo->getLocation()),
-          static_cast<int>(bo->getType()));
+    LOG(DEVICE,
+        "Pointer %p was found in device context(type: %d, range: %d).",
+        ptr,
+        static_cast<int>(bo->getLocation()),
+        static_cast<int>(bo->getType()));
     return bo.get();
 }
 
@@ -183,7 +184,7 @@ uint64_t VPUDeviceContext::getBufferVPUAddress(const void *ptr) const {
     uint64_t offset =
         reinterpret_cast<uint64_t>(ptr) - reinterpret_cast<uint64_t>(bo->getBasePointer());
 
-    LOG_V("CPU address %p mapped to VPU address %#lx", ptr, bo->getVPUAddr() + offset);
+    LOG(DEVICE, "CPU address %p mapped to VPU address %#lx", ptr, bo->getVPUAddr() + offset);
 
     return bo->getVPUAddr() + offset;
 }
@@ -195,14 +196,15 @@ bool VPUDeviceContext::submitCommandBuffer(const VPUCommandBuffer *cmdBuffer) {
     execParam.engine = cmdBuffer->getEngine();
     execParam.priority = static_cast<uint32_t>(cmdBuffer->getPriority());
 
-    LOG_I("Submit buffer type: %s.", cmdBuffer->getName());
-    LOG_I("Submit params -> engine: %u, flags: %u, offset: %u, count: %u, ptr: %#llx, prior: %u",
-          execParam.engine,
-          execParam.flags,
-          execParam.commands_offset,
-          execParam.buffer_count,
-          execParam.buffers_ptr,
-          execParam.priority);
+    LOG(DEVICE, "Submit buffer type: %s.", cmdBuffer->getName());
+    LOG(DEVICE,
+        "Submit params -> engine: %u, flags: %u, offset: %u, count: %u, ptr: %#llx, prior: %u",
+        execParam.engine,
+        execParam.flags,
+        execParam.commands_offset,
+        execParam.buffer_count,
+        execParam.buffers_ptr,
+        execParam.priority);
 
     constexpr auto pollTime = std::chrono::seconds(2);
     const auto timeoutPoint = std::chrono::steady_clock::now() + pollTime;
@@ -245,7 +247,7 @@ bool VPUDeviceContext::submitJob(const VPUJob *job) {
         }
     }
 
-    LOG_V("Buffer execution successfully triggered.");
+    LOG(DEVICE, "Buffer execution successfully triggered");
     return true;
 }
 

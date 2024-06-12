@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -9,29 +9,31 @@
 
 #include "level_zero_driver/core/source/driver/driver.hpp"
 #include "level_zero_driver/core/source/driver/driver_handle.hpp"
+#include "level_zero_driver/include/l0_exception.hpp"
 #include <level_zero/ze_api.h>
 
 namespace L0 {
 ze_result_t zeInit(ze_init_flags_t flags) {
-    return L0::init(flags);
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::init(flags));
 }
 
 ze_result_t zeDriverGet(uint32_t *pCount, ze_driver_handle_t *phDrivers) {
-    return L0::driverHandleGet(pCount, phDrivers);
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::driverHandleGet(pCount, phDrivers));
 }
 
 ze_result_t zeDriverGetProperties(ze_driver_handle_t hDriver, ze_driver_properties_t *pProperties) {
     if (hDriver == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::DriverHandle::fromHandle(hDriver)->getProperties(pProperties);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::DriverHandle::fromHandle(hDriver)->getProperties(pProperties));
 }
 
 ze_result_t zeDriverGetApiVersion(ze_driver_handle_t hDriver, ze_api_version_t *version) {
     if (hDriver == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::DriverHandle::fromHandle(hDriver)->getApiVersion(version);
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::DriverHandle::fromHandle(hDriver)->getApiVersion(version));
 }
 
 ze_result_t zeDriverGetIpcProperties(ze_driver_handle_t hDriver,
@@ -39,7 +41,8 @@ ze_result_t zeDriverGetIpcProperties(ze_driver_handle_t hDriver,
     if (hDriver == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::DriverHandle::fromHandle(hDriver)->getIPCProperties(pIPCProperties);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::DriverHandle::fromHandle(hDriver)->getIPCProperties(pIPCProperties));
 }
 
 ze_result_t zeDriverGetExtensionProperties(ze_driver_handle_t hDriver,
@@ -48,8 +51,9 @@ ze_result_t zeDriverGetExtensionProperties(ze_driver_handle_t hDriver,
     if (hDriver == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::DriverHandle::fromHandle(hDriver)->getExtensionProperties(pCount,
-                                                                         pExtensionProperties);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::DriverHandle::fromHandle(hDriver)->getExtensionProperties(pCount,
+                                                                      pExtensionProperties));
 }
 
 ze_result_t zeDriverGetExtensionFunctionAddress(ze_driver_handle_t hDriver,
@@ -58,8 +62,9 @@ ze_result_t zeDriverGetExtensionFunctionAddress(ze_driver_handle_t hDriver,
     if (hDriver == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::DriverHandle::fromHandle(hDriver)->getExtensionFunctionAddress(name,
-                                                                              ppFunctionAddress);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::DriverHandle::fromHandle(hDriver)->getExtensionFunctionAddress(name,
+                                                                           ppFunctionAddress));
 }
 } // namespace L0
 

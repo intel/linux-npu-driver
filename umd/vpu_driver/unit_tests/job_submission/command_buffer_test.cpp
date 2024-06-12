@@ -10,8 +10,6 @@
 #include "vpu_driver/source/command/vpu_barrier_command.hpp"
 #include "vpu_driver/source/command/vpu_copy_command.hpp"
 #include "vpu_driver/source/command/vpu_event_command.hpp"
-#include "vpu_driver/source/command/vpu_graph_exe_command.hpp"
-#include "vpu_driver/source/command/vpu_graph_init_command.hpp"
 #include "vpu_driver/source/command/vpu_ts_command.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
@@ -30,8 +28,8 @@ struct VPUCommandBufferTest : public ::testing::Test {
 
     MockOsInterfaceImp osInfc;
     std::unique_ptr<MockVPUDevice> vpuDevice = MockVPUDevice::createWithDefaultHardwareInfo(osInfc);
-    std::unique_ptr<VPUDeviceContext> deviceContext = vpuDevice->createDeviceContext();
-    VPUDeviceContext *ctx = deviceContext.get();
+    std::unique_ptr<MockVPUDeviceContext> deviceContext = vpuDevice->createMockDeviceContext();
+    MockVPUDeviceContext *ctx = deviceContext.get();
 };
 
 TEST_F(VPUCommandBufferTest, allocateCommandBufferWithoutCommandExpectNullptr) {
@@ -81,38 +79,6 @@ TEST_F(VPUCommandBufferTest, allocateCommandBufferWithCopyCommand) {
 
     EXPECT_TRUE(ctx->freeMemAlloc(src));
     EXPECT_TRUE(ctx->freeMemAlloc(dst));
-}
-
-TEST_F(VPUCommandBufferTest, allocateCommandBufferWithInitAndExecuteGraphCommands) {
-    uint64_t umdBlobId = 0xcafebebedeadbeef;
-
-    const size_t blobSize = 4 * 1024;
-    uint8_t blobData[blobSize] = {};
-    const uint32_t scratchSize = 4 * 1024;
-
-    uint32_t memSize = 4096;
-    void *inputData = ctx->createSharedMemAlloc(memSize);
-    void *outputData = ctx->createSharedMemAlloc(memSize);
-
-    std::vector<std::shared_ptr<VPUCommand>> cmds;
-    cmds.emplace_back(
-        VPUGraphInitCommand::create(ctx, umdBlobId, blobData, blobSize, scratchSize, scratchSize));
-    ASSERT_NE(cmds.back(), nullptr);
-
-    cmds.emplace_back(VPUGraphExecuteCommand::create(
-        ctx,
-        umdBlobId,
-        std::vector<std::pair<const void *, uint32_t>>{{std::make_pair(inputData, memSize)}},
-        std::vector<std::pair<const void *, uint32_t>>{{std::make_pair(outputData, memSize)}},
-        cmds.back()->getAssociateBufferObjects()));
-    ASSERT_NE(cmds.back(), nullptr);
-
-    EXPECT_NE(
-        nullptr,
-        VPUCommandBuffer::allocateCommandBuffer(ctx, cmds, VPUCommandBuffer::Target::COMPUTE));
-
-    EXPECT_TRUE(ctx->freeMemAlloc(inputData));
-    EXPECT_TRUE(ctx->freeMemAlloc(outputData));
 }
 
 } // namespace VPU

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -15,6 +15,7 @@
 #include "vpu_driver/source/command/vpu_barrier_command.hpp"
 #include "vpu_driver/source/device/vpu_device.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
+#include "vpux_driver_compiler.h"
 
 namespace L0 {
 
@@ -52,7 +53,7 @@ ze_result_t Graph::create(const ze_context_handle_t hContext,
         *phGraph = pGraph.get();
         Context::fromHandle(hContext)->appendObject(std::move(pGraph));
 
-        LOG_I("Graph created - %p", *phGraph);
+        LOG(GRAPH, "Graph created - %p", *phGraph);
     } catch (const DriverError &err) {
         return err.result();
     }
@@ -62,7 +63,7 @@ ze_result_t Graph::create(const ze_context_handle_t hContext,
 
 ze_result_t Graph::destroy() {
     pContext->removeObject(this);
-    LOG_I("Graph destroyed - %p", this);
+    LOG(GRAPH, "Graph destroyed - %p", this);
     return ZE_RESULT_SUCCESS;
 }
 
@@ -73,19 +74,15 @@ ze_result_t Graph::getNativeBinary(size_t *pSize, uint8_t *pGraphNativeBinary) {
     }
 
     if (graphBlobRaw.size() == 0) {
-        LOG_E("Graph contain invalid descriptor");
+        LOG_E("Native binary does not exist for Graph");
         return ZE_RESULT_ERROR_UNINITIALIZED;
-    } else {
+    }
+
+    if (*pSize == 0 || *pSize > graphBlobRaw.size()) {
         *pSize = graphBlobRaw.size();
     }
 
-    if (pGraphNativeBinary == nullptr) {
-        LOG_W("Input Graph Native Binary pointer is NULL");
-    } else {
-        if (graphBlobRaw.size() > *pSize) {
-            LOG_E("Failed to copy Graph Native Binary! graphBlobRaw > *pSize");
-            return ZE_RESULT_ERROR_UNKNOWN;
-        }
+    if (pGraphNativeBinary != nullptr) {
         memcpy(pGraphNativeBinary, graphBlobRaw.data(), *pSize);
     }
     return ZE_RESULT_SUCCESS;
@@ -107,7 +104,7 @@ ze_result_t Graph::setArgumentValue(uint32_t argIndex, const void *pArgValue) {
 
 ze_result_t Graph::getProperties(ze_graph_properties_t *pGraphProperties) {
     if (pGraphProperties == nullptr) {
-        LOG_E("Invalid pointer.");
+        LOG_E("Invalid pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -118,7 +115,7 @@ ze_result_t Graph::getProperties(ze_graph_properties_t *pGraphProperties) {
 ze_result_t Graph::getArgumentProperties(uint32_t argIndex,
                                          ze_graph_argument_properties_t *pGraphArgProps) {
     if (pGraphArgProps == nullptr) {
-        LOG_E("Invalid pointer for argument properties.");
+        LOG_E("Invalid pointer for argument properties");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -136,7 +133,7 @@ ze_result_t Graph::getArgumentProperties(uint32_t argIndex,
 ze_result_t Graph::getArgumentProperties2(uint32_t argIndex,
                                           ze_graph_argument_properties_2_t *pGraphArgProps) {
     if (pGraphArgProps == nullptr) {
-        LOG_E("Invalid pointer for argument properties.");
+        LOG_E("Invalid pointer for argument properties");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -154,7 +151,7 @@ ze_result_t Graph::getArgumentProperties2(uint32_t argIndex,
 ze_result_t Graph::getArgumentProperties3(uint32_t argIndex,
                                           ze_graph_argument_properties_3_t *pGraphArgProps) {
     if (pGraphArgProps == nullptr) {
-        LOG_E("Invalid pointer for argument properties.");
+        LOG_E("Invalid pointer for argument properties");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -172,7 +169,7 @@ ze_result_t Graph::getArgumentProperties3(uint32_t argIndex,
 ze_result_t Graph::getArgumentMetadata(uint32_t argIndex,
                                        ze_graph_argument_metadata_t *pGraphArgMetadata) {
     if (pGraphArgMetadata == nullptr) {
-        LOG_E("Invalid pointer for argument properties.");
+        LOG_E("Invalid pointer for argument properties");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -195,7 +192,7 @@ ze_result_t Graph::createProfilingPool(uint32_t count,
     }
 
     if (!profilingOutputSize) {
-        LOG_W("Invalid profiling output size %u", profilingOutputSize);
+        LOG(GRAPH, "GraphProfiling is not available for this inference");
         return ZE_RESULT_ERROR_NOT_AVAILABLE;
     }
 
@@ -222,7 +219,7 @@ ze_result_t Graph::createProfilingPool(uint32_t count,
                       ZE_RESULT_ERROR_UNKNOWN);
 
         *phProfilingPool = it->second.get();
-        LOG_I("GraphProfilingPool created - %p", *phProfilingPool);
+        LOG(GRAPH, "GraphProfilingPool created - %p", *phProfilingPool);
     } catch (const DriverError &err) {
         return err.result();
     }
@@ -233,7 +230,7 @@ ze_result_t Graph::createProfilingPool(uint32_t count,
 ze_result_t Graph::getProfilingDataProperties(
     ze_device_profiling_data_properties_t *pDeviceProfilingDataProperties) {
     if (pDeviceProfilingDataProperties == nullptr) {
-        LOG_E("Invalid profiling data properties pointer.");
+        LOG_E("Invalid profiling data properties pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -252,8 +249,42 @@ ze_result_t Graph::getDeviceGraphProperties(ze_device_handle_t hDevice,
     pDeviceGraphProperties->graphExtensionVersion = ZE_GRAPH_EXT_VERSION_CURRENT;
     pDeviceGraphProperties->graphFormatsSupported = ZE_GRAPH_FORMAT_NATIVE;
 
-    if (!Compiler::getCompilerProperties(pDeviceGraphProperties))
+    vcl_compiler_properties_t vclProp = {};
+    if (Compiler::getCompilerProperties(&vclProp)) {
+        pDeviceGraphProperties->compilerVersion.major = vclProp.version.major;
+        pDeviceGraphProperties->compilerVersion.minor = vclProp.version.minor;
+        pDeviceGraphProperties->graphFormatsSupported = ZE_GRAPH_FORMAT_NGRAPH_LITE;
+        pDeviceGraphProperties->maxOVOpsetVersionSupported = vclProp.supportedOpsets;
+    } else {
         LOG_W("Failed to get compiler properties!");
+    }
+
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t
+Graph::getDeviceGraphProperties2(ze_device_handle_t hDevice,
+                                 ze_device_graph_properties_2_t *pDeviceGraphProperties2) {
+    if (pDeviceGraphProperties2 == nullptr) {
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    ze_device_graph_properties_t deviceGraphProperties = {};
+    if (getDeviceGraphProperties(hDevice, &deviceGraphProperties))
+        LOG_W("Failed to get compiler properties!");
+
+    Device *dev = Device::fromHandle(hDevice);
+    VPU::VPUDevice *vdev = dev->getVPUDevice();
+
+    const auto &hwInfo = vdev->getHwInfo();
+
+    uint32_t runtimeVer = static_cast<uint32_t>(hwInfo.fwMappedInferenceVersion);
+    pDeviceGraphProperties2->runtimeVersion = toVersion<ze_graph_version_info_t>(runtimeVer);
+
+    elf::VersionsProvider elfVer = ElfParser::getElfVer(hwInfo.compilerPlatform);
+    pDeviceGraphProperties2->elfVersion = {elfVer.getLibraryELFVersion().getMajor(),
+                                           elfVer.getLibraryELFVersion().getMinor(),
+                                           elfVer.getLibraryELFVersion().getPatch()};
 
     return ZE_RESULT_SUCCESS;
 }
@@ -298,9 +329,22 @@ void Graph::initialize() {
 
     size_t graphSize = desc.inputSize;
     if (desc.format == ZE_GRAPH_FORMAT_NGRAPH_LITE) {
-        if (!Compiler::getCompiledBlob(graphSize, graphBlobRaw, desc, lastErrorMsg)) {
-            LOG_E("Failed to get compiled blob!");
-            throw DriverError(ZE_RESULT_ERROR_UNKNOWN);
+        DiskCache &cache = Driver::getInstance()->getDiskCache();
+        DiskCache::Key key;
+        if (!(desc.flags & ZE_GRAPH_FLAG_DISABLE_CACHING)) {
+            key = cache.computeKey(desc);
+            graphBlobRaw = cache.getBlob(key);
+        }
+
+        if (graphBlobRaw.empty()) {
+            if (!Compiler::getCompiledBlob(ctx, graphSize, graphBlobRaw, desc, lastErrorMsg)) {
+                LOG_E("Failed to get compiled blob!");
+                throw DriverError(ZE_RESULT_ERROR_UNKNOWN);
+            }
+
+            if (!(desc.flags & ZE_GRAPH_FLAG_DISABLE_CACHING)) {
+                cache.setBlob(key, graphBlobRaw);
+            }
         }
     } else {
         graphBlobRaw.resize(graphSize);
@@ -308,7 +352,7 @@ void Graph::initialize() {
     }
 
     if (ElfParser::checkMagic(graphBlobRaw.data(), graphBlobRaw.size())) {
-        LOG_I("Detected Elf format");
+        LOG(GRAPH, "Detected Elf format");
         parser =
             ElfParser::getElfParser(ctx, graphBlobRaw.data(), graphBlobRaw.size(), lastErrorMsg);
     } else {
@@ -355,7 +399,7 @@ ze_result_t Graph::getLogString(uint32_t *pSize, char *pBuildLog) {
     }
 
     if (*pSize == 0) {
-        *pSize = static_cast<uint32_t>(lastErrorMsg.size());
+        *pSize = static_cast<uint32_t>(lastErrorMsg.size() + 1);
         return ZE_RESULT_SUCCESS;
     }
 
@@ -364,8 +408,8 @@ ze_result_t Graph::getLogString(uint32_t *pSize, char *pBuildLog) {
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    *pSize = std::min(*pSize, static_cast<uint32_t>(lastErrorMsg.size()));
-    memcpy(pBuildLog, lastErrorMsg.data(), *pSize);
+    *pSize = std::min(*pSize, static_cast<uint32_t>(lastErrorMsg.size() + 1));
+    memcpy(pBuildLog, lastErrorMsg.c_str(), *pSize);
 
     return ZE_RESULT_SUCCESS;
 }

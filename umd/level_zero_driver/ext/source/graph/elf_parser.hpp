@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -32,6 +32,7 @@ class ElfParser : public IParser {
     static bool checkMagic(uint8_t *ptr, size_t size);
     static std::unique_ptr<ElfParser>
     getElfParser(VPU::VPUDeviceContext *ctx, uint8_t *ptr, size_t size, std::string &logBuffer);
+    static elf::VersionsProvider getElfVer(int arch);
 
     bool getArgumentProperties(std::vector<ze_graph_argument_properties_3_t> &props) const;
     bool getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &args) const;
@@ -71,5 +72,17 @@ class ElfParser : public IParser {
     std::shared_ptr<elf::HostParsedInference> hpi;
     bool firstInference = true;
 };
+
+template <class T>
+inline T toVersion(uint64_t ver) {
+    uint32_t major = ver >> 16 & UINT16_MAX;
+    uint32_t minor = ver & UINT16_MAX;
+
+    if constexpr (std::is_same<T, elf::Version>::value)
+        return elf::Version(major, minor, 0);
+
+    if constexpr (std::is_same<T, ze_graph_version_info_t>::value)
+        return ze_graph_version_info_t{major, minor, 0};
+}
 
 } // namespace L0

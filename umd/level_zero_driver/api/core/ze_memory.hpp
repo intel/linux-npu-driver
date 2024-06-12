@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -8,10 +8,25 @@
 #pragma once
 
 #include "level_zero_driver/core/source/driver/driver_handle.hpp"
+#include "level_zero_driver/include/l0_exception.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include <level_zero/ze_api.h>
 
 namespace L0 {
+
+static VPU::VPUBufferObject::Type flagToBufferObjectType(ze_host_mem_alloc_flags_t flag) {
+    // TODO: Fallback to shave range to fix incorrect address in Dma tasks for kernels (EISW-108894)
+    switch (flag) {
+    case ZE_HOST_MEM_ALLOC_FLAG_BIAS_CACHED:
+        return VPU::VPUBufferObject::Type::CachedShave;
+    case ZE_HOST_MEM_ALLOC_FLAG_BIAS_UNCACHED:
+        return VPU::VPUBufferObject::Type::UncachedShave;
+    case ZE_HOST_MEM_ALLOC_FLAG_BIAS_WRITE_COMBINED:
+        return VPU::VPUBufferObject::Type::WriteCombineShave;
+    };
+    return VPU::VPUBufferObject::Type::CachedShave;
+}
+
 ze_result_t zeMemAllocShared(ze_context_handle_t hContext,
                              const ze_device_mem_alloc_desc_t *deviceDesc,
                              const ze_host_mem_alloc_desc_t *hostDesc,
@@ -40,30 +55,33 @@ ze_result_t zeMemAllocShared(ze_context_handle_t hContext,
         const ze_external_memory_export_desc_t *pExtMemDesc =
             reinterpret_cast<const ze_external_memory_export_desc_t *>(deviceDesc->pNext);
 
-        if (pExtMemDesc->flags == ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF)
-            return L0::Context::fromHandle(hContext)->allocSharedMem(
-                hDevice,
-                0,
-                hostDesc->flags,
+        if (pExtMemDesc->flags == ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF) {
+            L0_HANDLE_EXCEPTION_AND_RETURN(L0::Context::fromHandle(hContext)->allocMemory(
                 size,
                 alignment,
                 pptr,
-                VPU::VPUBufferObject::Location::ExternalShared);
+                VPU::VPUBufferObject::Location::ExternalShared,
+                flagToBufferObjectType(hostDesc->flags)));
+        }
         return ZE_RESULT_ERROR_INVALID_ENUMERATION;
     }
     case ZE_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMPORT_FD: {
         const ze_external_memory_import_fd_t *pImportMemDesc =
             reinterpret_cast<const ze_external_memory_import_fd_t *>(deviceDesc->pNext);
         if (pImportMemDesc->flags == ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF)
-            return L0::Context::fromHandle(hContext)->importMemory(
+            L0_HANDLE_EXCEPTION_AND_RETURN(L0::Context::fromHandle(hContext)->importMemory(
                 VPU::VPUBufferObject::Location::ExternalShared,
                 pImportMemDesc->fd,
-                pptr);
+                pptr));
         return ZE_RESULT_ERROR_INVALID_ENUMERATION;
     }
     default:
-        return L0::Context::fromHandle(hContext)
-            ->allocSharedMem(hDevice, 0, hostDesc->flags, size, alignment, pptr);
+        L0_HANDLE_EXCEPTION_AND_RETURN(L0::Context::fromHandle(hContext)->allocMemory(
+            size,
+            alignment,
+            pptr,
+            VPU::VPUBufferObject::Location::Shared,
+            flagToBufferObjectType(hostDesc->flags)));
     }
 }
 
@@ -94,28 +112,34 @@ ze_result_t zeMemAllocDevice(ze_context_handle_t hContext,
         const ze_external_memory_export_desc_t *pExtMemDesc =
             reinterpret_cast<const ze_external_memory_export_desc_t *>(deviceDesc->pNext);
 
-        if (pExtMemDesc->flags == ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF)
-            return L0::Context::fromHandle(hContext)->allocDeviceMem(
-                hDevice,
-                0,
+        if (pExtMemDesc->flags == ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF) {
+            L0_HANDLE_EXCEPTION_AND_RETURN(L0::Context::fromHandle(hContext)->allocMemory(
                 size,
                 alignment,
                 pptr,
-                VPU::VPUBufferObject::Location::ExternalDevice);
+                VPU::VPUBufferObject::Location::ExternalDevice,
+                VPU::VPUBufferObject::Type::WriteCombineShave));
+        }
         return ZE_RESULT_ERROR_INVALID_ENUMERATION;
     }
     case ZE_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMPORT_FD: {
         const ze_external_memory_import_fd_t *pImportMemDesc =
             reinterpret_cast<const ze_external_memory_import_fd_t *>(deviceDesc->pNext);
-        if (pImportMemDesc->flags == ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF)
-            return L0::Context::fromHandle(hContext)->importMemory(
+        if (pImportMemDesc->flags == ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF) {
+            L0_HANDLE_EXCEPTION_AND_RETURN(L0::Context::fromHandle(hContext)->importMemory(
                 VPU::VPUBufferObject::Location::ExternalDevice,
                 pImportMemDesc->fd,
-                pptr);
+                pptr));
+        }
         return ZE_RESULT_ERROR_INVALID_ENUMERATION;
     }
     default:
-        return L0::Context::fromHandle(hContext)->allocDeviceMem(hDevice, 0, size, alignment, pptr);
+        L0_HANDLE_EXCEPTION_AND_RETURN(L0::Context::fromHandle(hContext)->allocMemory(
+            size,
+            alignment,
+            pptr,
+            VPU::VPUBufferObject::Location::Device,
+            VPU::VPUBufferObject::Type::WriteCombineShave));
     }
 }
 
@@ -145,30 +169,33 @@ ze_result_t zeMemAllocHost(ze_context_handle_t hContext,
         const ze_external_memory_export_desc_t *pExtMemDesc =
             reinterpret_cast<const ze_external_memory_export_desc_t *>(hostDesc->pNext);
 
-        if (pExtMemDesc->flags == ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF)
-            return L0::Context::fromHandle(hContext)->allocHostMem(
-                hostDesc->flags,
+        if (pExtMemDesc->flags == ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF) {
+            L0_HANDLE_EXCEPTION_AND_RETURN(L0::Context::fromHandle(hContext)->allocMemory(
                 size,
                 alignment,
                 pptr,
-                VPU::VPUBufferObject::Location::ExternalHost);
+                VPU::VPUBufferObject::Location::ExternalHost,
+                flagToBufferObjectType(hostDesc->flags)));
+        }
         return ZE_RESULT_ERROR_INVALID_ENUMERATION;
     }
     case ZE_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMPORT_FD: {
         const ze_external_memory_import_fd_t *pImportMemDesc =
             reinterpret_cast<const ze_external_memory_import_fd_t *>(hostDesc->pNext);
         if (pImportMemDesc->flags == ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF)
-            return L0::Context::fromHandle(hContext)->importMemory(
+            L0_HANDLE_EXCEPTION_AND_RETURN(L0::Context::fromHandle(hContext)->importMemory(
                 VPU::VPUBufferObject::Location::ExternalHost,
                 pImportMemDesc->fd,
-                pptr);
+                pptr));
         return ZE_RESULT_ERROR_INVALID_ENUMERATION;
     }
     default:
-        return L0::Context::fromHandle(hContext)->allocHostMem(hostDesc->flags,
-                                                               size,
-                                                               alignment,
-                                                               pptr);
+        L0_HANDLE_EXCEPTION_AND_RETURN(L0::Context::fromHandle(hContext)->allocMemory(
+            size,
+            alignment,
+            pptr,
+            VPU::VPUBufferObject::Location::Host,
+            flagToBufferObjectType(hostDesc->flags)));
     }
 }
 
@@ -176,7 +203,7 @@ ze_result_t zeMemFree(ze_context_handle_t hContext, void *ptr) {
     if (hContext == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Context::fromHandle(hContext)->freeMem(ptr);
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::Context::fromHandle(hContext)->freeMem(ptr));
 }
 
 ze_result_t zeMemGetAllocProperties(ze_context_handle_t hContext,
@@ -186,9 +213,8 @@ ze_result_t zeMemGetAllocProperties(ze_context_handle_t hContext,
     if (hContext == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Context::fromHandle(hContext)->getMemAllocProperties(ptr,
-                                                                    pMemAllocProperties,
-                                                                    phDevice);
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::Context::fromHandle(hContext)
+                                       ->getMemAllocProperties(ptr, pMemAllocProperties, phDevice));
 }
 
 ze_result_t
@@ -196,7 +222,8 @@ zeMemGetAddressRange(ze_context_handle_t hContext, const void *ptr, void **pBase
     if (hContext == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Context::fromHandle(hContext)->getMemAddressRange(ptr, pBase, pSize);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::Context::fromHandle(hContext)->getMemAddressRange(ptr, pBase, pSize));
 }
 
 ze_result_t

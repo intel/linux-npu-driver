@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -65,7 +65,7 @@ ze_result_t CommandQueue::create(ze_context_handle_t hContext,
         *phCommandQueue = commandQueue.get();
         pContext->appendObject(std::move(commandQueue));
 
-        LOG_I("CommandQueue created - %p", *phCommandQueue);
+        LOG(CMDQUEUE, "CommandQueue created - %p", *phCommandQueue);
     } catch (const DriverError &err) {
         return err.result();
     }
@@ -75,7 +75,7 @@ ze_result_t CommandQueue::create(ze_context_handle_t hContext,
 
 ze_result_t CommandQueue::destroy() {
     pContext->removeObject(this);
-    LOG_I("CommandQueue destroyed");
+    LOG(CMDQUEUE, "CommandQueue destroyed");
     return ZE_RESULT_SUCCESS;
 }
 
@@ -99,7 +99,7 @@ ze_result_t CommandQueue::createFence(const ze_fence_desc_t *desc, ze_fence_hand
         *phFence = fence.get();
         pContext->appendObject(std::move(fence));
 
-        LOG_I("Fence created - %p", *phFence);
+        LOG(CMDQUEUE, "Fence created - %p", *phFence);
     } catch (const DriverError &err) {
         return err.result();
     }
@@ -110,15 +110,15 @@ ze_result_t CommandQueue::createFence(const ze_fence_desc_t *desc, ze_fence_hand
 ze_result_t CommandQueue::executeCommandLists(uint32_t nCommandLists,
                                               ze_command_list_handle_t *phCommandLists,
                                               ze_fence_handle_t hFence) {
-    LOG_V("Executing %u command list(s)", nCommandLists);
+    LOG(CMDQUEUE, "Executing %u command list(s)", nCommandLists);
 
     if (phCommandLists == nullptr) {
-        LOG_E("Invalid pointer to handle hCommandLists.");
+        LOG_E("Invalid pointer to handle hCommandLists");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
     if (nCommandLists == 0u) {
-        LOG_E("Invalid number of command lists.");
+        LOG_E("Invalid number of command lists");
         return ZE_RESULT_ERROR_INVALID_SIZE;
     }
 
@@ -126,12 +126,12 @@ ze_result_t CommandQueue::executeCommandLists(uint32_t nCommandLists,
         auto cmdList = CommandList::fromHandle(phCommandLists[i]);
 
         if (isCopyOnlyCommandQueue && !cmdList->isCopyOnly()) {
-            LOG_E("Invalid command list type.");
+            LOG_E("Invalid command list type");
             return ZE_RESULT_ERROR_INVALID_COMMAND_LIST_TYPE;
         }
 
         if (!cmdList->isCmdListClosed()) {
-            LOG_E("Command List didn't close.");
+            LOG_E("Command List didn't close");
             return ZE_RESULT_ERROR_UNINITIALIZED;
         }
     }
@@ -145,7 +145,7 @@ ze_result_t CommandQueue::executeCommandLists(uint32_t nCommandLists,
         }
 
         if (!cmdList->getNumCommands()) {
-            LOG_W("No commands on list. Skipping command list %p.", cmdList);
+            LOG(CMDQUEUE, "No commands on list. Skipping command list %p.", cmdList);
             continue;
         }
 
@@ -163,12 +163,12 @@ ze_result_t CommandQueue::executeCommandLists(uint32_t nCommandLists,
             return ZE_RESULT_ERROR_UNKNOWN;
         }
 
-        LOG_I("VPUJob %p submitted", job.get());
+        LOG(CMDQUEUE, "VPUJob %p submitted", job.get());
         jobs.emplace_back(std::move(job));
     }
 
     if (hFence != nullptr) {
-        LOG_V("A fence is given for command queue exec sync.");
+        LOG(CMDQUEUE, "A fence is given for command queue exec sync");
         auto fence = Fence::fromHandle(hFence);
         if (fence == nullptr) {
             LOG_E("Failed to get Fence, invalid fence handle %p.", hFence);
@@ -197,11 +197,11 @@ ze_result_t CommandQueue::synchronize(uint64_t timeout) {
 
     const std::lock_guard<std::timed_mutex> trackedJobsLock(trackedJobsMutex, std::adopt_lock);
     if (trackedJobs.empty()) {
-        LOG_W("No command execution to observe");
+        LOG(CMDQUEUE, "No command execution to observe");
         return ZE_RESULT_SUCCESS;
     }
 
-    LOG_V("Synchronize for %lu ns, %zu job count", timeout, trackedJobs.size());
+    LOG(CMDQUEUE, "Synchronize for %lu ns, %zu job count", timeout, trackedJobs.size());
 
     for (auto const &job : trackedJobs) {
         if (!job->waitForCompletion(timeoutPoint.time_since_epoch().count())) {
@@ -213,7 +213,7 @@ ze_result_t CommandQueue::synchronize(uint64_t timeout) {
     ze_result_t result = Device::jobStatusToResult(trackedJobs);
 
     trackedJobs.clear();
-    LOG_I("Commands execution is finished");
+    LOG(CMDQUEUE, "Commands execution is finished");
     return result;
 }
 

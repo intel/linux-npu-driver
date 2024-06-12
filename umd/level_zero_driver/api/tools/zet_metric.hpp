@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
+#include "level_zero_driver/include/l0_exception.hpp"
 #include "level_zero_driver/tools/source/metrics/metric.hpp"
 #include "level_zero_driver/tools/source/metrics/metric_query.hpp"
 #include "level_zero_driver/tools/source/metrics/metric_streamer.hpp"
@@ -19,7 +20,8 @@ ze_result_t zetMetricGroupGet(zet_device_handle_t hDevice,
     if (hDevice == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Device::fromHandle(hDevice)->metricGroupGet(pCount, phMetricGroups);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::Device::fromHandle(hDevice)->metricGroupGet(pCount, phMetricGroups));
 }
 
 ze_result_t zetMetricGroupGetProperties(zet_metric_group_handle_t hMetricGroup,
@@ -27,7 +29,8 @@ ze_result_t zetMetricGroupGetProperties(zet_metric_group_handle_t hMetricGroup,
     if (hMetricGroup == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::MetricGroup::fromHandle(hMetricGroup)->getProperties(pProperties);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::MetricGroup::fromHandle(hMetricGroup)->getProperties(pProperties));
 }
 
 ze_result_t zetMetricGet(zet_metric_group_handle_t hMetricGroup,
@@ -36,7 +39,8 @@ ze_result_t zetMetricGet(zet_metric_group_handle_t hMetricGroup,
     if (hMetricGroup == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::MetricGroup::fromHandle(hMetricGroup)->getMetric(pCount, phMetrics);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::MetricGroup::fromHandle(hMetricGroup)->getMetric(pCount, phMetrics));
 }
 
 ze_result_t zetMetricGetProperties(zet_metric_handle_t hMetric,
@@ -44,7 +48,7 @@ ze_result_t zetMetricGetProperties(zet_metric_handle_t hMetric,
     if (hMetric == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Metric::fromHandle(hMetric)->getProperties(pProperties);
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::Metric::fromHandle(hMetric)->getProperties(pProperties));
 }
 
 ze_result_t zetMetricGroupCalculateMetricValues(zet_metric_group_handle_t hMetricGroup,
@@ -56,8 +60,9 @@ ze_result_t zetMetricGroupCalculateMetricValues(zet_metric_group_handle_t hMetri
     if (hMetricGroup == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::MetricGroup::fromHandle(hMetricGroup)
-        ->calculateMetricValues(type, rawDataSize, pRawData, pMetricValueCount, pMetricValues);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::MetricGroup::fromHandle(hMetricGroup)
+            ->calculateMetricValues(type, rawDataSize, pRawData, pMetricValueCount, pMetricValues));
 }
 
 ze_result_t zetContextActivateMetricGroups(zet_context_handle_t hContext,
@@ -67,7 +72,8 @@ ze_result_t zetContextActivateMetricGroups(zet_context_handle_t hContext,
     if (hContext == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Context::fromHandle(hContext)->activateMetricGroups(hDevice, count, phMetricGroups);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::Context::fromHandle(hContext)->activateMetricGroups(hDevice, count, phMetricGroups));
 }
 
 ze_result_t zetMetricStreamerOpen(zet_context_handle_t hContext,
@@ -79,11 +85,12 @@ ze_result_t zetMetricStreamerOpen(zet_context_handle_t hContext,
     if (hContext == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Context::fromHandle(hContext)->metricStreamerOpen(hDevice,
-                                                                 hMetricGroup,
-                                                                 pDesc,
-                                                                 hNotificationEvent,
-                                                                 phMetricStreamer);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::Context::fromHandle(hContext)->metricStreamerOpen(hDevice,
+                                                              hMetricGroup,
+                                                              pDesc,
+                                                              hNotificationEvent,
+                                                              phMetricStreamer));
 }
 
 ze_result_t zetCommandListAppendMetricStreamerMarker(ze_command_list_handle_t hCommandList,
@@ -96,7 +103,7 @@ ze_result_t zetMetricStreamerClose(zet_metric_streamer_handle_t hMetricStreamer)
     if (hMetricStreamer == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::MetricStreamer::fromHandle(hMetricStreamer)->close();
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::MetricStreamer::fromHandle(hMetricStreamer)->close());
 }
 
 ze_result_t zetMetricStreamerReadData(zet_metric_streamer_handle_t hMetricStreamer,
@@ -106,8 +113,8 @@ ze_result_t zetMetricStreamerReadData(zet_metric_streamer_handle_t hMetricStream
     if (hMetricStreamer == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::MetricStreamer::fromHandle(hMetricStreamer)
-        ->readData(maxReportCount, pRawDataSize, pRawData);
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::MetricStreamer::fromHandle(hMetricStreamer)
+                                       ->readData(maxReportCount, pRawDataSize, pRawData));
 }
 
 ze_result_t zetMetricQueryPoolCreate(zet_context_handle_t hContext,
@@ -118,17 +125,18 @@ ze_result_t zetMetricQueryPoolCreate(zet_context_handle_t hContext,
     if (hContext == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Context::fromHandle(hContext)->createMetricQueryPool(hDevice,
-                                                                    hMetricGroup,
-                                                                    desc,
-                                                                    phMetricQueryPool);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::Context::fromHandle(hContext)->createMetricQueryPool(hDevice,
+                                                                 hMetricGroup,
+                                                                 desc,
+                                                                 phMetricQueryPool));
 }
 
 ze_result_t zetMetricQueryPoolDestroy(zet_metric_query_pool_handle_t hMetricQueryPool) {
     if (hMetricQueryPool == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::MetricQueryPool::fromHandle(hMetricQueryPool)->destroy();
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::MetricQueryPool::fromHandle(hMetricQueryPool)->destroy());
 }
 
 ze_result_t zetMetricQueryCreate(zet_metric_query_pool_handle_t hMetricQueryPool,
@@ -137,22 +145,22 @@ ze_result_t zetMetricQueryCreate(zet_metric_query_pool_handle_t hMetricQueryPool
     if (hMetricQueryPool == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::MetricQueryPool::fromHandle(hMetricQueryPool)
-        ->createMetricQuery(index, phMetricQuery);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(index, phMetricQuery));
 }
 
 ze_result_t zetMetricQueryDestroy(zet_metric_query_handle_t hMetricQuery) {
     if (hMetricQuery == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::MetricQuery::fromHandle(hMetricQuery)->destroy();
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::MetricQuery::fromHandle(hMetricQuery)->destroy());
 }
 
 ze_result_t zetMetricQueryReset(zet_metric_query_handle_t hMetricQuery) {
     if (hMetricQuery == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::MetricQuery::fromHandle(hMetricQuery)->reset();
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::MetricQuery::fromHandle(hMetricQuery)->reset());
 }
 
 ze_result_t zetCommandListAppendMetricQueryBegin(zet_command_list_handle_t hCommandList,
@@ -160,7 +168,8 @@ ze_result_t zetCommandListAppendMetricQueryBegin(zet_command_list_handle_t hComm
     if (hCommandList == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::CommandList::fromHandle(hCommandList)->appendMetricQueryBegin(hMetricQuery);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::CommandList::fromHandle(hCommandList)->appendMetricQueryBegin(hMetricQuery));
 }
 
 ze_result_t zetCommandListAppendMetricQueryEnd(zet_command_list_handle_t hCommandList,
@@ -171,8 +180,9 @@ ze_result_t zetCommandListAppendMetricQueryEnd(zet_command_list_handle_t hComman
     if (hCommandList == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::CommandList::fromHandle(hCommandList)
-        ->appendMetricQueryEnd(hMetricQuery, hSignalEvent, numWaitEvents, phWaitEvents);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::CommandList::fromHandle(hCommandList)
+            ->appendMetricQueryEnd(hMetricQuery, hSignalEvent, numWaitEvents, phWaitEvents));
 }
 
 ze_result_t zetCommandListAppendMetricMemoryBarrier(zet_command_list_handle_t hCommandList) {
@@ -185,7 +195,8 @@ ze_result_t zetMetricQueryGetData(zet_metric_query_handle_t hMetricQuery,
     if (hMetricQuery == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::MetricQuery::fromHandle(hMetricQuery)->getData(pRawDataSize, pRawData);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::MetricQuery::fromHandle(hMetricQuery)->getData(pRawDataSize, pRawData));
 }
 } // namespace L0
 

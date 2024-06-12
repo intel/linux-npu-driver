@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -19,12 +19,12 @@ Fence::Fence(Context *pContext, const ze_fence_desc_t *desc)
 
 ze_result_t Fence::destroy() {
     pContext->removeObject(this);
-    LOG_I("Fence destroyed");
+    LOG(FENCE, "Fence destroyed");
     return ZE_RESULT_SUCCESS;
 }
 
 ze_result_t Fence::hostSynchronize(uint64_t timeout) {
-    LOG_V("Fence status: %d", signaled);
+    LOG(FENCE, "Fence status: %d", signaled);
     if (signaled)
         return ZE_RESULT_SUCCESS;
 
@@ -33,7 +33,7 @@ ze_result_t Fence::hostSynchronize(uint64_t timeout) {
         return ZE_RESULT_NOT_READY;
     }
 
-    LOG_V("Synchronize for %lu ns, %zu jobs count", timeout, trackedJobs.size());
+    LOG(FENCE, "Synchronize for %lu ns, %zu jobs count", timeout, trackedJobs.size());
 
     auto absTimeout = VPU::getAbsoluteTimeoutNanoseconds(timeout);
     for (auto const &job : trackedJobs) {
@@ -47,12 +47,12 @@ ze_result_t Fence::hostSynchronize(uint64_t timeout) {
 
     trackedJobs.clear();
     signaled = true;
-    LOG_V("Commands execution is finished");
+    LOG(FENCE, "Commands execution is finished");
     return result;
 }
 
 ze_result_t Fence::reset() {
-    LOG_V("Reset the fence");
+    LOG(FENCE, "Reset the fence");
     signaled = false;
     return ZE_RESULT_SUCCESS;
 }
@@ -61,7 +61,7 @@ void Fence::setTrackedJobs(std::vector<std::shared_ptr<VPU::VPUJob>> &jobs) {
     trackedJobs = jobs;
     if (!trackedJobs.size())
         signaled = true;
-    LOG_V("%zu sync jobs copied", trackedJobs.size());
+    LOG(FENCE, "%zu sync jobs copied", trackedJobs.size());
 }
 
 } // namespace L0

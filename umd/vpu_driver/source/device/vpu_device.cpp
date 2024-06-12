@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -16,22 +16,23 @@
 #include "vpu_driver/source/os_interface/os_interface.hpp"
 #include "api/vpu_jsm_api.h"
 
+#include <cassert>
 #include <cerrno>
+#include <charconv>
 #include <limits>
 #include <stdexcept>
 #include <sys/mman.h>
 #include <uapi/drm/ivpu_accel.h>
-#include <cassert>
 
 namespace VPU {
-VPUDevice::VPUDevice(std::string devnode, OsInterface &osInfc)
-    : devnode(std::move(devnode))
+VPUDevice::VPUDevice(std::string devPath, OsInterface &osInfc)
+    : devPath(std::move(devPath))
     , osInfc(osInfc) {}
 
 bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
     try {
         uint32_t deviceId = drvApi->getDeviceParam<uint32_t>(DRM_IVPU_PARAM_DEVICE_ID);
-        LOG_I("PCI device ID: %#x", deviceId);
+        LOG(DEVICE, "PCI device ID: %#x", deviceId);
 
         hwInfo = getHwInfoByDeviceId(deviceId);
         hwInfo.deviceId = deviceId;
@@ -42,7 +43,7 @@ bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
         hwInfo.baseLowAddress = drvApi->getDeviceParam(DRM_IVPU_PARAM_CONTEXT_BASE_ADDRESS);
         hwInfo.fwMappedInferenceVersion =
             drvApi->getDeviceParam(DRM_IVPU_PARAM_FW_API_VERSION, hwInfo.fwMappedInferenceIndex);
-        LOG_I("Base address of device is %#lx", hwInfo.baseLowAddress);
+        LOG(DEVICE, "Base address of device is %#lx", hwInfo.baseLowAddress);
 
         uint32_t tileConfigParam = drvApi->getDeviceParam<uint32_t>(DRM_IVPU_PARAM_TILE_CONFIG);
         hwInfo.tileConfig = ~tileConfigParam & hwInfo.tileFuseMask;
@@ -65,8 +66,8 @@ bool VPUDevice::initializeMetricGroups(VPUDriverApi *drvApi) {
 
     // to obtain all metric groups
     get_info_params.metric_group_mask = metricGroupMask;
-    get_info_params.buffer_size = 0;
     get_info_params.buffer_ptr = 0;
+    get_info_params.buffer_size = 0;
 
     if (drvApi->metricStreamerGetInfo(&get_info_params)) {
         LOG_W("Failed to call metric_streamer_get_info ioctl. -errno: %d. Size information not "
@@ -76,10 +77,10 @@ bool VPUDevice::initializeMetricGroups(VPUDriverApi *drvApi) {
     }
 
     uint64_t metricGroupsInfoSize = get_info_params.data_size;
-    LOG_V("Metric Groups Info Size: %lu\n", metricGroupsInfoSize);
+    LOG(METRIC, "Metric Groups Info Size: %lu", metricGroupsInfoSize);
 
     if (metricGroupsInfoSize == 0) {
-        LOG_W("No metric groups received.");
+        LOG_W("No metric groups received");
         return false;
     }
 
@@ -88,8 +89,8 @@ bool VPUDevice::initializeMetricGroups(VPUDriverApi *drvApi) {
 
     get_info_params = {};
     get_info_params.metric_group_mask = metricGroupMask;
-    get_info_params.buffer_size = metricGroupsInfoSize;
     get_info_params.buffer_ptr = reinterpret_cast<uint64_t>(metricGroupsInfo.data());
+    get_info_params.buffer_size = metricGroupsInfoSize;
 
     if (drvApi->metricStreamerGetInfo(&get_info_params)) {
         LOG_E("Failed to call metric_streamer_get_info ioctl. -errno: %d. No data obtained.",
@@ -125,19 +126,19 @@ bool VPUDevice::initializeMetricGroups(VPUDriverApi *drvApi) {
                 groupNameStringSize);
         }
 
-        LOG_V("========================================\n");
-        LOG_V("Metric Group #%d\n", numberOfMetricGroups);
+        LOG(METRIC, "========================================");
+        LOG(METRIC, "Metric Group #%d", numberOfMetricGroups);
 
-        LOG_V("next_metric_group_info_offset: %u\n", group_desc->next_metric_group_info_offset);
-        LOG_V("next_metric_counter_info_offset: %u\n", firstMetricOffset);
-        LOG_V("group_id: %u\n", groupInfo.groupIndex);
-        LOG_V("num_counters: %u\n", groupInfo.metricCount);
-        LOG_V("metric_group_data_size: %u\n", group_desc->metric_group_data_size);
-        LOG_V("domain: %u\n", groupInfo.domain);
-        LOG_V("name_string_size: %u\n", groupNameStringSize);
-        LOG_V("description_string_size: %u\n", groupDescriptionStringSize);
-        LOG_V("metric_group_name: %s\n", groupInfo.metricGroupName.c_str());
-        LOG_V("metric_group_description: %s\n", groupInfo.metricGroupDescription.c_str());
+        LOG(METRIC, "next_metric_group_info_offset: %u", group_desc->next_metric_group_info_offset);
+        LOG(METRIC, "next_metric_counter_info_offset: %u", firstMetricOffset);
+        LOG(METRIC, "group_id: %u", groupInfo.groupIndex);
+        LOG(METRIC, "num_counters: %u", groupInfo.metricCount);
+        LOG(METRIC, "metric_group_data_size: %u", group_desc->metric_group_data_size);
+        LOG(METRIC, "domain: %u", groupInfo.domain);
+        LOG(METRIC, "name_string_size: %u", groupNameStringSize);
+        LOG(METRIC, "description_string_size: %u", groupDescriptionStringSize);
+        LOG(METRIC, "metric_group_name: %s", groupInfo.metricGroupName.c_str());
+        LOG(METRIC, "metric_group_description: %s", groupInfo.metricGroupDescription.c_str());
 
         counter_desc = reinterpret_cast<vpu_jsm_metric_counter_descriptor *>(
             reinterpret_cast<uint64_t>(group_desc) + firstMetricOffset);
@@ -181,22 +182,23 @@ bool VPUDevice::initializeMetricGroups(VPUDriverApi *drvApi) {
                     descriptionStringSize + componentStringSize);
             }
 
-            LOG_V("----------------------------------------\n");
-            LOG_V("next_metric_counter_info_offset: %u\n",
-                  counter_desc->next_metric_counter_info_offset);
-            LOG_V("metric_data_offset: %u\n", counter_desc->metric_data_offset);
-            LOG_V("metric_data_size: %u\n", counter_desc->metric_data_size);
-            LOG_V("tier: %u\n", counterInfo.tier);
-            LOG_V("metric_type: %u\n", counterInfo.metricType);
-            LOG_V("value_type: %u\n", counterInfo.valueType);
-            LOG_V("name_string_size: %u\n", nameStringSize);
-            LOG_V("description_string_size: %u\n", descriptionStringSize);
-            LOG_V("component_string_size: %u\n", componentStringSize);
-            LOG_V("units_string_size: %u\n", unitsStringSize);
-            LOG_V("metric_name: %s\n", counterInfo.metricName.c_str());
-            LOG_V("metric_description: %s\n", counterInfo.metricDescription.c_str());
-            LOG_V("component: %s\n", counterInfo.component.c_str());
-            LOG_V("units: %s\n", counterInfo.units.c_str());
+            LOG(METRIC, "----------------------------------------");
+            LOG(METRIC,
+                "next_metric_counter_info_offset: %u",
+                counter_desc->next_metric_counter_info_offset);
+            LOG(METRIC, "metric_data_offset: %u", counter_desc->metric_data_offset);
+            LOG(METRIC, "metric_data_size: %u", counter_desc->metric_data_size);
+            LOG(METRIC, "tier: %u", counterInfo.tier);
+            LOG(METRIC, "metric_type: %u", counterInfo.metricType);
+            LOG(METRIC, "value_type: %u", counterInfo.valueType);
+            LOG(METRIC, "name_string_size: %u", nameStringSize);
+            LOG(METRIC, "description_string_size: %u", descriptionStringSize);
+            LOG(METRIC, "component_string_size: %u", componentStringSize);
+            LOG(METRIC, "units_string_size: %u", unitsStringSize);
+            LOG(METRIC, "metric_name: %s", counterInfo.metricName.c_str());
+            LOG(METRIC, "metric_description: %s", counterInfo.metricDescription.c_str());
+            LOG(METRIC, "component: %s", counterInfo.component.c_str());
+            LOG(METRIC, "units: %s", counterInfo.units.c_str());
 
             groupInfo.counterInfo.push_back(counterInfo);
 
@@ -219,30 +221,28 @@ bool VPUDevice::initializeMetricGroups(VPUDriverApi *drvApi) {
 }
 
 bool VPUDevice::init(bool enableMetrics) {
-    LOG_V("Initializing VPU device.");
-
-    if (devnode.empty()) {
-        LOG_W("Device node is null.");
+    if (devPath.empty()) {
+        LOG_W("Device node is null");
         return false;
     }
 
-    auto drvApi = VPUDriverApi::openDriverApi(devnode, osInfc);
+    auto drvApi = VPUDriverApi::openDriverApi(devPath, osInfc);
     if (drvApi == nullptr || !drvApi->isVpuDevice())
         return false;
 
     if (!initializeCaps(drvApi.get())) {
-        LOG_W("Failed to initialize VPU device capabilities.");
+        LOG_W("Failed to initialize VPU device capabilities");
         return false;
     }
 
     if (enableMetrics && getCapMetricStreamer()) {
         if (!initializeMetricGroups(drvApi.get())) {
-            LOG_W("Failed to initialize metric groups.");
+            LOG_W("Failed to initialize metric groups");
             return false;
         }
     }
 
-    LOG_V("VPU device initialized successfully.");
+    LOG(DEVICE, "VPU device initialized successfully (%s)", devPath.c_str());
     return true;
 }
 
@@ -259,9 +259,19 @@ bool VPUDevice::getCapMetricStreamer() const {
 }
 
 bool VPUDevice::isConnected() {
-    bool connected = VPUDriverApi(devnode, osInfc).checkDeviceStatus();
-    LOG_V("Device connection status: %u", connected);
-    return connected;
+    auto drvApi = VPUDriverApi::openDriverApi(devPath, osInfc);
+    if (drvApi == nullptr || !drvApi->isVpuDevice())
+        return false;
+
+    try {
+        drvApi->getDeviceParam<uint32_t>(DRM_IVPU_PARAM_ENGINE_HEARTBEAT);
+        LOG(DEVICE, "Device connected");
+        return true;
+
+    } catch (const std::exception &e) {
+        LOG_E("Device not connected");
+        return false;
+    }
 }
 
 size_t VPUDevice::getNumberOfEngineGroups(void) const {
@@ -297,13 +307,55 @@ bool VPUDevice::engineSupportCompute(EngineType engineType) const {
 }
 
 std::unique_ptr<VPUDeviceContext> VPUDevice::createDeviceContext() {
-    auto drvApi = VPUDriverApi::openDriverApi(devnode, osInfc);
+    auto drvApi = VPUDriverApi::openDriverApi(devPath, osInfc);
     if (drvApi == nullptr) {
         LOG_E("Failed to allocate VPUDriverApi");
         return nullptr;
     }
 
     return std::make_unique<VPUDeviceContext>(std::move(drvApi), &hwInfo);
+}
+
+int VPUDevice::getBDF(uint32_t *domain, uint32_t *bus, uint32_t *dev, uint32_t *func) {
+    auto drvApi = VPUDriverApi::openDriverApi(devPath, osInfc);
+    if (drvApi == nullptr) {
+        LOG_E("Failed to open openDriverApi");
+        return -1;
+    }
+
+    std::string devLink = drvApi->getDeviceLink();
+    if (devLink.empty()) {
+        LOG_E("Failed to find deviec link path");
+        return -1;
+    }
+
+    // Expect to get devLink = '../../devices/pci0000:00/0000:00:0b.0/accel/accel0'
+    //                                            1. Try find 'accel' ^
+    //          2. Check if BDF string (-13chars) exists ^^^^^^^^^^^^^
+    size_t pos = devLink.find("accel");
+    if (pos < 13 || pos >= devLink.size()) {
+        LOG_E("Failed to find 'accel' in device link path");
+        return -1;
+    }
+
+    std::from_chars_result ret;
+    ret = std::from_chars(&devLink.data()[pos - 13], &devLink.data()[pos - 9], *domain, 16);
+    if (ret.ec != std::errc())
+        LOG_W("Failed to get domain from '%s'", devLink.data());
+
+    ret = std::from_chars(&devLink.data()[pos - 8], &devLink.data()[pos - 6], *bus, 16);
+    if (ret.ec != std::errc())
+        LOG_W("Failed to get bus from '%s'", devLink.data());
+
+    ret = std::from_chars(&devLink.data()[pos - 5], &devLink.data()[pos - 3], *dev, 16);
+    if (ret.ec != std::errc())
+        LOG_W("Failed to get dev from '%s'", devLink.data());
+
+    ret = std::from_chars(&devLink.data()[pos - 2], &devLink.data()[pos - 1], *func, 16);
+    if (ret.ec != std::errc())
+        LOG_W("Failed to get func from '%s'", devLink.data());
+
+    return 0;
 }
 
 } // namespace VPU

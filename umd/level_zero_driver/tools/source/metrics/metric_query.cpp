@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -66,7 +66,7 @@ MetricQuery::MetricQuery(MetricGroup &metricGroupInput,
     , dataPtr(dataPtr)
     , destroyCb(std::move(destroyCb)) {
     metricGroupMask = 0x1 << metricGroup.getGroupIndex();
-    LOG_I(
+    LOG(METRIC,
         "MetricQuery -> group mask: %#x, cpu address table: %p, group index: %u, cpu data address: "
         "%p, vpu data address: %#lx",
         metricGroupMask,
@@ -79,7 +79,7 @@ MetricQuery::MetricQuery(MetricGroup &metricGroupInput,
 ze_result_t MetricQueryPool::createMetricQuery(uint32_t index,
                                                zet_metric_query_handle_t *phMetricQuery) {
     if (phMetricQuery == nullptr) {
-        LOG_E("MetricQuery handle is NULL.");
+        LOG_E("MetricQuery handle is NULL");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -109,7 +109,7 @@ ze_result_t MetricQueryPool::createMetricQuery(uint32_t index,
             metricQueries[index].reset();
         });
     *phMetricQuery = metricQueries[index].get();
-    LOG_I("MetricQuery created - %p", *phMetricQuery);
+    LOG(METRIC, "MetricQuery created - %p", *phMetricQuery);
 
     return ZE_RESULT_SUCCESS;
 }
@@ -117,13 +117,13 @@ ze_result_t MetricQueryPool::createMetricQuery(uint32_t index,
 ze_result_t MetricQuery::destroy() {
     destroyCb();
 
-    LOG_I("MetricQuery destroyed - %p", this);
+    LOG(METRIC, "MetricQuery destroyed - %p", this);
     return ZE_RESULT_SUCCESS;
 }
 
 ze_result_t MetricQuery::getData(size_t *pRawDataSize, uint8_t *pRawData) {
     if (pRawDataSize == nullptr) {
-        LOG_E("Invalid pRawDataSize pointer.");
+        LOG_E("Invalid pRawDataSize pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -143,7 +143,7 @@ ze_result_t MetricQuery::getData(size_t *pRawDataSize, uint8_t *pRawData) {
         }
         memcpy(pRawData, dataPtr, *pRawDataSize);
     } else {
-        LOG_W("Input raw data pointer is NULL.");
+        LOG_W("Input raw data pointer is NULL");
     }
 
     return ZE_RESULT_SUCCESS;
@@ -153,7 +153,7 @@ ze_result_t MetricQuery::reset() {
     size_t dataSize = metricGroup.getAllocationSize();
     memset(dataPtr, 0, dataSize);
 
-    LOG_I("MetricQuery has been reset successfully");
+    LOG(METRIC, "MetricQuery has been reset successfully");
 
     return ZE_RESULT_SUCCESS;
 }
@@ -169,7 +169,7 @@ ze_result_t MetricQueryPool::destroy() {
     }
 
     pContext->removeObject(this);
-    LOG_I("MetricQueryPool destroyed - %p", this);
+    LOG(METRIC, "MetricQueryPool destroyed - %p", this);
     return ZE_RESULT_SUCCESS;
 }
 

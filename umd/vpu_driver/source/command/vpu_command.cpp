@@ -14,7 +14,6 @@
 #include <cstdint>
 #include <vector>
 #include <map>
-#include <algorithm>
 
 namespace VPU {
 

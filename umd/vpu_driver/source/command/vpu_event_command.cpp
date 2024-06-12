@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -34,7 +34,7 @@ std::shared_ptr<VPUEventCommand> VPUEventCommand::create(VPUDeviceContext *ctx,
         return nullptr;
     }
 
-    LOG_V("%s event ptr: %p", getEventCommandStr(cmdType, eventState), eventHeapPtr);
+    LOG(VPU_CMD, "%s event ptr: %p", getEventCommandStr(cmdType, eventState), eventHeapPtr);
     return std::make_shared<VPUEventCommand>(ctx, engType, cmdType, eventHeapPtr, eventState);
 }
 

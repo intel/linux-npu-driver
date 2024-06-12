@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -9,7 +9,7 @@
 #include "level_zero/ze_api.h"
 #include "level_zero/ze_graph_ext.h"
 #include "level_zero/ze_graph_profiling_ext.h"
-#include "level_zero/ze_intel_vpu_uuid.h"
+#include "level_zero/ze_intel_npu_uuid.h"
 #include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/core/source/driver/driver.hpp"
 #include "level_zero_driver/core/source/context/context.hpp"
@@ -28,19 +28,19 @@ namespace L0 {
 ze_result_t DriverHandle::createContext(const ze_context_desc_t *desc,
                                         ze_context_handle_t *phContext) {
     if ((nullptr == desc) || (nullptr == phContext)) {
-        LOG_E("Given pointer desc or phContext is invalid.");
+        LOG_E("Given pointer desc or phContext is invalid");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
     auto device = getPrimaryDevice();
     if (device == nullptr) {
-        LOG_E("Failed to retrive device.");
+        LOG_E("Failed to retrive device");
         return ZE_RESULT_ERROR_DEVICE_LOST;
     }
 
     auto ctx = device->getVPUDevice()->createDeviceContext();
     if (!ctx) {
-        LOG_E("VPUDevice failed to create Context.");
+        LOG_E("VPUDevice failed to create Context");
         return ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY;
     }
 
@@ -65,20 +65,20 @@ ze_result_t DriverHandle::getApiVersion(ze_api_version_t *version) {
 
 ze_result_t DriverHandle::getProperties(ze_driver_properties_t *properties) {
     if (nullptr == properties) {
-        LOG_E("Invalid parameter properties pointer.");
+        LOG_E("Invalid parameter properties pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    properties->uuid = ze_intel_vpu_driver_uuid;
+    properties->uuid = ze_intel_npu_driver_uuid;
     properties->driverVersion = DRIVER_VERSION;
 
-    LOG_I("Driver properties returned successfully.");
+    LOG(DRIVER, "Driver properties returned successfully");
     return ZE_RESULT_SUCCESS;
 }
 
 ze_result_t DriverHandle::getIPCProperties(ze_driver_ipc_properties_t *pIPCProperties) {
     if (nullptr == pIPCProperties) {
-        LOG_E("Invalid parameter pIPCProperties pointer.");
+        LOG_E("Invalid parameter pIPCProperties pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -90,13 +90,14 @@ ze_result_t DriverHandle::getIPCProperties(ze_driver_ipc_properties_t *pIPCPrope
 ze_result_t
 DriverHandle::getExtensionProperties(uint32_t *pCount,
                                      ze_driver_extension_properties_t *pExtensionProperties) {
-    std::array<ze_driver_extension_properties_t, 7> supportedExts = {{
+    std::array<ze_driver_extension_properties_t, 8> supportedExts = {{
         {ZE_GRAPH_EXT_NAME, ZE_GRAPH_EXT_VERSION_1_0},
         {ZE_GRAPH_EXT_NAME_1_1, ZE_GRAPH_EXT_VERSION_1_1},
         {ZE_GRAPH_EXT_NAME_1_2, ZE_GRAPH_EXT_VERSION_1_2},
         {ZE_GRAPH_EXT_NAME_1_3, ZE_GRAPH_EXT_VERSION_1_3},
         {ZE_GRAPH_EXT_NAME_1_4, ZE_GRAPH_EXT_VERSION_1_4},
         {ZE_GRAPH_EXT_NAME_1_5, ZE_GRAPH_EXT_VERSION_1_5},
+        {ZE_GRAPH_EXT_NAME_1_6, ZE_GRAPH_EXT_VERSION_1_6},
         {ZE_PROFILING_DATA_EXT_NAME, ZE_PROFILING_DATA_EXT_VERSION_1_0},
     }};
 
@@ -137,13 +138,13 @@ DriverHandle::DriverHandle(std::vector<std::unique_ptr<VPU::VPUDevice>> vpuDevic
         devices.push_back(std::make_unique<Device>(this, std::move(vpuDevice)));
 
     numDevices = safe_cast<uint32_t>(devices.size());
-    LOG_I("Update numDevices with '%d'.", numDevices);
+    LOG(DRIVER, "Update numDevices with '%d'.", numDevices);
 }
 
 std::unique_ptr<DriverHandle>
 DriverHandle::create(std::vector<std::unique_ptr<VPU::VPUDevice>> devices) {
     if (devices.size() == 0) {
-        LOG_W("No VPU devices found.");
+        LOG_W("No VPU devices found");
         return nullptr;
     }
 
@@ -152,7 +153,7 @@ DriverHandle::create(std::vector<std::unique_ptr<VPU::VPUDevice>> devices) {
 
 ze_result_t DriverHandle::getDevice(uint32_t *pCount, ze_device_handle_t *phDevices) {
     if (nullptr == pCount) {
-        LOG_E("Invalid pCount pointer.");
+        LOG_E("Invalid pCount pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
     if (*pCount == 0) {
@@ -164,7 +165,7 @@ ze_result_t DriverHandle::getDevice(uint32_t *pCount, ze_device_handle_t *phDevi
         *pCount = numDevices;
 
     if (phDevices == nullptr) {
-        LOG_E("Invalid phDevices pointer.");
+        LOG_E("Invalid phDevices pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -187,7 +188,7 @@ Device *DriverHandle::getPrimaryDevice() {
 
 ze_result_t DriverHandle::getExtensionFunctionAddress(const char *name, void **ppFunctionAddress) {
     if (name == nullptr || ppFunctionAddress == nullptr) {
-        LOG_E("Invalid name or ppFunctionAddress pointer.");
+        LOG_E("Invalid name or ppFunctionAddress pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -201,11 +202,11 @@ ze_result_t DriverHandle::getExtensionFunctionAddress(const char *name, void **p
         table.pfnDeviceGetProfilingDataProperties = L0::zeDeviceGetProfilingDataProperties;
         table.pfnProfilingLogGetString = L0::zeGraphProfilingLogGetString;
         *ppFunctionAddress = reinterpret_cast<void *>(&table);
-        LOG_I("Return DDI table for extension: %s", name);
+        LOG(DRIVER, "Return DDI table for extension: %s", name);
         return ZE_RESULT_SUCCESS;
     }
 
-    static ze_graph_dditable_ext_1_5_t table;
+    static ze_graph_dditable_ext_1_6_t table;
     // version 1.0
     table.pfnCreate = L0::zeGraphCreate;
     table.pfnDestroy = L0::zeGraphDestroy;
@@ -237,11 +238,15 @@ ze_result_t DriverHandle::getExtensionFunctionAddress(const char *name, void **p
     table.pfnQueryNetworkCreate2 = L0::zeGraphQueryNetworkCreate2;
     table.pfnQueryContextMemory = L0::zeGraphQueryContextMemory;
 
+    // version 1.6
+    table.pfnDeviceGetGraphProperties2 = L0::zeDeviceGetGraphProperties2;
+
     if (strcmp(name, ZE_GRAPH_EXT_NAME) == 0 || strcmp(name, ZE_GRAPH_EXT_NAME_1_1) == 0 ||
         strcmp(name, ZE_GRAPH_EXT_NAME_1_2) == 0 || strcmp(name, ZE_GRAPH_EXT_NAME_1_3) == 0 ||
-        strcmp(name, ZE_GRAPH_EXT_NAME_1_4) == 0 || strcmp(name, ZE_GRAPH_EXT_NAME_1_5) == 0) {
+        strcmp(name, ZE_GRAPH_EXT_NAME_1_4) == 0 || strcmp(name, ZE_GRAPH_EXT_NAME_1_5) == 0 ||
+        strcmp(name, ZE_GRAPH_EXT_NAME_1_6) == 0) {
         *ppFunctionAddress = reinterpret_cast<void *>(&table);
-        LOG_I("Return DDI table for extension: %s", name);
+        LOG(DRIVER, "Return DDI table for extension: %s", name);
         return ZE_RESULT_SUCCESS;
     }
 

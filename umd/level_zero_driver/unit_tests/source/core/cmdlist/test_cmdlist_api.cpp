@@ -36,8 +36,12 @@ struct CommandListFixture : CommandQueueFixture {
         commandList = L0::CommandList::fromHandle(hCommandList);
 
         // Alloc 4KB device mem.
-        ptrAlloc = (uint64_t *)ctx->createSharedMemAlloc(testAllocSize);
-        ptrAlloc2 = (uint64_t *)ctx->createSharedMemAlloc(testAllocSize);
+        ptrAlloc = (uint64_t *)ctx->createMemAlloc(testAllocSize,
+                                                   VPU::VPUBufferObject::Type::CachedFw,
+                                                   VPU::VPUBufferObject::Location::Shared);
+        ptrAlloc2 = (uint64_t *)ctx->createMemAlloc(testAllocSize,
+                                                    VPU::VPUBufferObject::Type::CachedFw,
+                                                    VPU::VPUBufferObject::Location::Shared);
         ASSERT_NE(nullptr, ptrAlloc);
         ASSERT_NE(nullptr, ptrAlloc2);
 
@@ -293,7 +297,9 @@ TEST_F(CommandListApiTest, whenCalledAppendMemoryCopyWithCorrectProgramSequenceS
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, result);
 
     // Creating new unique ptr and heap resident for source pointer
-    srcPtr = ctx->createHostMemAlloc(testAllocSize);
+    srcPtr = ctx->createMemAlloc(testAllocSize,
+                                 VPU::VPUBufferObject::Type::CachedShave,
+                                 VPU::VPUBufferObject::Location::Host);
     EXPECT_NE(ptrAlloc, srcPtr);
 
     result =
@@ -306,7 +312,9 @@ TEST_F(CommandListApiTest, whenCalledAppendMemoryCopyWithCorrectProgramSequenceS
 TEST_F(CommandListApiTest, eventSyncObjectsAttachedWithMemoryCopyCommand) {
     // Append copy command with sync objects.
     ze_event_handle_t waitOnEvents[] = {event1, event2, event3};
-    void *srcPtr = ctx->createSharedMemAlloc(testAllocSize);
+    void *srcPtr = ctx->createMemAlloc(testAllocSize,
+                                       VPU::VPUBufferObject::Type::CachedFw,
+                                       VPU::VPUBufferObject::Location::Shared);
     ASSERT_NE(nullptr, srcPtr);
 
     ze_result_t result = commandList->appendMemoryCopy(static_cast<void *>(ptrAlloc),

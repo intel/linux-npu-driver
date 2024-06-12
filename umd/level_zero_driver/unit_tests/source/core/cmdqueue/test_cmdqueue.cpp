@@ -170,8 +170,12 @@ TEST_F(CommandQueueExecTest,
     CommandList *nnCmdList = CommandList::fromHandle(hCommandList);
 
     // Append a copy command.
-    void *srcPtr = ctx->createSharedMemAlloc(4 * 1024);
-    void *destPtr = ctx->createSharedMemAlloc(4 * 1024);
+    void *srcPtr = ctx->createMemAlloc(4 * 1024,
+                                       VPU::VPUBufferObject::Type::CachedFw,
+                                       VPU::VPUBufferObject::Location::Shared);
+    void *destPtr = ctx->createMemAlloc(4 * 1024,
+                                        VPU::VPUBufferObject::Type::CachedFw,
+                                        VPU::VPUBufferObject::Location::Shared);
     EXPECT_EQ(ZE_RESULT_SUCCESS,
               nnCmdList->appendMemoryCopy(destPtr, srcPtr, 4 * 1024, nullptr, 0, nullptr));
 
@@ -199,7 +203,10 @@ TEST_F(CommandQueueExecTest, commandListsShouldBeClosedBeforeExecute) {
     CommandList *cmdList = CommandList::fromHandle(hCommandList);
 
     // Append a TS command.
-    uint64_t *ts = static_cast<uint64_t *>(ctx->createSharedMemAlloc(64));
+    uint64_t *ts =
+        static_cast<uint64_t *>(ctx->createMemAlloc(64,
+                                                    VPU::VPUBufferObject::Type::CachedFw,
+                                                    VPU::VPUBufferObject::Location::Shared));
     EXPECT_EQ(ZE_RESULT_SUCCESS, cmdList->appendWriteGlobalTimestamp(ts, nullptr, 0, nullptr));
 
     // Executing the queue without closing the command list which return error.
@@ -223,7 +230,10 @@ TEST_F(CommandQueueExecTest, jobAllocationFailureShouldBeHandled) {
     CommandList *cmdList = CommandList::fromHandle(hCommandList);
 
     // Append a TS command and ready to execute.
-    uint64_t *ts = static_cast<uint64_t *>(ctx->createSharedMemAlloc(64));
+    uint64_t *ts =
+        static_cast<uint64_t *>(ctx->createMemAlloc(64,
+                                                    VPU::VPUBufferObject::Type::CachedFw,
+                                                    VPU::VPUBufferObject::Location::Shared));
     EXPECT_EQ(ZE_RESULT_SUCCESS, cmdList->appendWriteGlobalTimestamp(ts, nullptr, 0, nullptr));
 
     // Expect an error to be reported upon command buffer failures.
@@ -249,7 +259,10 @@ TEST_F(CommandQueueExecTest,
     osInfc.callCntFree = 0;
 
     // At least one command is required for successful submission.
-    uint64_t *ts = static_cast<uint64_t *>(ctx->createSharedMemAlloc(64));
+    uint64_t *ts =
+        static_cast<uint64_t *>(ctx->createMemAlloc(64,
+                                                    VPU::VPUBufferObject::Type::CachedFw,
+                                                    VPU::VPUBufferObject::Location::Shared));
     EXPECT_EQ(ZE_RESULT_SUCCESS, cmdList->appendWriteGlobalTimestamp(ts, nullptr, 0, nullptr));
     // Memalloc causes mapping.
     // Timestamp is split by UMD to two commands expected 2 mappings
@@ -272,9 +285,15 @@ TEST_F(CommandQueueExecTest,
 TEST_F(CommandQueueExecTest, eventAttachedToSingleQueuesRespectively) {
     size_t testAllocSize = 4 * 1024;
 
-    auto srcShareMem = ctx->createSharedMemAlloc(testAllocSize);
-    auto destShareMem = ctx->createSharedMemAlloc(testAllocSize);
-    auto destHostMem = ctx->createHostMemAlloc(testAllocSize);
+    auto srcShareMem = ctx->createMemAlloc(testAllocSize,
+                                           VPU::VPUBufferObject::Type::CachedFw,
+                                           VPU::VPUBufferObject::Location::Shared);
+    auto destShareMem = ctx->createMemAlloc(testAllocSize,
+                                            VPU::VPUBufferObject::Type::CachedFw,
+                                            VPU::VPUBufferObject::Location::Shared);
+    auto destHostMem = ctx->createMemAlloc(testAllocSize,
+                                           VPU::VPUBufferObject::Type::CachedShave,
+                                           VPU::VPUBufferObject::Location::Host);
 
     // NN queue event attaching.
     // Append wait on event 0, L2L copy and signal event 1 to the same NN queue.
@@ -411,7 +430,10 @@ TEST_F(CommandQueueJobTest, emptyCommandListDoesNotKeepJob) {
 
 TEST_F(CommandQueueJobTest, submittedJobsShouldBeKept) {
     // Execute non empty NN command list.
-    uint64_t *tsDest = static_cast<uint64_t *>(ctx->createSharedMemAlloc(memAllocSize));
+    uint64_t *tsDest =
+        static_cast<uint64_t *>(ctx->createMemAlloc(memAllocSize,
+                                                    VPU::VPUBufferObject::Type::CachedFw,
+                                                    VPU::VPUBufferObject::Location::Shared));
     ASSERT_EQ(ZE_RESULT_SUCCESS,
               nnCmdlist->appendWriteGlobalTimestamp(tsDest, nullptr, 0, nullptr));
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
@@ -426,7 +448,10 @@ TEST_F(CommandQueueJobTest, submittedJobsShouldBeKept) {
 
 TEST_F(CommandQueueJobTest, submittedJobsShouldBeKeptInFence) {
     // Execute non empty NN command list.
-    uint64_t *tsDest = static_cast<uint64_t *>(ctx->createSharedMemAlloc(memAllocSize));
+    uint64_t *tsDest =
+        static_cast<uint64_t *>(ctx->createMemAlloc(memAllocSize,
+                                                    VPU::VPUBufferObject::Type::CachedFw,
+                                                    VPU::VPUBufferObject::Location::Shared));
     ASSERT_EQ(ZE_RESULT_SUCCESS,
               nnCmdlist->appendWriteGlobalTimestamp(tsDest, nullptr, 0, nullptr));
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
@@ -442,7 +467,10 @@ TEST_F(CommandQueueJobTest, submittedJobsShouldBeKeptInFence) {
 
 TEST_F(CommandQueueJobTest, submittedJobsShouldBeKeptUntilQueueDestroyed) {
     // First execution.
-    uint64_t *tsDest = static_cast<uint64_t *>(ctx->createSharedMemAlloc(memAllocSize));
+    uint64_t *tsDest =
+        static_cast<uint64_t *>(ctx->createMemAlloc(memAllocSize,
+                                                    VPU::VPUBufferObject::Type::CachedFw,
+                                                    VPU::VPUBufferObject::Location::Shared));
     ASSERT_EQ(ZE_RESULT_SUCCESS,
               nnCmdlist->appendWriteGlobalTimestamp(tsDest, nullptr, 0, nullptr));
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
@@ -474,9 +502,16 @@ TEST_F(CommandQueueJobTest, submittedJobsShouldBeKeptUntilQueueDestroyed) {
 
 TEST_F(CommandQueueJobTest, multipleJobsMaintainedInSingleSubmitId) {
     // NN(TS) and CP(L2S) combined command will create two command buffers in execution.
-    uint64_t *tsDest = static_cast<uint64_t *>(ctx->createSharedMemAlloc(memAllocSize));
-    void *srcShareMem = ctx->createSharedMemAlloc(memAllocSize);
-    void *dstHostMem = ctx->createHostMemAlloc(memAllocSize);
+    uint64_t *tsDest =
+        static_cast<uint64_t *>(ctx->createMemAlloc(memAllocSize,
+                                                    VPU::VPUBufferObject::Type::CachedFw,
+                                                    VPU::VPUBufferObject::Location::Shared));
+    void *srcShareMem = ctx->createMemAlloc(memAllocSize,
+                                            VPU::VPUBufferObject::Type::CachedFw,
+                                            VPU::VPUBufferObject::Location::Shared);
+    void *dstHostMem = ctx->createMemAlloc(memAllocSize,
+                                           VPU::VPUBufferObject::Type::CachedShave,
+                                           VPU::VPUBufferObject::Location::Host);
     ASSERT_NE(nullptr, tsDest);
     ASSERT_NE(nullptr, srcShareMem);
     ASSERT_NE(nullptr, dstHostMem);

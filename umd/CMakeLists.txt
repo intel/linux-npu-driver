@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2022-2023 Intel Corporation
+# Copyright (C) 2022-2024 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 #
@@ -23,23 +23,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(VPU_KMD_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../linux/include")
 set(VPU_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
+# Enable extra warning and -ftrapv that abort program on signed arithmetic overflow
+add_compile_options(-Winvalid-pch -Wconversion -Wuninitialized -ftrapv)
+
 # Project-wide include paths
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/vpu_driver/include")
 include_directories(${VPU_SOURCE_DIR})
 include_directories(SYSTEM ${VPU_KMD_INCLUDE_DIR})
-
-# Cmake Setting - compiler independant
-add_compile_options(-Wall -Wextra -Werror -Wempty-body -Wignored-qualifiers -Wtype-limits
-                    -Wno-unused-parameter -Winvalid-pch -Wconversion -ftrapv -Wuninitialized)
-
-CHECK_CXX_COMPILER_FLAG("-Wclobbered" COMPILER_SUPPORTS_WCLOBBERED)
-if(COMPILER_SUPPORTS_WCLOBBERED)
-    add_compile_options(-Wclobbered)
-endif()
-
-if(${CMAKE_CXX_COMPILER} MATCHES "clang")
-    add_compile_options(-Wno-sign-conversion)
-endif()
 
 add_subdirectory_unique(vpu_driver/source)
 add_subdirectory_unique(vpu_driver/unit_tests)

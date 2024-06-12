@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,7 +7,7 @@
 
 #include "level_zero/ze_api.h"
 #include "level_zero/ze_graph_ext.h"
-#include "level_zero/ze_intel_vpu_uuid.h"
+#include "level_zero/ze_intel_npu_uuid.h"
 #include "level_zero_driver/core/source/driver/driver_handle.hpp"
 #include "level_zero_driver/core/source/driver/driver.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
@@ -37,7 +37,7 @@ TEST(zeInit, returnErrorWhenNotInitialized) {
     driver.reset(1, true);
 
     uint32_t drvCnt = 0;
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_ENUMERATION, zeInit(ZE_INIT_FLAG_GPU_ONLY));
+    EXPECT_EQ(ZE_RESULT_ERROR_UNINITIALIZED, zeInit(ZE_INIT_FLAG_GPU_ONLY));
     EXPECT_EQ(ZE_RESULT_ERROR_UNINITIALIZED, zeDriverGet(&drvCnt, nullptr));
 }
 
@@ -78,7 +78,7 @@ TEST_F(DriverVersionTest, returnsExpectedDriverVersion) {
     EXPECT_EQ(ZE_RESULT_SUCCESS, driverHandle->getProperties(&properties));
     EXPECT_EQ(DRIVER_VERSION, properties.driverVersion);
 
-    ze_driver_uuid_t uuid = ze_intel_vpu_driver_uuid;
+    ze_driver_uuid_t uuid = ze_intel_npu_driver_uuid;
     EXPECT_EQ(memcmp(&properties.uuid, &uuid, sizeof(properties.uuid)), 0);
 }
 
@@ -224,6 +224,34 @@ TEST_F(DriverVersionTest, checkGraphExtension_1_5_FunctionTable) {
     EXPECT_NE(ddi->pfnQueryContextMemory, nullptr);
 }
 
+TEST_F(DriverVersionTest, checkGraphExtension_1_6_FunctionTable) {
+    ze_graph_dditable_ext_1_6_t *ddi = nullptr;
+    ze_result_t res = driverHandle->getExtensionFunctionAddress(ZE_GRAPH_EXT_NAME_1_6,
+                                                                reinterpret_cast<void **>(&ddi));
+    EXPECT_EQ(ZE_RESULT_SUCCESS, res);
+
+    EXPECT_NE(ddi->pfnCreate, nullptr);
+    EXPECT_NE(ddi->pfnDestroy, nullptr);
+    EXPECT_NE(ddi->pfnGetProperties, nullptr);
+    EXPECT_NE(ddi->pfnGetArgumentProperties, nullptr);
+    EXPECT_NE(ddi->pfnSetArgumentValue, nullptr);
+    EXPECT_NE(ddi->pfnAppendGraphInitialize, nullptr);
+    EXPECT_NE(ddi->pfnAppendGraphExecute, nullptr);
+    EXPECT_NE(ddi->pfnGetNativeBinary, nullptr);
+    EXPECT_NE(ddi->pfnDeviceGetGraphProperties, nullptr);
+    EXPECT_NE(ddi->pfnGraphGetArgumentMetadata, nullptr);
+    EXPECT_NE(ddi->pfnGetArgumentProperties2, nullptr);
+    EXPECT_NE(ddi->pfnGetArgumentProperties3, nullptr);
+    EXPECT_NE(ddi->pfnQueryNetworkCreate, nullptr);
+    EXPECT_NE(ddi->pfnQueryNetworkDestroy, nullptr);
+    EXPECT_NE(ddi->pfnQueryNetworkGetSupportedLayers, nullptr);
+    EXPECT_NE(ddi->pfnBuildLogGetString, nullptr);
+    EXPECT_NE(ddi->pfnCreate2, nullptr);
+    EXPECT_NE(ddi->pfnQueryNetworkCreate2, nullptr);
+    EXPECT_NE(ddi->pfnQueryContextMemory, nullptr);
+    EXPECT_NE(ddi->pfnDeviceGetGraphProperties2, nullptr);
+}
+
 TEST_F(DriverVersionTest, checkGraphProfilingDataFunctionTable) {
     ze_graph_profiling_dditable_ext_t *ddi = nullptr;
     ze_result_t res = driverHandle->getExtensionFunctionAddress(ZE_PROFILING_DATA_EXT_NAME,
@@ -267,20 +295,21 @@ TEST_F(DriverVersionTest, checkEnvironmentVariableInitialization) {
     EXPECT_EQ(driver.getEnvVariables().metrics, false);
     EXPECT_EQ(driver.getEnvVariables().pciIdDeviceOrder, false);
     EXPECT_EQ(driver.getEnvVariables().sharedForceDeviceAlloc, false);
-    EXPECT_EQ(driver.getEnvVariables().umdLogLevel, "");
+    EXPECT_EQ(VPU::getLogLevel(), UMD_LOGLEVEL);
 
     setenv("ZE_AFFINITY_MASK", "0,1", 1);
     setenv("ZET_ENABLE_METRICS", "1", 1);
     setenv("ZE_ENABLE_PCI_ID_DEVICE_ORDER", "1", 1);
     setenv("ZE_SHARED_FORCE_DEVICE_ALLOC", "1", 1);
-    setenv("ZE_INTEL_NPU_LOGLEVEL", "VERBOSE", 1);
+    setenv("ZE_INTEL_NPU_LOGLEVEL", "INFO", 1);
 
     driver.initializeEnvVariables();
+    driver.initializeLogging();
     EXPECT_EQ(driver.getEnvVariables().affinityMask, "0,1");
     EXPECT_EQ(driver.getEnvVariables().metrics, true);
     EXPECT_EQ(driver.getEnvVariables().pciIdDeviceOrder, true);
     EXPECT_EQ(driver.getEnvVariables().sharedForceDeviceAlloc, true);
-    EXPECT_EQ(driver.getEnvVariables().umdLogLevel, "VERBOSE");
+    EXPECT_EQ(VPU::getLogLevel(), INFO);
 
     affinityMaskDefault == nullptr ? unsetenv("ZE_AFFINITY_MASK")
                                    : setenv("ZE_AFFINITY_MASK", affinityMaskDefault, 1);

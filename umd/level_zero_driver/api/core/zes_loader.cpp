@@ -1,15 +1,32 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
 #include "ze_ddi_tables.hpp"
+#include "zes_device.hpp"
+#include "zes_driver.hpp"
 
 #if defined(__cplusplus)
 extern "C" {
 #endif
+ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetGlobalProcAddrTable(
+    ze_api_version_t version,        ///< [in] API version requested
+    zes_global_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
+) {
+    if (nullptr == pDdiTable)
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+
+    pDdiTable->pfnInit = L0::zesInit;
+
+    return ZE_RESULT_SUCCESS;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /// @brief Exported function for filling application's Device table
 ///        with current process' addresses
@@ -30,7 +47,7 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetDeviceProcAddrTable(
 
     ze_result_t result = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGetProperties = nullptr;
+    pDdiTable->pfnGetProperties = L0::zesDeviceGetProperties;
 
     pDdiTable->pfnGetState = nullptr;
 
@@ -78,6 +95,8 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetDeviceProcAddrTable(
 
     pDdiTable->pfnEnumTemperatureSensors = nullptr;
 
+    pDdiTable->pfnGet = L0::zesDeviceGet;
+
     return result;
 }
 
@@ -100,6 +119,8 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetDriverProcAddrTable(
         return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
     ze_result_t result = ZE_RESULT_SUCCESS;
+
+    pDdiTable->pfnGet = L0::zesDriverGet;
 
     pDdiTable->pfnEventListen = nullptr;
 

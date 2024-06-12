@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -10,6 +10,8 @@
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
 #include "level_zero_driver/unit_tests/options.hpp"
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
+
+#include <api/vpu_nnrt_api_37xx.h>
 
 #include "gtest/gtest.h"
 #include "vpux_driver_compiler.h"
@@ -29,6 +31,16 @@ struct CompilerInDriverFixture : public ContextFixture {
         ze_device_graph_properties_t pDeviceGraphProperties = {};
         EXPECT_EQ(L0::Graph::getDeviceGraphProperties(device, &pDeviceGraphProperties),
                   ZE_RESULT_SUCCESS);
+
+        ze_device_graph_properties_2_t pDeviceGraphProperties2 = {};
+        EXPECT_EQ(L0::Graph::getDeviceGraphProperties2(device, &pDeviceGraphProperties2),
+                  ZE_RESULT_SUCCESS);
+
+        EXPECT_EQ(pDeviceGraphProperties2.runtimeVersion.major, VPU_NNRT_37XX_API_VER_MAJOR);
+        EXPECT_EQ(pDeviceGraphProperties2.runtimeVersion.minor, VPU_NNRT_37XX_API_VER_MINOR);
+
+        EXPECT_EQ(pDeviceGraphProperties2.elfVersion.major, 1);
+        EXPECT_EQ(pDeviceGraphProperties2.elfVersion.minor, 2);
 
         if (!(pDeviceGraphProperties.graphFormatsSupported & ZE_GRAPH_FORMAT_NGRAPH_LITE))
             GTEST_SKIP_("Compiler in driver is not loaded!");

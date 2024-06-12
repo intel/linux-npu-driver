@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -21,7 +21,6 @@
 #include <vpux_headers/metadata.hpp>
 #include <vpux_elf/types/vpu_extensions.hpp>
 #include <vpux_elf/utils/error.hpp>
-#include <algorithm>
 
 namespace L0 {
 
@@ -42,14 +41,15 @@ class DriverBufferManager : public elf::BufferManager {
     }
 
     elf::DeviceBuffer allocate(const elf::BufferSpecs &buffSpecs) override {
-        LOG_I("Allocate: size: %#lx, alignment: %#lx, procFlags: %#lx",
-              buffSpecs.size,
-              buffSpecs.alignment,
-              buffSpecs.procFlags);
+        LOG(GRAPH,
+            "Allocate: size: %#lx, alignment: %#lx, procFlags: %#lx",
+            buffSpecs.size,
+            buffSpecs.alignment,
+            buffSpecs.procFlags);
 
         size_t size = buffSpecs.size;
         if (size == 0) {
-            LOG_W("WA for buffSpecs.size == 0 -> set size to 1");
+            LOG(GRAPH, "WA for buffSpecs.size == 0 -> set size to 1");
             size = 1;
         }
 
@@ -60,18 +60,20 @@ class DriverBufferManager : public elf::BufferManager {
             return elf::DeviceBuffer();
         }
 
-        LOG_I("Allocated: cpu_addr: %p, vpu_addr: %#lx, size: %#lx",
-              bo->getBasePointer(),
-              bo->getVPUAddr(),
-              bo->getAllocSize());
+        LOG(GRAPH,
+            "Allocated: cpu_addr: %p, vpu_addr: %#lx, size: %#lx",
+            bo->getBasePointer(),
+            bo->getVPUAddr(),
+            bo->getAllocSize());
         return elf::DeviceBuffer(bo->getBasePointer(), bo->getVPUAddr(), size);
     }
 
     void deallocate(elf::DeviceBuffer &devAddress) override {
-        LOG_I("Deallocate: cpu: %p, vpu: %#lx, size: %lu",
-              devAddress.cpu_addr(),
-              devAddress.vpu_addr(),
-              devAddress.size());
+        LOG(GRAPH,
+            "Deallocate: cpu: %p, vpu: %#lx, size: %lu",
+            devAddress.cpu_addr(),
+            devAddress.vpu_addr(),
+            devAddress.size());
         if (!ctx->freeMemAlloc(devAddress.cpu_addr()))
             LOG_E("Failed to deallocate the memory");
     }
@@ -80,14 +82,15 @@ class DriverBufferManager : public elf::BufferManager {
     void unlock(elf::DeviceBuffer &devAddress) override {}
 
     size_t copy(elf::DeviceBuffer &to, const uint8_t *from, size_t count) override {
-        LOG_I("Copy to.cpu_addr: %p, to.vpu_addr: %#lx from: %p, count: %#lx",
-              to.cpu_addr(),
-              to.vpu_addr(),
-              from,
-              count);
+        LOG(GRAPH,
+            "Copy to.cpu_addr: %p, to.vpu_addr: %#lx from: %p, count: %#lx",
+            to.cpu_addr(),
+            to.vpu_addr(),
+            from,
+            count);
 
         if (count == 0) {
-            LOG_W("Zero copy, skipping");
+            LOG(GRAPH, "Zero copy, skipping");
             return 0;
         }
 
@@ -107,6 +110,64 @@ class DriverBufferManager : public elf::BufferManager {
 
   private:
     VPU::VPUDeviceContext *ctx;
+};
+
+class ElfAccessManager : public elf::AccessManager {
+  public:
+    ElfAccessManager(uint8_t *ptr, size_t size, DriverBufferManager *manager)
+        : AccessManager(size)
+        , blob(ptr)
+        , bufferManager(manager) {}
+
+    ElfAccessManager(const ElfAccessManager &) = delete;
+    ElfAccessManager(ElfAccessManager &&) = delete;
+    ElfAccessManager &operator=(const ElfAccessManager &) = delete;
+    ElfAccessManager &operator=(ElfAccessManager &&) = delete;
+    ~ElfAccessManager() override = default;
+
+    std::unique_ptr<elf::ManagedBuffer> readInternal(size_t offset,
+                                                     const elf::BufferSpecs &specs) override {
+        VPUX_ELF_THROW_WHEN(offset + specs.size > getSize(),
+                            elf::AccessError,
+                            "Read request out of bounds");
+
+        uint8_t *start = blob + offset;
+
+        if (hasNPUAccess(specs.procFlags)) {
+            auto buffer = std::make_unique<elf::AllocatedDeviceBuffer>(bufferManager, specs);
+            elf::DeviceBuffer devBuffer = buffer->getBuffer();
+            bufferManager->copy(devBuffer, start, devBuffer.size());
+            return buffer;
+        }
+
+        if (specs.alignment == 0 || (reinterpret_cast<size_t>(start) % specs.alignment) == 0) {
+            return std::make_unique<elf::StaticBuffer>(start, specs);
+        }
+
+        auto dynBuffer = std::make_unique<elf::DynamicBuffer>(specs);
+        elf::DeviceBuffer devBuffer = dynBuffer->getBuffer();
+        memcpy(devBuffer.cpu_addr(), start, devBuffer.size());
+
+        return dynBuffer;
+    }
+
+    void readExternal(size_t offset, elf::ManagedBuffer &buffer) override {
+        VPUX_ELF_THROW_WHEN(offset + buffer.getBufferSpecs().size > getSize(),
+                            elf::AccessError,
+                            "Read request out of bounds");
+
+        elf::DeviceBuffer devBuffer = buffer.getBuffer();
+        memcpy(devBuffer.cpu_addr(), blob + offset, devBuffer.size());
+    }
+
+  private:
+    static bool hasNPUAccess(uint64_t flags) {
+        return (flags & (elf::SHF_EXECINSTR | elf::VPU_SHF_PROC_DMA | elf::VPU_SHF_PROC_SHAVE)) !=
+               0;
+    }
+
+    uint8_t *blob = nullptr;
+    DriverBufferManager *bufferManager = nullptr;
 };
 
 ElfParser::ElfParser(VPU::VPUDeviceContext *ctx,
@@ -129,13 +190,11 @@ static inline elf::platform::ArchKind toArchKind(int platform) {
     switch (platform) {
     case VCL_PLATFORM_VPU3720:
         return elf::platform::ArchKind::VPUX37XX;
+    case VCL_PLATFORM_VPU4000:
+        return elf::platform::ArchKind::VPUX40XX;
     default:
         return elf::platform::ArchKind::UNKNOWN;
     }
-}
-
-static inline elf::Version toElfVersion(uint64_t ver) {
-    return elf::Version((ver >> 16) & UINT16_MAX, ver & UINT16_MAX, 0);
 }
 
 static std::shared_ptr<elf::HostParsedInference>
@@ -144,7 +203,7 @@ createHostParsedInference(elf::BufferManager *buffer,
                           VPU::VPUDeviceContext *ctx,
                           std::string &errorMsg) {
     elf::HPIConfigs config = {};
-    config.nnVersion = toElfVersion(ctx->getFwMappedInferenceVersion());
+    config.nnVersion = toVersion<elf::Version>(ctx->getFwMappedInferenceVersion());
     config.archKind = toArchKind(ctx->getCompilerPlatform());
 
     try {
@@ -207,7 +266,7 @@ std::unique_ptr<ElfParser> ElfParser::getElfParser(VPU::VPUDeviceContext *ctx,
                                                    size_t size,
                                                    std::string &logBuffer) {
     auto bufferManager = std::make_unique<DriverBufferManager>(ctx);
-    auto accessManager = std::make_unique<elf::ElfDDRAccessManager>(ptr, size);
+    auto accessManager = std::make_unique<ElfAccessManager>(ptr, size, bufferManager.get());
     auto hpi = createHostParsedInference(bufferManager.get(), accessManager.get(), ctx, logBuffer);
     if (hpi != nullptr)
         return std::make_unique<ElfParser>(ctx,
@@ -216,6 +275,10 @@ std::unique_ptr<ElfParser> ElfParser::getElfParser(VPU::VPUDeviceContext *ctx,
                                            std::move(hpi));
 
     return nullptr;
+}
+
+elf::VersionsProvider ElfParser::getElfVer(int arch) {
+    return elf::VersionsProvider(toArchKind(arch));
 }
 
 static ze_graph_argument_precision_t getTensorPrecision(elf::DType type) {
@@ -278,7 +341,6 @@ constexpr std::array<std::pair<std::array<uint64_t, 5>, ze_graph_argument_layout
                         {{DIM_N, DIM_C, DIM_D, DIM_H, DIM_W}, ZE_GRAPH_ARGUMENT_LAYOUT_NCDHW},
                         {{DIM_N, DIM_D, DIM_H, DIM_W, DIM_C}, ZE_GRAPH_ARGUMENT_LAYOUT_NDHWC}}};
 
-/* Compute layout from strides. Copied from blobParser and kmb-plugin. */
 static ze_graph_argument_layout_t computeLayoutFromStride(const uint64_t *strides,
                                                           size_t stride_size) {
     const size_t TENSOR_5D_STRIDE_MAX = 6;

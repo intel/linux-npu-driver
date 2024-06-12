@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2022 Intel Corporation
+# Copyright (C) 2022-2024 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 #
@@ -16,5 +16,7 @@ target_sources(${TARGET_NAME_L0} PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/ze_event.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/ze_memory.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/ze_copy.hpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/zes_device.hpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/zes_driver.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/zes_loader.cpp
 )

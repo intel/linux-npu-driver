@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -37,9 +37,10 @@ VPUTimeStampCommand::VPUTimeStampCommand(VPUDeviceContext *ctx, uint64_t *dstPtr
     cmd.header.size = sizeof(vpu_cmd_timestamp_t);
     cmd.timestamp_address = 0u;
     cmd.timestamp_address = ctx->getBufferVPUAddress(dstPtr);
+    cmd.type = ctx->getFwTimestampType();
     command.emplace<vpu_cmd_timestamp_t>(cmd);
     appendAssociateBufferObject(ctx, dstPtr);
-    LOG_I("Timestamp Command successfully created!");
+    LOG(VPU_CMD, "Timestamp Command successfully created!");
 }
 
 } // namespace VPU

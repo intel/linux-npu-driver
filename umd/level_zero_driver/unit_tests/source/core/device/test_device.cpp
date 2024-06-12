@@ -18,7 +18,7 @@
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
 
 #include <level_zero/ze_api.h>
-#include <level_zero/ze_intel_vpu_uuid.h>
+#include <level_zero/ze_intel_npu_uuid.h>
 #include <vector>
 #include <memory>
 
@@ -142,7 +142,7 @@ TEST_F(SingleDeviceTest, givenCallToDevicePropertiesThenBasicPropertiesCorrectly
     EXPECT_STREQ(l0DevProps.name, hwInfo.name);
 
     // Device UUID.
-    ze_device_uuid_t uuid = ze_intel_vpu_device_uuid;
+    ze_device_uuid_t uuid = ze_intel_npu_device_uuid;
     EXPECT_EQ(memcmp(&l0DevProps.uuid, &uuid, sizeof(l0DevProps.uuid)), 0);
 }
 

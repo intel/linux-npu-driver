@@ -13,10 +13,12 @@ message(STATUS "Level Zero driver version: ${DRIVER_VERSION}")
 
 add_library(${TARGET_NAME_L0} SHARED)
 
+find_package(OpenSSL REQUIRED)
 target_link_libraries(${TARGET_NAME_L0}
     vpu_driver
     dl
     vpux_elf
+    OpenSSL::SSL
 )
 
 set_target_properties(${TARGET_NAME_L0} PROPERTIES

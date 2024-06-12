@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -51,7 +51,7 @@ ze_result_t EventPool::create(ze_context_handle_t hContext,
         *phEventPool = eventPool.get();
         pContext->appendObject(std::move(eventPool));
 
-        LOG_I("EventPool created - %p", *phEventPool);
+        LOG(EVENT, "EventPool created - %p", *phEventPool);
     } catch (const DriverError &err) {
         return err.result();
     }
@@ -61,7 +61,7 @@ ze_result_t EventPool::create(ze_context_handle_t hContext,
 
 ze_result_t EventPool::destroy() {
     pContext->removeObject(this);
-    LOG_I("EventPool destroyed - %p", this);
+    LOG(EVENT, "EventPool destroyed - %p", this);
     return ZE_RESULT_SUCCESS;
 }
 
@@ -122,7 +122,7 @@ ze_result_t EventPool::createEvent(const ze_event_desc_t *desc, ze_event_handle_
         });
         *phEvent = events[index].get();
 
-        LOG_I("Event created - %p", *phEvent);
+        LOG(EVENT, "Event created - %p", *phEvent);
     } catch (const DriverError &err) {
         return err.result();
     }

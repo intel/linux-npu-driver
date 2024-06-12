@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -9,6 +9,7 @@
 
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
 #include "level_zero_driver/core/source/context/context.hpp"
+#include "level_zero_driver/include/l0_exception.hpp"
 
 #include <level_zero/ze_api.h>
 
@@ -17,7 +18,7 @@ ze_result_t zeCommandListCreate(ze_context_handle_t hContext,
                                 ze_device_handle_t hDevice,
                                 const ze_command_list_desc_t *desc,
                                 ze_command_list_handle_t *phCommandList) {
-    return L0::CommandList::create(hContext, hDevice, desc, phCommandList);
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::CommandList::create(hContext, hDevice, desc, phCommandList));
 }
 
 ze_result_t zeCommandListCreateImmediate(ze_context_handle_t hContext,
@@ -31,21 +32,21 @@ ze_result_t zeCommandListDestroy(ze_command_list_handle_t hCommandList) {
     if (hCommandList == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::CommandList::fromHandle(hCommandList)->destroy();
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::CommandList::fromHandle(hCommandList)->destroy());
 }
 
 ze_result_t zeCommandListClose(ze_command_list_handle_t hCommandList) {
     if (hCommandList == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::CommandList::fromHandle(hCommandList)->close();
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::CommandList::fromHandle(hCommandList)->close());
 }
 
 ze_result_t zeCommandListReset(ze_command_list_handle_t hCommandList) {
     if (hCommandList == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::CommandList::fromHandle(hCommandList)->reset();
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::CommandList::fromHandle(hCommandList)->reset());
 }
 
 ze_result_t zeCommandListAppendWriteGlobalTimestamp(ze_command_list_handle_t hCommandList,
@@ -56,8 +57,9 @@ ze_result_t zeCommandListAppendWriteGlobalTimestamp(ze_command_list_handle_t hCo
     if (hCommandList == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::CommandList::fromHandle(hCommandList)
-        ->appendWriteGlobalTimestamp(dstptr, hSignalEvent, numWaitEvents, phWaitEvents);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::CommandList::fromHandle(hCommandList)
+            ->appendWriteGlobalTimestamp(dstptr, hSignalEvent, numWaitEvents, phWaitEvents));
 }
 
 ze_result_t zeCommandListAppendQueryKernelTimestamps(ze_command_list_handle_t hCommandList,

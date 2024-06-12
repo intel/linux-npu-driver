@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -10,6 +10,7 @@
 #include "level_zero_driver/core/source/event/eventpool.hpp"
 #include "level_zero_driver/core/source/event/event.hpp"
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
+#include "level_zero_driver/include/l0_exception.hpp"
 #include <level_zero/ze_api.h>
 
 namespace L0 {
@@ -21,14 +22,15 @@ ze_result_t zeEventPoolCreate(ze_context_handle_t hContext,
     if (hContext == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::EventPool::create(hContext, desc, numDevices, phDevices, phEventPool);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::EventPool::create(hContext, desc, numDevices, phDevices, phEventPool));
 }
 
 ze_result_t zeEventPoolDestroy(ze_event_pool_handle_t hEventPool) {
     if (hEventPool == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::EventPool::fromHandle(hEventPool)->destroy();
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::EventPool::fromHandle(hEventPool)->destroy());
 }
 
 ze_result_t zeEventCreate(ze_event_pool_handle_t hEventPool,
@@ -37,7 +39,8 @@ ze_result_t zeEventCreate(ze_event_pool_handle_t hEventPool,
     if (hEventPool == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::EventPool::fromHandle(hEventPool)->createEvent(desc, phEvent);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::EventPool::fromHandle(hEventPool)->createEvent(desc, phEvent));
 }
 
 ze_result_t zeEventPoolGetIpcHandle(ze_event_pool_handle_t hEventPool,
@@ -59,7 +62,7 @@ ze_result_t zeEventDestroy(ze_event_handle_t hEvent) {
     if (hEvent == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Event::fromHandle(hEvent)->destroy();
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::Event::fromHandle(hEvent)->destroy());
 }
 
 ze_result_t zeCommandListAppendSignalEvent(ze_command_list_handle_t hCommandList,
@@ -67,7 +70,8 @@ ze_result_t zeCommandListAppendSignalEvent(ze_command_list_handle_t hCommandList
     if (hCommandList == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::CommandList::fromHandle(hCommandList)->appendSignalEvent(hEvent);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::CommandList::fromHandle(hCommandList)->appendSignalEvent(hEvent));
 }
 
 ze_result_t zeCommandListAppendWaitOnEvents(ze_command_list_handle_t hCommandList,
@@ -76,28 +80,29 @@ ze_result_t zeCommandListAppendWaitOnEvents(ze_command_list_handle_t hCommandLis
     if (hCommandList == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::CommandList::fromHandle(hCommandList)->appendWaitOnEvents(numEvents, phEvents);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::CommandList::fromHandle(hCommandList)->appendWaitOnEvents(numEvents, phEvents));
 }
 
 ze_result_t zeEventHostSignal(ze_event_handle_t hEvent) {
     if (hEvent == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Event::fromHandle(hEvent)->hostSignal();
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::Event::fromHandle(hEvent)->hostSignal());
 }
 
 ze_result_t zeEventHostSynchronize(ze_event_handle_t hEvent, uint64_t timeout) {
     if (hEvent == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Event::fromHandle(hEvent)->hostSynchronize(timeout);
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::Event::fromHandle(hEvent)->hostSynchronize(timeout));
 }
 
 ze_result_t zeEventQueryStatus(ze_event_handle_t hEvent) {
     if (hEvent == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Event::fromHandle(hEvent)->queryStatus();
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::Event::fromHandle(hEvent)->queryStatus());
 }
 
 ze_result_t zeCommandListAppendEventReset(ze_command_list_handle_t hCommandList,
@@ -105,14 +110,15 @@ ze_result_t zeCommandListAppendEventReset(ze_command_list_handle_t hCommandList,
     if (hCommandList == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::CommandList::fromHandle(hCommandList)->appendEventReset(hEvent);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::CommandList::fromHandle(hCommandList)->appendEventReset(hEvent));
 }
 
 ze_result_t zeEventHostReset(ze_event_handle_t hEvent) {
     if (hEvent == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Event::fromHandle(hEvent)->reset();
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::Event::fromHandle(hEvent)->reset());
 }
 
 ze_result_t zeEventQueryKernelTimestamp(ze_event_handle_t hEvent,

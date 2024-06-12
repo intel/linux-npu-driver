@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -65,10 +65,11 @@ class VPUCopyCommand : public VPUCommand {
 
         copyDescPtr->size = safe_cast<uint32_t>(size);
 
-        LOG_I("Updated copy descriptor: src_address = %#lx,  dst_address  = %#lx, size = %#x",
-              copyDescPtr->src_address,
-              copyDescPtr->dst_address,
-              copyDescPtr->size);
+        LOG(MISC,
+            "Updated copy descriptor: src_address = %#lx,  dst_address  = %#lx, size = %#x",
+            copyDescPtr->src_address,
+            copyDescPtr->dst_address,
+            copyDescPtr->size);
 
         return true;
     }
@@ -82,12 +83,13 @@ class VPUCopyCommand : public VPUCommand {
 
         T *desc = reinterpret_cast<T *>(descBasePtr);
         for (uint32_t i = 0; i < reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_count; i++) {
-            LOG_I("Desc %u:\n\tsrc_address = %#lx\n"
-                  "\tdst_address = %#lx\n\tsize = %u bytes",
-                  i,
-                  desc->src_address,
-                  desc->dst_address,
-                  desc->size);
+            LOG(VPU_CMD,
+                "Desc %u:\n\tsrc_address = %#lx\n"
+                "\tdst_address = %#lx\n\tsize = %u bytes",
+                i,
+                desc->src_address,
+                desc->dst_address,
+                desc->size);
             desc++;
         }
     }

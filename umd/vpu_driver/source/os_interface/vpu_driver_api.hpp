@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -9,13 +9,11 @@
 
 #include "umd_common.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
-#include "vpu_driver/source/os_interface/os_interface_imp.hpp"
 
-#include <chrono>
-#include <drm/drm.h>
-#include <string>
-#include <memory>
 #include <cstdint>
+#include <fcntl.h>
+#include <memory>
+#include <string>
 #include <uapi/drm/ivpu_accel.h>
 
 namespace VPU {
@@ -28,7 +26,7 @@ class OsInterface;
  */
 class VPUDriverApi final {
   public:
-    VPUDriverApi(std::string devnode, OsInterface &osInfc);
+    VPUDriverApi(std::string devPath, OsInterface &osInfc);
     VPUDriverApi(VPUDriverApi &&v);
     ~VPUDriverApi();
 
@@ -36,14 +34,14 @@ class VPUDriverApi final {
     VPUDriverApi &operator=(const VPUDriverApi &) = delete;
     VPUDriverApi &&operator=(VPUDriverApi &&v) = delete;
 
-    static std::unique_ptr<VPUDriverApi> openDriverApi(std::string devnode, OsInterface &osInfc);
+    static std::unique_ptr<VPUDriverApi> openDriverApi(std::string devPath, OsInterface &osInfc);
 
     int getFd() const { return vpuFd; }
     bool isVpuDevice() const;
     int submitCommandBuffer(drm_ivpu_submit *arg) const;
-    bool checkDeviceStatus() const;
     bool checkDeviceCapability(uint32_t index) const;
     size_t getPageSize() const;
+    std::string getDeviceLink();
 
     int wait(void *args) const;
     int closeBuffer(uint32_t handle) const;
@@ -89,7 +87,7 @@ class VPUDriverApi final {
     constexpr static char const *umdIoctlDeviceName1 = "intel_vpu";
     constexpr static char const *umdIoctlDeviceName2 = "intel_npu";
 
-    std::string devnode;
+    std::string devPath;
     OsInterface &osInfc;
     int vpuFd;
 };

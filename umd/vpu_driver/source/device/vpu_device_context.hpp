@@ -12,6 +12,7 @@
 #include "vpu_driver/source/device/vpu_device.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 
+#include <bitset>
 #include <memory>
 #include <mutex>
 #include <map>
@@ -33,24 +34,6 @@ class VPUDeviceContext {
             return nullptr;
         return bo->getBasePointer();
     }
-
-    inline void *
-    createHostMemAlloc(size_t size,
-                       VPUBufferObject::Type type = VPUBufferObject::Type::CachedShave) {
-        return createMemAlloc(size, type, VPUBufferObject::Location::Host);
-    };
-
-    inline void *
-    createDeviceMemAlloc(size_t size,
-                         VPUBufferObject::Type type = VPUBufferObject::Type::WriteCombineFw) {
-        return createMemAlloc(size, type, VPUBufferObject::Location::Device);
-    };
-
-    inline void *
-    createSharedMemAlloc(size_t size,
-                         VPUBufferObject::Type type = VPUBufferObject::Type::CachedFw) {
-        return createMemAlloc(size, type, VPUBufferObject::Location::Shared);
-    };
 
     /**
        Free memory within tracking structure and unmap in memory.
@@ -114,6 +97,12 @@ class VPUDeviceContext {
      */
     inline int getCompilerPlatform() const { return hwInfo->compilerPlatform; }
 
+    uint32_t getDeviceRevision() const { return hwInfo->deviceRevision; }
+
+    uint32_t getNumSlices() const {
+        return static_cast<uint32_t>(std::bitset<32>(hwInfo->tileConfig).count());
+    }
+
     /**
      * Return the lowest VPU address from VPU low range that is accessible by firmware device
      */
@@ -122,6 +111,8 @@ class VPUDeviceContext {
     uint32_t getExtraDmaDescriptorSize() const { return hwInfo->extraDmaDescriptorSize; }
 
     uint64_t getFwMappedInferenceVersion() const { return hwInfo->fwMappedInferenceVersion; }
+
+    uint32_t getFwTimestampType() const { return hwInfo->fwTimestampType; }
 
     /**
      * Return number of currently tracking buffer objects in the structure

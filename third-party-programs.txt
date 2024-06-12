@@ -17,6 +17,7 @@ terms are listed below.
 1.  OpenCV: Open Source Computer Vision Library
 2.  Flatbuffers
 3.  openvinotoolkit/openvino
+4.  OpenSSL
 
                                  Apache License
                            Version 2.0, January 2004
@@ -222,7 +223,7 @@ terms are listed below.
 
 -------------------------------------------------------------
 
-4.  google googletest
+5.  google googletest
 
 Copyright 2008, Google Inc.
 All rights reserved.
@@ -257,7 +258,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 -------------------------------------------------------------
 
-5. jquery - jquery/jquery
+6. jquery - jquery/jquery
 
 Copyright OpenJS Foundation and other contributors, https://openjsf.org/
 
@@ -284,9 +285,9 @@ SOFTWARE.
 
 -------------------------------------------------------------
 
-6. systemd libudev
-7. GCC
-8. GNU C Library - glibc
+7. systemd libudev
+8. GCC
+9. GNU C Library - glibc
 
 GNU LESSER GENERAL PUBLIC LICENSE
 Version 2.1, February 1999
@@ -426,7 +427,7 @@ NO WARRANTY
 
 -------------------------------------------------------------
 
-9. yaml-cpp
+10. yaml-cpp
 
 Copyright (c) 2008-2015 Jesse Beder.
 

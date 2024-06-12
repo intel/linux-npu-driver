@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -49,7 +49,7 @@ VPUCopyCommand::VPUCopyCommand(VPUDeviceContext *ctx,
     appendAssociateBufferObject(ctx, srcPtr);
     appendAssociateBufferObject(ctx, dstPtr);
 
-    LOG_I("Copy Command successfully created!");
+    LOG(VPU_CMD, "Copy Command successfully created!");
 }
 
 bool VPUCopyCommand::changeCopyCommandType(uint32_t engine_id) {
@@ -64,7 +64,7 @@ bool VPUCopyCommand::changeCopyCommandType(uint32_t engine_id) {
     } else if (engine_id == DRM_IVPU_ENGINE_COPY) {
         hdr->type = VPU_CMD_COPY_SYSTEM_TO_SYSTEM;
     } else {
-        LOG_I("Unsupported engine conversion for copy command.");
+        LOG(VPU_CMD, "Unsupported engine conversion for copy command");
         return false;
     }
     return true;

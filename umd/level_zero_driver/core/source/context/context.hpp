@@ -34,29 +34,12 @@ struct Context : _ze_context_handle_t {
     DriverHandle *getDriverHandle();
 
     ze_result_t checkMemInputs(size_t size, size_t alignment, void **ptr);
-    ze_result_t
-    allocHostMem(ze_host_mem_alloc_flags_t flags,
-                 size_t size,
-                 size_t alignment,
-                 void **ptr,
-                 VPU::VPUBufferObject::Location location = VPU::VPUBufferObject::Location::Host);
 
-    ze_result_t allocSharedMem(
-        ze_device_handle_t hDevice,
-        ze_device_mem_alloc_flags_t flagsDev,
-        ze_host_mem_alloc_flags_t flagsHost,
-        size_t size,
-        size_t alignment,
-        void **ptr,
-        VPU::VPUBufferObject::Location location = VPU::VPUBufferObject::Location::Shared);
-
-    ze_result_t allocDeviceMem(
-        ze_device_handle_t hDevice,
-        ze_device_mem_alloc_flags_t flags,
-        size_t size,
-        size_t alignment,
-        void **ptr,
-        VPU::VPUBufferObject::Location location = VPU::VPUBufferObject::Location::Device);
+    ze_result_t allocMemory(size_t size,
+                            size_t alignment,
+                            void **ptr,
+                            VPU::VPUBufferObject::Location location,
+                            VPU::VPUBufferObject::Type type);
     ze_result_t importMemory(VPU::VPUBufferObject::Location type, int32_t fd, void **ptr);
     ze_result_t freeMem(void *ptr);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -75,7 +75,7 @@ GraphProfilingPool::createProfilingQuery(const uint32_t index,
             queries[index].reset();
         });
     *phProfilingQuery = queries[index].get();
-    LOG_I("GraphProfilingQuery created - %p", *phProfilingQuery);
+    LOG(GRAPH, "GraphProfilingQuery created - %p", *phProfilingQuery);
     return ZE_RESULT_SUCCESS;
 }
 
@@ -114,7 +114,7 @@ ze_result_t GraphProfilingQuery::getData(ze_graph_profiling_type_t profilingType
 
 ze_result_t GraphProfilingQuery::destroy() {
     destroyCb();
-    LOG_I("GraphProfilingQuery destroyed - %p", this);
+    LOG(GRAPH, "GraphProfilingQuery destroyed - %p", this);
     return ZE_RESULT_SUCCESS;
 }
 
@@ -125,7 +125,7 @@ ze_result_t GraphProfilingQuery::getLogString(uint32_t *pSize, char *pProfilingL
     }
 
     if (*pSize == 0) {
-        *pSize = static_cast<uint32_t>(lastErrorMsg.size());
+        *pSize = static_cast<uint32_t>(lastErrorMsg.size() + 1);
         return ZE_RESULT_SUCCESS;
     }
 
@@ -134,8 +134,8 @@ ze_result_t GraphProfilingQuery::getLogString(uint32_t *pSize, char *pProfilingL
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    *pSize = std::min(*pSize, static_cast<uint32_t>(lastErrorMsg.size()));
-    memcpy(pProfilingLog, lastErrorMsg.data(), *pSize);
+    *pSize = std::min(*pSize, static_cast<uint32_t>(lastErrorMsg.size() + 1));
+    memcpy(pProfilingLog, lastErrorMsg.c_str(), *pSize);
     return ZE_RESULT_SUCCESS;
 }
 
@@ -150,7 +150,7 @@ ze_result_t GraphProfilingPool::destroy() {
     }
 
     destroyCb(this);
-    LOG_I("GraphProfilingPool destroyed - %p", this);
+    LOG(GRAPH, "GraphProfilingPool destroyed - %p", this);
     return ZE_RESULT_SUCCESS;
 }
 

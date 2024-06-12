@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -9,10 +9,9 @@
 
 #include "level_zero_driver/core/source/context/context.hpp"
 #include "level_zero_driver/core/source/device/device.hpp"
-#include "vpu_driver/source/command/vpu_graph_init_command.hpp"
-#include "vpu_driver/source/command/vpu_graph_exe_command.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "level_zero_driver/ext/source/graph/interface_parser.hpp"
+#include "level_zero_driver/ext/source/graph/disk_cache.hpp"
 #include "level_zero_driver/ext/source/graph/compiler.hpp"
 #include "level_zero_driver/ext/source/graph/profiling_data.hpp"
 #include "level_zero_driver/ext/source/graph/elf_parser.hpp"
@@ -78,6 +77,9 @@ struct Graph : _ze_graph_handle_t, IContextObject {
     static ze_result_t
     getDeviceGraphProperties(ze_device_handle_t hDevice,
                              ze_device_graph_properties_t *pDeviceGraphProperties);
+    static ze_result_t
+    getDeviceGraphProperties2(ze_device_handle_t hDevice,
+                              ze_device_graph_properties_2_t *pDeviceGraphProperties2);
     uint32_t getProfilingOutputSize() const { return profilingOutputSize; }
 
     static Graph *fromHandle(ze_graph_handle_t handle) { return static_cast<Graph *>(handle); }
