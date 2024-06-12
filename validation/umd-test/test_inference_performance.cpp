@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Intel Corporation
+ * Copyright (C) 2023-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -72,13 +72,8 @@ INSTANTIATE_TEST_SUITE_P(,
 TEST_P(InferencePerformance, MeasureTimeBetweenTwoInferencesAfterPutVPUInIdleState) {
     const YAML::Node node = GetParam();
 
-    ASSERT_GT(node["path"].as<std::string>().size(), 0);
-
-    std::shared_ptr<Graph> graph = Graph::create(zeContext,
-                                                 zeDevice,
-                                                 zeGraphDDITableExt,
-                                                 blobDir + node["path"].as<std::string>(),
-                                                 node);
+    std::shared_ptr<Graph> graph =
+        Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
 
     graph->allocateArguments(MemType::HOST_MEMORY);
 

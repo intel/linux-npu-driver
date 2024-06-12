@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -11,10 +11,12 @@
 #include <random>
 
 #include "umd_test.h"
+#include "utilities/data_handle.h"
 #include "testenv.hpp"
+#include "ze_stringify.hpp"
 
-void PrintTo(const ze_result_t &ze_result, std::ostream *os) {
-    *os << "0x" << std::hex << ze_result << std::dec;
+void PrintTo(const ze_result_t &result, std::ostream *os) {
+    *os << ze_result_to_str(result) << " (0x" << std::hex << result << ")" << std::dec;
 }
 
 const char *UmdTest::zeDevTypeStr(ze_device_type_t devType) {
@@ -81,34 +83,20 @@ void UmdTest::SetUp() {
 
     /*Get base configuration from config file*/
     YAML::Node &configuration = Environment::getConfiguration();
-    if (configuration["blob_dir"].IsDefined())
-        blobDir = configuration["blob_dir"].as<std::string>();
+    if (configuration["blob_dir"].IsDefined()) {
+        globalConfig.blobDir = configuration["blob_dir"].as<std::string>();
+    }
+    if (configuration["image_dir"].IsDefined()) {
+        globalConfig.imageDir = configuration["image_dir"].as<std::string>();
+    }
 
-    if (configuration["image_dir"].IsDefined())
-        imageDir = configuration["image_dir"].as<std::string>();
-
-    if (configuration["model_dir"].IsDefined())
-        modelDir = configuration["model_dir"].as<std::string>();
+    if (configuration["model_dir"].IsDefined()) {
+        globalConfig.modelDir = configuration["model_dir"].as<std::string>();
+    }
 }
 
 void UmdTest::TearDown() {
     std::this_thread::sleep_for(std::chrono::milliseconds(test_app::pause_after_test_ms));
-}
-
-bool UmdTest::loadFile(const std::string &filePath, std::vector<char> &dataOut) {
-    std::ifstream fileInputStream(filePath, std::ios::binary | std::ios::ate);
-    if (fileInputStream.is_open()) {
-        std::streamsize size = fileInputStream.tellg();
-        fileInputStream.seekg(0, std::ios::beg);
-
-        dataOut.resize(size);
-        fileInputStream.read((char *)dataOut.data(), size);
-
-        fileInputStream.close();
-
-        return true;
-    }
-    return false;
 }
 
 int UmdTest::saveFile(const std::string &filePath, void *dataIn, size_t inputSize) {
@@ -201,9 +189,9 @@ void UmdTest::createGraphDescriptorForModel(const std::string &modelPath,
 
 bool UmdTest::isHwsModeEnabled() {
     std::vector<char> out;
-    if (!loadFile("/sys/module/intel_vpu/parameters/sched_mode", out))
+    if (DataHandle::loadFile("/sys/module/intel_vpu/parameters/sched_mode", out) != 0)
         return false;
-    return out.size() > 0 && out[0] == 'Y';
+    return out.size() > 0 && out[0] == '1';
 }
 
 TEST(Umd, ZeDevTypeStr) {
@@ -223,12 +211,12 @@ TEST(Umd, File) {
     memset(writeData, 0xA5, sizeof(writeData));
 
     UmdTest::saveFile(testFileName, writeData, 1);
-    UmdTest::loadFile(testFileName, inputFileData);
+    DataHandle::loadFile(testFileName, inputFileData);
     EXPECT_EQ(inputFileData.size(), 1u);
     EXPECT_EQ(memcmp(writeData, inputFileData.data(), inputFileData.size()), 0);
 
     UmdTest::saveFile(testFileName, writeData, sizeof(writeData));
-    UmdTest::loadFile(testFileName, inputFileData);
+    DataHandle::loadFile(testFileName, inputFileData);
     EXPECT_EQ(inputFileData.size(), sizeof(writeData));
     EXPECT_EQ(memcmp(writeData, inputFileData.data(), inputFileData.size()), 0);
     std::filesystem::remove(testFileName);

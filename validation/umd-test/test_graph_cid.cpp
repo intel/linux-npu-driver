@@ -40,7 +40,7 @@ class CompilerInDriver : public CompilerInDriverBase {
 
         /* Setup */
         buildFlags = getFlagsFromString(node["flags"].as<std::string>());
-        createGraphDescriptorForModel(modelDir + node["path"].as<std::string>(),
+        createGraphDescriptorForModel(globalConfig.modelDir + node["path"].as<std::string>(),
                                       buildFlags,
                                       modelIR,
                                       graphDesc);
@@ -149,15 +149,10 @@ class CompilerInDriverLong : public CompilerInDriverLongT,
 
         const YAML::Node node = GetParam();
 
-        ASSERT_GT(node["path"].as<std::string>().size(), 0);
-
-        graph = Graph::create(zeContext,
-                              zeDevice,
-                              zeGraphDDITableExt,
-                              modelDir + node["path"].as<std::string>(),
-                              node);
+        graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
 
         graph->allocateArguments(MemType::SHARED_MEMORY);
+        graph->copyInputData();
     }
 
     std::shared_ptr<Graph> graph;
@@ -182,8 +177,6 @@ TEST_P(CompilerInDriverLong, CompileModelWithGraphInitAndExecute) {
 
     ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
 
-    graph->setRandomInput();
-
     ASSERT_EQ(zeGraphDDITableExt
                   ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),
               ZE_RESULT_SUCCESS);
@@ -203,16 +196,15 @@ class CompilerInDriverWithProfiling : public CompilerInDriverLongT,
             SKIP_("The profiling graph test has been disabled.");
         }
 
-        ASSERT_GT(node["path"].as<std::string>().size(), 0);
-
         graph = Graph::create(zeContext,
                               zeDevice,
                               zeGraphDDITableExt,
-                              modelDir + node["path"].as<std::string>(),
+                              globalConfig,
                               node,
                               ZE_GRAPH_FLAG_ENABLE_PROFILING);
 
         graph->allocateArguments(MemType::SHARED_MEMORY);
+        graph->copyInputData();
     }
 
     template <class ProfilingData>
@@ -235,34 +227,6 @@ class CompilerInDriverWithProfiling : public CompilerInDriverLongT,
                   ZE_RESULT_SUCCESS);
 
         return profilingData;
-    }
-
-    inline const char *getExecTypeStr(int execType) {
-        switch (execType) {
-        case ZE_TASK_EXECUTE_NONE:
-            return "ZE_TASK_EXECUTE_NONE";
-        case ZE_TASK_EXECUTE_DPU:
-            return "ZE_TASK_EXECUTE_DPU";
-        case ZE_TASK_EXECUTE_SW:
-            return "ZE_TASK_EXECUTE_SW";
-        case ZE_TASK_EXECUTE_DMA:
-            return "ZE_TASK_EXECUTE_DMA";
-        default:
-            return "";
-        }
-    }
-
-    inline const char *getStatusStr(int status) {
-        switch (status) {
-        case ZE_LAYER_STATUS_NOT_RUN:
-            return "ZE_LAYER_STATUS_NOT_RUN";
-        case ZE_LAYER_STATUS_OPTIMIZED_OUT:
-            return "ZE_LAYER_STATUS_OPTIMIZED_OUT";
-        case ZE_LAYER_STATUS_EXECUTED:
-            return "ZE_LAYER_STATUS_EXECUTED";
-        default:
-            return "";
-        }
     }
 
     std::shared_ptr<Graph> graph;
@@ -288,8 +252,6 @@ TEST_P(CompilerInDriverWithProfiling, CompileModelWithGraphProfilingFlag) {
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
     ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
-
-    graph->setRandomInput();
 
     uint32_t poolSize = 1;
     auto scopedProfilingPool =
@@ -362,15 +324,10 @@ class CompilerInDriverLongBmp : public CompilerInDriverLongT,
 
         const YAML::Node node = GetParam();
 
-        ASSERT_GT(node["path"].as<std::string>().size(), 0);
         ASSERT_EQ(node["class_index"].as<std::vector<uint16_t>>().size(),
                   node["input"].as<std::vector<std::string>>().size());
 
-        graph = Graph::create(zeContext,
-                              zeDevice,
-                              zeGraphDDITableExt,
-                              modelDir + node["path"].as<std::string>(),
-                              node);
+        graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
 
         graph->allocateArguments(MemType::SHARED_MEMORY);
 
@@ -379,7 +336,7 @@ class CompilerInDriverLongBmp : public CompilerInDriverLongT,
 
         /* Create list of images to load */
         for (auto &image : node["input"].as<std::vector<std::string>>()) {
-            testImages.push_back(imageDir + image);
+            testImages.push_back(globalConfig.imageDir + image);
         }
     }
 
@@ -434,15 +391,10 @@ class CompilerInDriverBmpWithPrimeBuffers : public CompilerInDriverLongBmp {
 
         const YAML::Node node = GetParam();
 
-        ASSERT_GT(node["path"].as<std::string>().size(), 0);
         ASSERT_EQ(node["class_index"].as<std::vector<uint16_t>>().size(),
                   node["input"].as<std::vector<std::string>>().size());
 
-        graph = Graph::create(zeContext,
-                              zeDevice,
-                              zeGraphDDITableExt,
-                              modelDir + node["path"].as<std::string>(),
-                              node);
+        graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
 
         /* Create list of DMA memory buffers outside driver and use it as network inputs */
 
@@ -479,7 +431,7 @@ class CompilerInDriverBmpWithPrimeBuffers : public CompilerInDriverLongBmp {
         imageClassIndexes = node["class_index"].as<std::vector<uint16_t>>();
 
         for (auto &image : node["input"].as<std::vector<std::string>>()) {
-            testImages.push_back(imageDir + image);
+            testImages.push_back(globalConfig.imageDir + image);
         }
     }
 
@@ -552,7 +504,7 @@ class CompilerInDriverThreaded : public CompilerInDriverLongT,
         imageClassIndexes = node["class_index"].as<std::vector<uint16_t>>();
 
         for (auto &image : node["input"].as<std::vector<std::string>>()) {
-            testImages.push_back(imageDir + image);
+            testImages.push_back(globalConfig.imageDir + image);
         }
     }
 
@@ -584,11 +536,8 @@ TEST_P(CompilerInDriverThreaded, ImageClassificationUsingImagenet) {
         ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
         auto list = scopedList.get();
 
-        std::shared_ptr<Graph> graph = Graph::create(zeContext,
-                                                     zeDevice,
-                                                     zeGraphDDITableExt,
-                                                     modelDir + node["path"].as<std::string>(),
-                                                     node);
+        std::shared_ptr<Graph> graph =
+            Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
 
         graph->allocateArguments(MemType::SHARED_MEMORY);
 
@@ -656,8 +605,6 @@ class CompilerInDriverMultiInference : public CompilerInDriverThreaded {
             SKIP_("Missing models for testing");
 
         for (auto &model : modelsSet) {
-            ASSERT_GT(model["path"].as<std::string>().size(), 0);
-
             localInference inference;
 
             if (model["target_fps"].IsDefined())
@@ -672,7 +619,7 @@ class CompilerInDriverMultiInference : public CompilerInDriverThreaded {
             if (model["input"].IsDefined() &&
                 model["input"].as<std::vector<std::string>>().size()) {
                 for (auto &image : model["input"].as<std::vector<std::string>>())
-                    inference.testImages.push_back(imageDir + image);
+                    inference.testImages.push_back(globalConfig.imageDir + image);
             }
             if (model["class_index"].IsDefined() &&
                 model["class_index"].as<std::vector<uint16_t>>().size())
@@ -684,11 +631,8 @@ class CompilerInDriverMultiInference : public CompilerInDriverThreaded {
             if (model["delay_in_us"].IsDefined())
                 inference.delayInUs = model["delay_in_us"].as<size_t>();
 
-            std::shared_ptr<Graph> graph = Graph::create(zeContext,
-                                                         zeDevice,
-                                                         zeGraphDDITableExt,
-                                                         modelDir + model["path"].as<std::string>(),
-                                                         model);
+            std::shared_ptr<Graph> graph =
+                Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, model);
 
             inference.graph = std::move(graph);
 
@@ -726,19 +670,20 @@ INSTANTIATE_TEST_SUITE_P(,
     }
 
 TEST_P(CompilerInDriverMultiInference, Pipeline) {
-    struct inferenceStats {
+    struct InferenceStats {
         ze_result_t status;
         int totalFrames = 0;
         int droppedFrames = 0;
         double realFPS = 0;
-        double maxExecTimePerFrame;
         double minExecTimePerFrame;
+        double avgExecTimePerFrame;
+        double maxExecTimePerFrame;
     };
 
     auto runInference =
-        [&](const CompilerInDriverMultiInference::localInference &inference) -> inferenceStats {
+        [&](const CompilerInDriverMultiInference::localInference &inference) -> InferenceStats {
         ze_result_t ret = ZE_RESULT_SUCCESS;
-        inferenceStats stats = {};
+        InferenceStats stats = {};
 
         stats.status = ZE_RESULT_SUCCESS;
         stats.minExecTimePerFrame = DBL_MAX;
@@ -759,7 +704,7 @@ TEST_P(CompilerInDriverMultiInference, Pipeline) {
         if (inference.testImages.size()) {
             inference.graph->loadInputData(inference.testImages[0]);
         } else {
-            inference.graph->setRandomInput();
+            inference.graph->copyInputData();
         }
 
         ret = zeGraphDDITableExt->pfnAppendGraphInitialize(list,
@@ -820,11 +765,10 @@ TEST_P(CompilerInDriverMultiInference, Pipeline) {
                 std::chrono::steady_clock::now() - frameBeginIncludingWait;
             summaryInferenceTimeMs += durationMs.count();
 
-            /* Calculate min max frame time */
             durationMs = std::chrono::steady_clock::now() - frameBegin;
-
-            stats.maxExecTimePerFrame = std::max(stats.maxExecTimePerFrame, durationMs.count());
             stats.minExecTimePerFrame = std::min(stats.minExecTimePerFrame, durationMs.count());
+            stats.avgExecTimePerFrame += durationMs.count();
+            stats.maxExecTimePerFrame = std::max(stats.maxExecTimePerFrame, durationMs.count());
 
             stats.totalFrames++;
 
@@ -836,16 +780,17 @@ TEST_P(CompilerInDriverMultiInference, Pipeline) {
         stats.realFPS = 1000 * stats.totalFrames / summaryInferenceTimeMs;
         int targetFrames = inference.targetFps * inference.time;
         stats.droppedFrames = std::max(targetFrames - stats.totalFrames, 0);
+        stats.avgExecTimePerFrame /= stats.totalFrames;
 
         return stats;
     }; // end of runInference
 
-    std::vector<std::future<inferenceStats>> results;
+    std::vector<std::future<InferenceStats>> results;
     for (size_t i = 0; i < testInferences.size(); i++)
         results.push_back(std::async(std::launch::async, runInference, testInferences[i]));
 
     for (size_t i = 0; i < results.size(); i++) {
-        inferenceStats stats = results[i].get();
+        InferenceStats stats = results[i].get();
 
         PRINTF("----------------------------------------------------\n");
         PRINTF("Model:                %s \n", testInferences[i].modelName.c_str());
@@ -856,7 +801,8 @@ TEST_P(CompilerInDriverMultiInference, Pipeline) {
         PRINTF("FramesExecuted:       %d \n", stats.totalFrames);
         PRINTF("FramesDropped:        %d \n", stats.droppedFrames);
         PRINTF("CalculatedFPS:        %f \n", stats.realFPS);
-        PRINTF("MaxFrameExecTime[ms]: %f \n", stats.maxExecTimePerFrame);
         PRINTF("MinFrameExecTime[ms]: %f \n", stats.minExecTimePerFrame);
+        PRINTF("AvgFrameExecTime[ms]: %f \n", stats.avgExecTimePerFrame);
+        PRINTF("MaxFrameExecTime[ms]: %f \n", stats.maxExecTimePerFrame);
     }
 }

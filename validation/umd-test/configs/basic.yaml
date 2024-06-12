@@ -1,4 +1,4 @@
-# Copyright 2023 Intel Corporation.
+# Copyright 2023-2024 Intel Corporation.
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -13,7 +13,7 @@
 log_level: ERROR # supported levels:QUIET ERROR, WARNING, INFO, VERBOSE
 model_dir: models/
 
-compiler_in_driver:
+graph_execution:
   # add_abc.xml can be copied from OpenVINO repository:
   # https://raw.githubusercontent.com/openvinotoolkit/openvino/master/src/core/tests/models/ir/add_abc.xml
   - path: add_abc/add_abc.xml

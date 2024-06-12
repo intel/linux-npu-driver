@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Intel Corporation
+ * Copyright (C) 2023-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <gtest/gtest.h>
 #include <level_zero/ze_api.h>
+#include <level_zero/zes_api.h>
 #include <yaml-cpp/yaml.h>
 
 class Environment : public ::testing::Environment {
@@ -25,12 +26,8 @@ class Environment : public ::testing::Environment {
         uint32_t devCount = 0u;
 
         EXPECT_EQ(setenv("ZET_ENABLE_METRICS", "1", 0), 0);
-
-// TODO: Validation layer should be disabled when OpenVino is used, issue: EISW-101738
-#ifndef UMD_TESTS_USE_OPENVINO
         EXPECT_EQ(setenv("ZE_ENABLE_VALIDATION_LAYER", "1", 0), 0);
         EXPECT_EQ(setenv("ZE_ENABLE_PARAMETER_VALIDATION", "1", 0), 0);
-#endif
 
         ASSERT_EQ(zeInit(ZE_INIT_FLAG_VPU_ONLY), ZE_RESULT_SUCCESS);
         ASSERT_EQ(zeDriverGet(&drvCount, nullptr), ZE_RESULT_SUCCESS);
@@ -92,27 +89,15 @@ class Environment : public ::testing::Environment {
             << "Failed to find graph profiling DDI table";
     }
 
-    ze_driver_handle_t getDriver() {
-        return zeDriver;
-    }
-    ze_device_handle_t getDevice() {
-        return zeDevice;
-    }
-    graph_dditable_ext_t *getGraphDDITable() {
-        return zeGraphDDITableExt;
-    }
+    ze_driver_handle_t getDriver() { return zeDriver; }
+    ze_device_handle_t getDevice() { return zeDevice; }
+    graph_dditable_ext_t *getGraphDDITable() { return zeGraphDDITableExt; }
     ze_graph_profiling_dditable_ext_t *getGraphProfilingDDITable() {
         return zeGraphProfilingDDITableExt;
     }
-    uint64_t getMaxMemAllocSize() {
-        return maxMemAllocSize;
-    }
-    uint16_t getPciDevId() {
-        return pciDevId;
-    }
-    uint16_t getPlatformType() {
-        return platformType;
-    }
+    uint64_t getMaxMemAllocSize() { return maxMemAllocSize; }
+    uint16_t getPciDevId() { return pciDevId; }
+    uint16_t getPlatformType() { return platformType; }
 
     static Environment *getInstance() {
         static Environment *testEnv = nullptr;

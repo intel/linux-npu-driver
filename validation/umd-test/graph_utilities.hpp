@@ -24,6 +24,11 @@ enum MemType {
     SHARED_MEMORY,
 };
 
+enum GraphFormat {
+    BLOB,
+    MODEL,
+};
+
 class Graph {
   public:
     Graph(ze_context_handle_t hContext, ze_device_handle_t hDevice, graph_dditable_ext_t *graphDDI)
@@ -34,15 +39,19 @@ class Graph {
     static std::shared_ptr<Graph> create(ze_context_handle_t hContext,
                                          ze_device_handle_t hDevice,
                                          graph_dditable_ext_t *graphDDI,
-                                         std::filesystem::path path,
+                                         UmdTest::GlobalConfig &globalConfig,
                                          const YAML::Node &node,
                                          uint32_t graphFlags = ZE_GRAPH_FLAG_NONE) {
         auto graph = std::make_shared<Graph>(hContext, hDevice, graphDDI);
 
+        EXPECT_GT(node["path"].as<std::string>().size(), 0);
+        std::filesystem::path path = node["path"].as<std::string>();
+
         if (path.extension() == ".xml") {
-            graph->createFromModel(std::move(path), node, graphFlags);
+            graph->createFromModel(std::move(globalConfig.modelDir / path), node, graphFlags);
         } else {
-            graph->createFromBlob(std::move(path), node, graph->vpuBlob);
+            graph->format = GraphFormat::BLOB;
+            graph->createFromBlob(std::move(globalConfig.blobDir / path), node, graph->npuBlob);
         }
 
         graph->queryArguments();
@@ -86,16 +95,6 @@ class Graph {
         }
     }
 
-    static void generateRandomData(std::vector<char> &data, size_t size) {
-        std::random_device rd;
-        std::uniform_int_distribution<int8_t> dist;
-
-        data.reserve(size);
-        for (size_t i = 0; i < size; i++) {
-            data.push_back(dist(rd));
-        }
-    }
-
     void allocateArguments(MemType memType) {
         allocateInputArguments(memType);
         allocateOutputArguments(memType);
@@ -127,19 +126,39 @@ class Graph {
         std::vector<std::vector<char>> inputData;
         inputData.resize(inputSize.size());
         for (size_t i = 0; i < inputSize.size(); ++i) {
-            generateRandomData(inputData[i], inputSize[i]);
+            DataHandle::generateRandomData(inputData[i], inputSize[i]);
             memcpy(inArgs[i], inputData[i].data(), inputData[i].size());
         }
     }
 
     void copyInputData() {
-        for (size_t i = 0; i < inArgs.size(); i++) {
-            memcpy(inArgs[i], inputBin[i].data(), inputBin[i].size());
+        if (isInputFileProvided && format == GraphFormat::BLOB) {
+            for (size_t i = 0; i < inArgs.size(); i++) {
+                memcpy(inArgs[i], inputBin[i].data(), inputBin[i].size());
+            }
+        } else {
+            setRandomInput();
+        }
+    }
+
+    void copyInputData(std::vector<void *> &target) {
+        if (isInputFileProvided && format == GraphFormat::BLOB) {
+            for (uint32_t i = 0; i < inputSize.size(); i++) {
+                memcpy(target[i], inputBin[i].data(), inputBin[i].size());
+            }
+        } else {
+            std::vector<std::vector<char>> inputData;
+            inputData.resize(inputSize.size());
+            for (size_t i = 0; i < inputSize.size(); ++i) {
+                DataHandle::generateRandomData(inputData[i], inputSize[i]);
+                memcpy(target[i], inputData[i].data(), inputData[i].size());
+            }
         }
     }
 
     void loadInputData(std::filesystem::path path) {
         ASSERT_EQ(path.extension(), ".bmp");
+        TRACE("Image: %s\n", path.c_str());
 
         Image image(path);
         ASSERT_EQ(inputSize[0], image.getSizeInBytes());
@@ -151,8 +170,18 @@ class Graph {
     }
 
     void checkResults() {
-        for (size_t i = 0; i < outArgs.size(); i++) {
-            ASSERT_EQ(memcmp(outArgs[i], outputBin[i].data(), outputBin[i].size()), 0);
+        if (isInputFileProvided && format == GraphFormat::BLOB) {
+            for (size_t i = 0; i < outArgs.size(); i++) {
+                ASSERT_EQ(memcmp(outArgs[i], outputBin[i].data(), outputBin[i].size()), 0);
+            }
+        }
+    }
+
+    void checkResults(std::vector<void *> &output) {
+        if (isInputFileProvided && format == GraphFormat::BLOB) {
+            for (size_t i = 0; i < outArgs.size(); i++) {
+                ASSERT_EQ(memcmp(output[i], outputBin[i].data(), outputBin[i].size()), 0);
+            }
         }
     }
 
@@ -300,6 +329,7 @@ class Graph {
         ze_result_t ret = ZE_RESULT_SUCCESS;
 
         buildFlags = getFlagsFromString(node["flags"].as<std::string>());
+        TRACE("buildFlags: %s\n", std::string(buildFlags.begin(), buildFlags.end()).c_str());
 
         createGraphDescriptorForModel(path, graphFlags);
 
@@ -309,25 +339,26 @@ class Graph {
         handle = scopedGraphHandle.get();
     }
 
-    void createFromBlob(std::string &&path, const YAML::Node &node, std::vector<char> &vpuBlob) {
-        ASSERT_GT(node["in"].as<std::vector<std::string>>().size(), 0);
-        ASSERT_GT(node["out"].as<std::vector<std::string>>().size(), 0);
-
+    void createFromBlob(std::string &&path, const YAML::Node &node, std::vector<char> &npuBlob) {
         ze_result_t ret = ZE_RESULT_SUCCESS;
 
-        ASSERT_TRUE(getBlobFromPath(std::move(path),
-                                    node["in"].as<std::vector<std::string>>(),
-                                    node["out"].as<std::vector<std::string>>(),
-                                    vpuBlob,
-                                    inputBin,
-                                    outputBin,
-                                    vpuBin));
+        if (node["in"].IsDefined() && node["out"].IsDefined()) {
+            ASSERT_TRUE(loadBlobDataFromNode(std::move(path),
+                                             node["in"].as<std::vector<std::string>>(),
+                                             node["out"].as<std::vector<std::string>>(),
+                                             npuBlob,
+                                             inputBin,
+                                             outputBin));
+        } else {
+            ASSERT_TRUE(loadBlobFromPath(std::move(path), npuBlob));
+            isInputFileProvided = false;
+        }
 
         desc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES,
                 .pNext = nullptr,
                 .format = ZE_GRAPH_FORMAT_NATIVE,
-                .inputSize = vpuBlob.size(),
-                .pInput = reinterpret_cast<uint8_t *>(vpuBlob.data()),
+                .inputSize = npuBlob.size(),
+                .pInput = reinterpret_cast<uint8_t *>(npuBlob.data()),
                 .pBuildFlags = nullptr,
                 .flags = ZE_GRAPH_FLAG_NONE};
 
@@ -342,8 +373,11 @@ class Graph {
     ze_device_handle_t hDevice = nullptr;
     graph_dditable_ext_t *graphDDI = nullptr;
 
+    GraphFormat format = GraphFormat::MODEL;
+    bool isInputFileProvided = true;
+
     std::vector<std::vector<char>> inputBin, outputBin;
-    std::vector<char> vpuBlob, vpuBin;
+    std::vector<char> npuBlob;
 
     ze_graph_handle_t handle = nullptr;
 
@@ -355,8 +389,8 @@ class Graph {
 
   private:
     ze_graph_desc_2_t desc = {};
-    std::vector<uint8_t> modelIR = {};
     std::vector<char> buildFlags = {};
+    std::vector<uint8_t> modelIR = {};
 
     std::vector<std::shared_ptr<void>> mem;
 

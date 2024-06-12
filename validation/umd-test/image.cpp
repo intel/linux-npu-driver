@@ -30,7 +30,7 @@ struct Image::Impl {
 };
 
 #else
-#include "umd_test.h"
+#include "utilities/data_handle.h"
 #include <vector>
 
 struct __attribute__((packed)) BmpFileHeader {
@@ -56,7 +56,7 @@ struct __attribute__((packed)) BmpInfoHeader {
 
 struct Image::Impl {
     Impl(const std::string &path) {
-        if (!UmdTest::loadFile(path, data)) {
+        if (DataHandle::loadFile(path, data) != 0) {
             throw "Failed to read image " + path;
         }
 

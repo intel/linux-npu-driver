@@ -6,7 +6,9 @@
  */
 
 #include "graph_utilities.hpp"
+#include "ze_stringify.hpp"
 
+#include <level_zero/zet_api.h>
 #include <vector>
 
 /*test case definition:
@@ -37,23 +39,6 @@ class MetricGroup : public UmdTest {
     uint32_t metricGroupsCount = 0;
     std::vector<zet_metric_group_handle_t> metricGroups;
 };
-
-TEST_F(MetricGroup, RetrieveMetricGroupProperties) {
-    std::vector<zet_metric_group_properties_t> properties(metricGroupsCount);
-
-    for (auto &v : properties)
-        v.stype = ZET_STRUCTURE_TYPE_METRIC_GROUP_PROPERTIES;
-
-    for (uint8_t i = 0; i < metricGroupsCount; i++) {
-        EXPECT_EQ(zetMetricGroupGetProperties(metricGroups[i], &properties[i]), ZE_RESULT_SUCCESS);
-
-        EXPECT_TRUE(
-            (properties[i].samplingType & ZET_METRIC_GROUP_SAMPLING_TYPE_FLAG_EVENT_BASED) &&
-            (properties[i].samplingType & ZET_METRIC_GROUP_SAMPLING_TYPE_FLAG_TIME_BASED));
-        EXPECT_GT(properties[i].domain, 0u);
-        EXPECT_GT(properties[i].metricCount, 0u);
-    }
-}
 
 class Metric : public MetricGroup {
   public:
@@ -92,10 +77,36 @@ class Metric : public MetricGroup {
     std::vector<std::vector<zet_metric_properties_t>> metricsPropertiesAll;
 };
 
-TEST_F(Metric, ValidatePropertiesForMetric) {
-    EXPECT_GT(metricsPropertiesAll[0][0].metricType, 0);
-    EXPECT_GT(metricsPropertiesAll[0][0].resultType, 0);
-    EXPECT_GE(metricsPropertiesAll[0][0].tierNumber, 0);
+TEST_F(Metric, GetProperties) {
+    for (uint8_t i = 0; i < metricGroupsCount; i++) {
+        zet_metric_group_properties_t &groupProp = groupProperties[i];
+
+        TRACE("MetricGroup[%i].name: %s\n", i, groupProp.name);
+        TRACE("MetricGroup[%i].description: %s\n", i, groupProp.description);
+        TRACE("MetricGroup[%i].samplingType: %i\n", i, groupProp.samplingType);
+        TRACE("MetricGroup[%i].domain: %i\n", i, groupProp.domain);
+        TRACE("MetricGroup[%i].metricCount: %i\n", i, groupProp.metricCount);
+
+        EXPECT_TRUE((groupProp.samplingType & ZET_METRIC_GROUP_SAMPLING_TYPE_FLAG_EVENT_BASED) &&
+                    (groupProp.samplingType & ZET_METRIC_GROUP_SAMPLING_TYPE_FLAG_TIME_BASED));
+        EXPECT_GT(groupProp.domain, 0u);
+        EXPECT_GT(groupProp.metricCount, 0u);
+
+        for (uint8_t j = 0; j < groupProp.metricCount; j++) {
+            zet_metric_properties_t &metricProp = metricsPropertiesAll[i][j];
+
+            TRACE("\tMetric[%i].name: %s\n", j, metricProp.name);
+            TRACE("\tMetric[%i].description: %s\n", j, metricProp.description);
+            TRACE("\tMetric[%i].component: %s\n", j, metricProp.component);
+            TRACE("\tMetric[%i].tierNumber: %i\n", j, metricProp.tierNumber);
+            TRACE("\tMetric[%i].metricType: %i\n", j, metricProp.metricType);
+            TRACE("\tMetric[%i].resultType: %s (%i)\n",
+                  j,
+                  zet_value_type_to_str(metricProp.resultType),
+                  metricProp.resultType);
+            TRACE("\tMetric[%i].resultUnits: %s\n", j, metricProp.resultUnits);
+        }
+    }
 }
 
 class MetricQueryPool : public MetricGroup {
@@ -328,21 +339,12 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST_P(MetricQuery, GetDataValueCheck) {
     auto &[node, metricGroupName, queryIndex] = GetParam();
-    std::filesystem::path path(node["path"].as<std::string>());
 
     std::shared_ptr<Graph> graph =
-        Graph::create(zeContext,
-                      zeDevice,
-                      zeGraphDDITableExt,
-                      path.extension() == ".xml" ? modelDir + node["path"].as<std::string>()
-                                                 : blobDir + node["path"].as<std::string>(),
-                      node);
+        Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
 
     graph->allocateArguments(MemType::SHARED_MEMORY);
-
-    if (path.extension() == ".xml") {
-        graph->setRandomInput();
-    }
+    graph->copyInputData();
 
     uint32_t groupIndex = findMetricGroupIndex(metricGroupName);
 

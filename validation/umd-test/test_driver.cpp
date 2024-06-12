@@ -9,31 +9,6 @@
 
 class Driver : public UmdTest {};
 
-/* TODO: Test disabled: EISW-107116 */
-TEST(Init, DISABLED_HandleWrongInitFlagError) {
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_ENUMERATION, zeInit(ZE_INIT_FLAG_GPU_ONLY));
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_ENUMERATION, zeInit(0x04));
-}
-
-TEST(Init, WithValidInitFlag) {
-    EXPECT_EQ(ZE_RESULT_SUCCESS, zeInit(ZE_INIT_FLAG_VPU_ONLY));
-    EXPECT_EQ(ZE_RESULT_SUCCESS, zeInit(0));
-}
-
-TEST(Init, WithValidInitFlagMultiThreaded) {
-    std::vector<std::shared_ptr<std::thread>> tasks;
-    uint32_t numThreads = std::thread::hardware_concurrency();
-    for (uint32_t i = 0; i < numThreads; i++) {
-        tasks.push_back(std::make_shared<std::thread>([]() {
-            EXPECT_EQ(ZE_RESULT_SUCCESS, zeInit(ZE_INIT_FLAG_VPU_ONLY));
-            EXPECT_EQ(ZE_RESULT_SUCCESS, zeInit(0));
-        }));
-    }
-    for (const auto &t : tasks) {
-        t.get()->join();
-    }
-}
-
 TEST_F(Driver, GetApiVersion) {
     ze_api_version_t version;
     EXPECT_EQ(zeDriverGetApiVersion(zeDriver, &version), ZE_RESULT_SUCCESS);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -22,7 +22,7 @@
 #include <thread>
 
 // Custom printer to dump ze_result_t as hex string
-void PrintTo(const ze_result_t &ze_result, std::ostream *os);
+void PrintTo(const ze_result_t &result, std::ostream *os);
 
 #define SKIP_(msg)                      \
     if (!test_app::run_skipped_tests) { \
@@ -85,14 +85,6 @@ class UmdTest : public ::testing::Test {
     static const char *zeDevTypeStr(ze_device_type_t devType);
 
     /**
-     * @brief Load a binary file into the program
-     * @param filePath[in]: Path to the file to be loaded.
-     * @param dataOut[out]: Reference to vector to store raw data.
-     * @return : true indicating success, false if otherwise
-     */
-    static bool loadFile(const std::string &filePath, std::vector<char> &dataOut);
-
-    /**
      * @brief Write data out to a file
      * @param filePath[in]: Path to the file to written.
      * @param dataIn[in]: Reference to vector to obtain data for storing.
@@ -105,6 +97,12 @@ class UmdTest : public ::testing::Test {
 
     uint32_t computeGrpOrdinal = std::numeric_limits<uint32_t>::max();
     uint32_t copyGrpOrdinal = std::numeric_limits<uint32_t>::max();
+
+    struct GlobalConfig {
+        std::string blobDir = "";
+        std::string imageDir = "";
+        std::string modelDir = "";
+    } globalConfig;
 
   protected:
     void SetUp() override;
@@ -142,10 +140,6 @@ class UmdTest : public ::testing::Test {
 
     uint64_t syncTimeout = 2'000'000'000;    // 2 seconds
     uint64_t graphSyncTimeout = syncTimeout; // 2 seconds
-
-    std::string blobDir = "";
-    std::string imageDir = "";
-    std::string modelDir = "";
 
   private:
     zeScope::SharedPtr<ze_context_handle_t> scopedContext;

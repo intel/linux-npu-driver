@@ -37,6 +37,17 @@ class PrimeBuffers : public UmdTest, public ::testing::WithParamInterface<uint64
     PrimeBufferHelper primeHelper;
 };
 
+TEST_F(PrimeBuffers, GetExternalMemoryProperties) {
+    ze_device_external_memory_properties_t prop = {};
+    prop.stype = ZE_STRUCTURE_TYPE_DEVICE_EXTERNAL_MEMORY_PROPERTIES;
+
+    EXPECT_EQ(zeDeviceGetExternalMemoryProperties(zeDevice, &prop), ZE_RESULT_SUCCESS);
+    EXPECT_EQ(prop.memoryAllocationImportTypes & ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF,
+              ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF);
+    EXPECT_EQ(prop.memoryAllocationExportTypes & ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF,
+              ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF);
+}
+
 INSTANTIATE_TEST_SUITE_P(Sizes,
                          PrimeBuffers,
                          ::testing::Values(2 * KB, 16 * MB, 255 * MB),

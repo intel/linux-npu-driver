@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
-#include "umd_test.h"
+#include "utilities/data_handle.h"
 #include "model_params.hpp"
 #include "test_app.h"
 
@@ -24,11 +24,13 @@ bool getModelFromPath(std::string modelXmlPath, std::vector<char> &xml, std::vec
         return false;
     }
 
-    if (!UmdTest::loadFile(modelXml, xml)) {
+    TRACE("Model: %s\n", modelXml.c_str());
+    if (DataHandle::loadFile(modelXml, xml) != 0) {
         PRINTF("Failed to load model from %s\n", modelXml.c_str());
         return false;
     }
-    if (!UmdTest::loadFile(modelBin, bin)) {
+
+    if (DataHandle::loadFile(modelBin, bin) != 0) {
         PRINTF("Failed to load weights from %s\n", modelBin.c_str());
         return false;
     }
