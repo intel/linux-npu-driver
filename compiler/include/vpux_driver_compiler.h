@@ -23,7 +23,7 @@ extern "C" {
 #endif
 
 #define VCL_COMPILER_VERSION_MAJOR 5
-#define VCL_COMPILER_VERSION_MINOR 2
+#define VCL_COMPILER_VERSION_MINOR 5
 #define VCL_PROFILING_VERSION_MAJOR 2
 #define VCL_PROFILING_VERSION_MINOR 0
 
@@ -120,8 +120,9 @@ typedef struct __vcl_profiling_properties_t {
 typedef enum __vcl_platform_t {
     VCL_PLATFORM_UNKNOWN = -1,
 
-    VCL_PLATFORM_VPU3700,  ///< VPU3700
-    VCL_PLATFORM_VPU3720,  ///< VPU3720
+    VCL_PLATFORM_VPU3700,  ///< NPU3700
+    VCL_PLATFORM_VPU3720,  ///< NPU3720
+    VCL_PLATFORM_VPU4000,  ///< NPU4000
 
 } vcl_platform_t;
 

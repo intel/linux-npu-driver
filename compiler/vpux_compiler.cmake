@@ -12,9 +12,7 @@
 add_library(vpux_compiler INTERFACE)
 
 if(ENABLE_VPUX_COMPILER_BUILD)
-  if(ENABLE_VPUX_COMPILER_BUILD)
-    include(vpux_compiler_build.cmake)
-  endif()
+  include(vpux_compiler_build.cmake)
 
   add_dependencies(vpux_compiler ${VPUX_COMPILER_DEPENDENCY})
   install(FILES ${VPUX_COMPILER_LIBS}
