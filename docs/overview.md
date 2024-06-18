@@ -151,6 +151,27 @@ In v1.5.0 release introduced support for Arrow Lake and Lunar Lake family proces
 
 </details>
 
+<details>
+<summary>Log mask for granular control over logging (from v1.5.0)</summary>
+
+In v1.5.0 release there is new environment variable `ZE_INTEL_NPU_LOGMASK` that
+allows the user to enable specific log groups in driver. The
+`ZE_INTEL_NPU_LOGLEVEL` variable is used to enable logging. The available log
+level has been reduced to `ERROR`, `WARNING` and `INFO`. Whenever `INFO` is
+set, the `ZE_INTEL_NPU_LOGMASK` allows to target specific log group. The log
+group are listed in
+[umd/vpu_driver/source/utilities/log.hpp](../umd/vpu_driver/source/utilities/log.hpp#L19)
+
+```
+# Set log level to INFO
+export ZE_INTEL_NPU_LOGLEVEL=INFO
+
+# Set log mask to only print from DEVICE, DRIVER and CACHE groups
+export ZE_INTEL_NPU_LOGMASK=$((1<<4|1<<3|1<<17))
+```
+
+</details>
+
 ## Troubleshooting
 
 <details>
@@ -235,7 +256,8 @@ ls /dev/accel/accel0
 <details>
 <summary>Enable driver log using an environment variable</summary>
 
-Valid logging levels are `ERROR`, `WARNING`, `INFO`, `VERBOSE`.
+Valid logging levels are `ERROR`, `WARNING`, `INFO` (and `VERBOSE` for driver
+older than v1.5.0 release)
 
 Seting the logging level using the `ZE_INTEL_NPU_LOGLEVEL` environment variable:
 ```
@@ -245,6 +267,18 @@ export ZE_INTEL_NPU_LOGLEVEL=<logging_level>
 Command to clear an exported value:
 ```
 unset ZE_INTEL_NPU_LOGLEVEL
+```
+
+Setting `ZE_INTEL_NPU_LOGMASK` allows to print specific log groups in driver.
+The log group are listed in
+[umd/vpu_driver/source/utilities/log.hpp](../umd/vpu_driver/source/utilities/log.hpp#L19)
+
+```
+# Set log level to INFO to enable LOGMASK
+export ZE_INTEL_NPU_LOGLEVEL=INFO
+
+# Set log mask to only print from DEVICE, DRIVER and CACHE groups
+export ZE_INTEL_NPU_LOGMASK=$((1<<4|1<<3|1<<17))
 ```
 </details>
 
