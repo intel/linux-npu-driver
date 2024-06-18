@@ -121,9 +121,9 @@ Command line:
 <summary>Model driver caching (from v1.5.0)</summary>
 
 Starting from v1.5.0 release the driver allows to cache compiled model in
-filesystem. Whenever user compiles a model (using zeGraphCreate) the driver
+filesystem. Whenever user compiles a model (using zeGraphCreate), the driver
 saves the compiled model representation in the user directory
-`~/.cache/ze_intel_npu_cache/` or the directory specified in
+`~/.cache/ze_intel_npu_cache/` or in the directory specified in
 `ZE_INTEL_NPU_CACHE_DIR` environment variable. The cache directory size is
 controlled by the driver. Whenever the cache directory exceeds 1GB the least
 used compiled models are removed to save the filesystem space.
@@ -139,7 +139,7 @@ used compiled models are removed to save the filesystem space.
 <summary>Kernel module functional tests - vpu-kmd-test (from v1.5.0)</summary>
 
 Introduced `vpu-kmd-test` in v1.5.0 release that can be used for `intel_vpu`
-module validation. `vpu-kmd-test` is built together with driver and can be
+module validation. `vpu-kmd-test` is built together with the driver and can be
 found in `<build-dir>/bin`
 
 </details>
@@ -147,8 +147,7 @@ found in `<build-dir>/bin`
 <details>
 <summary>Support for Arrow Lake and Lunar Lake CPUs (from v1.5.0)</summary>
 
-Starting from v1.5.0 the driver is able to detect NPU and runs inference using
-NPU in Arrow Lake and Lunar Lake family processors.
+In v1.5.0 release introduced support for Arrow Lake and Lunar Lake family processors.
 
 </details>
 
@@ -252,8 +251,8 @@ unset ZE_INTEL_NPU_LOGLEVEL
 <details>
 <summary>Firmware version mismatch</summary>
 
-User might uses different kernel and firmware configuration for NPU device. In
-case the user received following error message:
+The user can use different kernel and firmware combination for NPU device. The
+user might receive the following error message:
 
 ```
 ERROR! MAPPED_INFERENCE_VERSION is NOT compatible with the ELF Expected: 6.1.0 vs received: 7.0.0
