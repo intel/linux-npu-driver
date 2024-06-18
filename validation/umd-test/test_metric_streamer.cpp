@@ -1,13 +1,17 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
+#include "perf_counter.h"
 #include "graph_utilities.hpp"
 
+#include <chrono>
 #include <future>
+#include <level_zero/ze_api.h>
+#include <level_zero/zet_api.h>
 #include <vector>
 
 /*test case definition:
@@ -17,99 +21,36 @@ using metricTestCase_t = std::tuple<YAML::Node, std::string, uint32_t>;
 
 class MetricStreamer : public UmdTest, public ::testing::WithParamInterface<metricTestCase_t> {
   public:
-    ze_command_queue_desc_t cmdQueueDesc{.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
-                                         .pNext = nullptr,
-                                         .ordinal = 0,
-                                         .index = 0,
-                                         .flags = 0,
-                                         .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
-                                         .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
-
-    ze_command_list_desc_t cmdListDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
-                                          .pNext = nullptr,
-                                          .commandQueueGroupOrdinal = 0,
-                                          .flags = 0};
-
-    zeScope::SharedPtr<ze_command_queue_handle_t> scopedQueue;
-    zeScope::SharedPtr<ze_command_list_handle_t> scopedList;
-    ze_command_queue_handle_t queue = nullptr;
-    ze_command_list_handle_t list = nullptr;
-    bool useCopyOrdinal = false;
-
     void SetUp() override {
         UmdTest::SetUp();
 
-        if (useCopyOrdinal) {
-            cmdQueueDesc.ordinal = UmdTest::copyGrpOrdinal;
-            cmdListDesc.commandQueueGroupOrdinal = UmdTest::copyGrpOrdinal;
-        }
-
-        scopedQueue = zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDesc, ret);
-        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
-        queue = scopedQueue.get();
-
-        scopedList = zeScope::commandListCreate(zeContext, zeDevice, cmdListDesc, ret);
-        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
-        list = scopedList.get();
-
-        std::vector<zet_metric_group_handle_t> metricGroups;
-        uint32_t metricGroupsCount = 0;
-
-        ret = zetMetricGroupGet(zeDevice, &metricGroupsCount, nullptr);
-        if (ret == ZE_RESULT_ERROR_UNSUPPORTED_FEATURE) {
+        uint32_t count = 0;
+        if (zetMetricGroupGet(zeDevice, &count, nullptr) == ZE_RESULT_ERROR_UNSUPPORTED_FEATURE)
             SKIP_("Metrics are not supported");
-        }
-        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
-        ASSERT_GT(metricGroupsCount, 0u);
 
-        metricGroups.resize(metricGroupsCount);
-        ASSERT_EQ(zetMetricGroupGet(zeDevice, &metricGroupsCount, metricGroups.data()),
+        uint32_t ordinal = useCopyOrdinal ? copyGrpOrdinal : computeGrpOrdinal;
+        ASSERT_EQ(createCommandQueue(ordinal, &queue), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(createCommandList(ordinal, &list), ZE_RESULT_SUCCESS);
+
+        auto [node, groupName, execTime] = GetParam();
+        getMetricGroupByName(groupName);
+
+        ASSERT_EQ(zetContextActivateMetricGroups(zeContext, zeDevice, 1, &hMetricGroup),
                   ZE_RESULT_SUCCESS);
-        EXPECT_NE(*metricGroups.data(), nullptr);
-
-        auto [node, metricGroupName, execTime] = GetParam();
-
-        for (uint32_t i = 0; i < metricGroupsCount; i++) {
-            metricGroupProperties = {};
-            metricGroupProperties.stype = ZET_STRUCTURE_TYPE_METRIC_GROUP_PROPERTIES;
-
-            ASSERT_EQ(zetMetricGroupGetProperties(metricGroups[i], &metricGroupProperties),
-                      ZE_RESULT_SUCCESS);
-            if (metricGroupName == metricGroupProperties.name) {
-                testedMetricGroup = metricGroups[i];
-                break;
-            }
-        }
-
-        ASSERT_NE(testedMetricGroup, nullptr);
-
-        testedMetricCount = metricGroupProperties.metricCount;
-        ASSERT_GT(testedMetricCount, 0);
-
-        std::vector<zet_metric_handle_t> metrics(testedMetricCount);
-
-        ASSERT_EQ(zetMetricGet(testedMetricGroup, &testedMetricCount, metrics.data()),
-                  ZE_RESULT_SUCCESS);
-
-        for (uint8_t i = 0; i < testedMetricCount; i++) {
-            zet_metric_properties_t properties = {};
-            properties.stype = ZET_STRUCTURE_TYPE_METRIC_PROPERTIES;
-
-            EXPECT_EQ(zetMetricGetProperties(metrics[i], &properties), ZE_RESULT_SUCCESS);
-            metricsProperties.push_back(properties);
-        }
     }
 
     void TearDown() override {
         if (hMetricStreamer) {
-            ASSERT_EQ(zetMetricStreamerClose(hMetricStreamer), ZE_RESULT_SUCCESS);
-            ASSERT_EQ(zetContextActivateMetricGroups(zeContext, zeDevice, 0u, nullptr),
-                      ZE_RESULT_SUCCESS);
+            EXPECT_EQ(zetMetricStreamerClose(hMetricStreamer), ZE_RESULT_SUCCESS);
         }
+
+        EXPECT_EQ(zetContextActivateMetricGroups(zeContext, zeDevice, 0u, nullptr),
+                  ZE_RESULT_SUCCESS);
+
         UmdTest::TearDown();
     }
 
-    /* Functions returns combinations of network and defined
+    /* Function returns combinations of network and defined
      * for this network metric groups and inference execution time
      * required to gather metrics.
      */
@@ -135,60 +76,162 @@ class MetricStreamer : public UmdTest, public ::testing::WithParamInterface<metr
         }
     }
 
-    void getMetrics(uint32_t &numReports, std::vector<zet_typed_value_t> &metricValues) {
-        ASSERT_NE(hMetricStreamer, nullptr);
+    ze_result_t createCommandQueue(uint32_t ordinal, ze_command_queue_handle_t *handle) {
+        ze_result_t ret = ZE_RESULT_SUCCESS;
+        ze_command_queue_desc_t desc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
+                                        .pNext = nullptr,
+                                        .ordinal = ordinal,
+                                        .index = 0,
+                                        .flags = 0,
+                                        .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
+                                        .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
+        auto scopedQueue = zeScope::commandQueueCreate(zeContext, zeDevice, desc, ret);
+        queues.push_back(std::move(scopedQueue));
+        *handle = queues.back().get();
+        return ret;
+    }
 
-        size_t rawDataSize = 0;
-        EXPECT_EQ(zetMetricStreamerReadData(hMetricStreamer, UINT32_MAX, &rawDataSize, nullptr),
+    ze_result_t createCommandList(uint32_t ordinal, ze_command_list_handle_t *handle) {
+        ze_result_t ret = ZE_RESULT_SUCCESS;
+        ze_command_list_desc_t desc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
+                                       .pNext = nullptr,
+                                       .commandQueueGroupOrdinal = ordinal,
+                                       .flags = 0};
+        auto scopedList = zeScope::commandListCreate(zeContext, zeDevice, desc, ret);
+        lists.push_back(std::move(scopedList));
+        *handle = lists.back().get();
+        return ret;
+    }
+
+    ze_result_t createEvent(ze_event_handle_t *handle) {
+        ze_result_t ret = ZE_RESULT_SUCCESS;
+        const ze_event_pool_desc_t eventPoolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC,
+                                                    nullptr,
+                                                    ZE_EVENT_POOL_FLAG_HOST_VISIBLE,
+                                                    1};
+
+        auto scopedEventPool = zeScope::eventPoolCreate(zeContext, eventPoolDesc, 1, zeDevice, ret);
+        if (ret != ZE_RESULT_SUCCESS)
+            return ret;
+
+        ze_event_desc_t eventDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC,
+                                     nullptr,
+                                     0,
+                                     ZE_EVENT_SCOPE_FLAG_HOST,
+                                     ZE_EVENT_SCOPE_FLAG_HOST};
+        auto scopedEvent = zeScope::eventCreate(scopedEventPool.get(), eventDesc, ret);
+
+        eventPools.push_back(std::move(scopedEventPool));
+        events.push_back(std::move(scopedEvent));
+        *handle = events.back().get();
+        return ret;
+    }
+
+    void getMetricGroupByName(std::string &name) {
+        uint32_t count = 0;
+        ASSERT_EQ(zetMetricGroupGet(zeDevice, &count, nullptr), ZE_RESULT_SUCCESS);
+
+        std::vector<zet_metric_group_handle_t> groups(count);
+        ASSERT_EQ(zetMetricGroupGet(zeDevice, &count, groups.data()), ZE_RESULT_SUCCESS);
+
+        for (const auto &group : groups) {
+            zet_metric_group_properties_t prop = {};
+            prop.stype = ZET_STRUCTURE_TYPE_METRIC_GROUP_PROPERTIES;
+
+            ASSERT_EQ(zetMetricGroupGetProperties(group, &prop), ZE_RESULT_SUCCESS);
+
+            if (name != prop.name) {
+                continue;
+            }
+
+            hMetricGroup = group;
+            metricGroupProperties = prop;
+            break;
+        }
+    }
+
+    void openMetricStreamer(uint32_t notify = 20,
+                            uint32_t periodMs = 10,
+                            ze_event_handle_t hEvent = nullptr) {
+        zet_metric_streamer_desc_t metricStreamerDesc = {
+            .stype = ZET_STRUCTURE_TYPE_METRIC_STREAMER_DESC,
+            .pNext = nullptr,
+            .notifyEveryNReports = notify,
+            .samplingPeriod = periodMs * 1'000'000, // [ns]
+        };
+        ASSERT_EQ(zetMetricStreamerOpen(zeContext,
+                                        zeDevice,
+                                        hMetricGroup,
+                                        &metricStreamerDesc,
+                                        hEvent,
+                                        &hMetricStreamer),
                   ZE_RESULT_SUCCESS);
+        TRACE("Opened MetricStreamer with notifyEveryNReports: %u, samplingPeriod: %u ms",
+              notify,
+              periodMs);
+    }
 
-        ASSERT_GT(rawDataSize, 0);
-
-        std::vector<uint64_t> rawData(rawDataSize / sizeof(uint64_t), 0u);
-        EXPECT_EQ(zetMetricStreamerReadData(hMetricStreamer,
-                                            UINT32_MAX,
-                                            &rawDataSize,
-                                            reinterpret_cast<uint8_t *>(rawData.data())),
+    void readReports() {
+        size_t dataSize = 0;
+        ASSERT_EQ(zetMetricStreamerReadData(hMetricStreamer, UINT32_MAX, &dataSize, nullptr),
                   ZE_RESULT_SUCCESS);
+        if (dataSize == 0) {
+            reportCount = 0;
+            return;
+        }
 
-        TRACE_BUF(rawData.data(), rawDataSize);
+        std::vector<uint8_t> data(dataSize);
+        ASSERT_EQ(zetMetricStreamerReadData(hMetricStreamer, UINT32_MAX, &dataSize, data.data()),
+                  ZE_RESULT_SUCCESS);
+        TRACE_BUF(data.data(), data.size());
 
-        EXPECT_GT(rawData[0], 0u);
-
-        uint32_t metricValueCount = 0;
-        EXPECT_EQ(
-            zetMetricGroupCalculateMetricValues(testedMetricGroup,
+        uint32_t valueCount = 0;
+        ASSERT_EQ(
+            zetMetricGroupCalculateMetricValues(hMetricGroup,
                                                 ZET_METRIC_GROUP_CALCULATION_TYPE_METRIC_VALUES,
-                                                rawDataSize,
-                                                reinterpret_cast<uint8_t *>(rawData.data()),
-                                                &metricValueCount,
+                                                dataSize,
+                                                data.data(),
+                                                &valueCount,
                                                 nullptr),
             ZE_RESULT_SUCCESS);
 
-        metricValues.resize(metricValueCount);
-        EXPECT_EQ(
-            zetMetricGroupCalculateMetricValues(testedMetricGroup,
+        metricValues.resize(valueCount);
+        ASSERT_EQ(
+            zetMetricGroupCalculateMetricValues(hMetricGroup,
                                                 ZET_METRIC_GROUP_CALCULATION_TYPE_METRIC_VALUES,
-                                                rawDataSize,
-                                                reinterpret_cast<uint8_t *>(rawData.data()),
-                                                &metricValueCount,
+                                                dataSize,
+                                                data.data(),
+                                                &valueCount,
                                                 metricValues.data()),
             ZE_RESULT_SUCCESS);
 
         TRACE_BUF(metricValues.data(), metricValues.size() * sizeof(zet_typed_value_t));
-        numReports = testedMetricCount ? (metricValueCount / testedMetricCount) : 0;
+        reportCount =
+            static_cast<uint32_t>(std::floor(valueCount / metricGroupProperties.metricCount));
+        TRACE("ReportCount: %lu\n", reportCount);
     }
 
-  protected:
+  public:
+    ze_command_queue_handle_t queue = nullptr;
+    ze_command_list_handle_t list = nullptr;
+    bool useCopyOrdinal = false;
+
     zet_metric_streamer_handle_t hMetricStreamer = nullptr;
+    zet_metric_group_handle_t hMetricGroup = nullptr;
+    zet_metric_group_properties_t metricGroupProperties = {};
     ze_result_t ret = ZE_RESULT_SUCCESS;
-    zet_metric_group_handle_t testedMetricGroup = nullptr;
-    zet_metric_group_properties_t metricGroupProperties;
-    uint32_t testedMetricCount = 0;
-    std::vector<zet_metric_properties_t> metricsProperties;
+
+    std::vector<zet_typed_value_t> metricValues = {};
+    size_t reportCount = 0;
+
+  private:
+    std::vector<zeScope::SharedPtr<ze_command_queue_handle_t>> queues;
+    std::vector<zeScope::SharedPtr<ze_command_list_handle_t>> lists;
+    std::vector<zeScope::SharedPtr<ze_event_pool_handle_t>> eventPools;
+    std::vector<zeScope::SharedPtr<ze_event_handle_t>> events;
 };
 
-std::vector<uint32_t> execTimeComputeEngineMs = {200};
+std::vector<uint32_t> execTimeComputeEngineMs = {500};
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MetricStreamer);
 
@@ -201,39 +244,16 @@ INSTANTIATE_TEST_SUITE_P(
         return generateTestNameFromNode(node) + "_" + std::get<1>(p.param);
     });
 
-TEST_P(MetricStreamer, RunInferenceWithTimeBasedCollection) {
+TEST_P(MetricStreamer, RunInferenceExpectAnyReport) {
     auto [node, metricGroupName, execTime] = GetParam();
-    std::filesystem::path path(node["path"].as<std::string>());
+
+    openMetricStreamer();
 
     std::shared_ptr<Graph> graph =
-        Graph::create(zeContext,
-                      zeDevice,
-                      zeGraphDDITableExt,
-                      path.extension() == ".xml" ? modelDir + node["path"].as<std::string>()
-                                                 : blobDir + node["path"].as<std::string>(),
-                      node);
+        Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
 
     graph->allocateArguments(MemType::SHARED_MEMORY);
-
-    if (path.extension() == ".xml") {
-        graph->setRandomInput();
-    }
-
-    ASSERT_EQ(zetContextActivateMetricGroups(zeContext, zeDevice, 1, &testedMetricGroup),
-              ZE_RESULT_SUCCESS);
-
-    zet_metric_streamer_desc_t metricStreamerDesc = {};
-    metricStreamerDesc.stype = ZET_STRUCTURE_TYPE_METRIC_STREAMER_DESC;
-    metricStreamerDesc.samplingPeriod = 10'000'000u; // 10 [ms]
-    metricStreamerDesc.notifyEveryNReports = 20;
-
-    ASSERT_EQ(zetMetricStreamerOpen(zeContext,
-                                    zeDevice,
-                                    testedMetricGroup,
-                                    &metricStreamerDesc,
-                                    nullptr,
-                                    &hMetricStreamer),
-              ZE_RESULT_SUCCESS);
+    graph->copyInputData();
 
     ASSERT_EQ(
         zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0u, nullptr),
@@ -245,177 +265,147 @@ TEST_P(MetricStreamer, RunInferenceWithTimeBasedCollection) {
 
     ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
 
-    std::chrono::steady_clock::time_point timeOut =
-        std::chrono::steady_clock::now() + std::chrono::milliseconds(execTime);
-
-    while (std::chrono::steady_clock::now() < timeOut) {
+    PerfCounter counter(execTime);
+    counter.start();
+    while (!counter.isTimedOut()) {
         ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
         ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+        counter.countFrame();
     }
+    counter.stop();
 
-    uint32_t numReports = 0;
-    std::vector<zet_typed_value_t> metricValues;
-
-    getMetrics(numReports, metricValues);
-    ASSERT_GT(numReports, 0);
-
-    std::vector<long long> sumOfMetricValues(testedMetricCount, 0);
-
-    int report = 1;
-    for (size_t i = 0; i < metricValues.size(); i++) {
-        sumOfMetricValues[i % testedMetricCount] += metricValues[i].value.ui64;
-
-        if (i % testedMetricCount == 0) {
-            TRACE("Report #%d\n", report);
-            report++;
-        }
-
-        TRACE("Metric %lu -> type: %#x, value: %lu\n",
-              i % (testedMetricCount),
-              metricValues[i].type,
-              metricValues[i].value.ui64);
-    }
-
-    TRACE("Summed values from individual metrics:\n");
-    for (uint32_t i = 0; i < sumOfMetricValues.size(); i++) {
-        EXPECT_GT(sumOfMetricValues[i], 0llu)
-            << "Sum of values ​​for the metric " << i << " is equal to 0";
-        TRACE("Sum for Metric #%lu: %llu\n", static_cast<unsigned long>(i), sumOfMetricValues[i]);
-    }
+    readReports();
+    ASSERT_GT(reportCount, 0) << "Failed to get any reports after running inference for "
+                              << counter.duration() << " s, frame count: " << counter.getCount();
 }
 
-TEST_P(MetricStreamer, RunInferenceUseEventToCollectMetrics) {
+TEST_P(MetricStreamer, RunInferenceExpectReportNotification) {
     const uint32_t samplingPeriodMs = 10;
-    const uint32_t nReportsNotification = 3;
+    const uint32_t nReportsNotification = 20;
 
     auto [node, metricGroupName, execTime] = GetParam();
-    std::filesystem::path path(node["path"].as<std::string>());
 
     ASSERT_GT(execTime, samplingPeriodMs * nReportsNotification) << "Too short execution time set";
 
+    ze_event_handle_t hEvent = nullptr;
+    ASSERT_EQ(createEvent(&hEvent), ZE_RESULT_SUCCESS);
+    openMetricStreamer(nReportsNotification, samplingPeriodMs, hEvent);
+
     std::shared_ptr<Graph> graph =
-        Graph::create(zeContext,
-                      zeDevice,
-                      zeGraphDDITableExt,
-                      path.extension() == ".xml" ? modelDir + node["path"].as<std::string>()
-                                                 : blobDir + node["path"].as<std::string>(),
-                      node);
+        Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
 
     graph->allocateArguments(MemType::SHARED_MEMORY);
-
-    if (path.extension() == ".xml") {
-        graph->setRandomInput();
-    }
-    ASSERT_EQ(zetContextActivateMetricGroups(zeContext, zeDevice, 1, &testedMetricGroup),
-              ZE_RESULT_SUCCESS);
-
-    zet_metric_streamer_desc_t metricStreamerDesc = {};
-    metricStreamerDesc.stype = ZET_STRUCTURE_TYPE_METRIC_STREAMER_DESC;
-    metricStreamerDesc.samplingPeriod = static_cast<uint64_t>(samplingPeriodMs) * 1'000'000u;
-    metricStreamerDesc.notifyEveryNReports = nReportsNotification;
-
-    const ze_event_pool_desc_t eventPoolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC,
-                                                nullptr,
-                                                ZE_EVENT_POOL_FLAG_HOST_VISIBLE,
-                                                1};
-    const ze_event_desc_t eventDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC,
-                                       nullptr,
-                                       0,
-                                       ZE_EVENT_SCOPE_FLAG_HOST,
-                                       ZE_EVENT_SCOPE_FLAG_HOST};
-    auto scopedEventPool = zeScope::eventPoolCreate(zeContext, eventPoolDesc, 1, zeDevice, ret);
-    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
-    ASSERT_NE(scopedEventPool.get(), nullptr);
-    auto metricEvent = zeScope::eventCreate(scopedEventPool.get(), eventDesc, ret);
-    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
-    ASSERT_NE(metricEvent.get(), nullptr);
-
-    ASSERT_EQ(zetMetricStreamerOpen(zeContext,
-                                    zeDevice,
-                                    testedMetricGroup,
-                                    &metricStreamerDesc,
-                                    metricEvent.get(),
-                                    &hMetricStreamer),
-              ZE_RESULT_SUCCESS);
+    graph->copyInputData();
 
     ASSERT_EQ(
         zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0u, nullptr),
         ZE_RESULT_SUCCESS);
-
     ASSERT_EQ(zeGraphDDITableExt
                   ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0u, nullptr),
               ZE_RESULT_SUCCESS);
-
     ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
 
     /* warm up - memory allocation and HW wake up */
     EXPECT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     EXPECT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    uint32_t inferenceTime = (samplingPeriodMs * nReportsNotification) + (2 * samplingPeriodMs);
+    uint32_t inferenceTimeMs = samplingPeriodMs * (nReportsNotification + 2);
     std::chrono::steady_clock::time_point testTimeOut =
         std::chrono::steady_clock::now() + std::chrono::milliseconds(execTime);
 
-    std::chrono::steady_clock::time_point inferenceTimeOut =
-        std::chrono::steady_clock::now() + std::chrono::milliseconds(inferenceTime);
-
-    /* Check if event is signalled after expected time */
-    while (std::chrono::steady_clock::now() < inferenceTimeOut) {
-        EXPECT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
-        EXPECT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
-    }
-    ASSERT_EQ(zeEventQueryStatus(metricEvent.get()), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeEventHostReset(metricEvent.get()), ZE_RESULT_SUCCESS);
-
-    /* Metric data still stored in buffer, check if event signalled */
-    ASSERT_EQ(zeEventQueryStatus(metricEvent.get()), ZE_RESULT_SUCCESS);
-
-    /* clear buffer and reset event before continue test */
-    {
-        uint32_t numReports = 0;
-        std::vector<zet_typed_value_t> metricValues;
-        getMetrics(numReports, metricValues);
-        ASSERT_EQ(zeEventHostReset(metricEvent.get()), ZE_RESULT_SUCCESS);
-    }
-
-    /* check zeEventHostSynchronize on metric event */
     while (std::chrono::steady_clock::now() < testTimeOut) {
-        inferenceTimeOut =
-            std::chrono::steady_clock::now() + std::chrono::milliseconds(inferenceTime);
+        ASSERT_EQ(zeEventQueryStatus(hEvent), ZE_RESULT_NOT_READY);
 
-        EXPECT_NE(zeEventQueryStatus(metricEvent.get()), ZE_RESULT_SUCCESS);
-
-        std::future<_ze_result_t> eventSynchronize = std::async(std::launch::async, [&] {
-            return zeEventHostSynchronize(metricEvent.get(), inferenceTime * 1'000'000);
-        });
-
-        while (std::chrono::steady_clock::now() < inferenceTimeOut) {
+        PerfCounter counter(inferenceTimeMs);
+        counter.start();
+        while (!counter.isTimedOut()) {
             EXPECT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr),
                       ZE_RESULT_SUCCESS);
             EXPECT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+            counter.countFrame();
         }
+        counter.stop();
 
-        EXPECT_EQ(eventSynchronize.get(), ZE_RESULT_SUCCESS);
-        EXPECT_EQ(zeEventQueryStatus(metricEvent.get()), ZE_RESULT_SUCCESS);
+        EXPECT_EQ(zeEventQueryStatus(hEvent), ZE_RESULT_SUCCESS)
+            << "Failed to get " << nReportsNotification << " reports after running inference for "
+            << counter.duration() << " s, frame count: " << counter.getCount();
 
-        uint32_t numReports = 0;
-        std::vector<zet_typed_value_t> metricValues;
+        /* clear buffer and reset event before continue test */
+        readReports();
+        ASSERT_GE(reportCount, nReportsNotification)
+            << "Received report count: " << reportCount
+            << ", expected report count: " << nReportsNotification;
+        ASSERT_EQ(zeEventHostReset(hEvent), ZE_RESULT_SUCCESS);
+    }
+}
 
-        getMetrics(numReports, metricValues);
+TEST_P(MetricStreamer, RunInferenceExpectReportNotificationFromEventHostSynchronize) {
+    const uint32_t samplingPeriodMs = 10;
+    const uint32_t nReportsNotification = 20;
+
+    auto [node, metricGroupName, execTime] = GetParam();
+
+    ASSERT_GT(execTime, samplingPeriodMs * nReportsNotification) << "Too short execution time set";
+
+    ze_event_handle_t hEvent = nullptr;
+    ASSERT_EQ(createEvent(&hEvent), ZE_RESULT_SUCCESS);
+    openMetricStreamer(nReportsNotification, samplingPeriodMs, hEvent);
+
+    std::shared_ptr<Graph> graph =
+        Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
+
+    graph->allocateArguments(MemType::SHARED_MEMORY);
+    graph->copyInputData();
+
+    ASSERT_EQ(
+        zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0u, nullptr),
+        ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeGraphDDITableExt
+                  ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0u, nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+
+    EXPECT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+    EXPECT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+
+    uint32_t inferenceTimeMs = samplingPeriodMs * (nReportsNotification + 2);
+    std::chrono::steady_clock::time_point testTimeOut =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(execTime);
+
+    while (std::chrono::steady_clock::now() < testTimeOut) {
+        EXPECT_EQ(zeEventQueryStatus(hEvent), ZE_RESULT_NOT_READY);
+
+        std::future<_ze_result_t> eventSynchronize = std::async(std::launch::async, [&] {
+            return zeEventHostSynchronize(hEvent, inferenceTimeMs * 1'000'000);
+        });
+
+        PerfCounter counter(inferenceTimeMs);
+        counter.start();
+        while (!counter.isTimedOut()) {
+            EXPECT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr),
+                      ZE_RESULT_SUCCESS);
+            EXPECT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+            counter.countFrame();
+        }
+        counter.stop();
+
+        EXPECT_EQ(eventSynchronize.get(), ZE_RESULT_SUCCESS)
+            << "Failed to get " << nReportsNotification << " reports after running inference for "
+            << counter.duration() << " s, frame count: " << counter.getCount();
+        EXPECT_EQ(zeEventQueryStatus(hEvent), ZE_RESULT_SUCCESS);
+
+        readReports();
         /* It is expected greater or equal number of reports */
-        EXPECT_GE(numReports, nReportsNotification);
-        EXPECT_EQ(zeEventHostReset(metricEvent.get()), ZE_RESULT_SUCCESS);
+        ASSERT_GE(reportCount, nReportsNotification)
+            << "Received report count: " << reportCount
+            << ", expected report count: " << nReportsNotification;
+        EXPECT_EQ(zeEventHostReset(hEvent), ZE_RESULT_SUCCESS);
     }
 }
 
 class MetricStreamerCopyEngine : public MetricStreamer {
   public:
-    void SetUp() override {
-        useCopyOrdinal = true;
-        MetricStreamer::SetUp();
-    }
-
-    void TearDown() override { MetricStreamer::TearDown(); }
+    MetricStreamerCopyEngine() { useCopyOrdinal = true; }
 
     /* Generates test cases for copy engine, it ignores network and returns
      * combinations of metric groups and inference execution time of copy job
@@ -442,13 +432,6 @@ class MetricStreamerCopyEngine : public MetricStreamer {
     }
 };
 
-/* Note: When execution time is shorter than sampling time then device can enter D3 state and
- * stop sampling timer. In this case for first sampling period host doesn't get samples,
- * the buffer will not be returned.
- * The  current implementation in firmware creates buffer when the first sampling period has passed
- * To overcome this problem the job execution time must be longer than sampling preiod.
- * (details:EISW-96802)
- */
 std::vector<uint32_t> execTimeCopyEngineMs = {20, 100};
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MetricStreamerCopyEngine);
@@ -463,24 +446,10 @@ INSTANTIATE_TEST_SUITE_P(
         return groupName + "_" + std::to_string(execTime) + "ms";
     });
 
-TEST_P(MetricStreamerCopyEngine, RunCopyWithTimeBasedCollection) {
+TEST_P(MetricStreamerCopyEngine, RunCopyExpectAnyReport) {
     auto [node, metricGroupName, execTime] = GetParam();
 
-    ASSERT_EQ(zetContextActivateMetricGroups(zeContext, zeDevice, 1, &testedMetricGroup),
-              ZE_RESULT_SUCCESS);
-
-    zet_metric_streamer_desc_t metricStreamerDesc = {};
-    metricStreamerDesc.stype = ZET_STRUCTURE_TYPE_METRIC_STREAMER_DESC;
-    metricStreamerDesc.samplingPeriod = 10'000'000u; // 10 [ms]
-    metricStreamerDesc.notifyEveryNReports = 20;
-
-    ASSERT_EQ(zetMetricStreamerOpen(zeContext,
-                                    zeDevice,
-                                    testedMetricGroup,
-                                    &metricStreamerDesc,
-                                    nullptr,
-                                    &hMetricStreamer),
-              ZE_RESULT_SUCCESS);
+    openMetricStreamer();
 
     const size_t allocSize = 64 * KB;
     std::shared_ptr<void> srcMem, dstMem;
@@ -494,30 +463,26 @@ TEST_P(MetricStreamerCopyEngine, RunCopyWithTimeBasedCollection) {
                                             0,
                                             nullptr),
               ZE_RESULT_SUCCESS);
-
     ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
 
     /* Warm up NPU to set metric streamer in busy state */
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    std::chrono::steady_clock::time_point timeOut =
-        std::chrono::steady_clock::now() + std::chrono::milliseconds(execTime);
-
-    while (std::chrono::steady_clock::now() < timeOut) {
+    PerfCounter counter(execTime);
+    counter.start();
+    while (!counter.isTimedOut()) {
         ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
         ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+        counter.countData(allocSize);
     }
+    counter.stop();
 
-    uint32_t numReports = 0;
-    std::vector<zet_typed_value_t> metricValues;
-
-    getMetrics(numReports, metricValues);
-    EXPECT_GT(numReports, 0);
+    readReports();
+    EXPECT_GT(reportCount, 0) << "Failed to get any report after running copy job for "
+                              << counter.duration() << " s, frame count: " << counter.getCount()
+                              << " bytes, bandwith: " << counter.getMbps() << " Mbps";
     ASSERT_GT(metricValues.size(), 0);
-    EXPECT_EQ(metricValues[0].type, metricsProperties[0].resultType);
-
     EXPECT_GT(metricValues[0].value.ui64, 0llu);
-
     TRACE_BUF(metricValues.data(), metricValues.size() * sizeof(zet_typed_value_t));
 }

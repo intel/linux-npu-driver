@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -8,6 +8,7 @@
 #pragma once
 
 #include "gtest/gtest.h"
+#include <memory>
 
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
@@ -24,6 +25,8 @@ struct DeviceFixture {
     virtual void SetUp() {
         driver.setMetrics(enableMetrics);
         ASSERT_EQ(ZE_RESULT_SUCCESS, zeInit(0));
+
+        driver.diskCache = std::make_unique<DiskCache>(osInfc);
 
         auto vpuDevice = VPU::MockVPUDevice::createWithDefaultHardwareInfo(osInfc);
         mockVpuDevice = vpuDevice.get();
@@ -120,14 +123,14 @@ struct CommandQueueFixture : ContextFixture {
     template <typename F>
     uint32_t getQueueOrdinal(F f) {
         // Assume cmdQueGrpProps has all properties.
-        LOG_V("Number of queue groups: %u", queGrpCnt);
+        LOG(UTEST, "Number of queue groups: %u", queGrpCnt);
         for (uint32_t i = 0; i < queGrpCnt; i++) {
             if (f(cmdQueGrpProps[i].flags)) {
-                LOG_V("Engine group ordinal: %u (flags: %#x)", i, cmdQueGrpProps[i].flags);
+                LOG(UTEST, "Engine group ordinal: %u (flags: %#x)", i, cmdQueGrpProps[i].flags);
                 return i;
             }
         }
-        LOG_E("Failed to get matching queue group.");
+        LOG(UTEST, "Failed to get matching queue group");
         return 0xffffffff;
     }
 

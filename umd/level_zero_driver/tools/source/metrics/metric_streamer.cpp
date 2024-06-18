@@ -25,8 +25,8 @@ MetricStreamer::MetricStreamer(Context *pContext,
     drm_ivpu_metric_streamer_start startData = {};
     startData.metric_group_mask = 0x1 << metricGroup->getGroupIndex();
     // Sampling rate expressed in nanoseconds
-    startData.sampling_rate_ns = desc->samplingPeriod;
-    startData.read_rate = desc->notifyEveryNReports;
+    startData.sampling_period_ns = desc->samplingPeriod;
+    startData.read_period_samples = desc->notifyEveryNReports;
 
     L0_THROW_WHEN(ctx->getDriverApi().metricStreamerStart(&startData) < 0,
                   "Failed to start metric streamer",
@@ -45,13 +45,13 @@ MetricStreamer::~MetricStreamer() {
     drm_ivpu_metric_streamer_stop stopData = {};
     stopData.metric_group_mask = 0x1ULL << metricGroup->getGroupIndex();
     if (ctx->getDriverApi().metricStreamerStop(&stopData) < 0) {
-        LOG_W("Failed to stop metric streamer.");
+        LOG_W("Failed to stop metric streamer");
     }
 }
 
 ze_result_t MetricStreamer::close() {
     pContext->removeObject(this);
-    LOG_I("MetricStreamer destroyed - %p", this);
+    LOG(METRIC, "MetricStreamer destroyed - %p", this);
     return ZE_RESULT_SUCCESS;
 }
 
@@ -61,22 +61,22 @@ ze_result_t MetricStreamer::getData(const VPU::VPUDriverApi &drvApi,
                                     uint8_t *pRawData) {
     drm_ivpu_metric_streamer_get_data data = {};
     data.metric_group_mask = groupMask;
-    data.size = rawDataSize;
     data.buffer_ptr = reinterpret_cast<long long unsigned int>(pRawData);
+    data.buffer_size = rawDataSize;
 
     if (drvApi.metricStreamerGetData(&data) < 0) {
-        LOG_E("Failed to get metric streamer data.");
+        LOG_E("Failed to get metric streamer data");
         return ZE_RESULT_ERROR_UNKNOWN;
     }
 
-    rawDataSize = data.size;
+    rawDataSize = data.data_size;
 
     return ZE_RESULT_SUCCESS;
 }
 ze_result_t
 MetricStreamer::readData(uint32_t maxReportCount, size_t *pRawDataSize, uint8_t *pRawData) {
     if (pRawDataSize == nullptr) {
-        LOG_E("Invalid pRawDataSize pointer.");
+        LOG_E("Invalid pRawDataSize pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -104,7 +104,7 @@ MetricStreamer::readData(uint32_t maxReportCount, size_t *pRawDataSize, uint8_t 
     if (pRawData != nullptr) {
         return getData(drvApi, 0x1ULL << metricGroup->getGroupIndex(), *pRawDataSize, pRawData);
     } else {
-        LOG_W("Input raw data pointer is NULL.");
+        LOG_W("Input raw data pointer is NULL");
     }
 
     return ZE_RESULT_SUCCESS;

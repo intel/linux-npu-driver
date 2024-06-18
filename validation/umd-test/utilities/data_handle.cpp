@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -26,7 +26,6 @@ void generateRandomData(std::vector<char> &data, size_t size) {
 }
 
 int loadFile(const std::string &filePath, std::vector<char> &dataOut) {
-    // Load binary file
     std::ifstream fileInputStream(filePath, std::ios::binary | std::ios::ate);
     if (fileInputStream.is_open()) {
         std::streamsize size = fileInputStream.tellg();
@@ -64,7 +63,6 @@ int loadImageFile(const std::string &filePath, std::vector<char> &dataOut) {
 }
 
 int writeFile(const std::string &filePath, void *dataIn, size_t inputSize) {
-    // Write to binary file
     std::ofstream fileOutputStream(filePath, std::ios::out | std::ios::binary);
     if (fileOutputStream.is_open()) {
         fileOutputStream.write((const char *)dataIn, inputSize);
@@ -75,24 +73,24 @@ int writeFile(const std::string &filePath, void *dataIn, size_t inputSize) {
 }
 
 /*
-This function translates fp16 into fp32(float) format.
-
-In half-precision(fp16), single-precision(fp32) & double-precision(fp64),
-all these precision consisted of sign bit, exponent(exp), significand precision(mantis).
-fp16: [BIT15] [BIT14 - BIT10] [BIT9  - BIT0]
-fp32: [BIT31] [BIT30 - BIT23] [BIT22 - BIT0]
-
-The way precision is interpreted is different when the exponent is 0 and when it is not 0.
-That is why there is an "if (exp != 0)" below to split the interpretation.
-
-It's more straightforward when exp is not 0,
-only add 0x70 to exp due to the difference between fp16 and fp32.
-
-When exp is 0, 0x70 cannot be added directly to fp32,
-instead "(v - 37) << 23" is to get required value of exp on fp32,
-then "mantis << (150 - v)" is to get required bit shift on mantis,
-and finally 0x7FE000 to trim it.
-*/
+ * This function translates fp16 into fp32(float) format.
+ *
+ * In half-precision(fp16), single-precision(fp32) & double-precision(fp64),
+ * all these precision consisted of sign bit, exponent(exp), significand precision(mantis).
+ * fp16: [BIT15] [BIT14 - BIT10] [BIT9  - BIT0]
+ * fp32: [BIT31] [BIT30 - BIT23] [BIT22 - BIT0]
+ *
+ * The way precision is interpreted is different when the exponent is 0 and when it is not 0.
+ * That is why there is an "if (exp != 0)" below to split the interpretation.
+ *
+ * It's more straightforward when exp is not 0,
+ * only add 0x70 to exp due to the difference between fp16 and fp32.
+ *
+ * When exp is 0, 0x70 cannot be added directly to fp32,
+ * instead "(v - 37) << 23" is to get required value of exp on fp32,
+ * then "mantis << (150 - v)" is to get required bit shift on mantis,
+ * and finally 0x7FE000 to trim it.
+ */
 float rawFp16ToFp32(const uint16_t &data) {
     uint32_t exp = (data & 0x7C00) >> 10;
     uint32_t mantis = (data & 0x03FF) << 13;
@@ -109,7 +107,8 @@ float rawFp16ToFp32(const uint16_t &data) {
     return *reinterpret_cast<float *>(&output);
 }
 
-/* This function translates bfp16 into fp32(float) format.
+/*
+ * This function translates bfp16 into fp32(float) format.
  * Conversion to FP32 is done by move exponent part unchanged
  * (both formats uses 8bits + sign), and extend of mantis by zeroes.
  */

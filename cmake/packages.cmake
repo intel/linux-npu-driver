@@ -39,6 +39,8 @@ set(CPACK_DEBIAN_VALIDATION-NPU_PACKAGE_DEPENDS "level-zero (>=1.10.0) | intel-l
 # Component conflicts
 set(CPACK_DEBIAN_LEVEL-ZERO_PACKAGE_CONFLICTS "level-zero, level-zero-devel")
 
+set(CPACK_DEBIAN_FW-NPU_PACKAGE_CONTROL_EXTRA ${CMAKE_CURRENT_LIST_DIR}/packaging/postinst)
+
 # Get Debian architecture
 execute_process(
   COMMAND ${DPKG_EXECUTABLE} --print-architecture

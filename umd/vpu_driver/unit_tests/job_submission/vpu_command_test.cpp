@@ -9,8 +9,6 @@
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/command/vpu_ts_command.hpp"
 #include "vpu_driver/source/command/vpu_copy_command.hpp"
-#include "vpu_driver/source/command/vpu_graph_init_command.hpp"
-#include "vpu_driver/source/command/vpu_graph_exe_command.hpp"
 #include "vpu_driver/source/command/vpu_event_command.hpp"
 #include "vpu_driver/source/command/vpu_barrier_command.hpp"
 #include "vpu_driver/source/command/vpu_query_command.hpp"
@@ -29,8 +27,8 @@ struct VPUCommandTest : public ::testing::Test {
 
     MockOsInterfaceImp osInfc;
     std::unique_ptr<MockVPUDevice> vpuDevice = MockVPUDevice::createWithDefaultHardwareInfo(osInfc);
-    std::unique_ptr<VPUDeviceContext> deviceContext = vpuDevice->createDeviceContext();
-    VPUDeviceContext *ctx = deviceContext.get();
+    std::unique_ptr<MockVPUDeviceContext> deviceContext = vpuDevice->createMockDeviceContext();
+    MockVPUDeviceContext *ctx = deviceContext.get();
 };
 
 TEST_F(VPUCommandTest, timestampCommandShouldReturnExpectedProperties) {
@@ -52,6 +50,7 @@ TEST_F(VPUCommandTest, timestampCommandShouldReturnExpectedProperties) {
     vpu_cmd_timestamp_t expKMDTsCmd = {};
     expKMDTsCmd.header = {VPU_CMD_TIMESTAMP, sizeof(vpu_cmd_timestamp_t)};
     expKMDTsCmd.timestamp_address = ctx->getBufferVPUAddress(mem);
+    expKMDTsCmd.type = VPU_TIME_RAW;
 
     EXPECT_EQ(sizeof(vpu_cmd_timestamp_t), tsCmd.getCommitSize());
     EXPECT_EQ(memcmp(&expKMDTsCmd, tsCmd.getCommitStream(), sizeof(vpu_cmd_timestamp_t)), 0);
@@ -91,138 +90,6 @@ TEST_F(VPUCommandTest, copyCommandShouldReturnExpectedProperties) {
 
     EXPECT_TRUE(ctx->freeMemAlloc(srcPtr));
     EXPECT_TRUE(ctx->freeMemAlloc(dstPtr));
-}
-
-TEST_F(VPUCommandTest, graphInitCommandWithoutGraphShouldReturnExpectedProperties) {
-    const size_t blobSize = 4 * 1024;
-    const size_t bufferCount = 4;
-    uint8_t blobData[blobSize] = {};
-
-    std::vector<uint32_t> numArgsVec{1u, 2u};
-
-    uint64_t blobId = 0u;
-    // Graph Init command.
-    std::shared_ptr<VPUCommand> graphInitCmd =
-        VPUGraphInitCommand::create(ctx, blobId, blobData, blobSize, blobSize, blobSize);
-    ASSERT_NE(graphInitCmd, nullptr);
-
-    EXPECT_EQ(VPU_CMD_OV_BLOB_INITIALIZE, graphInitCmd->getCommandType());
-    EXPECT_EQ(sizeof(vpu_cmd_ov_blob_initialize_t), graphInitCmd->getCommitSize());
-    EXPECT_TRUE(graphInitCmd->isComputeCommand());
-
-    // Compare command stream return value in byte wise.
-    vpu_cmd_ov_blob_initialize_t expKMDGraphInitCmd{
-        {VPU_CMD_OV_BLOB_INITIALIZE, sizeof(vpu_cmd_ov_blob_initialize_t)},
-        blobSize,
-        0ul, // kernel_offset
-        2U * sizeof(vpu_cmd_resource_descriptor_table_t) +
-            2U * sizeof(vpu_cmd_resource_descriptor_t) * bufferCount,
-        0u,  // reserved_0
-        0ul, // desc_table_offset
-        blobId};
-    uint8_t *exp = reinterpret_cast<uint8_t *>(&expKMDGraphInitCmd);
-
-    EXPECT_EQ(memcmp(exp, graphInitCmd->getCommitStream(), sizeof(vpu_cmd_ov_blob_initialize_t)),
-              0);
-}
-
-TEST_F(VPUCommandTest, graphExecuteCommandShouldReturnExpectedProperties) {
-    // Graph blob exec command.
-    uint64_t blobId = 0u;
-
-    uint32_t memSize = 0x04;
-    void *inputBuffer = ctx->createHostMemAlloc(memSize);
-    void *outputBuffer = ctx->createHostMemAlloc(memSize);
-    std::shared_ptr<VPUCommand> graphExecCmd = VPUGraphExecuteCommand::create(
-        ctx,
-        blobId,
-        std::vector<std::pair<const void *, uint32_t>>{{std::make_pair(inputBuffer, memSize)}},
-        std::vector<std::pair<const void *, uint32_t>>{{std::make_pair(outputBuffer, memSize)}},
-        {});
-    ASSERT_NE(graphExecCmd, nullptr);
-
-    EXPECT_EQ(VPU_CMD_OV_BLOB_EXECUTE, graphExecCmd->getCommandType());
-    EXPECT_EQ(sizeof(vpu_cmd_ov_blob_execute_t), graphExecCmd->getCommitSize());
-    EXPECT_TRUE(graphExecCmd->isComputeCommand());
-
-    // Expected byte stream for the command with settings above.
-    vpu_cmd_ov_blob_execute_t expKMDgraphExecCmd{
-        {VPU_CMD_OV_BLOB_EXECUTE, sizeof(vpu_cmd_ov_blob_execute_t)},
-        2U * sizeof(vpu_cmd_resource_descriptor_table_t) +
-            2U * sizeof(vpu_cmd_resource_descriptor_t),
-        0,
-        blobId};
-    uint8_t *exp = reinterpret_cast<uint8_t *>(&expKMDgraphExecCmd);
-    EXPECT_EQ(memcmp(exp, graphExecCmd->getCommitStream(), sizeof(vpu_cmd_ov_blob_execute_t)), 0);
-    EXPECT_TRUE(ctx->freeMemAlloc(inputBuffer));
-    EXPECT_TRUE(ctx->freeMemAlloc(outputBuffer));
-}
-
-TEST_F(VPUCommandTest, graphExecuteCommandWithProfilingOutput) {
-    // Graph blob exec command.
-    uint64_t blobId = 0u;
-
-    uint32_t memSize = 0x04;
-    void *inputBuffer = ctx->createHostMemAlloc(memSize);
-    void *outputBuffer = ctx->createHostMemAlloc(memSize);
-    void *profilingOutputBuffer = ctx->createHostMemAlloc(memSize);
-    size_t profilingOutputSize = 4 * 1024;
-
-    std::shared_ptr<VPUCommand> graphExecCmd = VPUGraphExecuteCommand::create(
-        ctx,
-        blobId,
-        std::vector<std::pair<const void *, uint32_t>>{{std::make_pair(inputBuffer, memSize)}},
-        std::vector<std::pair<const void *, uint32_t>>{{std::make_pair(outputBuffer, memSize)}},
-        {},
-        profilingOutputSize,
-        profilingOutputBuffer);
-    ASSERT_NE(graphExecCmd, nullptr);
-
-    EXPECT_EQ(VPU_CMD_OV_BLOB_EXECUTE, graphExecCmd->getCommandType());
-    EXPECT_EQ(sizeof(vpu_cmd_ov_blob_execute_t), graphExecCmd->getCommitSize());
-    EXPECT_TRUE(graphExecCmd->isComputeCommand());
-
-    // Expected byte stream for the command with settings above.
-    vpu_cmd_ov_blob_execute_t expKMDgraphExecCmd{
-        {VPU_CMD_OV_BLOB_EXECUTE, sizeof(vpu_cmd_ov_blob_execute_t)},
-        3 * sizeof(vpu_cmd_resource_descriptor_table_t) + 3 * sizeof(vpu_cmd_resource_descriptor_t),
-        0,
-        blobId};
-    uint8_t *exp = reinterpret_cast<uint8_t *>(&expKMDgraphExecCmd);
-    EXPECT_EQ(memcmp(exp, graphExecCmd->getCommitStream(), sizeof(vpu_cmd_ov_blob_execute_t)), 0);
-    EXPECT_TRUE(ctx->freeMemAlloc(inputBuffer));
-    EXPECT_TRUE(ctx->freeMemAlloc(outputBuffer));
-    EXPECT_TRUE(ctx->freeMemAlloc(profilingOutputBuffer));
-}
-
-TEST_F(VPUCommandTest, graphCommandsShouldPassContextIDInGraphBlobIDToKMD) {
-    uint64_t umdBlobId = 0xdeadbeef00000001;
-    uint8_t mem[128] = {};
-    uint32_t memSize = sizeof(uint8_t) * 128;
-    void *inputBuffer = ctx->createHostMemAlloc(memSize);
-    void *outputBuffer = ctx->createHostMemAlloc(memSize);
-
-    std::shared_ptr<VPUCommand> graphInitCmd =
-        VPUGraphInitCommand::create(ctx, umdBlobId, mem, memSize, memSize, memSize);
-    ASSERT_NE(graphInitCmd, nullptr);
-
-    const uint8_t *initCmdStrm = graphInitCmd->getCommitStream();
-    auto initStruct = reinterpret_cast<const vpu_cmd_ov_blob_initialize_t *>(initCmdStrm);
-    EXPECT_EQ(umdBlobId, initStruct->blob_id);
-
-    std::shared_ptr<VPUCommand> graphExeCmd = VPUGraphExecuteCommand::create(
-        ctx,
-        umdBlobId,
-        std::vector<std::pair<const void *, uint32_t>>{{std::make_pair(inputBuffer, memSize)}},
-        std::vector<std::pair<const void *, uint32_t>>{{std::make_pair(outputBuffer, memSize)}},
-        {});
-    ASSERT_NE(graphExeCmd, nullptr);
-
-    const uint8_t *exeCmdStrm = graphExeCmd->getCommitStream();
-    auto exeStruct = reinterpret_cast<const vpu_cmd_ov_blob_execute_t *>(exeCmdStrm);
-    EXPECT_EQ(umdBlobId, exeStruct->blob_id);
-    EXPECT_TRUE(ctx->freeMemAlloc(inputBuffer));
-    EXPECT_TRUE(ctx->freeMemAlloc(outputBuffer));
 }
 
 TEST_F(VPUCommandTest, barrierCommandShouldReturnExpectedProperties) {

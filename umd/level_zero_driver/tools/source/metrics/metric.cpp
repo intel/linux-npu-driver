@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,7 +7,6 @@
 
 #include "level_zero_driver/tools/source/metrics/metric.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
-#include <algorithm>
 
 namespace L0 {
 
@@ -68,13 +67,13 @@ size_t Metric::getMetricValueSize(VPU::CounterInfo::ValueType valueTypeInput) {
 
 ze_result_t Metric::getProperties(zet_metric_properties_t *pProperties) {
     if (pProperties == nullptr) {
-        LOG_E("Metric properties pointer passed is NULL.");
+        LOG_E("Metric properties pointer passed is NULL");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
     *pProperties = properties;
 
-    LOG_I("Metric properties retrieved successfully.");
+    LOG(METRIC, "Metric properties retrieved successfully");
     return ZE_RESULT_SUCCESS;
 }
 
@@ -91,19 +90,19 @@ MetricGroup::MetricGroup(zet_metric_group_properties_t &propertiesInput,
 
 ze_result_t MetricGroup::getProperties(zet_metric_group_properties_t *pProperties) {
     if (pProperties == nullptr) {
-        LOG_E("MetricGroup properties pointer passed is NULL.");
+        LOG_E("MetricGroup properties pointer passed is NULL");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
     *pProperties = properties;
 
-    LOG_I("MetricGroup properties retrieved successfully.");
+    LOG(METRIC, "MetricGroup properties retrieved successfully");
     return ZE_RESULT_SUCCESS;
 }
 
 ze_result_t MetricGroup::getMetric(uint32_t *pCount, zet_metric_handle_t *phMetrics) {
     if (pCount == nullptr) {
-        LOG_E("Invalid pCount pointer.");
+        LOG_E("Invalid pCount pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -121,7 +120,7 @@ ze_result_t MetricGroup::getMetric(uint32_t *pCount, zet_metric_handle_t *phMetr
             phMetrics[i] = metrics[i]->toHandle();
         }
     } else {
-        LOG_I("Input metric handle pointer is NULL.");
+        LOG(METRIC, "Input metric handle pointer is NULL");
     }
 
     return ZE_RESULT_SUCCESS;
@@ -135,17 +134,17 @@ ze_result_t MetricGroup::calculateMetricValues(zet_metric_group_calculation_type
     ze_result_t result = ZE_RESULT_SUCCESS;
 
     if (pRawData == nullptr) {
-        LOG_E("Invalid pRawData pointer.");
+        LOG_E("Invalid pRawData pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
     if (pMetricValueCount == nullptr) {
-        LOG_E("Invalid pMetricValueCount pointer.");
+        LOG_E("Invalid pMetricValueCount pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
     if (type > ZET_METRIC_GROUP_CALCULATION_TYPE_MAX_METRIC_VALUES) {
-        LOG_E("Invalid metric group calculation type.");
+        LOG_E("Invalid metric group calculation type");
         return ZE_RESULT_ERROR_INVALID_ENUMERATION;
     }
 
@@ -226,8 +225,7 @@ ze_result_t MetricGroup::calculateMaxMetricValues(size_t rawDataSize,
     }
 
     if (*pMetricValueCount != metricCount) {
-        LOG_E(
-            "The *pMetricValueCount should be equal to the number of metrics from a given group.");
+        LOG_E("The *pMetricValueCount should be equal to the number of metrics from a given group");
         return ZE_RESULT_ERROR_INVALID_SIZE;
     }
 
@@ -283,8 +281,9 @@ void MetricContext::deactivateMetricGroups(const int vpuFd) {
                                                    return false;
                                                }),
                                 activatedMetricGroups.end());
-    LOG_I("All Metric Groups activated by context with file descriptor %d have been deactivated!",
-          vpuFd);
+    LOG(METRIC,
+        "All Metric Groups activated by context with file descriptor %d have been deactivated!",
+        vpuFd);
 }
 
 bool MetricContext::activateMetricGroup(const int vpuFd,
@@ -299,7 +298,7 @@ bool MetricContext::activateMetricGroup(const int vpuFd,
 
     // Check if metric group is being held (was activated) by another context
     if (metricGroup->isActivated()) {
-        LOG_E("MetricGroup is currently activated by another context.");
+        LOG_E("MetricGroup is currently activated by another context");
         return false;
     }
 
@@ -312,11 +311,11 @@ bool MetricContext::activateMetricGroup(const int vpuFd,
         if (domainIt.first == domain) {
             // Checks if the metric group passed in was the one already activated
             if (domainIt.second.first == metricGroup && domainIt.second.second == vpuFd) {
-                LOG_I("Metric Group (%p) already activated beforehand.", metricGroup);
+                LOG(METRIC, "Metric Group (%p) already activated beforehand.", metricGroup);
                 return true;
             }
             LOG_E("Another Metric Group with the same domain is currently activated! Please select "
-                  "Metric Groups from different domains.");
+                  "Metric Groups from different domains");
             return false;
         }
     }
@@ -324,7 +323,7 @@ bool MetricContext::activateMetricGroup(const int vpuFd,
     metricGroup->setActivationStatus(true);
     activatedMetricGroups.push_back(std::make_pair(domain, std::make_pair(metricGroup, vpuFd)));
 
-    LOG_I(
+    LOG(METRIC,
         "Metric Group (%p) from domain (%u) has been activated by context with file descriptor %d!",
         metricGroup,
         domain,
@@ -337,7 +336,7 @@ ze_result_t MetricContext::activateMetricGroups(int vpuFd,
                                                 uint32_t count,
                                                 zet_metric_group_handle_t *phMetricGroups) {
     if (device == nullptr || !device->isMetricsLoaded()) {
-        LOG_E("Device is uninitialized.");
+        LOG_E("Device is uninitialized");
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 

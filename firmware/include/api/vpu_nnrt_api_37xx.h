@@ -28,7 +28,7 @@
  */
 #define VPU_NNRT_37XX_API_VER_MAJOR 7
 #define VPU_NNRT_37XX_API_VER_MINOR 0
-#define VPU_NNRT_37XX_API_VER_PATCH 1
+#define VPU_NNRT_37XX_API_VER_PATCH 2
 #define VPU_NNRT_37XX_API_VER ((VPU_NNRT_37XX_API_VER_MAJOR << 16) | VPU_NNRT_37XX_API_VER_MINOR)
 
 /* Index in the API version table, same for all HW generations */

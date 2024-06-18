@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -14,7 +14,6 @@
 #include "level_zero_driver/tools/source/metrics/metric_streamer.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
-#include <string.h>
 #include <sys/sysinfo.h>
 
 namespace L0 {
@@ -32,13 +31,13 @@ DriverHandle *Context::getDriverHandle() {
 ze_result_t Context::getStatus() {
     auto device = driverHandle->getPrimaryDevice();
     if (device == nullptr) {
-        LOG_E("Driver handle failed to retrieve primary device.");
+        LOG_E("Driver handle failed to retrieve primary device");
         return ZE_RESULT_ERROR_DEVICE_LOST;
     }
 
     auto vpuDevice = device->getVPUDevice();
     if (vpuDevice == nullptr) {
-        LOG_E("VPU device failed to be retrieved.");
+        LOG_E("VPU device failed to be retrieved");
         return ZE_RESULT_ERROR_DEVICE_LOST;
     }
 
@@ -49,7 +48,7 @@ ze_result_t Context::activateMetricGroups(zet_device_handle_t hDevice,
                                           uint32_t count,
                                           zet_metric_group_handle_t *phMetricGroups) {
     if (hDevice == nullptr) {
-        LOG_E("Device handle is NULL.");
+        LOG_E("Device handle is NULL");
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
 
@@ -84,7 +83,7 @@ ze_result_t Context::createMetricQueryPool(zet_device_handle_t hDevice,
 
     auto device = Device::fromHandle(hDevice);
     if (!device->isMetricsLoaded()) {
-        LOG_E("Device metrics is not initialized.");
+        LOG_E("Device metrics is not initialized");
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 
@@ -102,7 +101,7 @@ ze_result_t Context::createMetricQueryPool(zet_device_handle_t hDevice,
 
         this->appendObject(std::move(metricQueryPool));
 
-        LOG_I("MetricQueryPool created - %p", *phMetricQueryPool);
+        LOG(CONTEXT, "MetricQueryPool created - %p", *phMetricQueryPool);
     } catch (const DriverError &err) {
         return err.result();
     }
@@ -137,7 +136,7 @@ ze_result_t Context::metricStreamerOpen(zet_device_handle_t hDevice,
 
     auto device = Device::fromHandle(hDevice);
     if (!device->isMetricsLoaded()) {
-        LOG_E("Device metrics is not initialized.");
+        LOG_E("Device metrics is not initialized");
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 
@@ -148,7 +147,7 @@ ze_result_t Context::metricStreamerOpen(zet_device_handle_t hDevice,
     }
 
     if (desc->samplingPeriod < MetricContext::MIN_SAMPLING_RATE_NS) {
-        LOG_E("Sampling rate is too low.");
+        LOG_E("Sampling rate is too low");
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
@@ -158,7 +157,7 @@ ze_result_t Context::metricStreamerOpen(zet_device_handle_t hDevice,
         *phMetricStreamer = metricStreamer.get();
         this->appendObject(std::move(metricStreamer));
 
-        LOG_I("MetricStreamer created - %p", *phMetricStreamer);
+        LOG(CONTEXT, "MetricStreamer created - %p", *phMetricStreamer);
     } catch (const DriverError &err) {
         return err.result();
     }

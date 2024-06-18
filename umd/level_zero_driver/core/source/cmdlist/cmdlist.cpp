@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -65,7 +65,7 @@ ze_result_t CommandList::create(ze_context_handle_t hContext,
         *phCommandList = commandList.get();
         pContext->appendObject(std::move(commandList));
 
-        LOG_I("CommandList created - %p", *phCommandList);
+        LOG(CMDLIST, "CommandList created - %p", *phCommandList);
     } catch (const DriverError &err) {
         return err.result();
     }
@@ -74,7 +74,7 @@ ze_result_t CommandList::create(ze_context_handle_t hContext,
 
 ze_result_t CommandList::destroy() {
     pContext->removeObject(this);
-    LOG_I("CommandList destroyed.");
+    LOG(CMDLIST, "CommandList destroyed");
     return ZE_RESULT_SUCCESS;
 }
 
@@ -161,12 +161,13 @@ ze_result_t CommandList::appendCommandWithEvents(ze_event_handle_t hSignalEvent,
         }
     }
 
-    LOG_V("Successfully appended the command(%#x) to CommandList with hSignal(%p), %u wait "
-          "events(%p).",
-          cmd->getCommandType(),
-          hSignalEvent,
-          numWaitEvents,
-          phWaitEvents);
+    LOG(CMDLIST,
+        "Successfully appended the command(%#x) to CommandList with hSignal(%p), %u wait "
+        "events(%p).",
+        cmd->getCommandType(),
+        hSignalEvent,
+        numWaitEvents,
+        phWaitEvents);
 
     return ZE_RESULT_SUCCESS;
 }
@@ -187,7 +188,7 @@ ze_result_t CommandList::appendMemoryCopy(void *dstptr,
                                           uint32_t numWaitEvents,
                                           ze_event_handle_t *phWaitEvents) {
     if ((dstptr == nullptr) || (srcptr == nullptr)) {
-        LOG_E("Pointer to destination/source memory passed as nullptr.");
+        LOG_E("Pointer to destination/source memory passed as nullptr");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
     // Append a memory copy command.
@@ -208,12 +209,12 @@ ze_result_t CommandList::appendMemoryFill(void *ptr,
                                           uint32_t numWaitEvents,
                                           ze_event_handle_t *phWaitEvents) {
     if (ptr == nullptr) {
-        LOG_E("Pointer to memory passed as nullptr.");
+        LOG_E("Pointer to memory passed as nullptr");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
     if (pattern == nullptr) {
-        LOG_E("Pointer to value to initialize memory passed as nullptr.");
+        LOG_E("Pointer to value to initialize memory passed as nullptr");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
     if (!(patternSize == 1u || patternSize == 2u || patternSize == 4u)) {
@@ -247,9 +248,10 @@ ze_result_t CommandList::appendMemoryFill(void *ptr,
 ze_result_t CommandList::appendWriteGlobalTimestamp(uint64_t *dstptr,
                                                     ze_event_handle_t hSignalEvent,
                                                     uint32_t numWaitEvents,
-                                                    ze_event_handle_t *phWaitEvents) {
+                                                    ze_event_handle_t *phWaitEvents,
+                                                    bool skipDmaCopy) {
     if (dstptr == nullptr) {
-        LOG_E("dstptr is NULL.");
+        LOG_E("dstptr is NULL");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -257,6 +259,15 @@ ze_result_t CommandList::appendWriteGlobalTimestamp(uint64_t *dstptr,
     if (dstBo == nullptr) {
         LOG_E("Buffer object not found");
         return ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY;
+    }
+
+    if (skipDmaCopy) {
+        return appendCommandWithEvents<VPU::VPUTimeStampCommand>(
+            nullptr,
+            numWaitEvents,
+            phWaitEvents,
+            ctx,
+            reinterpret_cast<uint64_t *>(dstBo->getBasePointer()));
     }
 
     auto allignedBo =
@@ -314,7 +325,7 @@ ze_result_t CommandList::appendGraphInitialize(ze_graph_handle_t hGraph,
 
     Graph *graph = Graph::fromHandle(hGraph);
     if (graph == nullptr) {
-        LOG_E("Graph object is NULL.");
+        LOG_E("Graph object is NULL");
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 
@@ -339,7 +350,7 @@ ze_result_t CommandList::appendGraphInitialize(ze_graph_handle_t hGraph,
         }
     }
 
-    LOG_V("Successfully appended graph initialize command to CommandList.");
+    LOG(CMDLIST, "Successfully appended graph initialize command to CommandList");
     return ZE_RESULT_SUCCESS;
 }
 
@@ -369,7 +380,7 @@ ze_result_t CommandList::appendGraphExecute(ze_graph_handle_t hGraph,
 
     Graph *graph = Graph::fromHandle(hGraph);
     if (graph == nullptr) {
-        LOG_E("Invalid graph handle.");
+        LOG_E("Invalid graph handle");
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
 
@@ -377,7 +388,7 @@ ze_result_t CommandList::appendGraphExecute(ze_graph_handle_t hGraph,
     if (graph->getProfilingOutputSize()) {
         auto *profilingQuery = GraphProfilingQuery::fromHandle(hProfilingQuery);
         if (!profilingQuery) {
-            LOG_E("Invalid profiling query handle.");
+            LOG_E("Invalid profiling query handle");
             return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
         }
         profilingQueryPtr = profilingQuery->getQueryPtr();
@@ -416,7 +427,7 @@ ze_result_t CommandList::appendGraphExecute(ze_graph_handle_t hGraph,
     }
 
     tracedInferences.push_back(std::move(inferenceExecutor));
-    LOG_V("Successfully appended graph execute command to CommandList.");
+    LOG(CMDLIST, "Successfully appended graph execute command to CommandList");
     return ZE_RESULT_SUCCESS;
 }
 
@@ -427,19 +438,19 @@ ze_result_t CommandList::appendSignalEvent(ze_event_handle_t hEvent) {
 
     auto event = Event::fromHandle(hEvent);
     if (event == nullptr) {
-        LOG_E("Failed to get event handle.");
+        LOG_E("Failed to get event handle");
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
 
     VPU::VPUEventCommand::KMDEventDataType *evSyncPtr = event->getSyncPointer();
     if (evSyncPtr == nullptr) {
-        LOG_E("Invalid sync pointer.");
+        LOG_E("Invalid sync pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
 
     auto cmd = VPU::VPUEventSignalCommand::create(ctx, evSyncPtr);
     if (cmd == nullptr) {
-        LOG_E("Failed to initialize signal event Command.");
+        LOG_E("Failed to initialize signal event Command");
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 
@@ -449,7 +460,7 @@ ze_result_t CommandList::appendSignalEvent(ze_event_handle_t hEvent) {
     }
 
     event->associateJob(vpuJob);
-    LOG_V("Successfully appended signal event command to CommandList.");
+    LOG(CMDLIST, "Successfully appended signal event command to CommandList");
     return ZE_RESULT_SUCCESS;
 }
 
@@ -467,19 +478,19 @@ ze_result_t CommandList::appendWaitOnEvents(uint32_t numEvents, ze_event_handle_
     for (uint32_t i = 0; i < numEvents; ++i) {
         auto event = Event::fromHandle(phEvent[i]);
         if (event == nullptr) {
-            LOG_E("Failed to get event handle.");
+            LOG_E("Failed to get event handle");
             return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
         }
 
         VPU::VPUEventCommand::KMDEventDataType *evSyncPtr = event->getSyncPointer();
         if (evSyncPtr == nullptr) {
-            LOG_E("Invalid sync pointer.");
+            LOG_E("Invalid sync pointer");
             return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
         }
 
         auto cmd = VPU::VPUEventWaitCommand::create(ctx, evSyncPtr);
         if (cmd == nullptr) {
-            LOG_E("Failed to initialize event wait Command.");
+            LOG_E("Failed to initialize event wait Command");
             return ZE_RESULT_ERROR_UNINITIALIZED;
         }
 
@@ -488,7 +499,7 @@ ze_result_t CommandList::appendWaitOnEvents(uint32_t numEvents, ze_event_handle_
             return ZE_RESULT_ERROR_UNKNOWN;
         }
 
-        LOG_V("Successfully appended event wait command to CommandList.");
+        LOG(CMDLIST, "Successfully appended event wait command to CommandList");
     }
     return ZE_RESULT_SUCCESS;
 }
@@ -500,19 +511,19 @@ ze_result_t CommandList::appendEventReset(ze_event_handle_t hEvent) {
 
     auto event = Event::fromHandle(hEvent);
     if (event == nullptr) {
-        LOG_E("Failed to get event handle.");
+        LOG_E("Failed to get event handle");
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
 
     VPU::VPUEventCommand::KMDEventDataType *evSyncPtr = event->getSyncPointer();
     if (evSyncPtr == nullptr) {
-        LOG_E("Invalid sync pointer.");
+        LOG_E("Invalid sync pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
 
     auto cmd = VPU::VPUEventResetCommand::create(ctx, evSyncPtr);
     if (cmd == nullptr) {
-        LOG_E("Failed to initialize reset event Command.");
+        LOG_E("Failed to initialize reset event Command");
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 
@@ -521,13 +532,13 @@ ze_result_t CommandList::appendEventReset(ze_event_handle_t hEvent) {
         return ZE_RESULT_ERROR_UNKNOWN;
     }
 
-    LOG_V("Successfully appended reset event command to CommandList.");
+    LOG(CMDLIST, "Successfully appended reset event command to CommandList");
     return ZE_RESULT_SUCCESS;
 }
 
 ze_result_t CommandList::appendMetricQueryBegin(zet_metric_query_handle_t hMetricQuery) {
     if (hMetricQuery == nullptr) {
-        LOG_E("MetricQuery handle is NULL.");
+        LOG_E("MetricQuery handle is NULL");
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
 
@@ -547,7 +558,7 @@ ze_result_t CommandList::appendMetricQueryBegin(zet_metric_query_handle_t hMetri
                                                  metricQuery->getMetricGroupMask(),
                                                  metricQuery->getMetricAddrPtr());
     if (cmd == nullptr) {
-        LOG_E("Failed to initialize metric query begin Command.");
+        LOG_E("Failed to initialize metric query begin Command");
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 
@@ -556,7 +567,7 @@ ze_result_t CommandList::appendMetricQueryBegin(zet_metric_query_handle_t hMetri
         return ZE_RESULT_ERROR_UNKNOWN;
     }
 
-    LOG_V("Successfully appended metric query begin command to CommandList.");
+    LOG(CMDLIST, "Successfully appended metric query begin command to CommandList");
     return ZE_RESULT_SUCCESS;
 }
 
@@ -565,7 +576,7 @@ ze_result_t CommandList::appendMetricQueryEnd(zet_metric_query_handle_t hMetricQ
                                               uint32_t numWaitEvents,
                                               ze_event_handle_t *phWaitEvents) {
     if (hMetricQuery == nullptr) {
-        LOG_E("MetricQuery handle is NULL.");
+        LOG_E("MetricQuery handle is NULL");
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
 

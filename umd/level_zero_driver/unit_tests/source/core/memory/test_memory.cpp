@@ -32,41 +32,41 @@ TEST_F(ContextMemoryTest,
     size_t size = 0;
     size_t alignment = 1u;
     void *ptr = nullptr;
+    ze_result_t result = ZE_RESULT_SUCCESS;
 
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE,
-              zeMemAllocHost(nullptr, 0u, size, alignment, &ptr));
+    ze_host_mem_alloc_desc_t hDesc = {};
+    result = zeMemAllocHost(nullptr, &hDesc, size, alignment, &ptr);
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE, result);
 
-    ze_result_t result = context->allocHostMem(0u, size, alignment, &ptr);
+    result = context->allocMemory(size,
+                                  alignment,
+                                  &ptr,
+                                  VPU::VPUBufferObject::Location::Host,
+                                  VPU::VPUBufferObject::Type::CachedShave);
     EXPECT_EQ(ZE_RESULT_ERROR_UNSUPPORTED_SIZE, result);
 
     // Testing alignment
     size = 10;
     alignment = 3u;
 
-    result = context->allocHostMem(0u, size, alignment, &ptr);
+    result = context->allocMemory(size,
+                                  alignment,
+                                  &ptr,
+                                  VPU::VPUBufferObject::Location::Host,
+                                  VPU::VPUBufferObject::Type::CachedShave);
     EXPECT_EQ(ZE_RESULT_ERROR_UNSUPPORTED_ALIGNMENT, result);
 
     // Testing flags
     alignment = 1u;
 
-    result = context->allocHostMem(8u, size, alignment, &ptr);
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_ENUMERATION, result);
-
-    ze_device_mem_alloc_desc_t desc;
+    ze_device_mem_alloc_desc_t dDesc = {};
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE,
               zeMemAllocDevice(nullptr,
-                               &desc,
+                               &dDesc,
                                size,
                                alignment,
                                driverHandle->getPrimaryDevice()->toHandle(),
                                &ptr));
-
-    result = context->allocDeviceMem(driverHandle->getPrimaryDevice()->toHandle(),
-                                     4u,
-                                     size,
-                                     alignment,
-                                     &ptr);
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_ENUMERATION, result);
 }
 
 class ContextMemoryTestRange : public ContextMemoryTest {};
@@ -77,7 +77,12 @@ TEST_F(ContextMemoryTestRange, passNullPtrToGetMemAddressRangeExpectInvalidNullP
 }
 
 TEST_F(ContextMemoryTestRange, passOutOfScopeMemoryToGetMemAddressRangeExpectNotAvailableError) {
-    EXPECT_EQ(ZE_RESULT_SUCCESS, context->allocHostMem(0u, size, alignment, &ptr));
+    EXPECT_EQ(ZE_RESULT_SUCCESS,
+              context->allocMemory(size,
+                                   alignment,
+                                   &ptr,
+                                   VPU::VPUBufferObject::Location::Host,
+                                   VPU::VPUBufferObject::Type::CachedShave));
 
     EXPECT_EQ(ZE_RESULT_ERROR_NOT_AVAILABLE,
               context->getMemAddressRange(static_cast<char *>(ptr) - 1, &basePtr, &pSize));
@@ -93,7 +98,12 @@ TEST_F(ContextMemoryTestRange, passOutOfScopeMemoryToGetMemAddressRangeExpectNot
 }
 
 TEST_F(ContextMemoryTestRange, passMemWithoutRangeToGetMemAddressRangeExpectSuccess) {
-    EXPECT_EQ(ZE_RESULT_SUCCESS, context->allocHostMem(0u, size, alignment, &ptr));
+    EXPECT_EQ(ZE_RESULT_SUCCESS,
+              context->allocMemory(size,
+                                   alignment,
+                                   &ptr,
+                                   VPU::VPUBufferObject::Location::Host,
+                                   VPU::VPUBufferObject::Type::CachedShave));
 
     EXPECT_EQ(ZE_RESULT_SUCCESS,
               context->getMemAddressRange(static_cast<char *>(ptr) + size - 1, nullptr, nullptr));
@@ -104,7 +114,12 @@ TEST_F(ContextMemoryTestRange, passMemWithoutRangeToGetMemAddressRangeExpectSucc
 }
 
 TEST_F(ContextMemoryTestRange, passValidInputToGetMemAddressRangeExpectSuccess) {
-    EXPECT_EQ(ZE_RESULT_SUCCESS, context->allocHostMem(0u, size, alignment, &ptr));
+    EXPECT_EQ(ZE_RESULT_SUCCESS,
+              context->allocMemory(size,
+                                   alignment,
+                                   &ptr,
+                                   VPU::VPUBufferObject::Location::Host,
+                                   VPU::VPUBufferObject::Type::CachedShave));
 
     EXPECT_EQ(ZE_RESULT_SUCCESS,
               context->getMemAddressRange(static_cast<char *>(ptr) + size - 1, &basePtr, &pSize));
@@ -117,7 +132,12 @@ TEST_F(ContextMemoryTestRange, passValidInputToGetMemAddressRangeExpectSuccess) 
 class ContextMemoryTestProperties : public ContextMemoryTest {};
 
 TEST_F(ContextMemoryTestProperties, passNullPtrToGetMemPropertiesExpectInvalidPointerError) {
-    EXPECT_EQ(ZE_RESULT_SUCCESS, context->allocHostMem(0u, size, alignment, &ptr));
+    EXPECT_EQ(ZE_RESULT_SUCCESS,
+              context->allocMemory(size,
+                                   alignment,
+                                   &ptr,
+                                   VPU::VPUBufferObject::Location::Host,
+                                   VPU::VPUBufferObject::Type::CachedShave));
 
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER,
               context->getMemAllocProperties(ptr, nullptr, nullptr));
@@ -130,7 +150,12 @@ TEST_F(ContextMemoryTestProperties, passNullPtrToGetMemPropertiesExpectInvalidPo
 
 TEST_F(ContextMemoryTestProperties,
        passOutOfScopeMememoryToGetMemPropertiesExpectNotAvailableError) {
-    EXPECT_EQ(ZE_RESULT_SUCCESS, context->allocHostMem(0u, size, alignment, &ptr));
+    EXPECT_EQ(ZE_RESULT_SUCCESS,
+              context->allocMemory(size,
+                                   alignment,
+                                   &ptr,
+                                   VPU::VPUBufferObject::Location::Host,
+                                   VPU::VPUBufferObject::Type::CachedShave));
 
     EXPECT_EQ(ZE_RESULT_ERROR_NOT_AVAILABLE,
               context->getMemAllocProperties(static_cast<char *>(ptr) - 1,
@@ -145,7 +170,12 @@ TEST_F(ContextMemoryTestProperties,
 }
 
 TEST_F(ContextMemoryTestProperties, passHostMemoryAddressToGetMemPropertiesExpectSuccess) {
-    EXPECT_EQ(ZE_RESULT_SUCCESS, context->allocHostMem(0u, size, alignment, &ptr));
+    EXPECT_EQ(ZE_RESULT_SUCCESS,
+              context->allocMemory(size,
+                                   alignment,
+                                   &ptr,
+                                   VPU::VPUBufferObject::Location::Host,
+                                   VPU::VPUBufferObject::Type::CachedShave));
 
     EXPECT_EQ(ZE_RESULT_SUCCESS,
               context->getMemAllocProperties(static_cast<char *>(ptr) + size - 1,
@@ -162,11 +192,11 @@ TEST_F(ContextMemoryTestProperties, passHostMemoryAddressToGetMemPropertiesExpec
 
 TEST_F(ContextMemoryTestProperties, passDeviceMemoryAddressToGetMemPropertiesExpectSuccess) {
     EXPECT_EQ(ZE_RESULT_SUCCESS,
-              context->allocDeviceMem(driverHandle->getPrimaryDevice()->toHandle(),
-                                      0u,
-                                      size,
-                                      alignment,
-                                      &ptr));
+              context->allocMemory(size,
+                                   alignment,
+                                   &ptr,
+                                   VPU::VPUBufferObject::Location::Device,
+                                   VPU::VPUBufferObject::Type::WriteCombineShave));
 
     EXPECT_EQ(ZE_RESULT_SUCCESS,
               context->getMemAllocProperties(static_cast<char *>(ptr) + size - 1,

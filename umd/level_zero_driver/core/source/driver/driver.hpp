@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -9,6 +9,7 @@
 
 #include "vpu_driver/source/os_interface/os_interface.hpp"
 #include "level_zero_driver/core/source/driver/driver_handle.hpp"
+#include "level_zero_driver/ext/source/graph/disk_cache.hpp"
 
 #include <level_zero/ze_api.h>
 
@@ -23,13 +24,13 @@ class Driver {
         bool metrics;
         bool pciIdDeviceOrder;
         bool sharedForceDeviceAlloc;
-
-        std::string_view umdLogLevel;
-        std::string_view cidLogLevel;
     };
 
-    Driver() { pDriver = this; }
-    virtual ~Driver() {}
+    Driver() {
+        initializeLogging();
+        pDriver = this;
+    }
+    virtual ~Driver() = default;
     void operator=(const Driver &) = delete;
 
     static Driver *getInstance() { return pDriver; }
@@ -39,10 +40,15 @@ class Driver {
     virtual const L0EnvVariables &getEnvVariables() { return envVariables; }
     virtual DriverHandle *getDriverHandle() { return pGlobalDriverHandle.get(); }
 
+    DiskCache &getDiskCache() { return *diskCache; }
+
+    std::unique_ptr<DiskCache> diskCache;
+
   protected:
     static Driver *pDriver;
     L0EnvVariables envVariables = {};
     void initializeEnvVariables();
+    void initializeLogging();
 
   private:
     const uint32_t driverCount = 1;

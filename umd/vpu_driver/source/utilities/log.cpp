@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,60 +7,32 @@
 
 #include "vpu_driver/source/utilities/log.hpp"
 
+#include <cstdlib>
+
 namespace VPU {
 
-static LogLevel curLogLevel = UMD_LOGLEVEL;
-
-static inline const char *getBaseName(const char *filePath) {
-    const char *lastDirPos = __builtin_strrchr(filePath, '/');
-    const char *fn = (lastDirPos == nullptr) ? filePath : lastDirPos + 1;
-    return fn;
-}
-
-void printLog(LogLevel debugLevel,
-              const char *file,
-              const char *function,
-              const int line,
-              const char *format,
-              ...) {
-    if (debugLevel <= getLogLevel()) {
-        const char *prefix;
-        switch (debugLevel) {
-        case VERBOSE:
-            prefix = "V";
-            break;
-        case ERROR:
-            prefix = "E";
-            break;
-        case WARNING:
-            prefix = "W";
-            break;
-        case INFO:
-            prefix = "I";
-            break;
-        default:
-            prefix = "?";
-            break;
-        }
-        fprintf(stderr, "VPU_LOG:[%s] %s::%s():%d: ", prefix, getBaseName(file), function, line);
-        va_list args;
-        va_start(args, format);
-        vfprintf(stderr, format, args);
-        va_end(args);
-        fprintf(stderr, "\n");
-    }
-}
+static LogLevel logLevel = UMD_LOGLEVEL;
+static uint64_t logMask = UMD_LOGMASK;
 
 LogLevel getLogLevel() {
-    return curLogLevel;
+    return logLevel;
+}
+
+const char *getLogLevelStr(LogLevel level) {
+    switch (level) {
+        CASE_RETURN_STR(ERROR);
+        CASE_RETURN_STR(WARNING);
+    default:
+        return "?";
+    };
 }
 
 void setLogLevel(LogLevel level) {
-    if (level <= VERBOSE && level >= QUIET) {
-        curLogLevel = level;
+    if (level <= INFO && level >= QUIET) {
+        logLevel = level;
         return;
     }
-    LOG_W("Invalid log level(%d) keeping current level(%d)\n", level, curLogLevel);
+    LOG_W("Invalid log level(%d) keeping current level(%d)\n", level, logLevel);
 }
 
 void setLogLevel(std::string_view str) {
@@ -72,8 +44,51 @@ void setLogLevel(std::string_view str) {
         setLogLevel(WARNING);
     } else if (str == "INFO" || str == "info") {
         setLogLevel(INFO);
-    } else if (str == "VERBOSE" || str == "verbose") {
-        setLogLevel(VERBOSE);
+    } else {
+        setLogLevel(UMD_LOGLEVEL);
+    }
+}
+
+uint64_t getLogMask() {
+    return logMask;
+}
+
+const char *getLogMaskStr(uint64_t mask) {
+    switch (mask) {
+        CASE_RETURN_STR(CMDLIST);
+        CASE_RETURN_STR(CMDQUEUE);
+        CASE_RETURN_STR(CONTEXT);
+        CASE_RETURN_STR(DEVICE);
+        CASE_RETURN_STR(DRIVER);
+        CASE_RETURN_STR(EVENT);
+        CASE_RETURN_STR(FENCE);
+        CASE_RETURN_STR(FSYS);
+        CASE_RETURN_STR(GRAPH);
+        CASE_RETURN_STR(IOCTL);
+        CASE_RETURN_STR(MEMORY);
+        CASE_RETURN_STR(METRIC);
+        CASE_RETURN_STR(MISC);
+        CASE_RETURN_STR(UTEST);
+        CASE_RETURN_STR(VPU_CMD);
+        CASE_RETURN_STR(VPU_CTX);
+        CASE_RETURN_STR(VPU_JOB);
+        CASE_RETURN_STR(CACHE);
+    default:
+        return "?";
+    };
+}
+
+void setLogMask(std::string_view str) {
+    if (str != "") {
+        uint64_t tmpMask;
+        char *end;
+
+        tmpMask = std::strtoul(str.data(), &end, 0);
+        if (*end == '\0') {
+            logMask = tmpMask;
+            return;
+        }
+        LOG_W("Invalid log mask keeping current (0x%lx)", logMask);
     }
 }
 

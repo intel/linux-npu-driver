@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -27,7 +27,7 @@ int MockOsInterfaceImp::osiOpen(const char *pathname, int flags, mode_t mode) {
     if (openSuccessful) {
         int vpuFd = fd;
         fd++;
-        LOG_I("Returning file descriptor %d", vpuFd);
+        LOG(UTEST, "Returning file descriptor %d", vpuFd);
         return vpuFd;
     }
 
@@ -46,12 +46,17 @@ int MockOsInterfaceImp::osiFcntl(int fd, int cmd) {
 }
 
 int MockOsInterfaceImp::osiIoctl(int fd, unsigned long request, void *data) {
-    LOG_I("Cnt = %i, IOCTL = %#lx", callCntIoctl, request);
+    LOG(UTEST, "Cnt = %i, IOCTL = %#lx", callCntIoctl, request);
     // Increase call count.
     callCntIoctl++;
 
     // Remember the last request.
     ioctlLastCommand = request;
+
+    if (!deviceConnected) {
+        errno = EIO;
+        return -1;
+    }
 
     if (request == DRM_IOCTL_VERSION) {
         drm_version_t *arg = static_cast<drm_version_t *>(data);
@@ -93,6 +98,9 @@ int MockOsInterfaceImp::osiIoctl(int fd, unsigned long request, void *data) {
             if (args->index == VPU_NNRT_37XX_API_VER_INDEX)
                 args->value = VPU_NNRT_37XX_API_VER;
             break;
+        case DRM_IVPU_PARAM_ENGINE_HEARTBEAT:
+            args->value = callCntIoctl;
+            break;
         default:
             break;
         }
@@ -127,7 +135,7 @@ int MockOsInterfaceImp::osiIoctl(int fd, unsigned long request, void *data) {
     } else if (request == DRM_IOCTL_IVPU_METRIC_STREAMER_GET_INFO) {
         drm_ivpu_metric_streamer_get_data *args =
             static_cast<struct drm_ivpu_metric_streamer_get_data *>(data);
-        if (args->size == 0) {
+        if (args->buffer_size == 0) {
             /*
             size = sizeof(vpu_jsm_metric_group_descriptor) +
                    group_desc->name_string_size +
@@ -138,8 +146,8 @@ int MockOsInterfaceImp::osiIoctl(int fd, unsigned long request, void *data) {
                    counter_desc->component_string_size +
                    counter_desc->units_string_size
             */
-            args->size = sizeof(vpu_jsm_metric_group_descriptor) + 80 +
-                         sizeof(vpu_jsm_metric_counter_descriptor) + 80;
+            args->data_size = sizeof(vpu_jsm_metric_group_descriptor) + 80 +
+                              sizeof(vpu_jsm_metric_counter_descriptor) + 80;
         } else {
             vpu_jsm_metric_counter_descriptor *counter_desc = nullptr;
 
@@ -223,6 +231,23 @@ int MockOsInterfaceImp::osiMunmap(void *addr, size_t size) {
     free(addr);
     return 0;
 }
+
+bool MockOsInterfaceImp::osiCreateDirectories(const std::filesystem::path &path) {
+    return true;
+}
+
+std::unique_ptr<OsFile>
+MockOsInterfaceImp::osiOpenWithExclusiveLock(const std::filesystem::path &path, bool writeAccess) {
+    return nullptr;
+}
+
+std::unique_ptr<OsFile> MockOsInterfaceImp::osiOpenWithSharedLock(const std::filesystem::path &path,
+                                                                  bool writeAccess) {
+    return nullptr;
+}
+
+void MockOsInterfaceImp::osiScanDir(const std::filesystem::path &path,
+                                    std::function<void(const char *name, struct stat &stat)> f) {}
 
 size_t MockOsInterfaceImp::osiGetSystemPageSize() {
     return 4u * 1024u;

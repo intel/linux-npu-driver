@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -10,6 +10,7 @@
 #include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/core/source/driver/driver.hpp"
 #include "level_zero_driver/core/source/driver/driver_handle.hpp"
+#include "level_zero_driver/include/l0_exception.hpp"
 #include <level_zero/ze_api.h>
 #include <level_zero/ze_ddi.h>
 
@@ -19,7 +20,8 @@ zeDeviceGet(ze_driver_handle_t hDriver, uint32_t *pCount, ze_device_handle_t *ph
     if (hDriver == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::DriverHandle::fromHandle(hDriver)->getDevice(pCount, phDevices);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::DriverHandle::fromHandle(hDriver)->getDevice(pCount, phDevices));
 }
 
 ze_result_t zeDeviceGetSubDevices(ze_device_handle_t hDevice,
@@ -28,7 +30,8 @@ ze_result_t zeDeviceGetSubDevices(ze_device_handle_t hDevice,
     if (hDevice == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Device::fromHandle(hDevice)->getSubDevices(pCount, phSubdevices);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::Device::fromHandle(hDevice)->getSubDevices(pCount, phSubdevices));
 }
 
 ze_result_t zeDeviceGetProperties(ze_device_handle_t hDevice,
@@ -36,7 +39,8 @@ ze_result_t zeDeviceGetProperties(ze_device_handle_t hDevice,
     if (hDevice == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Device::fromHandle(hDevice)->getProperties(pDeviceProperties);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::Device::fromHandle(hDevice)->getProperties(pDeviceProperties));
 }
 
 ze_result_t zeDeviceGetComputeProperties(ze_device_handle_t hDevice,
@@ -44,7 +48,8 @@ ze_result_t zeDeviceGetComputeProperties(ze_device_handle_t hDevice,
     if (hDevice == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Device::fromHandle(hDevice)->getDeviceComputeProperties(pComputeProperties);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::Device::fromHandle(hDevice)->getDeviceComputeProperties(pComputeProperties));
 }
 
 ze_result_t zeDeviceGetModuleProperties(ze_device_handle_t hDevice,
@@ -58,7 +63,18 @@ ze_result_t zeDeviceGetMemoryProperties(ze_device_handle_t hDevice,
     if (hDevice == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Device::fromHandle(hDevice)->getMemoryProperties(pCount, pMemProperties);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::Device::fromHandle(hDevice)->getMemoryProperties(pCount, pMemProperties));
+}
+
+ze_result_t zeDeviceGetExternalMemoryProperties(
+    ze_device_handle_t hDevice,
+    ze_device_external_memory_properties_t *pExternalMemoryProperties) {
+    if (hDevice == nullptr) {
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+    }
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::Device::fromHandle(hDevice)->getGetExternalMemoryProperties(pExternalMemoryProperties));
 }
 
 ze_result_t
@@ -67,7 +83,8 @@ zeDeviceGetMemoryAccessProperties(ze_device_handle_t hDevice,
     if (hDevice == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Device::fromHandle(hDevice)->getMemoryAccessProperties(pMemAccessProperties);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::Device::fromHandle(hDevice)->getMemoryAccessProperties(pMemAccessProperties));
 }
 
 ze_result_t zeDeviceGetCacheProperties(ze_device_handle_t hDevice,
@@ -81,7 +98,8 @@ ze_result_t zeDeviceGetImageProperties(ze_device_handle_t hDevice,
     if (hDevice == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Device::fromHandle(hDevice)->getDeviceImageProperties(pImageProperties);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::Device::fromHandle(hDevice)->getDeviceImageProperties(pImageProperties));
 }
 
 ze_result_t zeDeviceGetP2PProperties(ze_device_handle_t hDevice,
@@ -90,7 +108,8 @@ ze_result_t zeDeviceGetP2PProperties(ze_device_handle_t hDevice,
     if (hDevice == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Device::fromHandle(hDevice)->getP2PProperties(hPeerDevice, pP2PProperties);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::Device::fromHandle(hDevice)->getP2PProperties(hPeerDevice, pP2PProperties));
 }
 
 ze_result_t zeDeviceCanAccessPeer(ze_device_handle_t hDevice,
@@ -104,7 +123,8 @@ ze_result_t zeDeviceSetLastLevelCacheConfig(ze_device_handle_t hDevice,
     if (hDevice == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Device::fromHandle(hDevice)->setLastLevelCacheConfig(cacheConfig);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::Device::fromHandle(hDevice)->setLastLevelCacheConfig(cacheConfig));
 }
 
 ze_result_t zeDeviceGetCommandQueueGroupProperties(
@@ -114,23 +134,36 @@ ze_result_t zeDeviceGetCommandQueueGroupProperties(
     if (hDevice == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Device::fromHandle(hDevice)->getCommandQueueGroupProperties(
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::Device::fromHandle(hDevice)->getCommandQueueGroupProperties(
         pCount,
-        pCommandQueueGroupProperties);
-}
-
-ze_result_t zeDeviceGetExternalMemoryProperties(
-    ze_device_handle_t hDevice,
-    ze_device_external_memory_properties_t *pExternalMemoryProperties) {
-    return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+        pCommandQueueGroupProperties));
 }
 
 ze_result_t zeDeviceGetStatus(ze_device_handle_t hDevice) {
     if (hDevice == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::Device::fromHandle(hDevice)->getStatus();
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::Device::fromHandle(hDevice)->getStatus());
 }
+
+ze_result_t zeDeviceGetGlobalTimestamps(ze_device_handle_t hDevice,
+                                        uint64_t *hostTimestamp,
+                                        uint64_t *deviceTimestamp) {
+    if (hDevice == nullptr) {
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+    }
+    return L0::Device::fromHandle(hDevice)->getGlobalTimestamps(hostTimestamp, deviceTimestamp);
+}
+
+ze_result_t zeDevicePciGetPropertiesExt(ze_device_handle_t hDevice,
+                                        ze_pci_ext_properties_t *pPciProperties) {
+    if (hDevice == nullptr) {
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+    }
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::Device::fromHandle(hDevice)->getPciProperties(pPciProperties));
+}
+
 } // namespace L0
 
 extern "C" {
@@ -225,4 +258,16 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeDeviceGetExternalMemoryProperties(
 ZE_APIEXPORT ze_result_t ZE_APICALL zeDeviceGetStatus(ze_device_handle_t hDevice) {
     return L0::zeDeviceGetStatus(hDevice);
 }
+
+ZE_APIEXPORT ze_result_t ZE_APICALL zeDeviceGetGlobalTimestamps(ze_device_handle_t hDevice,
+                                                                uint64_t *hostTimestamp,
+                                                                uint64_t *deviceTimestamp) {
+    return L0::zeDeviceGetGlobalTimestamps(hDevice, hostTimestamp, deviceTimestamp);
+}
+
+ZE_APIEXPORT ze_result_t ZE_APICALL
+zeDevicePciGetPropertiesExt(ze_device_handle_t hDevice, ze_pci_ext_properties_t *pPciProperties) {
+    return L0::zeDevicePciGetPropertiesExt(hDevice, pPciProperties);
+}
+
 } // extern "C"

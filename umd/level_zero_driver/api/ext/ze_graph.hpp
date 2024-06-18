@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -52,6 +52,10 @@ ze_result_t ZE_APICALL zeGraphGetNativeBinary(ze_graph_handle_t hGraph,
 ze_result_t ZE_APICALL
 zeDeviceGetGraphProperties(ze_device_handle_t hDevice,
                            ze_device_graph_properties_t *pDeviceGraphProperties);
+
+ze_result_t ZE_APICALL
+zeDeviceGetGraphProperties2(ze_device_handle_t hDevice,
+                            ze_device_graph_properties_2_t *pDeviceGraphProperties2);
 
 ze_result_t ZE_APICALL
 zeGraphGetArgumentMetadata(ze_graph_handle_t hGraph,

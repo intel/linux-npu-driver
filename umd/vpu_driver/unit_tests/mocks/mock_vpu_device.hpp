@@ -24,6 +24,30 @@
 
 namespace VPU {
 
+class MockVPUDeviceContext : public VPUDeviceContext {
+  public:
+    MockVPUDeviceContext(std::unique_ptr<VPUDriverApi> drvApi, VPUHwInfo *info)
+        : VPUDeviceContext(std::move(drvApi), info) {}
+    MockVPUDeviceContext() = delete;
+    inline void *
+    createHostMemAlloc(size_t size,
+                       VPUBufferObject::Type type = VPUBufferObject::Type::CachedShave) {
+        return createMemAlloc(size, type, VPUBufferObject::Location::Host);
+    };
+
+    inline void *
+    createDeviceMemAlloc(size_t size,
+                         VPUBufferObject::Type type = VPUBufferObject::Type::WriteCombineFw) {
+        return createMemAlloc(size, type, VPUBufferObject::Location::Device);
+    };
+
+    inline void *
+    createSharedMemAlloc(size_t size,
+                         VPUBufferObject::Type type = VPUBufferObject::Type::CachedFw) {
+        return createMemAlloc(size, type, VPUBufferObject::Location::Shared);
+    };
+};
+
 class MockVPUDevice : public VPUDevice {
   private:
     MockOsInterfaceImp &mockOSInf;
@@ -33,6 +57,8 @@ class MockVPUDevice : public VPUDevice {
 
     static std::unique_ptr<MockVPUDevice>
     createWithDefaultHardwareInfo(MockOsInterfaceImp &mockOSInf);
+
+    std::unique_ptr<MockVPUDeviceContext> createMockDeviceContext();
 
     MockOsInterfaceImp &mockGetOsInterface() { return mockOSInf; }
 };

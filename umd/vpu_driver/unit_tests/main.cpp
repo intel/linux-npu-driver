@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -31,7 +31,7 @@ static bool parseOptions(int argc, char **argv) {
     while ((opt = getopt_long(argc, argv, "vl:b:m:", longOptions, nullptr)) != -1) {
         switch (opt) {
         case 'v':
-            VPU::setLogLevel(VERBOSE);
+            VPU::setLogLevel(INFO);
             break;
         case 'l':
             VPU::setLogLevel(optarg);

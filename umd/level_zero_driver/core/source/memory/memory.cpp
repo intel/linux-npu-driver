@@ -15,27 +15,14 @@
 
 namespace L0 {
 
-static VPU::VPUBufferObject::Type flagToVPUBufferObjectType(ze_host_mem_alloc_flags_t flag) {
-    // TODO: Fallback to shave range to fix incorrect address in Dma tasks for kernels (EISW-108894)
-    switch (flag) {
-    case ZE_HOST_MEM_ALLOC_FLAG_BIAS_CACHED:
-        return VPU::VPUBufferObject::Type::CachedShave;
-    case ZE_HOST_MEM_ALLOC_FLAG_BIAS_UNCACHED:
-        return VPU::VPUBufferObject::Type::UncachedShave;
-    case ZE_HOST_MEM_ALLOC_FLAG_BIAS_WRITE_COMBINED:
-        return VPU::VPUBufferObject::Type::WriteCombineShave;
-    };
-    return VPU::VPUBufferObject::Type::CachedShave;
-}
-
 ze_result_t Context::checkMemInputs(size_t size, size_t alignment, void **ptr) {
     if (ptr == nullptr) {
-        LOG_E("Invalid pointer.");
+        LOG_E("Invalid pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
     if (size == 0) {
-        LOG_E("Invalid size value.");
+        LOG_E("Invalid size value");
         return ZE_RESULT_ERROR_UNSUPPORTED_SIZE;
     }
 
@@ -50,70 +37,16 @@ ze_result_t Context::checkMemInputs(size_t size, size_t alignment, void **ptr) {
     return ZE_RESULT_SUCCESS;
 }
 
-ze_result_t Context::allocHostMem(ze_host_mem_alloc_flags_t flags,
-                                  size_t size,
-                                  size_t alignment,
-                                  void **ptr,
-                                  VPU::VPUBufferObject::Location location) {
+ze_result_t Context::allocMemory(size_t size,
+                                 size_t alignment,
+                                 void **ptr,
+                                 VPU::VPUBufferObject::Location location,
+                                 VPU::VPUBufferObject::Type type) {
     ze_result_t ret = checkMemInputs(size, alignment, ptr);
     if (ret != ZE_RESULT_SUCCESS)
         return ret;
 
-    if (0x7 < flags || (location != VPU::VPUBufferObject::Location::Host &&
-                        location != VPU::VPUBufferObject::Location::ExternalHost))
-        return ZE_RESULT_ERROR_INVALID_ENUMERATION;
-
-    *ptr = ctx->createMemAlloc(size, flagToVPUBufferObjectType(flags), location);
-
-    if (*ptr == nullptr) {
-        LOG_E("Failed to allocate host memory");
-        return ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY;
-    }
-
-    return ZE_RESULT_SUCCESS;
-}
-
-ze_result_t Context::allocSharedMem(ze_device_handle_t hDevice,
-                                    ze_device_mem_alloc_flags_t flagsDev,
-                                    ze_host_mem_alloc_flags_t flagsHost,
-                                    size_t size,
-                                    size_t alignment,
-                                    void **ptr,
-                                    VPU::VPUBufferObject::Location location) {
-    ze_result_t ret = checkMemInputs(size, alignment, ptr);
-    if (ret != ZE_RESULT_SUCCESS)
-        return ret;
-
-    if (0x7 < flagsDev || 0xf < flagsHost ||
-        (location != VPU::VPUBufferObject::Location::Shared &&
-         location != VPU::VPUBufferObject::Location::ExternalShared))
-        return ZE_RESULT_ERROR_INVALID_ENUMERATION;
-
-    *ptr = ctx->createMemAlloc(size, flagToVPUBufferObjectType(flagsHost), location);
-    if (*ptr == nullptr) {
-        LOG_E("Failed to allocate shared memory");
-        return ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY;
-    }
-
-    return ZE_RESULT_SUCCESS;
-}
-
-ze_result_t Context::allocDeviceMem(ze_device_handle_t hDevice,
-                                    ze_device_mem_alloc_flags_t flags,
-                                    size_t size,
-                                    size_t alignment,
-                                    void **ptr,
-                                    VPU::VPUBufferObject::Location location) {
-    ze_result_t ret = checkMemInputs(size, alignment, ptr);
-    if (ret != ZE_RESULT_SUCCESS)
-        return ret;
-
-    if (0x3 < flags || (location != VPU::VPUBufferObject::Location::Device &&
-                        location != VPU::VPUBufferObject::Location::ExternalDevice))
-        return ZE_RESULT_ERROR_INVALID_ENUMERATION;
-
-    // TODO: Fallback to shave range to fix incorrect address in Dma tasks for kernels (EISW-108894)
-    *ptr = ctx->createMemAlloc(size, VPU::VPUBufferObject::Type::WriteCombineShave, location);
+    *ptr = ctx->createMemAlloc(size, type, location);
 
     if (*ptr == nullptr) {
         LOG_E("Failed to allocate device memory");
@@ -206,13 +139,13 @@ ze_result_t Context::getMemAddressRange(const void *ptr, void **basePtr, size_t 
     if (basePtr != nullptr) {
         *basePtr = bo->getBasePointer();
     } else {
-        LOG_W("Input base address pointer is NULL.");
+        LOG_W("Input base address pointer is NULL");
     }
 
     if (pSize != nullptr) {
         *pSize = bo->getAllocSize();
     } else {
-        LOG_W("Input size pointer is NULL.");
+        LOG_W("Input size pointer is NULL");
     }
 
     return ZE_RESULT_SUCCESS;

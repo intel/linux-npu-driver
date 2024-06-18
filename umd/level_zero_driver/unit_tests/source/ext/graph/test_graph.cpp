@@ -80,7 +80,9 @@ TEST_F(GraphTest, givenCallToGetProfilingDataPropertiesExpectedValuesReturned) {
 
 TEST_F(GraphNativeTest, whenCreatingGraphFromMalformedBufferInvalidArgumentIsReturned) {
     size_t memSize = 4096u;
-    void *data = ctx->createHostMemAlloc(memSize);
+    void *data = ctx->createMemAlloc(memSize,
+                                     VPU::VPUBufferObject::Type::CachedShave,
+                                     VPU::VPUBufferObject::Location::Host);
     ASSERT_TRUE(data);
     memset(data, 0xfe, memSize);
 

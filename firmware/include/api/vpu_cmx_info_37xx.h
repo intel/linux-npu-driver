@@ -50,7 +50,7 @@ struct VpuMetadataMapSingle {
     VpuActKernelRange akr_storage[VPU_KERNEL_RANGE_COUNT];
     VpuDPUVariant var_storage[VPU_VARIANT_COUNT];
     VpuActKernelInvocation aki_storage[VPU_KERNEL_INVO_COUNT];
-    VpuDescriptorWrapper desc_storage[VPU_NUM_COMPONENT_FEEDERS];
+    VpuDescriptorWrapper desc_storage[VPU_NUM_METADATA_FEEDERS];
 };
 static_assert(sizeof(VpuMetadataMapSingle) <= VPU_METADATA_SIZE, "Metadata storage exceeded");
 
@@ -58,7 +58,7 @@ struct VpuMetadataMapDual0 {
     VpuDMATask dma0_storage[VPU_DMA_TASK_COUNT];
     VpuDPUInvariant inv_storage[VPU_INVARIANT_COUNT];
     VpuActKernelRange akr_storage[VPU_KERNEL_RANGE_COUNT];
-    VpuDescriptorWrapper desc_storage[VPU_NUM_COMPONENT_FEEDERS];
+    VpuDescriptorWrapper desc_storage[VPU_NUM_METADATA_FEEDERS];
 };
 static_assert(sizeof(VpuMetadataMapDual0) <= VPU_METADATA_SIZE, "Metadata storage exceeded");
 

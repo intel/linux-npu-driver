@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -75,19 +75,11 @@ class CommandGraph : public CommandGraphBase {
         CommandGraphBase::SetUp();
 
         if (!Environment::getConfiguration("graph_execution").size())
-            GTEST_SKIP() << "Do not find blobs to execute test";
+            GTEST_SKIP() << "No data to perform the test";
 
-        /* CommandGraph test will be run on first blob taken from configuration */
         const YAML::Node node = Environment::getConfiguration("graph_execution")[0];
 
-        /* Validate configuration */
-        ASSERT_GT(node["path"].as<std::string>().size(), 0);
-
-        graph = Graph::create(zeContext,
-                              zeDevice,
-                              zeGraphDDITableExt,
-                              blobDir + node["path"].as<std::string>(),
-                              node);
+        graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
     }
 };
 
@@ -122,7 +114,8 @@ TEST_F(CommandGraph, SetArgumentIndexGreaterThanExpectedArgumentIndexLimit) {
     ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties(graph->handle, &graphProps), ZE_RESULT_SUCCESS)
         << "Failed to get Graph properties";
 
-    ASSERT_EQ(graph->setArgumentValue(graphProps.numGraphArgs, graph->inputBin.at(0).data()),
+    graph->allocateInputArguments(MemType::SHARED_MEMORY);
+    ASSERT_EQ(graph->setArgumentValue(graphProps.numGraphArgs, graph->inArgs.at(0)),
               ZE_RESULT_ERROR_INVALID_ARGUMENT);
 }
 
@@ -169,34 +162,16 @@ TEST_F(CommandGraph, GetArgumentPropertiesReturnsExpectedProperties) {
               ZE_RESULT_ERROR_INVALID_ARGUMENT);
 }
 
-TEST_F(CommandGraph, AppendGraphInitExecuteWithoutAllocatingInputOutputMemory) {
-    ASSERT_EQ(graph->setArgumentValue(0, graph->inputBin.at(0).data()), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(graph->setArgumentValue(1, nullptr), ZE_RESULT_ERROR_INVALID_NULL_POINTER);
-
-    ASSERT_EQ(
-        zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
-        ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeGraphDDITableExt
-                  ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),
-              ZE_RESULT_ERROR_UNINITIALIZED);
-}
-
 class CommandGraphLong : public CommandGraphBase, public ::testing::WithParamInterface<YAML::Node> {
   protected:
     void SetUp() override {
         CommandGraphBase::SetUp();
         const YAML::Node node = GetParam();
 
-        /* Validate configuration */
-        ASSERT_GT(node["path"].as<std::string>().size(), 0);
-
-        graph = Graph::create(zeContext,
-                              zeDevice,
-                              zeGraphDDITableExt,
-                              blobDir + node["path"].as<std::string>(),
-                              node);
+        graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
 
         graph->allocateArguments(MemType::SHARED_MEMORY);
+        graph->copyInputData();
     }
 };
 
@@ -210,8 +185,6 @@ INSTANTIATE_TEST_SUITE_P(,
                          });
 
 TEST_P(CommandGraphLong, AppendGraphInitExecuteAndSynchronize) {
-    graph->copyInputData();
-
     std::chrono::steady_clock::time_point graphInitializeStart, graphInitializeStop,
         executeInferenceStart, executeInferenceStop;
 
@@ -260,8 +233,6 @@ TEST_P(CommandGraphLong, AppendGraphInitExecuteAndSynchronize) {
 }
 
 TEST_P(CommandGraphLong, AppendGraphInitExecuteAndThreadedSynchronize) {
-    graph->copyInputData();
-
     ASSERT_EQ(
         zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
         ZE_RESULT_SUCCESS);
@@ -324,8 +295,6 @@ TEST_P(CommandGraphLong, RunGraphInitOnly) {
 }
 
 TEST_P(CommandGraphLong, AppendGraphInitTwiceAndExecute) {
-    graph->copyInputData();
-
     ASSERT_EQ(
         zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
         ZE_RESULT_SUCCESS);
@@ -344,8 +313,6 @@ TEST_P(CommandGraphLong, AppendGraphInitTwiceAndExecute) {
 }
 
 TEST_P(CommandGraphLong, RunGraphExecuteThreeTimes) {
-    graph->copyInputData();
-
     ASSERT_EQ(
         zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
         ZE_RESULT_SUCCESS);
@@ -372,28 +339,25 @@ TEST_P(CommandGraphLong, RunGraphExecuteThreeTimes) {
 
 TEST_P(CommandGraphLong, SingleListGraphExecutionWithBarrierTest) {
     std::vector<std::shared_ptr<void>> mem;
-    std::vector<void *> inputMemHost, outputMemHost;
+    std::vector<void *> inputHostMem, outputHostMem;
 
-    for (auto &input : graph->inputBin) {
-        auto memInput = AllocHostMemory(input.size());
-
-        mem.push_back(memInput);
-        inputMemHost.push_back(memInput.get());
-        memcpy(memInput.get(), input.data(), input.size());
+    for (auto size : graph->inputSize) {
+        mem.push_back(AllocHostMemory(size));
+        inputHostMem.push_back(mem.back().get());
     }
 
-    for (auto &output : graph->outputBin) {
-        auto memOutput = AllocHostMemory(output.size());
-
-        mem.push_back(memOutput);
-        outputMemHost.push_back(memOutput.get());
+    for (auto size : graph->outputSize) {
+        mem.push_back(AllocHostMemory(size));
+        outputHostMem.push_back(mem.back().get());
     }
 
-    for (size_t i = 0; i < graph->inputBin.size(); i++) {
+    graph->copyInputData(inputHostMem);
+
+    for (size_t i = 0; i < graph->inputSize.size(); i++) {
         ASSERT_EQ(zeCommandListAppendMemoryCopy(list,
                                                 graph->inArgs[i],
-                                                inputMemHost[i],
-                                                graph->inputBin[i].size(),
+                                                inputHostMem[i],
+                                                graph->inputSize[i],
                                                 nullptr,
                                                 0,
                                                 nullptr),
@@ -412,11 +376,11 @@ TEST_P(CommandGraphLong, SingleListGraphExecutionWithBarrierTest) {
 
     ASSERT_EQ(zeCommandListAppendBarrier(list, nullptr, 0, nullptr), ZE_RESULT_SUCCESS);
 
-    for (size_t i = 0; i < graph->outputBin.size(); i++) {
+    for (size_t i = 0; i < graph->outputSize.size(); i++) {
         ASSERT_EQ(zeCommandListAppendMemoryCopy(list,
-                                                outputMemHost[i],
+                                                outputHostMem[i],
                                                 graph->outArgs[i],
-                                                graph->outputBin[i].size(),
+                                                graph->outputSize[i],
                                                 nullptr,
                                                 0,
                                                 nullptr),
@@ -428,14 +392,10 @@ TEST_P(CommandGraphLong, SingleListGraphExecutionWithBarrierTest) {
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    for (size_t i = 0; i < graph->outArgs.size(); i++)
-        ASSERT_EQ(memcmp(outputMemHost[i], graph->outputBin[i].data(), graph->outputBin[i].size()),
-                  0);
+    graph->checkResults(outputHostMem);
 }
 
 TEST_P(CommandGraphLong, LoadGraphOnceAndRunExecutionTwice) {
-    graph->copyInputData();
-
     ASSERT_EQ(
         zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
         ZE_RESULT_SUCCESS);
@@ -454,8 +414,6 @@ TEST_P(CommandGraphLong, LoadGraphOnceAndRunExecutionTwice) {
 }
 
 TEST_P(CommandGraphLong, RunGraphExecuteInTwoSeparateCommandLists) {
-    graph->copyInputData();
-
     ASSERT_EQ(
         zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
         ZE_RESULT_SUCCESS);
@@ -476,7 +434,7 @@ TEST_P(CommandGraphLong, RunGraphExecuteInTwoSeparateCommandLists) {
     ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
     auto list1 = scopedList1.get();
 
-    const std::vector<void *> &graphOutput1 = graph->outArgs;
+    std::vector<void *> &graphOutput = graph->outArgs;
 
     graph->allocateArguments(MemType::SHARED_MEMORY);
 
@@ -502,43 +460,42 @@ TEST_P(CommandGraphLong, RunGraphExecuteInTwoSeparateCommandLists) {
     ASSERT_EQ(zeFenceHostSynchronize(fence0, graphSyncTimeout), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeFenceHostSynchronize(fence1, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    for (size_t i = 0; i < graph->outArgs.size(); i++) {
-        EXPECT_EQ(memcmp(graphOutput1[i], graph->outputBin[i].data(), graph->outputBin[i].size()),
-                  0);
-        EXPECT_EQ(memcmp(graph->outArgs[i], graph->outputBin[i].data(), graph->outputBin[i].size()),
-                  0);
-    }
+    graph->checkResults(graphOutput);
+
+    graph->checkResults();
 }
 
 TEST_P(CommandGraphLong, AppendGraphInitAndExecuteWithSingleMemoryAllocation) {
     auto offset = 0x100;
     size_t totalArgSize = 0;
-    for (const auto &arg : graph->inputBin) {
-        totalArgSize += arg.size();
+    for (auto size : graph->inputSize) {
+        totalArgSize += size;
     }
-    for (const auto &arg : graph->outputBin) {
-        totalArgSize += arg.size();
+
+    for (auto size : graph->outputSize) {
+        totalArgSize += size;
     }
 
     auto mem = AllocHostMemory(offset + totalArgSize);
     uint8_t *address = static_cast<uint8_t *>(mem.get()) + offset;
 
     for (size_t i = 0; i < graph->inArgs.size(); i++) {
-        memcpy(address, graph->inputBin[i].data(), graph->inputBin[i].size());
-        address += graph->inputBin[i].size();
+        memcpy(address, graph->inArgs[i], graph->inputSize[i]);
+        address += graph->inputSize[i];
     }
 
     uint32_t argIndex = 0;
     address = static_cast<uint8_t *>(mem.get()) + offset;
-    for (const auto &arg : graph->inputBin) {
+    for (auto size : graph->inputSize) {
         ASSERT_EQ(graph->setArgumentValue(argIndex++, address), ZE_RESULT_SUCCESS);
-        address += arg.size();
+        address += size;
     }
+
     graph->outArgs.clear();
-    for (const auto &arg : graph->outputBin) {
+    for (auto size : graph->outputSize) {
         ASSERT_EQ(graph->setArgumentValue(argIndex++, address), ZE_RESULT_SUCCESS);
         graph->outArgs.push_back(address);
-        address += arg.size();
+        address += size;
     }
 
     ASSERT_EQ(
@@ -556,23 +513,23 @@ TEST_P(CommandGraphLong, AppendGraphInitAndExecuteWithSingleMemoryAllocation) {
 }
 
 TEST_P(CommandGraphLong, GraphInitAndExecWith200msDelay) {
-    graph->copyInputData();
-
     ASSERT_EQ(
         zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
         ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
-
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
     ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeGraphDDITableExt
                   ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),
               ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
@@ -602,17 +559,11 @@ TEST_P(CommandGraphLongThreaded, AppendGraphInitExecuteAndSynchronize) {
     const YAML::Node node(std::get<0>(param));
     uint32_t threadParam = std::get<1>(param);
 
-    /* Validate configuration */
-    ASSERT_GT(node["path"].as<std::string>().size(), 0);
-
     std::vector<std::unique_ptr<std::thread>> tasks;
     for (size_t i = 0; i < threadParam; i++) {
         tasks.push_back(std::make_unique<std::thread>([this, node]() {
-            std::shared_ptr<Graph> graph = Graph::create(zeContext,
-                                                         zeDevice,
-                                                         zeGraphDDITableExt,
-                                                         blobDir + node["path"].as<std::string>(),
-                                                         node);
+            std::shared_ptr<Graph> graph =
+                Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
 
             ze_result_t ret = ZE_RESULT_SUCCESS;
 
@@ -653,22 +604,15 @@ TEST_F(CommandGraphLongThreaded, RunAllBlobsInSingleContextSimultaneously) {
     std::vector<std::unique_ptr<std::thread>> tasks;
 
     if (!Environment::getConfiguration("graph_execution").size())
-        GTEST_SKIP() << "Do not find blobs to execute test";
+        GTEST_SKIP() << "No data to perform the test";
 
     for (const auto &node : Environment::getConfiguration("graph_execution")) {
-        ASSERT_GT(node["path"].as<std::string>().size(), 0);
-
         tasks.push_back(std::make_unique<std::thread>([this, node]() {
             std::shared_ptr<Graph> graph;
-            {
-                graph = Graph::create(zeContext,
-                                      zeDevice,
-                                      zeGraphDDITableExt,
-                                      blobDir + node["path"].as<std::string>(),
-                                      node);
 
-                graph->allocateArguments(MemType::SHARED_MEMORY);
-            }
+            graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
+
+            graph->allocateArguments(MemType::SHARED_MEMORY);
 
             graph->copyInputData();
 

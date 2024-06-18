@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -15,45 +15,50 @@ class GraphNativeBase : public UmdTest {
         UmdTest::SetUp();
 
         if (!Environment::getConfiguration("graph_execution").size())
-            GTEST_SKIP() << "Do not find blobs to execute test";
+            GTEST_SKIP() << "No data to perform the test";
 
-        /* Tests from this group will be run on first blob taken from configuration */
         const YAML::Node node = Environment::getConfiguration("graph_execution")[0];
 
-        /*Validate configuration*/
         ASSERT_GT(node["path"].as<std::string>().size(), 0);
-        ASSERT_GT(node["in"].as<std::vector<std::string>>().size(), 0);
-        ASSERT_GT(node["out"].as<std::vector<std::string>>().size(), 0);
+        std::filesystem::path path = node["path"].as<std::string>();
 
-        ASSERT_TRUE(getBlobFromPath(blobDir + node["path"].as<std::string>(),
-                                    node["in"].as<std::vector<std::string>>(),
-                                    node["out"].as<std::vector<std::string>>(),
-                                    vpuBlob,
-                                    inputBin,
-                                    outputBin,
-                                    vpuBin));
+        if (path.extension() == ".blob") {
+            ASSERT_TRUE(
+                loadBlobFromPath(globalConfig.blobDir + node["path"].as<std::string>(), npuBlob));
+
+            graphDesc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES,
+                         .pNext = nullptr,
+                         .format = ZE_GRAPH_FORMAT_NATIVE,
+                         .inputSize = npuBlob.size(),
+                         .pInput = reinterpret_cast<uint8_t *>(npuBlob.data()),
+                         .pBuildFlags = nullptr,
+                         .flags = ZE_GRAPH_FLAG_NONE};
+
+        } else {
+            ASSERT_GT(node["flags"].as<std::string>().size(), 0);
+
+            buildFlags = getFlagsFromString(node["flags"].as<std::string>());
+            createGraphDescriptorForModel(globalConfig.modelDir + node["path"].as<std::string>(),
+                                          buildFlags,
+                                          modelIR,
+                                          graphDesc);
+        }
     }
 
     void TearDown() override { UmdTest::TearDown(); }
-
-    ze_graph_desc_2_t graphDesc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES,
-                                   .pNext = nullptr,
-                                   .format = ZE_GRAPH_FORMAT_NATIVE,
-                                   .inputSize = 0,
-                                   .pInput = nullptr,
-                                   .pBuildFlags = nullptr,
-                                   .flags = ZE_GRAPH_FLAG_NONE};
 
     ze_graph_handle_t graphHandle = nullptr;
     ze_result_t ret = ZE_RESULT_SUCCESS;
     size_t size = 0;
 
-    std::vector<std::vector<char>> inputBin, outputBin;
-    std::vector<char> vpuBlob, vpuBin;
+    std::vector<char> npuBlob;
+
+    ze_graph_desc_2_t graphDesc = {};
+    std::vector<uint8_t> modelIR = {};
+    std::vector<char> buildFlags = {};
 };
 
 TEST_F(GraphNativeBase, CreatingGraphWithNullptrInputGraph) {
-    graphDesc.inputSize = vpuBlob.size();
     graphDesc.pInput = nullptr;
     EXPECT_EQ(zeGraphDDITableExt->pfnCreate2(zeContext, zeDevice, &graphDesc, &graphHandle),
               ZE_RESULT_ERROR_INVALID_NULL_POINTER);
@@ -79,19 +84,11 @@ class GraphNativeBinary : public UmdTest {
         UmdTest::SetUp();
 
         if (!Environment::getConfiguration("graph_execution").size())
-            GTEST_SKIP() << "Do not find blobs to execute test";
+            GTEST_SKIP() << "No data to perform the test";
 
-        /* CommandGraph test will be run on first blob taken from configuration */
         const YAML::Node node = Environment::getConfiguration("graph_execution")[0];
 
-        /* Validate configuration */
-        ASSERT_GT(node["path"].as<std::string>().size(), 0);
-
-        graph = Graph::create(zeContext,
-                              zeDevice,
-                              zeGraphDDITableExt,
-                              blobDir + node["path"].as<std::string>(),
-                              node);
+        graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
     }
 
     void TearDown() override { UmdTest::TearDown(); }
@@ -103,19 +100,15 @@ class GraphNativeBinary : public UmdTest {
 TEST_F(GraphNativeBinary, GetGraphNativeBinaryWithoutGraphNativeBinaryPointerExpectSuccess) {
     EXPECT_EQ(zeGraphDDITableExt->pfnGetNativeBinary(graph->handle, &size, nullptr),
               ZE_RESULT_SUCCESS);
-    EXPECT_EQ(size, graph->vpuBlob.size());
 }
 
 TEST_F(GraphNativeBinary, GetGraphNativeBinaryWithAndWithoutGraphNativeBinaryPointerExpectSuccess) {
     std::vector<uint8_t> graphNativeBinary;
     EXPECT_EQ(zeGraphDDITableExt->pfnGetNativeBinary(graph->handle, &size, nullptr),
               ZE_RESULT_SUCCESS);
-    EXPECT_EQ(size, graph->vpuBlob.size());
     graphNativeBinary.resize(size, 0xAA);
 
     EXPECT_EQ(
         zeGraphDDITableExt->pfnGetNativeBinary(graph->handle, &size, graphNativeBinary.data()),
         ZE_RESULT_SUCCESS);
-
-    EXPECT_EQ(memcmp(graphNativeBinary.data(), graph->vpuBlob.data(), graph->vpuBlob.size()), 0);
 }

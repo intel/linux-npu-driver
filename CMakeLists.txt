@@ -6,7 +6,7 @@
 
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 
-set(STACK_VERSION 1.2.0 CACHE STRING "Main project version")
+set(STACK_VERSION 1.5.0 CACHE STRING "Main project version")
 project(npu-linux-driver VERSION ${STACK_VERSION})
 
 set(BUILD_NUMBER "dev-0" CACHE STRING "Build number composed of name and unique number used as driver version")
@@ -30,18 +30,15 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-include(cmake/detect_linux_system.cmake)
-
 option(ENABLE_OPENVINO_PACKAGE "Enable building the OpenVINO + VPUX Plugin package" OFF)
 option(ENABLE_VPUX_COMPILER_BUILD "Enable building compiler in driver" OFF)
 
 message(STATUS "option ENABLE_OPENVINO_PACKAGE: ${ENABLE_OPENVINO_PACKAGE}")
 message(STATUS "option ENABLE_VPUX_COMPILER_BUILD: ${ENABLE_VPUX_COMPILER_BUILD}")
 
+include(cmake/detect_linux_system.cmake)
+include(cmake/compiler_flags.cmake)
 include(cmake/sanitizer.cmake)
-
-# Add Intel CET flags for Indirect Branch Tracking and Shadow call-stack technologies.
-add_compile_options(-fcf-protection=full -mshstk)
 
 add_subdirectory(compiler)
 add_subdirectory(firmware)

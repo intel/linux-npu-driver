@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -11,7 +11,6 @@
 #include "vpu_driver/source/command/vpu_command_buffer.hpp"
 #include "vpu_driver/source/command/vpu_copy_command.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
-#include <algorithm>
 
 namespace VPU {
 
@@ -172,10 +171,11 @@ bool VPUCommandBuffer::addCommand(VPUCommand *cmd, uint64_t &cmdOffset, uint64_t
         return false;
     }
 
-    LOG_I("Attempting append a command %#x (size: %zu) to %s buffer",
-          cmd->getCommandType(),
-          cmd->getCommitSize(),
-          getName());
+    LOG(VPU_CMD,
+        "Attempting append a command %#x (size: %zu) to %s buffer",
+        cmd->getCommandType(),
+        cmd->getCommitSize(),
+        getName());
 
     if (cmdOffset >= descOffset) {
         LOG_E("Command override the descriptor");
@@ -199,9 +199,10 @@ bool VPUCommandBuffer::addCommand(VPUCommand *cmd, uint64_t &cmdOffset, uint64_t
         return false;
     }
 
-    LOG_V("Command appended to %s buffer: cmdOffset: %zu",
-          targetEngineToStr(targetEngine),
-          cmdOffset);
+    LOG(VPU_CMD,
+        "Command appended to %s buffer: cmdOffset: %zu",
+        targetEngineToStr(targetEngine),
+        cmdOffset);
 
     cmdOffset += cmd->getCommitSize();
     descOffset += getFwDataCacheAlign(cmd->getDescriptorSize());
@@ -232,7 +233,7 @@ bool VPUCommandBuffer::waitForCompletion(int64_t timeout_abs_ns) {
     args.job_status = std::numeric_limits<uint32_t>::max();
 
     int ret = ctx->getDriverApi().wait(&args);
-    LOG_I("Wait completed: ret = %d, errno = %d, commandBuffer: %p", ret, errno, this);
+    LOG(VPU_CMD, "Wait completed: ret = %d, errno = %d, commandBuffer: %p", ret, errno, this);
     if (ret != 0)
         return false;
 
@@ -244,20 +245,32 @@ void VPUCommandBuffer::printDesc(vpu_cmd_resource_descriptor_table_t *table,
                                  size_t size,
                                  const char *type) const {
     if (table == nullptr) {
-        LOG_I("Descriptor base pointer is not provided, skip printing descriptors");
+        LOG(VPU_CMD, "Descriptor base pointer is not provided, skip printing descriptors");
         return;
     }
 
-    LOG_I("Blob %s command descriptor table (table pointer: %p, size: %lu):", type, table, size);
+    LOG(VPU_CMD,
+        "Blob %s command descriptor table (table pointer: %p, size: %lu):",
+        type,
+        table,
+        size);
 
     for (int i = 0; size > sizeof(vpu_cmd_resource_descriptor); i++) {
-        LOG_I("Table: %i:\n\ttype = %#x\n\tdesc_count = %i", i, table->type, table->desc_count);
+        LOG(VPU_CMD,
+            "Table: %i:\n\ttype = %#x\n\tdesc_count = %i",
+            i,
+            table->type,
+            table->desc_count);
         size_t count = table->desc_count;
         table++;
 
         vpu_cmd_resource_descriptor *desc = reinterpret_cast<decltype(desc)>(table);
         for (size_t j = 0; j < count; j++) {
-            LOG_I("Entry %lu:\n\taddress = %#lx\n\twidth = %#x", j, desc->address, desc->width);
+            LOG(VPU_CMD,
+                "Entry %lu:\n\taddress = %#lx\n\twidth = %#x",
+                j,
+                desc->address,
+                desc->width);
             desc++;
         }
 
@@ -273,20 +286,21 @@ void VPUCommandBuffer::printCommandBuffer() const {
 
     uint8_t *bufferPtr = buffer->getBasePointer();
     vpu_cmd_buffer_header_t *cmdHeader = reinterpret_cast<vpu_cmd_buffer_header_t *>(bufferPtr);
-    LOG_I("Start %s command buffer printing:\n"
-          "\tCommand buffer ptr cpu = %p, vpu = %#lx\n"
-          "\tSize = %u bytes, commands offset %u\n"
-          "\tKernel heap addr = %#lx\n"
-          "\tDescriptor heap addr = %#lx\n"
-          "\tFence heap addr = %#lx",
-          targetEngineToStr(targetEngine),
-          cmdHeader,
-          buffer->getVPUAddr(),
-          cmdHeader->cmd_buffer_size,
-          cmdHeader->cmd_offset,
-          cmdHeader->kernel_heap_base_address,
-          cmdHeader->descriptor_heap_base_address,
-          cmdHeader->fence_heap_base_address);
+    LOG(VPU_CMD,
+        "Start %s command buffer printing:\n"
+        "\tCommand buffer ptr cpu = %p, vpu = %#lx\n"
+        "\tSize = %u bytes, commands offset %u\n"
+        "\tKernel heap addr = %#lx\n"
+        "\tDescriptor heap addr = %#lx\n"
+        "\tFence heap addr = %#lx",
+        targetEngineToStr(targetEngine),
+        cmdHeader,
+        buffer->getVPUAddr(),
+        cmdHeader->cmd_buffer_size,
+        cmdHeader->cmd_offset,
+        cmdHeader->kernel_heap_base_address,
+        cmdHeader->descriptor_heap_base_address,
+        cmdHeader->fence_heap_base_address);
 
     size_t cmdOffset = cmdHeader->cmd_offset;
     int i = 0;
@@ -300,106 +314,80 @@ void VPUCommandBuffer::printCommandBuffer() const {
 
         switch (cmd->type) {
         case VPU_CMD_TIMESTAMP:
-            LOG_I("Command %i: Timestamp (size: %u bytes)\n"
-                  "\ttimestamp_address = %#lx",
-                  i,
-                  cmd->size,
-                  reinterpret_cast<vpu_cmd_timestamp_t *>(cmd)->timestamp_address);
+            LOG(VPU_CMD,
+                "Command %i: Timestamp (size: %u bytes)\n"
+                "\ttimestamp_address = %#lx",
+                i,
+                cmd->size,
+                reinterpret_cast<vpu_cmd_timestamp_t *>(cmd)->timestamp_address);
             break;
         case VPU_CMD_FENCE_WAIT:
-            LOG_I("Command %i: Fence Wait (size: %u bytes)\n"
-                  "\toffset = %#lx, value = %#lx",
-                  i,
-                  cmd->size,
-                  reinterpret_cast<vpu_cmd_fence_t *>(cmd)->offset,
-                  reinterpret_cast<vpu_cmd_fence_t *>(cmd)->value);
+            LOG(VPU_CMD,
+                "Command %i: Fence Wait (size: %u bytes)\n"
+                "\toffset = %#lx, value = %#lx",
+                i,
+                cmd->size,
+                reinterpret_cast<vpu_cmd_fence_t *>(cmd)->offset,
+                reinterpret_cast<vpu_cmd_fence_t *>(cmd)->value);
             break;
         case VPU_CMD_FENCE_SIGNAL:
-            LOG_I("Command %i: Fence Signal (size: %u bytes)\n"
-                  "\toffset = %#lx, value = %#lx",
-                  i,
-                  cmd->size,
-                  reinterpret_cast<vpu_cmd_fence_t *>(cmd)->offset,
-                  reinterpret_cast<vpu_cmd_fence_t *>(cmd)->value);
+            LOG(VPU_CMD,
+                "Command %i: Fence Signal (size: %u bytes)\n"
+                "\toffset = %#lx, value = %#lx",
+                i,
+                cmd->size,
+                reinterpret_cast<vpu_cmd_fence_t *>(cmd)->offset,
+                reinterpret_cast<vpu_cmd_fence_t *>(cmd)->value);
             break;
         case VPU_CMD_BARRIER:
-            LOG_I("Command %i: Barrier (size: %u bytes)", i, cmd->size);
+            LOG(VPU_CMD, "Command %i: Barrier (size: %u bytes)", i, cmd->size);
             break;
         case VPU_CMD_METRIC_QUERY_BEGIN:
-            LOG_I("Command %i: Metric Query Begin (size: %u bytes)\n"
-                  "\tmetric_group_type = %u, metric_data_address = %#lx",
-                  i,
-                  cmd->size,
-                  reinterpret_cast<vpu_cmd_metric_query_t *>(cmd)->metric_group_type,
-                  reinterpret_cast<vpu_cmd_metric_query_t *>(cmd)->metric_data_address);
+            LOG(VPU_CMD,
+                "Command %i: Metric Query Begin (size: %u bytes)\n"
+                "\tmetric_group_type = %u, metric_data_address = %#lx",
+                i,
+                cmd->size,
+                reinterpret_cast<vpu_cmd_metric_query_t *>(cmd)->metric_group_type,
+                reinterpret_cast<vpu_cmd_metric_query_t *>(cmd)->metric_data_address);
             break;
         case VPU_CMD_METRIC_QUERY_END:
-            LOG_I("Command %i: Metric Query End (size: %u bytes)\n"
-                  "\tmetric_group_type = %u, metric_data_address = %#lx",
-                  i,
-                  cmd->size,
-                  reinterpret_cast<vpu_cmd_metric_query_t *>(cmd)->metric_group_type,
-                  reinterpret_cast<vpu_cmd_metric_query_t *>(cmd)->metric_data_address);
+            LOG(VPU_CMD,
+                "Command %i: Metric Query End (size: %u bytes)\n"
+                "\tmetric_group_type = %u, metric_data_address = %#lx",
+                i,
+                cmd->size,
+                reinterpret_cast<vpu_cmd_metric_query_t *>(cmd)->metric_group_type,
+                reinterpret_cast<vpu_cmd_metric_query_t *>(cmd)->metric_data_address);
             break;
         case VPU_CMD_COPY_SYSTEM_TO_SYSTEM:
-            LOG_I("Command %i: Copy System to System (size: %u bytes)\n"
-                  "\tdesc_start_offset = %#lx, desc_count = %u",
-                  i,
-                  cmd->size,
-                  reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_start_offset,
-                  reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_count);
+            LOG(VPU_CMD,
+                "Command %i: Copy System to System (size: %u bytes)\n"
+                "\tdesc_start_offset = %#lx, desc_count = %u",
+                i,
+                cmd->size,
+                reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_start_offset,
+                reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_count);
             ctx->printCopyDescriptor(
                 bufferPtr + reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_start_offset +
                     cmdHeader->descriptor_heap_base_address - buffer->getVPUAddr(),
                 cmd);
             break;
         case VPU_CMD_COPY_LOCAL_TO_LOCAL:
-            LOG_I("Command %i: Copy Local to Local (size: %u bytes)\n"
-                  "\tdesc_start_offset = %#lx, desc_count = %u",
-                  i,
-                  cmd->size,
-                  reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_start_offset,
-                  reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_count);
+            LOG(VPU_CMD,
+                "Command %i: Copy Local to Local (size: %u bytes)\n"
+                "\tdesc_start_offset = %#lx, desc_count = %u",
+                i,
+                cmd->size,
+                reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_start_offset,
+                reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_count);
             ctx->printCopyDescriptor(
                 bufferPtr + reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_start_offset +
                     cmdHeader->descriptor_heap_base_address - buffer->getVPUAddr(),
                 cmd);
             break;
-        case VPU_CMD_OV_BLOB_INITIALIZE:
-            LOG_I("Command %i: OV Blob Initialize (size: %u bytes)\n"
-                  "\tkernel_size = %u, kernel_offset = %#lx, desc_table_size = %u, "
-                  " desc_table_offset = %#lx, blob_id = %lu",
-                  i,
-                  cmd->size,
-                  reinterpret_cast<vpu_cmd_ov_blob_initialize_t *>(cmd)->kernel_size,
-                  reinterpret_cast<vpu_cmd_ov_blob_initialize_t *>(cmd)->kernel_offset,
-                  reinterpret_cast<vpu_cmd_ov_blob_initialize_t *>(cmd)->desc_table_size,
-                  reinterpret_cast<vpu_cmd_ov_blob_initialize_t *>(cmd)->desc_table_offset,
-                  reinterpret_cast<vpu_cmd_ov_blob_initialize_t *>(cmd)->blob_id);
-            printDesc(reinterpret_cast<vpu_cmd_resource_descriptor_table_t *>(
-                          bufferPtr +
-                          reinterpret_cast<vpu_cmd_ov_blob_initialize_t *>(cmd)->desc_table_offset +
-                          cmdHeader->descriptor_heap_base_address - buffer->getVPUAddr()),
-                      reinterpret_cast<vpu_cmd_ov_blob_initialize_t *>(cmd)->desc_table_size,
-                      "Initialize");
-            break;
-        case VPU_CMD_OV_BLOB_EXECUTE:
-            LOG_I("Command %i: OV Blob Execute (size: %u bytes)\n"
-                  "\tdesc_table_size = %u, desc_table_offset = %#lx, blob_id = %lu",
-                  i,
-                  cmd->size,
-                  reinterpret_cast<vpu_cmd_ov_blob_execute_t *>(cmd)->desc_table_size,
-                  reinterpret_cast<vpu_cmd_ov_blob_execute_t *>(cmd)->desc_table_offset,
-                  reinterpret_cast<vpu_cmd_ov_blob_execute_t *>(cmd)->blob_id);
-            printDesc(reinterpret_cast<vpu_cmd_resource_descriptor_table_t *>(
-                          bufferPtr +
-                          reinterpret_cast<vpu_cmd_ov_blob_execute_t *>(cmd)->desc_table_offset +
-                          cmdHeader->descriptor_heap_base_address - buffer->getVPUAddr()),
-                      reinterpret_cast<vpu_cmd_ov_blob_execute_t *>(cmd)->desc_table_size,
-                      "Execute");
-            break;
         case VPU_CMD_INFERENCE_EXECUTE:
-            LOG_I(
+            LOG(VPU_CMD,
                 "Command %i: Inference Execute (size %u bytes)\n"
                 "\tinference_id = %lu, host_mapped_inference.address = %#lx, "
                 "host_mapped_inference.size = %#x",
@@ -410,11 +398,12 @@ void VPUCommandBuffer::printCommandBuffer() const {
                 reinterpret_cast<vpu_cmd_inference_execute_t *>(cmd)->host_mapped_inference.width);
             break;
         case VPU_CMD_MEMORY_FILL:
-            LOG_I("Command %i: Memory fill (size: %u bytes) pattern = 0x%x addr=0x%lx",
-                  i,
-                  cmd->size,
-                  reinterpret_cast<vpu_cmd_memory_fill_t *>(cmd)->fill_pattern,
-                  reinterpret_cast<vpu_cmd_memory_fill_t *>(cmd)->start_address);
+            LOG(VPU_CMD,
+                "Command %i: Memory fill (size: %u bytes) pattern = 0x%x addr=0x%lx",
+                i,
+                cmd->size,
+                reinterpret_cast<vpu_cmd_memory_fill_t *>(cmd)->fill_pattern,
+                reinterpret_cast<vpu_cmd_memory_fill_t *>(cmd)->start_address);
             break;
 
         default:
@@ -424,7 +413,7 @@ void VPUCommandBuffer::printCommandBuffer() const {
         cmdOffset += cmd->size;
         i++;
     }
-    LOG_I("Stop %s command buffer printing", targetEngineToStr(targetEngine));
+    LOG(VPU_CMD, "Stop %s command buffer printing", targetEngineToStr(targetEngine));
 }
 
 } // namespace VPU

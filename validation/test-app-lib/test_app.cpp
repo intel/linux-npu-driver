@@ -15,6 +15,7 @@
 #include <fstream>
 #include <thread>
 
+#include "drm_helpers.h"
 #include "perf_counter.h"
 #include "gtest/gtest.h"
 
@@ -89,10 +90,8 @@ static void print_help(const char *test_app_name) {
     printf("Example Usage:\n");
     printf("  %s -v Device.*\n", test_app_name);
     printf("  %s -l\n", test_app_name);
-    printf("  %s *:-Device*:Memory*\n", test_app_name);
-    printf("  %s --gtest_filter=*:-Device*:Memory*\n", test_app_name);
-    printf("  %s --gtest_filter=*:-Device*:Memory*\n", test_app_name);
-    printf("  %s --config=basic.yaml\n", test_app_name);
+    printf("  %s *:-Device*:Memory.*\n", test_app_name);
+    printf("  %s --gtest_filter=*:-Device*:Memory.*\n", test_app_name);
 
     printf("\n");
 }
@@ -112,6 +111,7 @@ static struct option options[] = {{"help", no_argument, NULL, 'h'},
 namespace test_app {
 
 LogLevel log_level;
+std::string app_path;
 bool run_skipped_tests;
 unsigned pause_after_test_ms;
 
@@ -128,7 +128,7 @@ int hex_dump(void *data, long size, const char *name) {
 
     auto *inputData = static_cast<uint8_t *>(data);
 
-    TRACE("%s with size=%ld @ %p\n", name, size, data);
+    TRACE("\n%s with size=%ld @ %p\n", name, size, data);
     TRACE("      x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 xA xB xC xD xE xF\n");
     TRACE("      -----------------------------------------------");
     for (long i = 0; i < size; i++) {
@@ -148,6 +148,7 @@ int hex_dump(void *data, long size, const char *name) {
 void parse_args(int argc, char **argv) {
     int c, r;
 
+    test_app::app_path = argv[0];
     ::testing::InitGoogleTest(&argc, argv);
 
     while (1) {
@@ -215,6 +216,15 @@ void parse_args(int argc, char **argv) {
     }
 }
 
+void append_negative_filter(const char *negative_pattern) {
+    std::string &filter = ::testing::GTEST_FLAG(filter);
+
+    if (filter.find('-') == std::string::npos)
+        filter += '-';
+    filter += ':';
+    filter += negative_pattern;
+}
+
 /*
  * Throw exception on ASSERT_*, so the test is interrupted immediately, even
  * if assertion failed in subroutine or contructor.
@@ -245,8 +255,17 @@ int run() {
 
 bool is_vpu37xx(uint16_t pci_id) {
     switch (pci_id) {
-    case PCI_ID_MTL_H:
-    case PCI_ID_MTL_S:
+    case PCI_ID_MTL:
+    case PCI_ID_ARL:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool is_vpu40xx(uint16_t pci_id) {
+    switch (pci_id) {
+    case PCI_ID_LNL:
         return true;
     default:
         return false;
@@ -254,7 +273,7 @@ bool is_vpu37xx(uint16_t pci_id) {
 }
 
 bool is_vpu(uint16_t pci_id) {
-    return is_vpu37xx(pci_id);
+    return is_vpu37xx(pci_id) || is_vpu40xx(pci_id);
 }
 
 } // namespace test_app

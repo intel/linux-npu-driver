@@ -17,9 +17,9 @@ endif()
 include(ExternalProject)
 
 # OpenVINO + VPUX Plugin package options
-set(OPENVINO_REVISION 7e18bd074a2487a7a98adcd313abd09c58d88072)
-set(VPUX_PLUGIN_REVISION 1ba8c49601c1091b15ceb1ac758eeb99e58e7a8a)
-set(VPUX_PLUGIN_RELEASE mtl_npu_ud_2024_08_rc3)
+set(OPENVINO_REVISION 4a65a3ebaacd185d1c467ea6410eb5772aec62b4)
+set(VPUX_PLUGIN_REVISION 24f9dc66d2538fdcb82274953d0715adfec7e503)
+set(VPUX_PLUGIN_RELEASE npu_ud_2024_24_rc2)
 
 # Directories
 set(OPENVINO_PREFIX_DIR "${CMAKE_BINARY_DIR}/third_party/openvino")
@@ -49,6 +49,7 @@ ExternalProject_Add(
   PREFIX ${VPUX_PLUGIN_PREFIX_DIR}
   SOURCE_DIR ${VPUX_PLUGIN_SOURCE_DIR}
   PATCH_COMMAND
+    git -C ${VPUX_PLUGIN_SOURCE_DIR}/thirdparty/vpucostmodel lfs install &&
     git -C ${VPUX_PLUGIN_SOURCE_DIR}/thirdparty/vpucostmodel lfs pull
   CONFIGURE_COMMAND ""
   BUILD_COMMAND ""

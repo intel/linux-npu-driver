@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
-#include "blob_params.hpp"
+#include "graph_utilities.hpp"
 #include "umd_test.h"
 
 #include <filesystem>
@@ -33,64 +33,10 @@ class GraphObject : public UmdTest {
         fence = scopedFence.get();
     }
 
-    void GraphInitialize(const ze_graph_desc_2_t graphDesc,
-                         std::vector<uint32_t> &sizeGraphInput,
-                         std::vector<uint32_t> &sizeGraphOutput) {
-        ze_result_t ret;
-        scopedGraph =
-            zeScope::graphCreate2(zeGraphDDITableExt, zeContext, zeDevice, graphDesc, ret);
-        ASSERT_EQ(ret, ZE_RESULT_SUCCESS) << "Failed to create Graph Object";
-        graph = scopedGraph.get();
-
-        ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties(graph, &graphProps), ZE_RESULT_SUCCESS)
-            << "Failed to get Graph properties";
-
-        for (uint32_t index = 0; index < graphProps.numGraphArgs; ++index) {
-            ze_graph_argument_properties_t graphArgProps;
-
-            ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties(graph, index, &graphArgProps),
-                      ZE_RESULT_SUCCESS)
-                << "Failed to get Graph arg properties";
-
-            size_t expSize = 1u;
-            for (int i = 0; i < ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE; i++)
-                expSize *= graphArgProps.dims[i];
-
-            switch (graphArgProps.devicePrecision) {
-            case ZE_GRAPH_ARGUMENT_PRECISION_FP32:
-            case ZE_GRAPH_ARGUMENT_PRECISION_INT32:
-            case ZE_GRAPH_ARGUMENT_PRECISION_UINT32:
-                expSize *= sizeof(uint32_t);
-                break;
-            case ZE_GRAPH_ARGUMENT_PRECISION_BF16:
-            case ZE_GRAPH_ARGUMENT_PRECISION_FP16:
-            case ZE_GRAPH_ARGUMENT_PRECISION_INT16:
-            case ZE_GRAPH_ARGUMENT_PRECISION_UINT16:
-                expSize *= sizeof(uint16_t);
-                break;
-            case ZE_GRAPH_ARGUMENT_PRECISION_INT8:
-            case ZE_GRAPH_ARGUMENT_PRECISION_UINT8:
-                expSize *= sizeof(uint8_t);
-                break;
-            case ZE_GRAPH_ARGUMENT_PRECISION_INT4:
-            case ZE_GRAPH_ARGUMENT_PRECISION_UINT4:
-                expSize /= 2;
-                break;
-            default:
-                ASSERT_TRUE(false) << "Invalid Graph Argument Precision";
-            }
-
-            if (graphArgProps.type == ZE_GRAPH_ARGUMENT_TYPE_INPUT) {
-                sizeGraphInput.push_back(expSize);
-            } else {
-                sizeGraphOutput.push_back(expSize);
-            }
-
-            EXPECT_NE(graphArgProps.name, "");
-        }
-
-        ASSERT_EQ(zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph, nullptr, 0, nullptr),
-                  ZE_RESULT_SUCCESS)
+    void GraphInitialize() {
+        ASSERT_EQ(
+            zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
+            ZE_RESULT_SUCCESS)
             << "Failed to append GraphInitialize to CommandList";
 
         ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS)
@@ -107,12 +53,8 @@ class GraphObject : public UmdTest {
     ze_command_list_handle_t list = nullptr;
     ze_fence_handle_t fence = nullptr;
 
-    ze_graph_properties_t graphProps{};
-    std::vector<uint32_t> graphInputSize;
-    std::vector<uint32_t> graphOutputSize;
-
   protected:
-    ze_graph_handle_t graph = nullptr;
+    std::shared_ptr<Graph> graph;
 
     ze_command_queue_desc_t cmdQueueDesc{.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
                                          .pNext = nullptr,
@@ -133,7 +75,6 @@ class GraphObject : public UmdTest {
     zeScope::SharedPtr<ze_command_queue_handle_t> scopedQueue = nullptr;
     zeScope::SharedPtr<ze_command_list_handle_t> scopedList = nullptr;
     zeScope::SharedPtr<ze_fence_handle_t> scopedFence = nullptr;
-    zeScope::SharedPtr<ze_graph_handle_t> scopedGraph = nullptr;
 };
 
 class GraphPipeline : public GraphObject {
@@ -170,30 +111,17 @@ class GraphPipeline : public GraphObject {
         }
     }
 
-    void CreatePipeline(std::vector<void *> &inputHostMem,
-                        std::vector<void *> &inputDevMem,
-                        std::vector<void *> &outputHostMem,
-                        std::vector<void *> &outputDevMem,
-                        std::vector<uint32_t> &inputSize,
-                        std::vector<uint32_t> &outputSize) {
-        ASSERT_TRUE(graph) << "Failed to retrieve graph handle";
-
-        uint32_t argIndex = 0u;
-        for (size_t i = 0; i < inputSize.size(); i++) {
+    void CreatePipeline(std::vector<void *> &inputHostMem, std::vector<void *> &outputHostMem) {
+        for (size_t i = 0; i < graph->inputSize.size(); i++) {
             ASSERT_EQ(zeCommandListAppendMemoryCopy(listVec[stage::UPLOAD],
-                                                    inputDevMem[i],
+                                                    graph->inArgs[i],
                                                     inputHostMem[i],
-                                                    inputSize[i],
+                                                    graph->inputSize[i],
                                                     nullptr,
                                                     0,
                                                     nullptr),
                       ZE_RESULT_SUCCESS)
                 << "Failed to append copy command to CommandList[UPLOAD]";
-
-            ASSERT_EQ(zeGraphDDITableExt->pfnSetArgumentValue(graph, argIndex, inputDevMem[i]),
-                      ZE_RESULT_SUCCESS)
-                << "Failed to set Graph Object argument #" << argIndex;
-            argIndex++;
         }
 
         ASSERT_EQ(zeCommandListAppendBarrier(listVec[stage::UPLOAD], nullptr, 0, nullptr),
@@ -204,21 +132,16 @@ class GraphPipeline : public GraphObject {
                   ZE_RESULT_SUCCESS)
             << "Failed to append signal event command to CommandList[UPLOAD]";
 
-        for (size_t i = 0; i < outputSize.size(); i++) {
+        for (size_t i = 0; i < graph->outputSize.size(); i++) {
             ASSERT_EQ(zeCommandListAppendMemoryCopy(listVec[stage::READBACK],
                                                     outputHostMem[i],
-                                                    outputDevMem[i],
-                                                    outputSize[i],
+                                                    graph->outArgs[i],
+                                                    graph->outputSize[i],
                                                     nullptr,
                                                     0,
                                                     nullptr),
                       ZE_RESULT_SUCCESS)
                 << "Failed to append copy command to CommandList[READBACK]";
-
-            ASSERT_EQ(zeGraphDDITableExt->pfnSetArgumentValue(graph, argIndex, outputDevMem[i]),
-                      ZE_RESULT_SUCCESS)
-                << "Failed to set Graph Object argument #" << argIndex;
-            argIndex++;
         }
 
         ASSERT_EQ(
@@ -227,7 +150,7 @@ class GraphPipeline : public GraphObject {
             << "Failed to append wait on event command to CommandList[EXECUTE]";
 
         ASSERT_EQ(zeGraphDDITableExt->pfnAppendGraphExecute(listVec[stage::EXECUTE],
-                                                            graph,
+                                                            graph->handle,
                                                             nullptr,
                                                             nullptr,
                                                             0,
@@ -328,22 +251,10 @@ class GraphInference : public GraphInferenceT, public ::testing::WithParamInterf
         GraphInferenceT::SetUp();
         const YAML::Node node = GetParam();
 
-        /* Validate configuration */
-        ASSERT_GT(node["path"].as<std::string>().size(), 0);
-        ASSERT_GT(node["in"].as<std::vector<std::string>>().size(), 0);
-        ASSERT_GT(node["out"].as<std::vector<std::string>>().size(), 0);
+        graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
 
-        ASSERT_TRUE(getBlobFromPath(blobDir + node["path"].as<std::string>(),
-                                    node["in"].as<std::vector<std::string>>(),
-                                    node["out"].as<std::vector<std::string>>(),
-                                    vpuBlob,
-                                    inputBin,
-                                    outputBin,
-                                    vpuBin));
+        graph->allocateArguments(MemType::DEVICE_MEMORY);
     }
-
-    std::vector<std::vector<char>> inputBin, outputBin;
-    std::vector<char> vpuBlob, vpuBin;
 };
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GraphInference);
@@ -356,66 +267,26 @@ INSTANTIATE_TEST_SUITE_P(,
                          });
 
 TEST_P(GraphInference, InferenceTest) {
-    ze_activation_kernel_desc_t actShaveKernel = {
-        .stype = ZE_STRUCTURE_TYPE_GRAPH_ACTIVATION_KERNEL,
-        .pNext = nullptr,
-        .kernelDataSize = vpuBin.size(),
-        .pKernelData = reinterpret_cast<uint8_t *>(vpuBin.data())};
-
-    const ze_graph_desc_2_t graphDesc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES,
-                                         .pNext = &actShaveKernel,
-                                         .format = ZE_GRAPH_FORMAT_NATIVE,
-                                         .inputSize = vpuBlob.size(),
-                                         .pInput = reinterpret_cast<uint8_t *>(vpuBlob.data()),
-                                         .pBuildFlags = nullptr,
-                                         .flags = ZE_GRAPH_FLAG_NONE};
-
-    GraphInitialize(graphDesc, graphInputSize, graphOutputSize);
-
-    ASSERT_EQ(inputBin.size(), graphInputSize.size());
-    for (size_t i = 0; i < inputBin.size(); i++) {
-        ASSERT_EQ(inputBin[i].size(), graphInputSize[i]);
-    }
-
-    ASSERT_EQ(outputBin.size(), graphOutputSize.size());
-    for (size_t i = 0; i < outputBin.size(); i++) {
-        ASSERT_EQ(outputBin[i].size(), graphOutputSize[i]);
-    }
-
     std::vector<std::shared_ptr<void>> mem;
-    std::vector<void *> inputHostMem, outputHostMem, inputDevMem, outputDevMem;
-    for (const auto &s : graphInputSize) {
-        mem.push_back(AllocHostMemory(s));
+    std::vector<void *> inputHostMem, outputHostMem;
+
+    for (auto size : graph->inputSize) {
+        mem.push_back(AllocHostMemory(size));
         inputHostMem.push_back(mem.back().get());
-
-        mem.push_back(AllocDeviceMemory(s));
-        inputDevMem.push_back(mem.back().get());
     }
 
-    for (const auto &s : graphOutputSize) {
-        mem.push_back(AllocHostMemory(s));
+    for (auto size : graph->outputSize) {
+        mem.push_back(AllocHostMemory(size));
         outputHostMem.push_back(mem.back().get());
-
-        mem.push_back(AllocDeviceMemory(s));
-        outputDevMem.push_back(mem.back().get());
     }
 
-    for (size_t i = 0; i < graphInputSize.size(); i++) {
-        memcpy(inputHostMem[i], inputBin[i].data(), inputBin[i].size());
-    }
+    graph->copyInputData(inputHostMem);
 
-    CreatePipeline(inputHostMem,
-                   inputDevMem,
-                   outputHostMem,
-                   outputDevMem,
-                   graphInputSize,
-                   graphOutputSize);
+    CreatePipeline(inputHostMem, outputHostMem);
 
     RunInference();
 
     ReadBack();
 
-    for (size_t i = 0; i < graphOutputSize.size(); i++) {
-        EXPECT_EQ(memcmp(outputHostMem[i], outputBin[i].data(), outputBin[i].size()), 0);
-    }
+    graph->checkResults(outputHostMem);
 };

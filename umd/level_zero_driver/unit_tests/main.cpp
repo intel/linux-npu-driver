@@ -46,7 +46,7 @@ static bool parseOptions(int argc, char **argv) {
     while ((opt = getopt_long(argc, argv, "vl:b:m:c:", longOptions, nullptr)) != -1) {
         switch (opt) {
         case 'v':
-            VPU::setLogLevel(VERBOSE);
+            VPU::setLogLevel(INFO);
             break;
         case 'l':
             VPU::setLogLevel(optarg);

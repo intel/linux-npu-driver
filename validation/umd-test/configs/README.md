@@ -1,4 +1,4 @@
-<!-- Copyright 2022-2023 Intel Corporation.
+<!-- Copyright 2022-2024 Intel Corporation.
 
  This software and the related documents are Intel copyrighted materials, and
  your use of them is governed by the express license under which they were
@@ -103,7 +103,7 @@ Example:
 compiler_in_driver:
   - path: add_abc/add_abc.xml
     flags: --inputs_precisions="A:fp16 B:fp16 C:fp16" --inputs_layouts="A:C B:C C:C" --outputs_precisions="Y:fp16" --outputs_layouts="Y:C"
-  - path: mobilenet-v2/onnx/FP16-INT8/mobilenet-v2.xml
+  - path: public/mobilenet-v2/onnx/FP16-INT8/mobilenet-v2.xml
     flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NHWC" --outputs_precisions="473:fp32" --outputs_layouts="473:NC"
     graph_profiling: false
 ```
@@ -121,7 +121,7 @@ For each model must be specified:
 Example:
 ```
 image_classification_imagenet:
-  - path: resnet-50-pytorch/onnx/FP16-INT8/resnet-50-pytorch.xml
+  - path: public/resnet-50-pytorch/onnx/FP16-INT8/resnet-50-pytorch.xml
     flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NHWC" --outputs_precisions="495:fp32" --outputs_layouts="495:NC"
     input: [ cat3.bmp, watch.bmp ]
     class_index: [ 283, 531 ]
@@ -147,13 +147,13 @@ Example:
 multi_inference:
   - name: "ImageClassificationNetworks"
     pipeline:
-    - path: resnet-50-pytorch/onnx/FP16-INT8/resnet-50-pytorch.xml
+    - path: public/resnet-50-pytorch/onnx/FP16-INT8/resnet-50-pytorch.xml
       flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NHWC" --outputs_precisions="495:fp32" --outputs_layouts="495:NC"
       input: [ watch.bmp ]
       class_index: [ 531 ]
       target_fps: 30
       exec_time_in_secs: 10
-    - path: mobilenet-v2/onnx/FP16-INT8/mobilenet-v2.xml
+    - path: public/mobilenet-v2/onnx/FP16-INT8/mobilenet-v2.xml
       flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NHWC" --outputs_precisions="473:fp32" --outputs_layouts="473:NC"
       target_fps: 30
       exec_time_in_secs: 10

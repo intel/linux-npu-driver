@@ -132,14 +132,14 @@ INSTANTIATE_TEST_SUITE_P(,
 TEST_P(OpenVinoBasic, CompileModelWithGraphInitAndExecute) {
     const YAML::Node node = GetParam();
 
-    std::string modelPath(modelDir + node["path"].as<std::string>());
+    std::string modelPath(globalConfig.modelDir + node["path"].as<std::string>());
     auto mainModel = core.read_model(modelPath.c_str());
 
     ASSERT_EQ(mainModel->inputs().size(), 1);
 
     std::vector<std::string> testImages;
     for (auto &image : node["input"].as<std::vector<std::string>>()) {
-        testImages.push_back(imageDir + image);
+        testImages.push_back(globalConfig.imageDir + image);
     }
 
     if (testImages.empty())

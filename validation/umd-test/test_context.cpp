@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
-#include "blob_params.hpp"
+#include "graph_utilities.hpp"
 #include "umd_test.h"
 #include <functional>
 #include <gtest/gtest.h>
@@ -187,23 +187,12 @@ class MultiContextGraph : public Context,
 
             ctxs.push_back(scopedContext);
         }
-
-        ASSERT_TRUE(getBlobFromPath(blobDir + node["path"].as<std::string>(),
-                                    node["in"].as<std::vector<std::string>>(),
-                                    node["out"].as<std::vector<std::string>>(),
-                                    vpuBlob,
-                                    inputBin,
-                                    outputBin,
-                                    vpuBin));
     }
 
     void RunInference(ze_context_handle_t ctx);
 
     std::vector<zeScope::SharedPtr<ze_context_handle_t>> ctxs;
     std::vector<std::shared_ptr<std::thread>> tasks;
-
-    std::vector<std::vector<char>> inputBin, outputBin;
-    std::vector<char> vpuBlob, vpuBin;
 };
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MultiContextGraph);
@@ -222,9 +211,16 @@ INSTANTIATE_TEST_SUITE_P(
     });
 
 void MultiContextGraph::RunInference(ze_context_handle_t ctx) {
-    ze_result_t ret;
-    std::vector<void *> graphOutput;
-    std::vector<std::shared_ptr<void>> mem;
+    ze_result_t ret = ZE_RESULT_SUCCESS;
+
+    auto param = GetParam();
+    const YAML::Node node(std::get<1>(param));
+
+    std::shared_ptr<Graph> graph =
+        Graph::create(ctx, zeDevice, zeGraphDDITableExt, globalConfig, node);
+
+    graph->allocateArguments(MemType::SHARED_MEMORY);
+    graph->copyInputData();
 
     auto scopedQueue = zeScope::commandQueueCreate(ctx, zeDevice, cmdQueueDesc, ret);
     ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
@@ -234,41 +230,9 @@ void MultiContextGraph::RunInference(ze_context_handle_t ctx) {
     ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
     ze_command_list_handle_t list = scopedList.get();
 
-    ze_graph_desc_2_t graphDesc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES,
-                                   .pNext = nullptr,
-                                   .format = ZE_GRAPH_FORMAT_NATIVE,
-                                   .inputSize = vpuBlob.size(),
-                                   .pInput = reinterpret_cast<const uint8_t *>(vpuBlob.data()),
-                                   .pBuildFlags = nullptr,
-                                   .flags = ZE_GRAPH_FLAG_NONE};
-
-    auto scopedGraph = zeScope::graphCreate2(zeGraphDDITableExt, ctx, zeDevice, graphDesc, ret);
-    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
-    ze_graph_handle_t graph = scopedGraph.get();
-
-    uint32_t index = 0;
-    for (auto &input : inputBin) {
-        auto memInput = zeMemory::allocShared(ctx, zeDevice, input.size());
-
-        mem.push_back(memInput);
-        memcpy(memInput.get(), input.data(), input.size());
-
-        ASSERT_EQ(zeGraphDDITableExt->pfnSetArgumentValue(graph, index++, memInput.get()),
-                  ZE_RESULT_SUCCESS);
-    }
-
-    for (auto &output : outputBin) {
-        auto memOutput = zeMemory::allocShared(ctx, zeDevice, output.size());
-
-        mem.push_back(memOutput);
-        graphOutput.push_back(memOutput.get());
-
-        ASSERT_EQ(zeGraphDDITableExt->pfnSetArgumentValue(graph, index++, memOutput.get()),
-                  ZE_RESULT_SUCCESS);
-    }
-
-    ASSERT_EQ(zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph, nullptr, 0, nullptr),
-              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(
+        zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
+        ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
 
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
@@ -276,16 +240,15 @@ void MultiContextGraph::RunInference(ze_context_handle_t ctx) {
 
     ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
 
-    ASSERT_EQ(zeGraphDDITableExt->pfnAppendGraphExecute(list, graph, nullptr, nullptr, 0, nullptr),
+    ASSERT_EQ(zeGraphDDITableExt
+                  ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),
               ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
 
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    for (size_t i = 0; i < graphOutput.size(); i++) {
-        EXPECT_EQ(memcmp(graphOutput[i], outputBin[i].data(), outputBin[i].size()), 0);
-    }
+    graph->checkResults();
 }
 
 TEST_P(MultiContextGraph, RunGraphInferenceSequentially) {

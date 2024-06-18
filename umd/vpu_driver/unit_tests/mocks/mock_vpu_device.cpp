@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -26,5 +26,13 @@ MockVPUDevice::createWithDefaultHardwareInfo(MockOsInterfaceImp &mockOSInf) {
         throw std::runtime_error("Failed to initialize MockVPUDevice");
     return device;
 };
+std::unique_ptr<MockVPUDeviceContext> MockVPUDevice::createMockDeviceContext() {
+    auto drvApi = VPUDriverApi::openDriverApi(devPath, osInfc);
+    if (drvApi == nullptr) {
+        LOG(UTEST, "Failed to allocate VPUDriverApi");
+        return nullptr;
+    }
 
+    return std::make_unique<MockVPUDeviceContext>(std::move(drvApi), &hwInfo);
+}
 } // namespace VPU

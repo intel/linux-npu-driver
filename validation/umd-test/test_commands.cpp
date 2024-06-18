@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -66,8 +66,7 @@ class Command : public UmdTest {
     ze_result_t ret;
 };
 
-// TODO: Validation layer is disabled. OpenVino issue: EISW-113275
-TEST_F(Command, DISABLED_CommandListDestroyErrorHandle) {
+TEST_F(Command, CommandListDestroyErrorHandle) {
     EXPECT_EQ(zeCommandListDestroy(nullptr), ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
 }
 
@@ -80,12 +79,7 @@ TEST_F(Command, CreateCloseResetAndDestroyList) {
     ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
 }
 
-// TODO: Validation layer is disabled when OpenVino is used, test will fail, issue: EISW-101738
-#ifdef UMD_TESTS_USE_OPENVINO
-TEST_F(Command, DISABLED_CreateAndDestroyQueueErrorHandle) {
-#else
 TEST_F(Command, CreateAndDestroyQueueErrorHandle) {
-#endif
     EXPECT_EQ(zeCommandQueueCreate(nullptr, nullptr, &cmdQueueDesc, &queue),
               ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
     EXPECT_EQ(zeCommandQueueCreate(zeContext, nullptr, &cmdQueueDesc, &queue),
@@ -99,8 +93,7 @@ TEST_F(Command, CreateSynchronizeAndDestroyQueue) {
     ASSERT_EQ(zeCommandQueueSynchronize(queue, 0), ZE_RESULT_SUCCESS);
 }
 
-// TODO: Validation layer is disabled. OpenVino issue: EISW-113275
-TEST_F(Command, DISABLED_CreateExecuteSynchronizeAndDestroyQueueErrorHandle) {
+TEST_F(Command, CreateExecuteSynchronizeAndDestroyQueueErrorHandle) {
     EXPECT_EQ(zeCommandQueueExecuteCommandLists(nullptr, 1, &list, nullptr),
               ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
     EXPECT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, nullptr, nullptr),
@@ -678,6 +671,54 @@ TEST_F(CommandTimestamp, TwoCommandQueusWithDifferentGroupExecuteTimestampAndSyn
     EXPECT_NE(*(ts), *(ts + 1)) << "Timestamp values should be different";
 }
 
+TEST_F(CommandTimestamp, CommandTimestampStressTest) {
+    auto checkTimestamp = [&]() {
+        ze_result_t ret;
+        ze_context_desc_t contextDesc = {.stype = ZE_STRUCTURE_TYPE_CONTEXT_DESC,
+                                         .pNext = nullptr,
+                                         .flags = 0};
+
+        auto devContext = zeScope::contextCreate(zeDriver, contextDesc, ret);
+        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+        auto cmdQueue = zeScope::commandQueueCreate(devContext.get(), zeDevice, cmdQueueDesc, ret);
+        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+
+        auto cmdList = zeScope::commandListCreate(devContext.get(), zeDevice, cmdListDesc, ret);
+        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+
+        auto mem = zeMemory::allocShared(devContext.get(), zeDevice, size, 0);
+        uint64_t *ts = static_cast<uint64_t *>(mem.get());
+
+        ASSERT_EQ(zeCommandListAppendWriteGlobalTimestamp(cmdList.get(), ts, nullptr, 0, nullptr),
+                  ZE_RESULT_SUCCESS);
+
+        ASSERT_EQ(zeCommandListClose(cmdList.get()), ZE_RESULT_SUCCESS);
+
+        auto list = cmdList.get();
+        uint32_t iterations;
+
+        if (isSilicon())
+            iterations = 5000;
+        else
+            iterations = 5;
+
+        for (uint32_t iteration = 0; iteration < iterations; iteration++) {
+            EXPECT_EQ(zeCommandQueueExecuteCommandLists(cmdQueue.get(), 1, &list, nullptr),
+                      ZE_RESULT_SUCCESS);
+            EXPECT_EQ(zeCommandQueueSynchronize(cmdQueue.get(), syncTimeout), ZE_RESULT_SUCCESS);
+            EXPECT_GT(*ts, 0ULL);
+        }
+    };
+
+    const size_t threadsNum = 20;
+    std::vector<std::future<void>> tasks(threadsNum);
+    for (auto &task : tasks) {
+        task = std::async(std::launch::async, checkTimestamp);
+    }
+    for (const auto &task : tasks) {
+        task.wait();
+    }
+}
 class CommandCopy : public Command {};
 
 TEST_F(CommandCopy, AppendMemoryCopyLocalToLocalAndSynchronize) {

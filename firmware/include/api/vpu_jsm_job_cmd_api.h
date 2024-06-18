@@ -20,12 +20,12 @@
  * Minor version changes when API backward compatibility is preserved.
  * Resets to 0 if Major version is incremented.
  */
-#define VPU_JSM_JOB_CMD_API_VER_MINOR 1
+#define VPU_JSM_JOB_CMD_API_VER_MINOR 5
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
  */
-#define VPU_JSM_JOB_CMD_API_VER_PATCH 4
+#define VPU_JSM_JOB_CMD_API_VER_PATCH 0
 
 /*
  * Index in the API version table
@@ -107,6 +107,21 @@ enum vpu_desc_table_entry_type {
 };
 
 /**
+ * @brief VPU timestamp types.
+ * Used to select the type of data returned by the command VPU_CMD_TIMESTAMP.
+ *
+ * @see vpu_cmd_timestamp
+ */
+enum vpu_time_type {
+    /* PerfFRC raw timestamp. */
+    VPU_TIME_RAW = 0,
+    /* SysTime timestamp (including SysTime delta). */
+    VPU_TIME_SYSTIME = 1,
+    /* SysTime delta. */
+    VPU_TIME_DELTA = 2
+};
+
+/**
  * @brief Resource descriptor
  * @see vpu_cmd_resource_descriptor_table_t
  */
@@ -146,6 +161,32 @@ typedef struct vpu_cmd_resource_descriptor_table {
 } vpu_cmd_resource_descriptor_table_t;
 
 /**
+ * @brief Copy command descriptor on VPU 30xx
+ *
+ * @see VPU_CMD_COPY_SYSTEM_TO_LOCAL
+ * @see VPU_CMD_COPY_LOCAL_TO_SYSTEM
+ * @see VPU_CMD_COPY_SYSTEM_TO_SYSTEM
+ * @see VPU_CMD_COPY_LOCAL_TO_LOCAL
+ */
+typedef struct vpu_cmd_copy_descriptor_30xx {
+    /**
+     * COPY_SYSTEM_TO_LOCAL: Host DDR,
+     * COPY_LOCAL_TO_SYSTEM/COPY_LOCAL_TO_LOCAL: VPU DDR - 16 byte aligned
+     */
+    uint64_t src_address;
+    /**
+     * COPY_SYSTEM_TO_LOCAL/COPY_LOCAL_TO_LOCAL: VPU DDR,
+     * COPY_SYSTEM_TO_LOCAL: Host DDR - 16 byte aligned
+     */
+    uint64_t dst_address;
+    /** Copy Size in bytes - multiple of 16 bytes */
+    uint32_t size;
+    /** Padding for 64-byte alignment */
+    uint32_t reserved_0[11];
+} vpu_cmd_copy_descriptor_30xx_t;
+typedef vpu_cmd_copy_descriptor_30xx_t vpu_cmd_copy_descriptor_kmb_t;
+
+/**
  * @brief Copy command descriptor on VPU 37xx
  * Note VPU 37xx does not have a LOCAL memory
  *
@@ -174,6 +215,23 @@ typedef struct vpu_cmd_copy_descriptor_37xx {
 typedef vpu_cmd_copy_descriptor_37xx_t vpu_cmd_copy_descriptor_mtl_t;
 
 /**
+ * @brief Copy command descriptor on VPU 40xx or later
+ * Note VPU 40xx does not have a LOCAL memory
+ *
+ * @see VPU_CMD_COPY_SYSTEM_TO_SYSTEM
+ */
+typedef struct vpu_cmd_copy_descriptor_40xx {
+    uint64_t reserved_0[3];  /**< Unused */
+    uint32_t size;           /**< Copy Size in bytes */
+    uint32_t reserved_1;     /**< Unused */
+    uint64_t reserved_2;     /**< Unused */
+    uint64_t src_address;    /**< Source virtual address */
+    uint64_t dst_address;    /**< Destination address */
+    uint64_t reserved_3[17]; /**< Unused */
+} vpu_cmd_copy_descriptor_40xx_t;
+typedef vpu_cmd_copy_descriptor_40xx_t vpu_cmd_copy_descriptor_lnl_t;
+
+/**
  * @brief Command buffer header
  * Defines size of all commands in the command buffer and location
  * of the heap buffers referenced in the command buffer.
@@ -190,8 +248,11 @@ typedef struct vpu_cmd_buffer_header {
     uint64_t kernel_heap_base_address;
     /** Pointer to descriptor heap base address */
     uint64_t descriptor_heap_base_address;
-    /** Unused */
-    uint64_t reserved_1;
+    /**
+     * Batch buffer submission timestamp taken by UMD from SoC's global system clock, in microseconds.
+     * NPU can convert this value to its own fixed clock's timebase, to match other profiling timestamps.
+     */
+    uint64_t submission_timestamp;
     /** Pointer to fence heap base address */
     uint64_t fence_heap_base_address;
     /**
@@ -225,6 +286,8 @@ typedef struct vpu_cmd_copy_buffer {
     /**
      * @brief Offset in the descriptor heap where the array of copy descriptors start
      * @see vpu_cmd_copy_descriptor_37xx_t
+     * @see vpu_cmd_copy_descriptor_40xx_t
+     * @see vpu_cmd_copy_descriptor_30xx_t
      * @see vpu_cmd_buffer_header_t.descriptor_heap_base_address
      * NOTE: Resulting address (heap base plus offset) must be aligned on a 64B boundary
      * to allow proper handling of VPU cache operations.
@@ -357,12 +420,14 @@ typedef struct vpu_cmd_inference_execute {
  */
 typedef struct vpu_cmd_timestamp {
     vpu_cmd_header_t header;
-    /** Reserved */
-    uint32_t reserved_0;
+    /** @see enum vpu_time_type. */
+    uint32_t type;
     /**
      * Timestamp address
      * NOTE: (MTL) - Address must be aligned on a 64B boundary to allow proper handling of
      * VPU cache operations.
+     * (LNL) - Address must be aligned on a 8B boundary as RISC-V facilitates cache-bypass,
+     * memory access.
      */
     uint64_t timestamp_address;
 } vpu_cmd_timestamp_t;

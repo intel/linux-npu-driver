@@ -1,23 +1,26 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
 #include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
+#include "vpu_driver/source/os_interface/os_interface.hpp"
 
 #include <cerrno>
-#include <string.h>
-#include <fcntl.h>
+#include <cstdint>
+#include <drm/drm.h>
 #include <memory>
+#include <string.h>
 #include <sys/mman.h>
+#include <sys/sysmacros.h>
 #include <uapi/drm/ivpu_accel.h>
 
 namespace VPU {
 
-VPUDriverApi::VPUDriverApi(std::string devnode, OsInterface &osInfc)
-    : devnode(std::move(devnode))
+VPUDriverApi::VPUDriverApi(std::string devPath, OsInterface &osInfc)
+    : devPath(std::move(devPath))
     , osInfc(osInfc)
     , vpuFd(-1) {}
 
@@ -27,10 +30,46 @@ VPUDriverApi::~VPUDriverApi() {
 }
 
 VPUDriverApi::VPUDriverApi(VPUDriverApi &&v)
-    : devnode(v.devnode)
+    : devPath(v.devPath)
     , osInfc(v.osInfc)
     , vpuFd(v.vpuFd) {
     v.vpuFd = -1;
+}
+
+static const char *ioctl_str(unsigned long r) {
+    switch (r) {
+        CASE_RETURN_STR(DRM_IOCTL_VERSION);
+        CASE_RETURN_STR(DRM_IOCTL_GEM_CLOSE);
+        CASE_RETURN_STR(DRM_IOCTL_PRIME_HANDLE_TO_FD);
+        CASE_RETURN_STR(DRM_IOCTL_PRIME_FD_TO_HANDLE);
+        CASE_RETURN_STR(DRM_IOCTL_IVPU_GET_PARAM);
+        CASE_RETURN_STR(DRM_IOCTL_IVPU_SET_PARAM);
+        CASE_RETURN_STR(DRM_IOCTL_IVPU_BO_CREATE);
+        CASE_RETURN_STR(DRM_IOCTL_IVPU_BO_INFO);
+        CASE_RETURN_STR(DRM_IOCTL_IVPU_SUBMIT);
+        CASE_RETURN_STR(DRM_IOCTL_IVPU_BO_WAIT);
+        CASE_RETURN_STR(DRM_IOCTL_IVPU_METRIC_STREAMER_START);
+        CASE_RETURN_STR(DRM_IOCTL_IVPU_METRIC_STREAMER_STOP);
+        CASE_RETURN_STR(DRM_IOCTL_IVPU_METRIC_STREAMER_GET_DATA);
+        CASE_RETURN_STR(DRM_IOCTL_IVPU_METRIC_STREAMER_GET_INFO);
+
+        CASE_RETURN_STR(DRM_IVPU_PARAM_DEVICE_ID);
+        CASE_RETURN_STR(DRM_IVPU_PARAM_DEVICE_REVISION);
+        CASE_RETURN_STR(DRM_IVPU_PARAM_PLATFORM_TYPE);
+        CASE_RETURN_STR(DRM_IVPU_PARAM_CORE_CLOCK_RATE);
+        CASE_RETURN_STR(DRM_IVPU_PARAM_NUM_CONTEXTS);
+        CASE_RETURN_STR(DRM_IVPU_PARAM_CONTEXT_BASE_ADDRESS);
+        CASE_RETURN_STR(DRM_IVPU_PARAM_CONTEXT_PRIORITY);
+        CASE_RETURN_STR(DRM_IVPU_PARAM_CONTEXT_ID);
+        CASE_RETURN_STR(DRM_IVPU_PARAM_FW_API_VERSION);
+        CASE_RETURN_STR(DRM_IVPU_PARAM_ENGINE_HEARTBEAT);
+        CASE_RETURN_STR(DRM_IVPU_PARAM_UNIQUE_INFERENCE_ID);
+        CASE_RETURN_STR(DRM_IVPU_PARAM_TILE_CONFIG);
+        CASE_RETURN_STR(DRM_IVPU_PARAM_SKU);
+        CASE_RETURN_STR(DRM_IVPU_PARAM_CAPABILITIES);
+    default:
+        return "?";
+    };
 }
 
 int VPUDriverApi::doIoctl(unsigned long request, void *arg) const {
@@ -39,22 +78,27 @@ int VPUDriverApi::doIoctl(unsigned long request, void *arg) const {
         return -EINVAL;
     }
 
-    LOG_V("Start IOCTL request %#lx", request);
+    if (request == DRM_IOCTL_IVPU_GET_PARAM || request == DRM_IOCTL_IVPU_SET_PARAM) {
+        uint32_t p = static_cast<drm_ivpu_param *>(arg)->param;
+        LOG(IOCTL, "%s::%s", ioctl_str(request), ioctl_str(p));
+    } else {
+        LOG(IOCTL, "%s", ioctl_str(request));
+    }
+
     int ret;
     do {
         ret = osInfc.osiIoctl(vpuFd, request, arg);
     } while (ret == -1 && (errno == -EAGAIN || errno == -EINTR));
 
-    LOG_V("End IOCTL request %#lx: ret=%d", request, ret);
     if (ret != 0)
-        LOG_V("IOCTL ERRNO=%d, STRERROR=\"%s\"", errno, strerror(errno));
+        LOG(IOCTL, "IOCTL ERRNO=%d, STRERROR=\"%s\"", errno, strerror(errno));
 
     return ret;
 }
 
-std::unique_ptr<VPUDriverApi> VPUDriverApi::openDriverApi(std::string devnode,
+std::unique_ptr<VPUDriverApi> VPUDriverApi::openDriverApi(std::string devPath,
                                                           OsInterface &osInfc) {
-    auto driverApi = std::make_unique<VPUDriverApi>(std::move(devnode), osInfc);
+    auto driverApi = std::make_unique<VPUDriverApi>(devPath, osInfc);
 
     if (!driverApi->openDevice())
         return nullptr;
@@ -63,9 +107,9 @@ std::unique_ptr<VPUDriverApi> VPUDriverApi::openDriverApi(std::string devnode,
 }
 
 bool VPUDriverApi::openDevice() {
-    vpuFd = osInfc.osiOpen(devnode.c_str(), (O_RDWR | O_CLOEXEC), S_IRUSR | S_IWUSR);
+    vpuFd = osInfc.osiOpen(devPath.c_str(), (O_RDWR | O_CLOEXEC), S_IRUSR | S_IWUSR);
     if (vpuFd < 0)
-        LOG_V("Failed to open '%s'", devnode.c_str());
+        LOG(FSYS, "Failed to open '%s'", devPath.c_str());
     return vpuFd >= 0;
 }
 
@@ -85,16 +129,17 @@ bool VPUDriverApi::isVpuDevice() const {
     drm_version_t version = {};
     int ret = doIoctl(DRM_IOCTL_VERSION, &version);
     if (ret < 0) {
-        LOG_I("Failed to get API version ioctl(ret: %d).", ret);
+        LOG(MISC, "Failed to get API version ioctl(ret: %d).", ret);
         return false;
     }
 
     if (umdIoctlVersionMajor != version.version_major) {
-        LOG_I("IOCTL version doesn't match! (UMD: %d.%d, KMD: %d.%d)",
-              umdIoctlVersionMajor,
-              umdIoctlVersionMinor,
-              version.version_major,
-              version.version_minor);
+        LOG(MISC,
+            "IOCTL version doesn't match! (UMD: %d.%d, KMD: %d.%d)",
+            umdIoctlVersionMajor,
+            umdIoctlVersionMinor,
+            version.version_major,
+            version.version_minor);
         return false;
     }
 
@@ -105,7 +150,7 @@ bool VPUDriverApi::isVpuDevice() const {
 
     ret = doIoctl(DRM_IOCTL_VERSION, &version);
     if (ret < 0) {
-        LOG_I("Failed to get API version ioctl(ret: %d).", ret);
+        LOG(MISC, "Failed to get API version ioctl(ret: %d).", ret);
         return false;
     }
 
@@ -138,12 +183,8 @@ bool VPUDriverApi::checkDeviceCapability(uint32_t index) const {
         return false;
     }
 
-    LOG_I("Capability from index: %#x is set", index);
+    LOG(MISC, "Capability from index: %#x is set", index);
     return true;
-}
-
-bool VPUDriverApi::checkDeviceStatus() const {
-    return osInfc.osiFcntl(vpuFd, F_GETFL) >= 0;
 }
 
 size_t VPUDriverApi::getPageSize() const {
@@ -170,7 +211,7 @@ int VPUDriverApi::createBuffer(size_t size,
     int ret = doIoctl(DRM_IOCTL_IVPU_BO_CREATE, &args);
     if (ret) {
         if (errno == ENOSPC) {
-            LOG_E("Buffer size is too big.");
+            LOG_E("Buffer size is too big");
         }
 
         LOG_E("Failed to call DRM_IOCTL_IVPU_BO_CREATE");
@@ -271,6 +312,32 @@ int VPUDriverApi::metricStreamerGetData(drm_ivpu_metric_streamer_get_data *data)
 
 int VPUDriverApi::metricStreamerGetInfo(drm_ivpu_metric_streamer_get_data *data) const {
     return doIoctl(DRM_IOCTL_IVPU_METRIC_STREAMER_GET_INFO, data);
+}
+
+std::string VPUDriverApi::getDeviceLink() {
+    constexpr size_t len = 256;
+    char devChar[len] = {0};
+    char devLink[len] = {0};
+    struct stat st;
+
+    if (::fstat(vpuFd, &st)) {
+        LOG_E("Failed to ::fstat");
+        return {};
+    }
+
+    snprintf(devChar, len, "/sys/dev/char/%d:%d", major(st.st_rdev), minor(st.st_rdev));
+
+    ssize_t readLen = ::readlink(devChar, devLink, len);
+    if (readLen < 0) {
+        LOG_E("Failed to ::readlink");
+        return {};
+    }
+    devLink[len - 1] = '\0';
+
+    LOG(DEVICE, "Device path: %s", devChar);
+    LOG(DEVICE, "Device path link: %s", devLink);
+
+    return {devLink};
 }
 
 } // namespace VPU

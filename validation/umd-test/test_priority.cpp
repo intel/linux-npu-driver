@@ -138,9 +138,7 @@ TEST_F(CommandQueuePriority, executeCopyUsingDifferentPrioritySimultaneously) {
     }
 }
 
-// TODO: Test fails sporadically in HWS mode (EISW-105158)
-TEST_F(CommandQueuePriority,
-       DISABLED_executeManyLowPriorityJobsExpectHighPriorityJobCompletesFirst) {
+TEST_F(CommandQueuePriority, executeManyLowPriorityJobsExpectHighPriorityJobCompletesFirst) {
     SKIP_NO_HWS("Test can be run in HWS mode");
 
     size_t lowJobCount = 4;

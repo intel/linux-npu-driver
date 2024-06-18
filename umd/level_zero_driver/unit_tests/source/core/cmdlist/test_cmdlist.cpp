@@ -88,7 +88,9 @@ TEST_F(CommandListTest, commandListIsIteratable) {
     EXPECT_EQ(ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY,
               cmdList->appendWriteGlobalTimestamp(&globalTS, nullptr, 0, nullptr));
 
-    auto ptrAlloc = (uint64_t *)ctx->createSharedMemAlloc(4 * 1024);
+    auto ptrAlloc = (uint64_t *)ctx->createMemAlloc(4 * 1024,
+                                                    VPU::VPUBufferObject::Type::CachedFw,
+                                                    VPU::VPUBufferObject::Location::Shared);
     EXPECT_NE(nullptr, ptrAlloc);
 
     EXPECT_EQ(ZE_RESULT_SUCCESS,
@@ -133,7 +135,9 @@ TEST_F(CommandListTest, whenCalledCommandListResetCommandListVectorIsClearedSucc
     ASSERT_NE(nullptr, cmdList);
 
     // Alloc a 4KB device mem.
-    auto ptrAlloc = (uint64_t *)ctx->createSharedMemAlloc(4 * 1024);
+    auto ptrAlloc = (uint64_t *)ctx->createMemAlloc(4 * 1024,
+                                                    VPU::VPUBufferObject::Type::CachedFw,
+                                                    VPU::VPUBufferObject::Location::Shared);
     EXPECT_NE(nullptr, ptrAlloc);
     EXPECT_EQ(ZE_RESULT_SUCCESS,
               cmdList->appendWriteGlobalTimestamp(ptrAlloc, nullptr, 0, nullptr));
@@ -226,10 +230,22 @@ struct CommandListCommitSizeTest : public CommandListTest {
         ASSERT_NE(nullptr, hEvent2);
 
         // Memories.
-        ASSERT_NE(nullptr, (shareMem1 = ctx->createSharedMemAlloc(allocSize)));
-        ASSERT_NE(nullptr, (shareMem2 = ctx->createSharedMemAlloc(allocSize)));
-        ASSERT_NE(nullptr, (hostMem1 = ctx->createHostMemAlloc(allocSize)));
-        ASSERT_NE(nullptr, (hostMem2 = ctx->createHostMemAlloc(allocSize)));
+        ASSERT_NE(nullptr,
+                  (shareMem1 = ctx->createMemAlloc(allocSize,
+                                                   VPU::VPUBufferObject::Type::CachedFw,
+                                                   VPU::VPUBufferObject::Location::Shared)));
+        ASSERT_NE(nullptr,
+                  (shareMem2 = ctx->createMemAlloc(allocSize,
+                                                   VPU::VPUBufferObject::Type::CachedFw,
+                                                   VPU::VPUBufferObject::Location::Shared)));
+        ASSERT_NE(nullptr,
+                  (hostMem1 = ctx->createMemAlloc(allocSize,
+                                                  VPU::VPUBufferObject::Type::CachedShave,
+                                                  VPU::VPUBufferObject::Location::Host)));
+        ASSERT_NE(nullptr,
+                  (hostMem2 = ctx->createMemAlloc(allocSize,
+                                                  VPU::VPUBufferObject::Type::CachedShave,
+                                                  VPU::VPUBufferObject::Location::Host)));
     }
 
     void TearDown() override {

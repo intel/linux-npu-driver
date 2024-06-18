@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -18,8 +18,9 @@
 
 #include <level_zero/ze_api.h>
 #include <level_zero/zet_api.h>
+#include <level_zero/zes_api.h>
 #include <level_zero/ze_graph_ext.h>
-#include <level_zero/ze_intel_vpu_uuid.h>
+#include <level_zero/ze_intel_npu_uuid.h>
 
 struct _ze_device_handle_t {};
 
@@ -28,6 +29,8 @@ namespace L0 {
 struct DriverHandle;
 struct MetricContext;
 struct MetricGroup;
+struct CommandQueue;
+struct CommandList;
 
 struct Device : _ze_device_handle_t {
     Device(DriverHandle *driverHandle, std::unique_ptr<VPU::VPUDevice> device);
@@ -35,11 +38,14 @@ struct Device : _ze_device_handle_t {
     ze_result_t getP2PProperties(ze_device_handle_t hPeerDevice,
                                  ze_device_p2p_properties_t *pP2PProperties);
     ze_result_t getProperties(ze_device_properties_t *pDeviceProperties);
+    ze_result_t getProperties(zes_device_properties_t *pDeviceProperties);
     ze_result_t getSubDevices(uint32_t *pCount, ze_device_handle_t *phSubdevices);
     ze_result_t setIntermediateCacheConfig(ze_cache_config_flags_t cacheConfig);
     ze_result_t setLastLevelCacheConfig(ze_cache_config_flags_t cacheConfig);
     ze_result_t getMemoryProperties(uint32_t *pCount,
                                     ze_device_memory_properties_t *pMemProperties);
+    ze_result_t getGetExternalMemoryProperties(
+        ze_device_external_memory_properties_t *pExternalMemoryProperties);
     ze_result_t
     getMemoryAccessProperties(ze_device_memory_access_properties_t *pMemAccessProperties);
     ze_result_t getDeviceImageProperties(ze_device_image_properties_t *pDeviceImageProperties);
@@ -50,6 +56,8 @@ struct Device : _ze_device_handle_t {
         ze_command_queue_group_properties_t *pCommandQueueGroupProperties);
     ze_command_queue_group_property_flags_t getCommandQeueueGroupFlags(uint32_t ordinal);
     ze_result_t getStatus() const;
+    ze_result_t getGlobalTimestamps(uint64_t *hostTimestamp, uint64_t *deviceTimestamp);
+    ze_result_t getPciProperties(ze_pci_ext_properties_t *pPciProperties);
 
     DriverHandle *getDriverHandle();
     const char *getDeviceMemoryName() const;
@@ -98,7 +106,13 @@ struct Device : _ze_device_handle_t {
     std::shared_ptr<MetricContext> metricContext = nullptr;
     bool metricsLoaded = false;
 
-    const int NS_IN_SEC = 1'000'000'000;
+    const uint NS_IN_SEC = 1'000'000'000;
+
+    template <class T>
+    using UniquePtrT = std::unique_ptr<T, std::function<void(T *)>>;
+    ze_result_t createInternalJob(UniquePtrT<Context> &context,
+                                  CommandQueue **commandQueue,
+                                  CommandList **commandList);
 };
 
 } // namespace L0

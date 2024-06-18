@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -14,11 +14,13 @@
 #include "level_zero_driver/core/source/driver/driver_handle.hpp"
 #include "level_zero_driver/tools/source/metrics/metric.hpp"
 
+#include "version.h"
 #include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/source/device/vpu_device.hpp"
 
 #include <algorithm>
 #include <bitset>
+#include <chrono>
 #include <string.h>
 
 namespace L0 {
@@ -34,7 +36,7 @@ Device::Device(DriverHandle *driverHandle, std::unique_ptr<VPU::VPUDevice> devic
             loadMetricGroupsInfo(metricGroupsInfo);
         }
         if (!Compiler::compilerInit(vpuDevice->getHwInfo().compilerPlatform)) {
-            LOG_W("Failed to initialize VPU compiler.");
+            LOG_W("Failed to initialize VPU compiler");
         }
     }
 }
@@ -46,12 +48,12 @@ DriverHandle *Device::getDriverHandle() {
 ze_result_t Device::getP2PProperties(ze_device_handle_t hPeerDevice,
                                      ze_device_p2p_properties_t *pP2PProperties) {
     if (nullptr == hPeerDevice) {
-        LOG_E("Invalid PeerDevice handle.");
+        LOG_E("Invalid PeerDevice handle");
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
 
     if (nullptr == pP2PProperties) {
-        LOG_E("Invalid pP2PProperties pointer.");
+        LOG_E("Invalid pP2PProperties pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -62,13 +64,13 @@ ze_result_t Device::getP2PProperties(ze_device_handle_t hPeerDevice,
 
 ze_result_t Device::getProperties(ze_device_properties_t *pDeviceProperties) {
     if (pDeviceProperties == nullptr) {
-        LOG_E("Invalid pDeviceProperties pointer.");
+        LOG_E("Invalid pDeviceProperties pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
     auto vpuDevice = getVPUDevice();
     if (vpuDevice == nullptr) {
-        LOG_E("Failed to get VPUDevice instance.");
+        LOG_E("Failed to get VPUDevice instance");
         return ZE_RESULT_ERROR_DEVICE_LOST;
     }
 
@@ -91,10 +93,10 @@ ze_result_t Device::getProperties(ze_device_properties_t *pDeviceProperties) {
 
     if (pDeviceProperties->stype == ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES_1_2) {
         // the units are in cycles/sec
-        pDeviceProperties->timerResolution = 38'400'000;
+        pDeviceProperties->timerResolution = hwInfo.timerResolution;
     } else if (pDeviceProperties->stype == ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES) {
         // the units are in nanoseconds
-        pDeviceProperties->timerResolution = NS_IN_SEC / 38'400'000;
+        pDeviceProperties->timerResolution = NS_IN_SEC / hwInfo.timerResolution;
     }
 
     pDeviceProperties->timestampValidBits = 64u;
@@ -104,7 +106,7 @@ ze_result_t Device::getProperties(ze_device_properties_t *pDeviceProperties) {
     pDeviceProperties->name[ZE_MAX_DEVICE_NAME - 1] = '\0';
 
     pDeviceProperties->flags = ZE_DEVICE_PROPERTY_FLAG_INTEGRATED;
-    pDeviceProperties->uuid = ze_intel_vpu_device_uuid;
+    pDeviceProperties->uuid = ze_intel_npu_device_uuid;
 
     // Using the structure ze_device_ip_version_ext_t to store the platformType value
     if (pDeviceProperties->stype == ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES &&
@@ -117,13 +119,50 @@ ze_result_t Device::getProperties(ze_device_properties_t *pDeviceProperties) {
         }
     }
 
-    LOG_I("Returning device properties.");
+    LOG(DEVICE, "Returning device properties");
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t Device::getProperties(zes_device_properties_t *pDeviceProperties) {
+    if (pDeviceProperties == nullptr) {
+        LOG_E("Invalid pDeviceProperties pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    ze_result_t result = getProperties(&pDeviceProperties->core);
+
+    if (result != ZE_RESULT_SUCCESS) {
+        LOG_E("Failed to get core properties");
+        return result;
+    }
+
+    pDeviceProperties->numSubdevices = 0;
+
+    pDeviceProperties->serialNumber[0] = '\0';
+    strncat(pDeviceProperties->serialNumber, "unknown", ZES_STRING_PROPERTY_SIZE - 1);
+
+    pDeviceProperties->boardNumber[0] = '\0';
+    strncat(pDeviceProperties->boardNumber, "unknown", ZES_STRING_PROPERTY_SIZE - 1);
+
+    pDeviceProperties->brandName[0] = '\0';
+    strncat(pDeviceProperties->brandName, "NPU", ZES_STRING_PROPERTY_SIZE - 1);
+
+    pDeviceProperties->modelName[0] = '\0';
+    strncat(pDeviceProperties->modelName,
+            getVPUDevice()->getHwInfo().platformName,
+            ZES_STRING_PROPERTY_SIZE - 1);
+
+    pDeviceProperties->vendorName[0] = '\0';
+    strncat(pDeviceProperties->vendorName, "INTEL", ZES_STRING_PROPERTY_SIZE - 1);
+
+    pDeviceProperties->driverVersion[0] = '\0';
+    strncat(pDeviceProperties->driverVersion, vpu_drv_version_str, ZES_STRING_PROPERTY_SIZE - 1);
     return ZE_RESULT_SUCCESS;
 }
 
 ze_result_t Device::getSubDevices(uint32_t *pCount, ze_device_handle_t *phSubdevices) {
     if (nullptr == pCount) {
-        LOG_E("Invalid pCount pointer.");
+        LOG_E("Invalid pCount pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -148,7 +187,7 @@ const char *Device::getDeviceMemoryName() const {
 ze_result_t Device::getMemoryProperties(uint32_t *pCount,
                                         ze_device_memory_properties_t *pMemProperties) {
     if (nullptr == pCount) {
-        LOG_E("Invalid memory properties count pointer.");
+        LOG_E("Invalid memory properties count pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -160,12 +199,12 @@ ze_result_t Device::getMemoryProperties(uint32_t *pCount,
     *pCount = 1;
 
     if (nullptr == vpuDevice) {
-        LOG_E("VPU device instance is invalid.");
+        LOG_E("VPU device instance is invalid");
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 
     if (nullptr == pMemProperties) {
-        LOG_I("Input memory properties pointer is NULL.");
+        LOG(DEVICE, "Input memory properties pointer is NULL");
     } else {
         const auto &hwInfo = vpuDevice->getHwInfo();
 
@@ -180,10 +219,24 @@ ze_result_t Device::getMemoryProperties(uint32_t *pCount,
     return ZE_RESULT_SUCCESS;
 }
 
+ze_result_t Device::getGetExternalMemoryProperties(
+    ze_device_external_memory_properties_t *pExternalMemoryProperties) {
+    if (pExternalMemoryProperties == nullptr) {
+        LOG_E("Invalid external memory properties structure pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    pExternalMemoryProperties->memoryAllocationImportTypes = ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF;
+    pExternalMemoryProperties->memoryAllocationExportTypes = ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF;
+
+    pExternalMemoryProperties->imageImportTypes = 0;
+    pExternalMemoryProperties->imageExportTypes = 0;
+    return ZE_RESULT_SUCCESS;
+}
+
 ze_result_t
 Device::getMemoryAccessProperties(ze_device_memory_access_properties_t *pMemAccessProperties) {
     if (pMemAccessProperties == nullptr) {
-        LOG_E("Invalid pMemAccessProperties pointer.");
+        LOG_E("Invalid pMemAccessProperties pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -199,7 +252,7 @@ Device::getMemoryAccessProperties(ze_device_memory_access_properties_t *pMemAcce
 
 ze_result_t Device::getDeviceImageProperties(ze_device_image_properties_t *pDeviceImageProperties) {
     if (pDeviceImageProperties == nullptr) {
-        LOG_E("Invalid pDeviceImageProperties pointer.");
+        LOG_E("Invalid pDeviceImageProperties pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -218,7 +271,7 @@ ze_result_t Device::getDeviceImageProperties(ze_device_image_properties_t *pDevi
 ze_result_t
 Device::getDeviceComputeProperties(ze_device_compute_properties_t *pDeviceComputeProperties) {
     if (pDeviceComputeProperties == nullptr) {
-        LOG_E("Invalid pDeviceComputeProperties pointer.");
+        LOG_E("Invalid pDeviceComputeProperties pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -258,13 +311,13 @@ ze_result_t Device::getCommandQueueGroupProperties(
     uint32_t *pCount,
     ze_command_queue_group_properties_t *pCommandQueueGroupProperties) {
     if (pCount == nullptr) {
-        LOG_E("Invalid queue group properties count pointer.");
+        LOG_E("Invalid queue group properties count pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
     auto vpuDevice = getVPUDevice();
     if (vpuDevice == nullptr) {
-        LOG_E("Failed to get VPUDevice instance.");
+        LOG_E("Failed to get VPUDevice instance");
         return ZE_RESULT_ERROR_DEVICE_LOST;
     }
 
@@ -323,11 +376,124 @@ ze_command_queue_group_property_flags_t Device::getCommandQeueueGroupFlags(uint3
 
 ze_result_t Device::getStatus() const {
     if (vpuDevice == nullptr) {
-        LOG_W("VPU device instance is invalid.");
+        LOG_W("VPU device instance is invalid");
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 
     return vpuDevice->isConnected() ? ZE_RESULT_SUCCESS : ZE_RESULT_ERROR_DEVICE_LOST;
+}
+
+ze_result_t Device::createInternalJob(UniquePtrT<Context> &context,
+                                      CommandQueue **commandQueue,
+                                      CommandList **commandList) {
+    ze_result_t ret;
+    ze_context_desc_t contextDesc = {.stype = ZE_STRUCTURE_TYPE_CONTEXT_DESC,
+                                     .pNext = nullptr,
+                                     .flags = 0};
+    ze_command_queue_desc_t cmdQueueDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
+                                            .pNext = nullptr,
+                                            .ordinal = 0,
+                                            .index = 0,
+                                            .flags = 0,
+                                            .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
+                                            .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
+    ze_command_list_desc_t cmdListDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
+                                          .pNext = nullptr,
+                                          .commandQueueGroupOrdinal = 0,
+                                          .flags = 0};
+    ze_context_handle_t hContext;
+    ze_command_queue_handle_t hCommandQueue;
+    ze_command_list_handle_t hCommandList;
+
+    ret = L0::DriverHandle::fromHandle(driverHandle)->createContext(&contextDesc, &hContext);
+    if (ret != ZE_RESULT_SUCCESS) {
+        return ret;
+    }
+    context = UniquePtrT<Context>(L0::Context::fromHandle(hContext), [](auto p) { p->destroy(); });
+
+    ret = L0::CommandQueue::create(hContext, toHandle(), &cmdQueueDesc, &hCommandQueue);
+    if (ret != ZE_RESULT_SUCCESS) {
+        return ret;
+    }
+    *commandQueue = L0::CommandQueue::fromHandle(hCommandQueue);
+
+    ret = L0::CommandList::create(hContext, toHandle(), &cmdListDesc, &hCommandList);
+    if (ret != ZE_RESULT_SUCCESS) {
+        return ret;
+    }
+    *commandList = L0::CommandList::fromHandle(hCommandList);
+
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t Device::getGlobalTimestamps(uint64_t *hostTimestamp, uint64_t *deviceTimestamp) {
+    if (vpuDevice == nullptr || driverHandle == nullptr) {
+        return ZE_RESULT_ERROR_UNINITIALIZED;
+    }
+
+    ze_result_t ret;
+    UniquePtrT<Context> tsContext = nullptr;
+    CommandQueue *tsCommandQueue = nullptr;
+    CommandList *tsCommandList = nullptr;
+
+    ret = createInternalJob(tsContext, &tsCommandQueue, &tsCommandList);
+    if (ret != ZE_RESULT_SUCCESS || !tsCommandQueue || !tsCommandList) {
+        LOG_E("Internal job creation failed");
+        return ret;
+    }
+
+    auto allignedBo = tsContext->getDeviceContext()->createInternalBufferObject(
+        sizeof(uint64_t),
+        VPU::VPUBufferObject::Type::CachedFw);
+
+    if (allignedBo == nullptr) {
+        LOG_E("Failed to allocate internal buffer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    uint64_t *ts = reinterpret_cast<uint64_t *>(allignedBo->getBasePointer());
+    ret = tsCommandList->appendWriteGlobalTimestamp(ts, nullptr, 0, nullptr, true);
+    if (ret != ZE_RESULT_SUCCESS)
+        return ret;
+
+    ret = tsCommandList->close();
+    if (ret != ZE_RESULT_SUCCESS)
+        return ret;
+
+    auto cmdListHandles = tsCommandList->toHandle();
+    ret = tsCommandQueue->executeCommandLists(1, &cmdListHandles, nullptr);
+    if (ret != ZE_RESULT_SUCCESS)
+        return ret;
+
+    ret = tsCommandQueue->synchronize(std::numeric_limits<uint64_t>::max());
+    if (ret != ZE_RESULT_SUCCESS)
+        return ret;
+
+    const auto &hwInfo = vpuDevice->getHwInfo();
+    *deviceTimestamp = (*ts) * (NS_IN_SEC / hwInfo.timerResolution);
+    auto timestampNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch());
+    *hostTimestamp = static_cast<uint64_t>(timestampNs.count());
+
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t Device::getPciProperties(ze_pci_ext_properties_t *pPciProperties) {
+    if (vpuDevice == nullptr || driverHandle == nullptr) {
+        return ZE_RESULT_ERROR_UNINITIALIZED;
+    }
+
+    uint32_t domain{0}, bus{0}, dev{0}, func{0};
+    if (vpuDevice->getBDF(&domain, &bus, &dev, &func)) {
+        LOG_E("Failed to get device BDF");
+        return ZE_RESULT_ERROR_DEVICE_LOST;
+    }
+    LOG(DEVICE, "Device BDF: %04x:%02x:%02x.%01x", domain, bus, dev, func);
+
+    pPciProperties->address = {domain, bus, dev, func};
+    pPciProperties->maxSpeed = {0, 0, 0};
+
+    return ZE_RESULT_SUCCESS;
 }
 
 VPU::VPUDevice *Device::getVPUDevice() {
@@ -336,7 +502,7 @@ VPU::VPUDevice *Device::getVPUDevice() {
 
 void Device::loadMetricGroupsInfo(std::vector<VPU::GroupInfo> &metricGroupsInfo) {
     size_t numberOfMetricGroups = metricGroupsInfo.size();
-    LOG_I("Number of metric groups: %lu", numberOfMetricGroups);
+    LOG(DEVICE, "Number of metric groups: %lu", numberOfMetricGroups);
 
     metricGroups.reserve(metricGroupsInfo.size());
 
@@ -387,7 +553,7 @@ void Device::loadMetricGroupsInfo(std::vector<VPU::GroupInfo> &metricGroupsInfo)
 bool Device::isMetricGroupAvailable(MetricGroup *metricGroup) const {
     for (auto &group : metricGroups) {
         if (group.get() == metricGroup) {
-            LOG_I("MetricGroup is available on device.");
+            LOG(DEVICE, "MetricGroup is available on device");
             return true;
         }
     }
@@ -397,7 +563,7 @@ bool Device::isMetricGroupAvailable(MetricGroup *metricGroup) const {
 
 ze_result_t Device::metricGroupGet(uint32_t *pCount, zet_metric_group_handle_t *phMetricGroups) {
     if (!getVPUDevice()->getCapMetricStreamer()) {
-        LOG_E("Metrics are not supported.");
+        LOG_E("Metrics are not supported");
         return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
     }
 
@@ -407,7 +573,7 @@ ze_result_t Device::metricGroupGet(uint32_t *pCount, zet_metric_group_handle_t *
     }
 
     if (pCount == nullptr) {
-        LOG_E("pCount is NULL.");
+        LOG_E("pCount is NULL");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -423,7 +589,7 @@ ze_result_t Device::metricGroupGet(uint32_t *pCount, zet_metric_group_handle_t *
             phMetricGroups[i] = metricGroups[i]->toHandle();
         }
     } else {
-        LOG_I("Input metric group handle pointer is NULL.");
+        LOG(DEVICE, "Input metric group handle pointer is NULL");
     }
 
     return ZE_RESULT_SUCCESS;
@@ -432,7 +598,7 @@ ze_result_t Device::metricGroupGet(uint32_t *pCount, zet_metric_group_handle_t *
 ze_result_t
 Device::activateMetricGroups(int vpuFd, uint32_t count, zet_metric_group_handle_t *phMetricGroups) {
     if (metricContext == nullptr) {
-        LOG_E("MetricContext not initialized.");
+        LOG_E("MetricContext not initialized");
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 

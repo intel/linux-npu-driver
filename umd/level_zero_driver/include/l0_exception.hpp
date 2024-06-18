@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2023 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -17,6 +17,14 @@ namespace L0 {
     if (condition) {                                     \
         LOG_E("%s, condition: %s", message, #condition); \
         throw DriverError(result);                       \
+    }
+
+#define L0_HANDLE_EXCEPTION_AND_RETURN(function_call)   \
+    try {                                               \
+        return function_call;                           \
+    } catch (const std::exception &e) {                 \
+        LOG_E("Exception caught, msg: '%s'", e.what()); \
+        return ZE_RESULT_ERROR_UNKNOWN;                 \
     }
 
 class DriverError : std::exception {

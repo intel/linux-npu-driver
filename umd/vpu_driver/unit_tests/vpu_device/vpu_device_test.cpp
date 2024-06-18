@@ -26,7 +26,7 @@ struct VPUDeviceTest : public ::testing::Test {
 
     MockOsInterfaceImp osInfc;
     std::unique_ptr<MockVPUDevice> vpuDevice = MockVPUDevice::createWithDefaultHardwareInfo(osInfc);
-    std::shared_ptr<VPUDeviceContext> ctx = vpuDevice->createDeviceContext();
+    std::shared_ptr<MockVPUDeviceContext> ctx = vpuDevice->createMockDeviceContext();
 };
 
 TEST_F(VPUDeviceTest, jobSubmissionTriggersIoctls) {
@@ -53,11 +53,9 @@ TEST_F(VPUDeviceTest, jobSubmissionTriggersIoctls) {
 }
 
 TEST_F(VPUDeviceTest, givenCallIsConnectedReportsDeviceConnectionStatus) {
-    // Device disconnected.
     osInfc.deviceConnected = false;
     EXPECT_FALSE(vpuDevice->isConnected());
 
-    // Device connected.
     osInfc.deviceConnected = true;
     EXPECT_TRUE(vpuDevice->isConnected());
 }

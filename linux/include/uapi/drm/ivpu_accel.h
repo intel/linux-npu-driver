@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (C) 2020-2023 Intel Corporation
+ * Copyright (C) 2020-2024 Intel Corporation
  */
 
 #ifndef __UAPI_IVPU_DRM_H__
@@ -358,49 +358,49 @@ struct drm_ivpu_bo_wait {
 };
 
 /**
- * struct drm_ivpu_metric_streamer_start - Start collecting metrics data
+ * struct drm_ivpu_metric_streamer_start - Start collecting metric data
  */
 struct drm_ivpu_metric_streamer_start {
-	/** @metric_group_mask: Metric group mask, also indicates metric streamer instance */
+	/** @metric_group_mask: Indicates metric streamer instance */
 	__u64 metric_group_mask;
-	/** @sampling_rate_ns: Sampling rate in nanoseconds */
-	__u64 sampling_rate_ns;
+	/** @sampling_period_ns: Sampling period in nanoseconds */
+	__u64 sampling_period_ns;
 	/**
-	 * @read_rate:
+	 * @read_period_samples:
 	 *
-	 * Number of samples after which application will try to read the data.
+	 * Number of samples after which user space will try to read the data.
 	 * Reading the data after significantly longer period may cause data loss.
 	 */
-	__u32 read_rate;
+	__u32 read_period_samples;
 	/** @sample_size: Returned size of a single sample in bytes */
 	__u32 sample_size;
+	/** @max_data_size: Returned max @data_size from %DRM_IOCTL_IVPU_METRIC_STREAMER_GET_DATA */
+	__u32 max_data_size;
 };
 
 /**
- * struct drm_ivpu_metric_streamer_get_data - Copy collected metrics data
+ * struct drm_ivpu_metric_streamer_get_data - Copy collected metric data
  */
 struct drm_ivpu_metric_streamer_get_data {
-	/** @metric_group_mask: Metric group mask, also indicates metric streamer instance */
+	/** @metric_group_mask: Indicates metric streamer instance */
 	__u64 metric_group_mask;
-	/**
-	 * @size:
-	 *
-	 * Size of metric data to be copied in bytes. The driver overwrites this value
-	 * with the actual size of the copied data.
-	 *
-	 * If the size is zero, the @buffer_ptr is disregarded and this value gets
-	 * overwritten with the amount of data ready to be copied.
-	 */
-	__u64 size;
 	/** @buffer_ptr: A pointer to a destination for the copied data */
 	__u64 buffer_ptr;
+	/** @buffer_size: Size of the destination buffer */
+	__u64 buffer_size;
+	/**
+	 * @data_size: Returned size of copied metric data
+	 *
+	 * If the @buffer_size is zero, returns the amount of data ready to be copied.
+	 */
+	__u64 data_size;
 };
 
 /**
- * struct drm_ivpu_metric_streamer_stop - Stop collecting metrics data
+ * struct drm_ivpu_metric_streamer_stop - Stop collecting metric data
  */
 struct drm_ivpu_metric_streamer_stop {
-	/** @metric_group_mask: Metric group mask, also indicates metric streamer instance */
+	/** @metric_group_mask: Indicates metric streamer instance */
 	__u64 metric_group_mask;
 };
 

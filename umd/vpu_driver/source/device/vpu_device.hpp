@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -23,7 +23,7 @@ class VPUDevice {
   public:
     bool init(bool enableMetrics);
 
-    VPUDevice(std::string devnode, OsInterface &osInfc);
+    VPUDevice(std::string devPath, OsInterface &osInfc);
     virtual ~VPUDevice() = default;
 
     const VPUHwInfo &getHwInfo() const;
@@ -39,6 +39,7 @@ class VPUDevice {
     bool engineSupportCopy(EngineType engineType) const { return true; }
     bool engineSupportCooperativeKernel(EngineType engineType) const { return false; }
     bool engineSupportMetrics(EngineType engineType) const { return false; }
+    int getBDF(uint32_t *domain, uint32_t *bus, uint32_t *dev, uint32_t *func);
 
     /**
      * Return device's connection status.
@@ -53,8 +54,7 @@ class VPUDevice {
     VPUHwInfo hwInfo = {};
     std::vector<GroupInfo> groupsInfo = {};
 
-  private:
-    std::string devnode;
+    std::string devPath;
     OsInterface &osInfc;
     static constexpr std::array<EngineType, 2> engineGroups = {EngineType::COMPUTE,
                                                                EngineType::COPY};

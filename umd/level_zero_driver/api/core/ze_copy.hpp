@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -8,6 +8,7 @@
 #pragma once
 
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
+#include "level_zero_driver/include/l0_exception.hpp"
 #include <level_zero/ze_api.h>
 
 namespace L0 {
@@ -21,8 +22,9 @@ ze_result_t zeCommandListAppendMemoryCopy(ze_command_list_handle_t hCommandList,
     if (hCommandList == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::CommandList::fromHandle(hCommandList)
-        ->appendMemoryCopy(dstptr, srcptr, size, hEvent, numWaitEvents, phWaitEvents);
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::CommandList::fromHandle(hCommandList)
+            ->appendMemoryCopy(dstptr, srcptr, size, hEvent, numWaitEvents, phWaitEvents));
 }
 
 ze_result_t zeCommandListAppendMemoryFill(ze_command_list_handle_t hCommandList,
@@ -36,8 +38,14 @@ ze_result_t zeCommandListAppendMemoryFill(ze_command_list_handle_t hCommandList,
     if (hCommandList == nullptr) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
-    return L0::CommandList::fromHandle(hCommandList)
-        ->appendMemoryFill(ptr, pattern, patternSize, size, hEvent, numWaitEvents, phWaitEvents);
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::CommandList::fromHandle(hCommandList)
+                                       ->appendMemoryFill(ptr,
+                                                          pattern,
+                                                          patternSize,
+                                                          size,
+                                                          hEvent,
+                                                          numWaitEvents,
+                                                          phWaitEvents));
 }
 
 ze_result_t zeCommandListAppendMemoryCopyRegion(ze_command_list_handle_t hCommandList,

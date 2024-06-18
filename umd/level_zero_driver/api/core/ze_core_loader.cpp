@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -131,7 +131,9 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetDeviceProcAddrTable(ze_api_version_t ve
     pDdiTable->pfnGetP2PProperties = L0::zeDeviceGetP2PProperties;
     pDdiTable->pfnCanAccessPeer = L0::zeDeviceCanAccessPeer;
     pDdiTable->pfnGetStatus = L0::zeDeviceGetStatus;
+    pDdiTable->pfnGetGlobalTimestamps = L0::zeDeviceGetGlobalTimestamps;
     pDdiTable->pfnGetExternalMemoryProperties = L0::zeDeviceGetExternalMemoryProperties;
+    pDdiTable->pfnPciGetPropertiesExt = L0::zeDevicePciGetPropertiesExt;
     return ZE_RESULT_SUCCESS;
 }
 

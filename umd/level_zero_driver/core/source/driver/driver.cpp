@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -11,9 +11,11 @@
 #include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/core/source/driver/driver.hpp"
 
+#include "version.h"
 #include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/source/os_interface/vpu_device_factory.hpp"
-#include "vpu_driver/source/os_interface/os_interface_imp.hpp"
+#include "vpu_driver/source/os_interface/os_interface.hpp"
+#include <memory>
 
 namespace L0 {
 
@@ -34,48 +36,55 @@ void Driver::initializeEnvVariables() {
     env = getenv("ZE_SHARED_FORCE_DEVICE_ALLOC");
     envVariables.sharedForceDeviceAlloc =
         env == nullptr || env[0] == '0' || env[0] == '\0' ? false : true;
+}
 
-    env = getenv("ZE_INTEL_NPU_LOGLEVEL");
-    envVariables.umdLogLevel = env == nullptr ? "" : env;
+void Driver::initializeLogging() {
+    const char *env = getenv("ZE_INTEL_NPU_LOGLEVEL");
+    std::string_view umdLogLevel = env == nullptr ? "" : env;
+
+    env = getenv("ZE_INTEL_NPU_LOGMASK");
+    std::string_view umdLogMask = env == nullptr ? "" : env;
 
     env = getenv("ZE_INTEL_NPU_COMPILER_LOGLEVEL");
-    envVariables.cidLogLevel = env == nullptr ? "" : env;
+    std::string_view cidLogLevel = env == nullptr ? "" : env;
+
+    VPU::setLogLevel(umdLogLevel);
+    VPU::setLogMask(umdLogMask);
+    setCidLogLevel(cidLogLevel);
 }
 
 ze_result_t Driver::getInitStatus() {
-    LOG_V("Current driver init status is %u", initStatus);
+    LOG(DRIVER, "Current driver init status is %u", initStatus);
     return initStatus;
 }
 
 void Driver::driverInit(ze_init_flags_t flags) {
     std::call_once(this->initDriverOnce, [&]() {
         initializeEnvVariables();
-        VPU::setLogLevel(envVariables.umdLogLevel);
-        setCidLogLevel(envVariables.cidLogLevel);
-
         if (osInfc == nullptr) {
-            LOG_V("OS interface updated.");
-            osInfc = &VPU::OsInterfaceImp::getInstance();
+            LOG(DRIVER, "OS interface updated");
+            osInfc = &VPU::getOsInstance();
 
             if (osInfc == nullptr) {
-                LOG_E("Failed to initialize (OS interface is null).");
+                LOG_E("Failed to initialize (OS interface is null)");
                 return;
             }
         }
 
+        diskCache = std::make_unique<DiskCache>(*osInfc);
         auto vpuDevices = VPU::DeviceFactory::createDevices(osInfc, envVariables.metrics);
-        LOG_W("%zu VPU device(s) found.", vpuDevices.size());
+        LOG(DRIVER, "%zu VPU device(s) found.", vpuDevices.size());
         if (!vpuDevices.empty()) {
             pGlobalDriverHandle = DriverHandle::create(std::move(vpuDevices));
             if (pGlobalDriverHandle == nullptr) {
-                LOG_W("Failed to initialize (GlobalDriverHandle is null).");
+                LOG_W("Failed to initialize (GlobalDriverHandle is null)");
                 return;
             }
+            initStatus = ZE_RESULT_SUCCESS;
         }
-
-        initStatus = ZE_RESULT_SUCCESS;
     });
-    LOG_V("Driver init status to %u", initStatus);
+    LOG(DRIVER, "Driver init status to %u", initStatus);
+    LOG(DRIVER, "Driver version: %s", vpu_drv_version_str);
 
     return;
 }
@@ -91,7 +100,7 @@ ze_result_t driverHandleGet(uint32_t *pCount, ze_driver_handle_t *phDriverHandle
     }
 
     if (nullptr == pCount) {
-        LOG_E("Invalid driver handle count pointer.");
+        LOG_E("Invalid driver handle count pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -104,7 +113,7 @@ ze_result_t driverHandleGet(uint32_t *pCount, ze_driver_handle_t *phDriverHandle
         phDriverHandles[0] = static_cast<_ze_driver_handle_t *>(pDriver->getDriverHandle());
         *pCount = pDriver->getDriverCount();
     } else {
-        LOG_I("Input driver handle pointer is NULL.");
+        LOG(DRIVER, "Input driver handle pointer is NULL");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -114,7 +123,7 @@ ze_result_t driverHandleGet(uint32_t *pCount, ze_driver_handle_t *phDriverHandle
 ze_result_t init(ze_init_flags_t flags) {
     if (flags != 0 && ((flags & ZE_INIT_FLAG_VPU_ONLY) == 0)) {
         LOG_E("Invalid init flag: %x", flags);
-        return ZE_RESULT_ERROR_INVALID_ENUMERATION;
+        return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 
     Driver *pDriver = Driver::getInstance();
@@ -122,7 +131,7 @@ ze_result_t init(ze_init_flags_t flags) {
         return ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY;
 
     pDriver->driverInit(flags);
-    LOG_V("Updating driver init status to %u", pDriver->getInitStatus());
+    LOG(DRIVER, "Updating driver init status to %u", pDriver->getInitStatus());
 
     return pDriver->getInitStatus();
 }

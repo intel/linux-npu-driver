@@ -32,7 +32,7 @@ struct Event : _ze_event_handle_t, IContextObject {
     ze_result_t destroy();
     ze_result_t hostSignal();
     ze_result_t hostSynchronize(uint64_t timeout);
-    ze_result_t queryStatus(uint64_t timeout = 0ULL);
+    ze_result_t queryStatus(int64_t timeout = 0L);
     ze_result_t reset();
 
     inline VPU::VPUEventCommand::KMDEventDataType *getSyncPointer() const { return eventState; }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -49,8 +49,8 @@ struct Mock<Driver> : public Driver {
     void setAffinityMask(std::string_view value) { envVariables.affinityMask = value; }
     void setPciDeviceOrder(bool value) { envVariables.pciIdDeviceOrder = value; }
     void setSharedForceDeviceAlloc(bool value) { envVariables.sharedForceDeviceAlloc = value; }
-    void setUmdLogLevel(std::string_view value) { envVariables.umdLogLevel = value; }
     void initializeEnvVariables() { Driver::initializeEnvVariables(); }
+    void initializeLogging() { Driver::initializeLogging(); }
 
     bool bDoInit = false;
     uint32_t initCalledCount = 0;

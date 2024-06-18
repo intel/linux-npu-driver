@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -45,13 +45,11 @@ class Fence : public UmdTest {
     ze_result_t ret;
 };
 
-// TODO: Validation layer is disabled. OpenVino issue: EISW-113275
-TEST_F(Fence, DISABLED_CreateFenceWithQueueEqualToNull) {
+TEST_F(Fence, CreateFenceWithQueueEqualToNull) {
     ASSERT_EQ(zeFenceCreate(nullptr, &fenceDesc, &fence), ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
 }
 
-// TODO: Validation layer is disabled. OpenVino issue: EISW-113275
-TEST_F(Fence, DISABLED_DestroyUsingNullptr) {
+TEST_F(Fence, DestroyUsingNullptr) {
     ASSERT_EQ(zeFenceDestroy(nullptr), ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
 }
 

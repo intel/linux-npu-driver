@@ -22,7 +22,7 @@ function(read_os_release ENTRY VAR_OUTPUT)
   endif()
 
   string(REGEX REPLACE "${ENTRY}=" "" OUTPUT ${OUTPUT})
-  string(REGEX REPLACE "\"" "" OUTPUT ${OUTPUT})
+  string(REGEX REPLACE "(\"|')" "" OUTPUT ${OUTPUT})
   string(TOLOWER ${OUTPUT} OUTPUT)
   message(STATUS "${ENTRY} = ${OUTPUT}")
 

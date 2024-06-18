@@ -48,7 +48,8 @@ struct CommandList : _ze_command_list_handle_t, IContextObject {
     ze_result_t appendWriteGlobalTimestamp(uint64_t *dstptr,
                                            ze_event_handle_t hSignalEvent,
                                            uint32_t numWaitEvents,
-                                           ze_event_handle_t *phWaitEvents);
+                                           ze_event_handle_t *phWaitEvents,
+                                           bool skipDmaCopy = false);
     ze_result_t appendGraphInitialize(ze_graph_handle_t hGraph,
                                       ze_event_handle_t hSignalEvent,
                                       uint32_t numWaitEvents,
