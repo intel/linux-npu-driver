@@ -49,6 +49,63 @@ SPDX-License-Identifier: MIT
                          └─────────────────────────────────────────┘                         
 ```
 
+## Changelog
+
+<details>
+<summary>Model driver caching (from v1.5.0)</summary>
+
+Starting from v1.5.0 release the driver allows to cache compiled model in
+filesystem. Whenever user compiles a model (using zeGraphCreate), the driver
+saves the compiled model representation in the user directory
+`~/.cache/ze_intel_npu_cache/` or in the directory specified in
+`ZE_INTEL_NPU_CACHE_DIR` environment variable. The cache directory size is
+controlled by the driver. Whenever the cache directory exceeds 1GB the least
+used compiled models are removed to save the filesystem space.
+
+|Environment variable|Description|
+|---|---|
+|ZE_INTEL_NPU_CACHE_DIR=<path>|The cache path. Set it to empty ("") to disable driver cache|
+|ZE_INTEL_NPU_CACHE_SIZE=<unsigned>|The cache directory size. Whenever the cached files exceeds the size, some cached files are removed using the least recently used strategy|
+
+</details>
+
+<details>
+<summary>Kernel module functional tests - vpu-kmd-test (from v1.5.0)</summary>
+
+Introduced `vpu-kmd-test` in v1.5.0 release that can be used for `intel_vpu`
+module validation. `vpu-kmd-test` is built together with the driver and can be
+found in `<build-dir>/bin`
+
+</details>
+
+<details>
+<summary>Support for Arrow Lake and Lunar Lake CPUs (from v1.5.0)</summary>
+
+In v1.5.0 release introduced support for Arrow Lake and Lunar Lake family processors.
+
+</details>
+
+<details>
+<summary>Log mask for granular control over logging (from v1.5.0)</summary>
+
+In v1.5.0 release there is new environment variable `ZE_INTEL_NPU_LOGMASK` that
+allows the user to enable specific log groups in driver. The
+`ZE_INTEL_NPU_LOGLEVEL` variable is used to enable logging. The available log
+level has been reduced to `ERROR`, `WARNING` and `INFO`. Whenever `INFO` is
+set, the `ZE_INTEL_NPU_LOGMASK` allows to target specific log group. The log
+group are listed in
+[umd/vpu_driver/source/utilities/log.hpp](../umd/vpu_driver/source/utilities/log.hpp#L19)
+
+```
+# Set log level to INFO
+export ZE_INTEL_NPU_LOGLEVEL=INFO
+
+# Set log mask to only print from DEVICE, DRIVER and CACHE groups
+export ZE_INTEL_NPU_LOGMASK=$((1<<4|1<<3|1<<17))
+```
+
+</details>
+
 ## Building a standalone driver
 
 Install the required dependencies in Ubuntu:
@@ -114,63 +171,6 @@ Command line:
 ```
 ./vpu-umd-test --config=basic.yaml
 ```
-
-## Changelog
-
-<details>
-<summary>Model driver caching (from v1.5.0)</summary>
-
-Starting from v1.5.0 release the driver allows to cache compiled model in
-filesystem. Whenever user compiles a model (using zeGraphCreate), the driver
-saves the compiled model representation in the user directory
-`~/.cache/ze_intel_npu_cache/` or in the directory specified in
-`ZE_INTEL_NPU_CACHE_DIR` environment variable. The cache directory size is
-controlled by the driver. Whenever the cache directory exceeds 1GB the least
-used compiled models are removed to save the filesystem space.
-
-|Environment variable|Description|
-|---|---|
-|ZE_INTEL_NPU_CACHE_DIR=<path>|The cache path. Set it to empty ("") to disable driver cache|
-|ZE_INTEL_NPU_CACHE_SIZE=<unsigned>|The cache directory size. Whenever the cached files exceeds the size, some cached files are removed using the least recently used strategy|
-
-</details>
-
-<details>
-<summary>Kernel module functional tests - vpu-kmd-test (from v1.5.0)</summary>
-
-Introduced `vpu-kmd-test` in v1.5.0 release that can be used for `intel_vpu`
-module validation. `vpu-kmd-test` is built together with the driver and can be
-found in `<build-dir>/bin`
-
-</details>
-
-<details>
-<summary>Support for Arrow Lake and Lunar Lake CPUs (from v1.5.0)</summary>
-
-In v1.5.0 release introduced support for Arrow Lake and Lunar Lake family processors.
-
-</details>
-
-<details>
-<summary>Log mask for granular control over logging (from v1.5.0)</summary>
-
-In v1.5.0 release there is new environment variable `ZE_INTEL_NPU_LOGMASK` that
-allows the user to enable specific log groups in driver. The
-`ZE_INTEL_NPU_LOGLEVEL` variable is used to enable logging. The available log
-level has been reduced to `ERROR`, `WARNING` and `INFO`. Whenever `INFO` is
-set, the `ZE_INTEL_NPU_LOGMASK` allows to target specific log group. The log
-group are listed in
-[umd/vpu_driver/source/utilities/log.hpp](../umd/vpu_driver/source/utilities/log.hpp#L19)
-
-```
-# Set log level to INFO
-export ZE_INTEL_NPU_LOGLEVEL=INFO
-
-# Set log mask to only print from DEVICE, DRIVER and CACHE groups
-export ZE_INTEL_NPU_LOGMASK=$((1<<4|1<<3|1<<17))
-```
-
-</details>
 
 ## Troubleshooting
 
