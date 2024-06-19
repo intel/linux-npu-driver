@@ -36,6 +36,8 @@ option(ENABLE_VPUX_COMPILER_BUILD "Enable building compiler in driver" OFF)
 message(STATUS "option ENABLE_OPENVINO_PACKAGE: ${ENABLE_OPENVINO_PACKAGE}")
 message(STATUS "option ENABLE_VPUX_COMPILER_BUILD: ${ENABLE_VPUX_COMPILER_BUILD}")
 
+include(GNUInstallDirs)
+
 include(cmake/detect_linux_system.cmake)
 include(cmake/compiler_flags.cmake)
 include(cmake/sanitizer.cmake)

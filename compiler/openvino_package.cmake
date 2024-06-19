@@ -1,4 +1,4 @@
-# Copyright 2022-2023 Intel Corporation.
+# Copyright 2022-2024 Intel Corporation.
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -154,13 +154,47 @@ add_custom_target(
   BYPRODUCTS ${CMAKE_BINARY_DIR}/${OPENVINO_PACKAGE_NAME}.tar.gz)
 
 install(
-  DIRECTORY ${OPENVINO_PACKAGE_DIR}/
-  USE_SOURCE_PERMISSIONS
-  DESTINATION validation/openvino
-  COMPONENT openvino_driver_package)
-
-install(
   FILES ${CMAKE_BINARY_DIR}/${OPENVINO_PACKAGE_NAME}.tar.gz
   DESTINATION .
   COMPONENT openvino_standalone_package
   EXCLUDE_FROM_ALL)
+
+install(PROGRAMS
+            ${SAMPLES_APPS_BUILD_DIR}/intel64/benchmark_app
+            ${SAMPLES_APPS_BUILD_DIR}/intel64/classification_sample_async
+            ${SAMPLES_APPS_BUILD_DIR}/intel64/hello_classification
+            ${SAMPLES_APPS_BUILD_DIR}/intel64/hello_query_device
+            ${OPENVINO_BINARY_RELEASE_DIR}/protopipe
+            ${OPENVINO_BINARY_RELEASE_DIR}/single-image-test
+            ${OPENVINO_BINARY_RELEASE_DIR}/compile_tool
+        COMPONENT openvino-npu
+        TYPE BIN)
+
+install(DIRECTORY ${OPENVINO_BINARY_RELEASE_DIR}/
+        COMPONENT openvino-npu
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        FILES_MATCHING
+        PATTERN "libnpu_driver_compiler_adapter.so"
+        PATTERN "libnpu_level_zero_backend.so"
+        PATTERN "libnpu_mlir_compiler.so"
+        PATTERN "libopenvino.so*"
+        PATTERN "libopenvino_intel_cpu_plugin.so"
+        PATTERN "libopenvino_intel_gpu_plugin.so"
+        PATTERN "libopenvino_intel_npu_plugin.so"
+        PATTERN "libopenvino_*_frontend.so*"
+        PATTERN "plugins.xml")
+
+install(DIRECTORY ${OPENCV_BINARY_DIR}/lib/
+        COMPONENT openvino-npu
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        FILES_MATCHING
+        PATTERN "libopencv_calib3d.so*"
+        PATTERN "libopencv_core.so*"
+        PATTERN "libopencv_dnn.so*"
+        PATTERN "libopencv_features2d.so*"
+        PATTERN "libopencv_flann.so*"
+        PATTERN "libopencv_gapi.so*"
+        PATTERN "libopencv_imgcodecs.so*"
+        PATTERN "libopencv_imgproc.so*"
+        PATTERN "libopencv_video.so*"
+        PATTERN "python3" EXCLUDE)
