@@ -154,7 +154,7 @@ ls /dev/accel/accel0
 Install the required dependencies in Ubuntu:
 ```
 sudo apt update
-sudo apt install -y build-essential git git-lfs cmake libudev-dev libboost-all-dev libssl-dev
+sudo apt install -y build-essential git git-lfs cmake libudev-dev libboost-all-dev libssl-dev libudev-dev
 ```
 
 Commands to build the driver:
