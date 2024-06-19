@@ -106,12 +106,55 @@ export ZE_INTEL_NPU_LOGMASK=$((1<<4|1<<3|1<<17))
 
 </details>
 
+## Supported devices
+
+The Intel® NPU driver supports following Intel® processor families
+
+|Platform|Kernel support|NPU driver release|
+|---|---|---|
+|[Meteor Lake](https://ark.intel.com/content/www/us/en/ark/products/codename/90353/products-formerly-meteor-lake.html)|v6.5.0-35-generic - Ubuntu22.04 Stock kernel|[v1.1.0](https://github.com/intel/linux-npu-driver/tree/v1.1.0)|
+|Arrow Lake|[v6.8.12](https://kernel.ubuntu.com/mainline/v6.8.12/)|[v1.5.0](https://github.com/intel/linux-npu-driver/tree/v1.5.0)|
+|Lunar Lake|[v6.8.12](https://kernel.ubuntu.com/mainline/v6.8.12/)|[v1.5.0](https://github.com/intel/linux-npu-driver/tree/v1.5.0)|
+
+## Kernel module driver
+
+The kernel module driver `intel_vpu` can be found in [drivers/accel
+tree](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/accel/ivpu?h=v6.8.1)
+in the kernel sources.
+
+<details>
+<summary>Enable the intel_vpu module in the kernel config for compilation</summary>
+
+In the Kernel Menu Configuration from `Device Driver` select `Compute Acceleration Framework`
+and set "modularize" for `Intel NPU (Neural Processing Unit)`.
+</details>
+<details>
+<summary>Finding the intel_vpu kernel module in the system</summary>
+
+```
+# check if the intel_vpu exists is in the system
+modinfo intel_vpu
+
+# check if the intel_vpu is loaded in the kernel
+lsmod | grep intel_vpu
+
+# if the previous command nothing produced, load the intel_vpu
+sudo modprobe intel_vpu
+
+# verify that the intel_vpu has been loaded successfully
+sudo dmesg | tail -n 20
+
+# check if accel device is available
+ls /dev/accel/accel0
+```
+</details>
+
 ## Building a standalone driver
 
 Install the required dependencies in Ubuntu:
 ```
 sudo apt update
-sudo apt install -y build-essential git git-lfs cmake libudev-dev libboost-all-dev libssl-dev
+sudo apt install -y build-essential git git-lfs cmake libudev-dev libboost-all-dev libssl-dev libudev-dev
 ```
 
 Commands to build the driver:
@@ -225,32 +268,6 @@ sudo apt install -y ninja-build
 # remove the old build and create a new one
 rm build -rf
 cmake -B build -S . -G Ninja
-```
-</details>
-<details>
-<summary>Enable the intel_vpu module in the kernel config for compilation</summary>
-
-In the Kernel Menu Configuration from `Device Driver` select `Compute Acceleration Framework`
-and set "modularize" for `Intel NPU (Neural Processing Unit)`.
-</details>
-<details>
-<summary>Finding the intel_vpu kernel module in the system</summary>
-
-```
-# check if the intel_vpu exists is in the system
-modinfo intel_vpu
-
-# check if the intel_vpu is loaded in the kernel
-lsmod | grep intel_vpu
-
-# if the previous command nothing produced, load the intel_vpu
-sudo modprobe intel_vpu
-
-# verify that the intel_vpu has been loaded successfully
-sudo dmesg | tail -n 20
-
-# check if accel device is available
-ls /dev/accel/accel0
 ```
 </details>
 <details>
