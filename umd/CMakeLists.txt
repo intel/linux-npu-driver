@@ -5,7 +5,6 @@
 #
 
 include(common_macros.cmake)
-include(GNUInstallDirs)
 include(CheckCXXCompilerFlag)
 
 if (NOT UMD_LOGLEVEL)
