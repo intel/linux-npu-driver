@@ -1,4 +1,4 @@
-# Copyright 2022-2023 Intel Corporation.
+# Copyright 2022-2024 Intel Corporation.
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -36,6 +36,7 @@ ExternalProject_Add(
   GIT_TAG ${OPENVINO_REVISION}
   PREFIX ${OPENVINO_PREFIX_DIR}
   SOURCE_DIR ${OPENVINO_SOURCE_DIR}
+  UPDATE_DISCONNECTED TRUE
   PATCH_COMMAND ""
   CONFIGURE_COMMAND ""
   BUILD_COMMAND ""
@@ -48,6 +49,7 @@ ExternalProject_Add(
   GIT_TAG ${VPUX_PLUGIN_REVISION}
   PREFIX ${VPUX_PLUGIN_PREFIX_DIR}
   SOURCE_DIR ${VPUX_PLUGIN_SOURCE_DIR}
+  UPDATE_DISCONNECTED TRUE
   PATCH_COMMAND
     git -C ${VPUX_PLUGIN_SOURCE_DIR}/thirdparty/vpucostmodel lfs install &&
     git -C ${VPUX_PLUGIN_SOURCE_DIR}/thirdparty/vpucostmodel lfs pull
