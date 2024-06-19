@@ -110,11 +110,11 @@ export ZE_INTEL_NPU_LOGMASK=$((1<<4|1<<3|1<<17))
 
 The Intel® NPU driver supports following Intel® processor families
 
-|Platform|Kernel support|NPU driver release|Comment|
-|---|---|---|---|
-|[Meteor Lake](https://ark.intel.com/content/www/us/en/ark/products/codename/90353/products-formerly-meteor-lake.html)|v6.5.0-35-generic - Ubuntu22.04 Stock kernel|[v1.1.0](https://github.com/intel/linux-npu-driver/tree/v1.1.0)||
-|Arrow Lake|[v6.8.12](https://kernel.ubuntu.com/mainline/v6.8.12/)|[v1.5.0](https://github.com/intel/linux-npu-driver/tree/v1.5.0)||
-|Lunar Lake|[v6.8.12](https://kernel.ubuntu.com/mainline/v6.8.12/)|[v1.5.0](https://github.com/intel/linux-npu-driver/tree/v1.5.0)|Older kernel cause system to hang|
+|Platform|Kernel support|NPU driver release|
+|---|---|---|
+|[Meteor Lake](https://ark.intel.com/content/www/us/en/ark/products/codename/90353/products-formerly-meteor-lake.html)|v6.5.0-35-generic - Ubuntu22.04 Stock kernel|[v1.1.0](https://github.com/intel/linux-npu-driver/tree/v1.1.0)|
+|Arrow Lake|[v6.8.12](https://kernel.ubuntu.com/mainline/v6.8.12/)|[v1.5.0](https://github.com/intel/linux-npu-driver/tree/v1.5.0)|
+|Lunar Lake|[v6.8.12](https://kernel.ubuntu.com/mainline/v6.8.12/)|[v1.5.0](https://github.com/intel/linux-npu-driver/tree/v1.5.0)|
 
 ## Kernel module driver
 
