@@ -108,7 +108,7 @@ export ZE_INTEL_NPU_LOGMASK=$((1<<4|1<<3|1<<17))
 
 ## Supported devices
 
-The Linux NPU driver supports following Intel® processor families
+The Intel® NPU driver supports following Intel® processor families
 
 |Platform|Kernel support|NPU driver release|Comment|
 |---|---|---|---|
