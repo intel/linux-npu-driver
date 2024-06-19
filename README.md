@@ -26,9 +26,9 @@ the older name - Versatile Processing Unit (VPU).
 
 [The release page contains the binaries and supported component versions](https://github.com/intel/linux-npu-driver/releases).
 
-## Build the driver and common issues
+## Build and troubleshooting
 
-[The docs directory contains overiew.md that explains how to build the driver and common issues](docs/overview.md)
+[See docs/overview.md](docs/overview.md)
 
 ## License
 
