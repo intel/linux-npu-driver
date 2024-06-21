@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <libudev.h>
 #include <linux/kernel.h>
 #include <linux/magic.h>
