@@ -4,6 +4,9 @@
 # SPDX-License-Identifier: MIT
 #
 
+# Ignore compiler warnings from other third party libraries
+add_compile_options(-Wno-error)
+
 include(cmake/vpux_elf.cmake)
 include(cmake/level-zero.cmake)
 include(cmake/level-zero-npu-extensions.cmake)
