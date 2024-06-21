@@ -10,6 +10,7 @@
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <vector>

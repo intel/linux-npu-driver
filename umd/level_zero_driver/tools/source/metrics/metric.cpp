@@ -8,6 +8,8 @@
 #include "level_zero_driver/tools/source/metrics/metric.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
+#include <algorithm>
+
 namespace L0 {
 
 Metric::Metric(zet_metric_properties_t &propertiesInput)

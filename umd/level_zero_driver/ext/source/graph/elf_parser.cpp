@@ -12,6 +12,7 @@
 #include "umd_common.hpp"
 #include "vpux_driver_compiler.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <string.h>
 #include <vpux_elf/accessor.hpp>
