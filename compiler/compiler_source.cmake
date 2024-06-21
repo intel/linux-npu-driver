@@ -18,8 +18,8 @@ include(ExternalProject)
 
 # OpenVINO + VPUX Plugin package options
 set(OPENVINO_REVISION 4a65a3ebaacd185d1c467ea6410eb5772aec62b4)
-set(VPUX_PLUGIN_REVISION 24f9dc66d2538fdcb82274953d0715adfec7e503)
-set(VPUX_PLUGIN_RELEASE npu_ud_2024_24_rc2)
+set(VPUX_PLUGIN_REVISION 81f44e476fd24ac17fb53cd30e9a23a33f94a0bd)
+set(VPUX_PLUGIN_RELEASE npu_ud_2024_24_rc3)
 
 # Directories
 set(OPENVINO_PREFIX_DIR "${CMAKE_BINARY_DIR}/third_party/openvino")
