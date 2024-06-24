@@ -137,6 +137,8 @@ class Environment : public ::testing::Environment {
             searchPathPrefixes.push_back("./");
             searchPathPrefixes.push_back("/usr/local/share/vpu/");
             searchPathPrefixes.push_back("/usr/local/share/vpu/validation/umd-test/configs/");
+            searchPathPrefixes.push_back("/usr/share/vpu/");
+            searchPathPrefixes.push_back("/usr/share/vpu/validation/umd-test/configs/");
         }
 
         for (auto &pathPrefix : searchPathPrefixes) {
