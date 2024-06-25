@@ -17,8 +17,6 @@ add_compile_options(
   $<$<CONFIG:Release>:-fcf-protection=full>
   # Format string defence
   -Wformat -Wformat-security -Werror=format-security
-  # Enable macro security features
-  -D_FORTIFY_SOURCE=2
   # Stack protection
   $<$<CONFIG:Debug>:-fstack-protector>
   $<$<CONFIG:Release>:-fstack-protector-strong>
@@ -26,6 +24,13 @@ add_compile_options(
   # Use relative paths for debug information
   -fdebug-prefix-map=${CMAKE_SOURCE_DIR}=.
 )
+
+if(NOT ${LINUX_SYSTEM_NAME} STREQUAL "cros sdk")
+    add_compile_options(
+      # Enable macro security features
+      -D_FORTIFY_SOURCE=2
+    )
+endif()
 
 add_link_options(
   # Read only relocation (RERLO)
