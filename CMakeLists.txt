@@ -6,7 +6,7 @@
 
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 
-set(STACK_VERSION 1.5.0 CACHE STRING "Main project version")
+set(STACK_VERSION 1.5.1 CACHE STRING "Main project version")
 project(npu-linux-driver VERSION ${STACK_VERSION})
 
 set(BUILD_NUMBER "dev-0" CACHE STRING "Build number composed of name and unique number used as driver version")
