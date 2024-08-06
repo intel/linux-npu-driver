@@ -12,7 +12,7 @@ SPDX-License-Identifier: MIT
  ──[User─space]──────────────────────────────────────────────────────────────────────────────
                                                                                              
      ┌──────────────────────────(optional)─┐   ┌────────────────────────────────────────┐    
-     │ User Mode Driver tests              │   │ OpenVINO                               │    
+     │ User Mode Driver tests              │   │ OpenVINO + NPU plugin                  │    
      │                                     │   │                                        │    
      │         intel-validation-npu        │   │            openvino_toolkit            │    
      │            (vpu-umd-test)           │   │                                        │    
@@ -203,17 +203,32 @@ The compiler binary `libvpux_driver_compiler.so` can be found in `build/lib/`.
 
 ## Driver test application
 
-The `validation/umd-test` directory contains `vpu-umd-test` application with functional tests.
-This application allows to configure test content using YAML configuration file.
+The `validation/umd-test` directory contains `vpu-umd-test` functional tests for driver.
+The binary `vpu-umd-test` is located in the build folder, ex. `build/bin/`.
 
-More information can be found in [validation/umd-test/configs](/validation/umd-test/configs).
+Command line to run functional tests (after driver installation):
 
-The binary `vpu-umd-test` is located in the build folder, ex. `build/bin/`
-
-Command line:
 ```
-./vpu-umd-test --config=basic.yaml
+vpu-umd-test
 ```
+
+It is expected that `Umd.ConfigurationCheck` test fails when `--config` option
+is not used. `--config` points to YAML configuration file that allows to
+control the inference test content. Those tests require compiler in system.
+
+Config file requires to download any OpenVINO model. Command line to setup a
+`basic.yaml`:
+```
+# Prepare the add_abc model in path pointed by basic.yaml
+mkdir -p models/add_abc
+curl -o models/add_abc/add_abc.xml https://raw.githubusercontent.com/openvinotoolkit/openvino/master/src/core/tests/models/ir/add_abc.xml
+touch models/add_abc/add_abc.bin
+
+# Run tests with add_abc.xml
+vpu-umd-test --config=validation/umd-test/configs/basic.yaml
+```
+
+More information about config can be found in [validation/umd-test/configs](/validation/umd-test/configs).
 
 ## Troubleshooting
 
