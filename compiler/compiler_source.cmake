@@ -17,9 +17,10 @@ endif()
 include(ExternalProject)
 
 # OpenVINO + VPUX Plugin package options
-set(OPENVINO_REVISION 4a65a3ebaacd185d1c467ea6410eb5772aec62b4)
-set(VPUX_PLUGIN_REVISION 81f44e476fd24ac17fb53cd30e9a23a33f94a0bd)
-set(VPUX_PLUGIN_RELEASE npu_ud_2024_24_rc3)
+set(OPENVINO_REVISION 7edb05f29487cbf5cc6a7d7ae0a8e228aac763b0)
+set(VPUX_PLUGIN_REVISION 593bbd4f19605993bdb4948b3b2db6061f63d257)
+set(VPUX_PLUGIN_RELEASE npu_ud_2024_32_rc1)
+set(OPENCV_REVISION 5dc1b39e4c9dfb3339e0b910f7d824a02474ceed)
 
 # Directories
 set(OPENVINO_PREFIX_DIR "${CMAKE_BINARY_DIR}/third_party/openvino")

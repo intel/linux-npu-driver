@@ -10,8 +10,6 @@
 # or implied warranties, other than those that are expressly stated in
 # the License.
 
-cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
-
 include(compiler_source.cmake)
 
 include(ProcessorCount)
@@ -49,7 +47,7 @@ list(APPEND VPUX_COMPILER_CMAKE_FLAGS -DENABLE_TESTS=OFF)
 list(APPEND VPUX_COMPILER_CMAKE_FLAGS -DENABLE_WHEEL=OFF)
 list(APPEND VPUX_COMPILER_CMAKE_FLAGS -DENABLE_NCC_STYLE=OFF)
 list(APPEND VPUX_COMPILER_CMAKE_FLAGS -DTHREADING=${THREADING})
-list(APPEND VPUX_COMPILER_CMAKE_FLAGS -DIE_EXTRA_MODULES=${VPUX_PLUGIN_SOURCE_DIR})
+list(APPEND VPUX_COMPILER_CMAKE_FLAGS -DOPENVINO_EXTRA_MODULES=${VPUX_PLUGIN_SOURCE_DIR})
 list(APPEND VPUX_COMPILER_CMAKE_FLAGS -DOUTPUT_ROOT=${VPUX_COMPILER_BINARY_DIR})
 
 # TODO: Temporary WA for building LLVM from plugin source
@@ -69,13 +67,13 @@ ExternalProject_Add(
   BUILD_COMMAND
       ${CMAKE_COMMAND}
       --build ${VPUX_COMPILER_BINARY_DIR}
-      --target vpux_driver_compiler
+      --target npu_driver_compiler
       --parallel ${PARALLEL_PROCESSES}
   INSTALL_COMMAND
-    cp ${VPUX_COMPILER_BINARY_DIR}/bin/intel64/Release/libvpux_driver_compiler.so
+    cp ${VPUX_COMPILER_BINARY_DIR}/bin/intel64/Release/libnpu_driver_compiler.so
        ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/
   BUILD_BYPRODUCTS
-    ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libvpux_driver_compiler.so)
+    ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libnpu_driver_compiler.so)
 
 set(VPUX_COMPILER_DEPENDENCY vpux_compiler_build)
-list(APPEND VPUX_COMPILER_LIBS ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libvpux_driver_compiler.so)
+list(APPEND VPUX_COMPILER_LIBS ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libnpu_driver_compiler.so)
