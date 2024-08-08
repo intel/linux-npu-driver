@@ -7,8 +7,10 @@
 
 #pragma once
 
+#include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
 #include "level_zero_driver/core/source/fence/fence.hpp"
 #include "level_zero_driver/include/l0_exception.hpp"
+
 #include <level_zero/ze_api.h>
 
 namespace L0 {
@@ -18,31 +20,31 @@ ze_result_t zeFenceCreate(ze_command_queue_handle_t hCommandQueue,
     if (hCommandQueue == nullptr)
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     L0_HANDLE_EXCEPTION_AND_RETURN(
-        L0::CommandQueue::fromHandle(hCommandQueue)->createFence(desc, phFence));
+        CommandQueue::fromHandle(hCommandQueue)->createFence(desc, phFence));
 }
 
 ze_result_t zeFenceDestroy(ze_fence_handle_t hFence) {
     if (hFence == nullptr)
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
-    L0_HANDLE_EXCEPTION_AND_RETURN(L0::Fence::fromHandle(hFence)->destroy());
+    L0_HANDLE_EXCEPTION_AND_RETURN(Fence::fromHandle(hFence)->destroy());
 }
 
 ze_result_t zeFenceHostSynchronize(ze_fence_handle_t hFence, uint64_t timeout) {
     if (hFence == nullptr)
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
-    L0_HANDLE_EXCEPTION_AND_RETURN(L0::Fence::fromHandle(hFence)->hostSynchronize(timeout));
+    L0_HANDLE_EXCEPTION_AND_RETURN(Fence::fromHandle(hFence)->synchronize(timeout));
 }
 
 ze_result_t zeFenceQueryStatus(ze_fence_handle_t hFence) {
     if (hFence == nullptr)
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
-    L0_HANDLE_EXCEPTION_AND_RETURN(L0::Fence::fromHandle(hFence)->queryStatus());
+    L0_HANDLE_EXCEPTION_AND_RETURN(Fence::fromHandle(hFence)->queryStatus());
 }
 
 ze_result_t zeFenceReset(ze_fence_handle_t hFence) {
     if (hFence == nullptr)
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
-    L0_HANDLE_EXCEPTION_AND_RETURN(L0::Fence::fromHandle(hFence)->reset());
+    L0_HANDLE_EXCEPTION_AND_RETURN(Fence::fromHandle(hFence)->reset());
 }
 } // namespace L0
 

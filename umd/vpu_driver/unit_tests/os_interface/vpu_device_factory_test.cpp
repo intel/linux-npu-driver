@@ -1,15 +1,17 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
+#include "gmock/gmock.h"
+#include "gtest/gtest.h"
 #include "vpu_driver/source/os_interface/vpu_device_factory.hpp"
 #include "vpu_driver/unit_tests/mocks/gmock_os_interface_imp.hpp"
 
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
+#include <memory>
+#include <vector>
 
 using namespace VPU;
 

@@ -7,13 +7,15 @@
 
 #pragma once
 
+#include <stdint.h>
+
 #include "vpu_driver/source/command/vpu_command.hpp"
 #include "vpu_driver/source/device/vpu_37xx/vpu_hw_37xx.hpp"
 #include "vpu_driver/source/device/vpu_40xx/vpu_hw_40xx.hpp"
 
 #include <array>
 #include <functional>
-#include <stdint.h>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -50,15 +52,18 @@ struct VPUHwInfo {
     uint64_t baseLowAddress = 0;
 
     uint32_t extraDmaDescriptorSize = 0;
-    uint32_t fwMappedInferenceIndex = 0;
     uint64_t fwMappedInferenceVersion = 0;
     uint32_t fwTimestampType = 0;
 
     bool metricStreamerCapability = false;
     bool dmaMemoryRangeCapability = false;
+    bool primeBuffersCapability = false;
 
     GetCopyCommand *getCopyCommand = nullptr;
     PrintCopyDescriptor *printCopyDescriptor = nullptr;
+
+    uint32_t fwMappedInferenceIndex = UINT32_MAX;
+    uint32_t fwJsmCmdApiVerIndex = UINT32_MAX;
 };
 
 inline VPUHwInfo getHwInfoByDeviceId(uint32_t deviceId) {

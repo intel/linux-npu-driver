@@ -7,10 +7,13 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "level_zero_driver/unit_tests/options.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
+#include <filesystem>
 #include <getopt.h>
+#include <stdio.h>
+#include <string>
+#include <unistd.h>
 
 namespace TestOptions {
 

@@ -5,23 +5,39 @@
  *
  */
 
-#include "level_zero_driver/include/l0_exception.hpp"
 #include "level_zero_driver/ext/source/graph/elf_parser.hpp"
+
+#include <cstdint>
+
 #include "level_zero/ze_api.h"
 #include "level_zero/ze_graph_ext.h"
+#include "level_zero_driver/include/l0_exception.hpp"
+#include "npu_driver_compiler.h"
 #include "umd_common.hpp"
-#include "vpux_driver_compiler.h"
+#include "vpu_driver/source/command/vpu_inference_execute.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
+#include "vpu_driver/source/utilities/log.hpp"
+#include "vpux_elf/types/data_types.hpp"
+#include "vpux_elf/types/section_header.hpp"
+#include "vpux_headers/buffer_specs.hpp"
+#include "vpux_headers/managed_buffer.hpp"
+#include "vpux_headers/metadata_primitives.hpp"
+#include "vpux_headers/platform.hpp"
+#include "vpux_hpi.hpp"
 
 #include <algorithm>
-#include <cstdint>
+#include <array>
+#include <exception>
+#include <iterator>
 #include <string.h>
 #include <vpux_elf/accessor.hpp>
+#include <vpux_elf/types/vpu_extensions.hpp>
+#include <vpux_elf/utils/error.hpp>
 #include <vpux_elf/utils/utils.hpp>
 #include <vpux_headers/buffer_manager.hpp>
 #include <vpux_headers/device_buffer.hpp>
 #include <vpux_headers/metadata.hpp>
-#include <vpux_elf/types/vpu_extensions.hpp>
-#include <vpux_elf/utils/error.hpp>
 
 namespace L0 {
 
@@ -615,7 +631,7 @@ bool ElfParser::getProfilingSize(uint32_t &size) const {
     return true;
 }
 
-bool ElfParser::applyInputOutputs(elf::HostParsedInference &hostParsedInference,
+bool ElfParser::applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &cmdHpi,
                                   const std::vector<std::pair<const void *, uint32_t>> &inputPtrs,
                                   const std::vector<std::pair<const void *, uint32_t>> &outputPtrs,
                                   const std::pair<const void *, uint32_t> &profilingPtr,
@@ -654,9 +670,7 @@ bool ElfParser::applyInputOutputs(elf::HostParsedInference &hostParsedInference,
         return false;
 
     try {
-        hostParsedInference.applyInputOutput(inputDeviceBuffers,
-                                             outputDeviceBuffers,
-                                             profilingDeviceBuffers);
+        cmdHpi->applyInputOutput(inputDeviceBuffers, outputDeviceBuffers, profilingDeviceBuffers);
     } catch (const elf::RelocError &err) {
         LOG_E("Caught reloc exception in hostParsedInference.applyInputOutput()");
         return false;
@@ -679,25 +693,27 @@ std::shared_ptr<VPU::VPUInferenceExecute> ElfParser::createInferenceExecuteComma
     if (!ctx->getUniqueInferenceId(inferenceId))
         return nullptr;
 
-    if (!firstInference) {
-        auto newHpi = copyHostParsedInference(hpi);
-        if (newHpi == nullptr) {
+    std::shared_ptr<elf::HostParsedInference> cmdHpi;
+    if (needCopy) {
+        cmdHpi = copyHostParsedInference(hpi);
+        if (cmdHpi == nullptr) {
             LOG_E("Not able to make copy of HostParsedInference");
             return nullptr;
         }
-        hpi = std::move(newHpi);
+    } else {
+        cmdHpi = hpi;
     }
 
     std::vector<VPU::VPUBufferObject *> bos;
-    if (!applyInputOutputs(*hpi, inputPtrs, outputPtrs, profilingPtr, bos)) {
-        LOG_E("Failed to apply arguments to elf executor");
+    auto hpiBuffer = cmdHpi->getParsedInference();
+    VPU::VPUBufferObject *bo = ctx->findBuffer(hpiBuffer.cpu_addr());
+    if (bo == nullptr) {
+        LOG_E("Failed to find a buffer in tracked memory");
         return nullptr;
     }
+    bos.push_back(bo);
 
-    /*
-     * All associated buffer objects needs to be added to command. Thanks to it kernel pin pages
-     */
-    for (const auto &buffer : hpi->getAllocatedBuffers()) {
+    for (const auto &buffer : cmdHpi->getAllocatedBuffers()) {
         if (buffer.size() == 0)
             continue;
 
@@ -710,21 +726,19 @@ std::shared_ptr<VPU::VPUInferenceExecute> ElfParser::createInferenceExecuteComma
         bos.push_back(bo);
     }
 
-    auto hpiBuffer = hpi->getParsedInference();
-    VPU::VPUBufferObject *bo = ctx->findBuffer(hpiBuffer.cpu_addr());
-    if (bo == nullptr) {
-        LOG_E("Failed to find a buffer in tracked memory");
+    auto cmd = VPU::VPUInferenceExecute::create(shared_from_this(),
+                                                cmdHpi,
+                                                inputPtrs,
+                                                outputPtrs,
+                                                profilingPtr,
+                                                inferenceId,
+                                                std::move(bos));
+    if (cmd == nullptr)
         return nullptr;
-    }
-    bos.push_back(bo);
 
-    execHpi = hpi;
-    firstInference = false;
-
-    return VPU::VPUInferenceExecute::create(inferenceId,
-                                            hpiBuffer.vpu_addr(),
-                                            hpiBuffer.size(),
-                                            bos);
+    execHpi = std::move(cmdHpi);
+    needCopy = true;
+    return cmd;
 }
 
 ze_result_t ElfParser::parse(std::vector<ze_graph_argument_properties_3_t> &argumentProperties,

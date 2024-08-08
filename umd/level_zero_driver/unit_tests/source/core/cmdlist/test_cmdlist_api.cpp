@@ -1,24 +1,39 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
-#include "gtest/gtest.h"
-#include "vpu_driver/source/device/vpu_device_context.hpp"
-#include "vpu_driver/unit_tests/test_macros/test.hpp"
-#include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
+#include <stddef.h>
+#include <stdint.h>
 
+#include "gtest/gtest.h"
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
+#include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
+#include "level_zero_driver/core/source/context/context.hpp"
+#include "level_zero_driver/core/source/device/device.hpp"
+#include "level_zero_driver/ext/source/graph/graph.hpp"
+#include "level_zero_driver/tools/source/metrics/metric.hpp"
 #include "level_zero_driver/tools/source/metrics/metric_query.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
 #include "level_zero_driver/unit_tests/options.hpp"
 #include "level_zero_driver/unit_tests/utils.hpp"
+#include "vpu_driver/source/command/vpu_command.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
+#include "vpu_driver/unit_tests/test_macros/test.hpp"
 
+#include <api/vpu_jsm_job_cmd_api.h>
+#include <array>
+#include <filesystem>
 #include <level_zero/ze_api.h>
 #include <level_zero/ze_graph_ext.h>
-#include <api/vpu_jsm_job_cmd_api.h>
+#include <level_zero/ze_graph_profiling_ext.h>
+#include <level_zero/zet_api.h>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace L0 {
 namespace ult {

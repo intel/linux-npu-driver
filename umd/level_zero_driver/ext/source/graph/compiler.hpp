@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,13 +7,20 @@
 
 #pragma once
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include "npu_driver_compiler.h"
+
+#include <level_zero/ze_api.h>
 #include <level_zero/ze_graph_ext.h>
-
-#include "vpu_driver/source/device/vpu_device_context.hpp"
-#include "vpux_driver_compiler.h"
-
+#include <level_zero/ze_graph_profiling_ext.h>
 #include <string>
 #include <vector>
+
+namespace VPU {
+class VPUDeviceContext;
+} // namespace VPU
 
 namespace L0 {
 
@@ -28,7 +35,8 @@ class Compiler {
     static bool getCompilerProperties(vcl_compiler_properties_t *pProperties);
     static uint16_t getCompilerVersionMajor();
     static uint16_t getCompilerVersionMinor();
-    static bool checkVersion(uint16_t major, uint16_t minor);
+    static bool checkVersion(uint16_t major);
+    static std::string getCompilerVersionString();
     static ze_result_t getDecodedProfilingBuffer(ze_graph_profiling_type_t profilingType,
                                                  const std::vector<uint8_t> *blobRaw,
                                                  const uint8_t *profData,

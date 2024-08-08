@@ -7,9 +7,17 @@
 
 #pragma once
 
-#include <uapi/drm/ivpu_accel.h>
-#include "vpu_driver/source/os_interface/os_interface.hpp"
+#include <stdint.h>
+
 #include "vpu_driver/source/device/hw_info.hpp"
+#include "vpu_driver/source/os_interface/os_interface.hpp"
+
+#include <filesystem>
+#include <functional>
+#include <memory>
+#include <sys/types.h>
+
+struct drm_ivpu_param;
 
 namespace VPU {
 

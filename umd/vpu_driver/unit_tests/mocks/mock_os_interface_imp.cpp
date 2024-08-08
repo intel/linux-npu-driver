@@ -5,18 +5,21 @@
  *
  */
 
-#include <errno.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <sys/mman.h>
+#include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
 
-#include <api/vpu_jsm_api.h>
-#include <uapi/drm/ivpu_accel.h>
+#include <cstddef> // IWYU pragma: keep
+#include <cstdint> // IWYU pragma: keep
 
 #include "api/vpu_nnrt_api_37xx.h"
+#include "umd_common.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
-#include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
+
+#include <api/vpu_jsm_api.h>
+#include <cstdlib>
+#include <cstring>
+#include <drm/drm.h>
+#include <errno.h>
+#include <uapi/drm/ivpu_accel.h>
 
 namespace VPU {
 
@@ -117,6 +120,9 @@ int MockOsInterfaceImp::osiIoctl(int fd, unsigned long request, void *data) {
     } else if (request == DRM_IOCTL_IVPU_BO_INFO) {
         auto *args = static_cast<struct drm_ivpu_bo_info *>(data);
         args->mmap_offset = 100u;
+
+    } else if (request == DRM_IOCTL_IVPU_SUBMIT) {
+        callCntSubmit++;
     } else if (request == DRM_IOCTL_IVPU_BO_WAIT) {
         bool timeout = waitFailed.test(0);
         waitFailed >>= 1;

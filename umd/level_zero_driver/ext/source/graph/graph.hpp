@@ -7,25 +7,33 @@
 
 #pragma once
 
-#include "level_zero_driver/core/source/context/context.hpp"
-#include "level_zero_driver/core/source/device/device.hpp"
-#include "vpu_driver/source/device/vpu_device_context.hpp"
+#include <stddef.h>
+#include <stdint.h>
+
 #include "level_zero_driver/ext/source/graph/interface_parser.hpp"
-#include "level_zero_driver/ext/source/graph/disk_cache.hpp"
-#include "level_zero_driver/ext/source/graph/compiler.hpp"
-#include "level_zero_driver/ext/source/graph/profiling_data.hpp"
-#include "level_zero_driver/ext/source/graph/elf_parser.hpp"
+#include "level_zero_driver/include/l0_handler.hpp"
+#include "vpu_driver/source/command/vpu_command.hpp"
 
 #include <level_zero/ze_api.h>
 #include <level_zero/ze_graph_ext.h>
-
-#include <vector>
+#include <level_zero/ze_graph_profiling_ext.h>
+#include <memory>
 #include <unordered_map>
+#include <utility>
+#include <vector>
+
+namespace VPU {
+class VPUDeviceContext;
+} // namespace VPU
+namespace elf {
+class HostParsedInference;
+} // namespace elf
 
 struct _ze_graph_handle_t {};
 
 namespace L0 {
 struct Context;
+struct GraphProfilingPool;
 
 struct InferenceExecutor {
   public:

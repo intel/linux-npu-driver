@@ -5,17 +5,20 @@
  *
  */
 
+#include "vpu_driver/source/device/vpu_40xx/vpu_hw_40xx.hpp"
+
+#include <cstddef>
+#include <cstdint> // IWYU pragma: keep
+
+#include "api/vpu_jsm_job_cmd_api.h"
+#include "api/vpu_nnrt_api_40xx.h"
+#include "npu_driver_compiler.h"
 #include "vpu_driver/source/command/vpu_copy_command.hpp"
 #include "vpu_driver/source/device/hw_info.hpp"
-#include "vpu_driver/source/utilities/log.hpp"
-
-#include "api/vpu_nnrt_api_40xx.h"
-#include "vpux_driver_compiler.h"
-
-#include <vector>
-#include <string>
 
 namespace VPU {
+class VPUDeviceContext;
+struct VPUDescriptor;
 
 static bool getCopyCommandDescriptor40xx(VPUDeviceContext *ctx,
                                          const void *src,
@@ -39,11 +42,12 @@ struct VPUHwInfo vpuHwInfo40xx = {.compilerPlatform = VCL_PLATFORM_VPU4000,
                                   .nExecUnits = 12288,
                                   .numSubslicesPerSlice = 6,
                                   .tileFuseMask = 0x3F,
-                                  .fwMappedInferenceIndex = VPU_NNRT_40XX_API_VER_INDEX,
                                   .fwMappedInferenceVersion = VPU_NNRT_40XX_API_VER,
                                   .fwTimestampType = VPU_TIME_SYSTIME,
                                   .getCopyCommand = &getCopyCommandDescriptor40xx,
-                                  .printCopyDescriptor = &printCopyDescriptor40xx};
+                                  .printCopyDescriptor = &printCopyDescriptor40xx,
+                                  .fwMappedInferenceIndex = VPU_NNRT_40XX_API_VER_INDEX,
+                                  .fwJsmCmdApiVerIndex = VPU_JSM_JOB_CMD_API_VER_INDEX};
 
 VPUHwInfo getHwInfo40xx() {
     return vpuHwInfo40xx;

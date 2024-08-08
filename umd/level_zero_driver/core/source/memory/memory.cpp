@@ -1,21 +1,39 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
-#include "level_zero/ze_api.h"
-#include "level_zero_driver/core/source/device/device.hpp"
-#include "level_zero_driver/core/source/context/context.hpp"
+#include <stddef.h>
+#include <stdint.h>
 
+#include "level_zero/ze_api.h"
+#include "level_zero_driver/core/source/context/context.hpp"
+#include "umd_common.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
+#include <memory>
+
 namespace L0 {
 
-ze_result_t Context::checkMemInputs(size_t size, size_t alignment, void **ptr) {
+ze_result_t Context::checkMemInputs(VPU::VPUBufferObject::Location location,
+                                    size_t size,
+                                    size_t alignment,
+                                    void **ptr) {
+    switch (location) {
+    case VPU::VPUBufferObject::Location::ExternalHost:
+    case VPU::VPUBufferObject::Location::ExternalDevice:
+    case VPU::VPUBufferObject::Location::ExternalShared:
+        if (!getDeviceContext()->getDeviceCapabilities().primeBuffersCapability)
+            return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+        break;
+    default:
+        break;
+    }
+
     if (ptr == nullptr) {
         LOG_E("Invalid pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
@@ -42,7 +60,7 @@ ze_result_t Context::allocMemory(size_t size,
                                  void **ptr,
                                  VPU::VPUBufferObject::Location location,
                                  VPU::VPUBufferObject::Type type) {
-    ze_result_t ret = checkMemInputs(size, alignment, ptr);
+    ze_result_t ret = checkMemInputs(location, size, alignment, ptr);
     if (ret != ZE_RESULT_SUCCESS)
         return ret;
 
@@ -57,6 +75,9 @@ ze_result_t Context::allocMemory(size_t size,
 }
 
 ze_result_t Context::importMemory(VPU::VPUBufferObject::Location type, int32_t fd, void **ptr) {
+    if (!getDeviceContext()->getDeviceCapabilities().primeBuffersCapability)
+        return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+
     VPU::VPUBufferObject *bo = ctx->importBufferObject(type, fd);
     if (bo == nullptr) {
         LOG_E("Failed to import buffer");
@@ -106,7 +127,7 @@ ze_result_t Context::getMemAllocProperties(const void *ptr,
         pMemAllocProperties->type = ZE_MEMORY_TYPE_UNKNOWN;
     }
 
-    pMemAllocProperties->id = 0u; // No specific ID for allocated memory, set as 0
+    pMemAllocProperties->id = bo->getHandle();
     pMemAllocProperties->pageSize = bo->getAllocSize();
 
     if (pMemAllocProperties->pNext &&

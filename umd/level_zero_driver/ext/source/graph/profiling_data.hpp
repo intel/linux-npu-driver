@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,16 +7,23 @@
 
 #pragma once
 
-#include "level_zero_driver/core/source/context/context.hpp"
-#include <level_zero/ze_graph_ext.h>
+#include <stdint.h>
+
+#include <functional>
+#include <level_zero/ze_api.h>
+#include <level_zero/ze_graph_profiling_ext.h>
+#include <memory>
+#include <vector>
+
+namespace VPU {
+class VPUBufferObject;
+class VPUDeviceContext;
+} // namespace VPU
 
 struct _ze_graph_profiling_query_handle_t {};
 struct _ze_graph_profiling_pool_handle_t {};
 
 namespace L0 {
-
-struct Graph;
-struct GraphProfilingPool;
 
 struct GraphProfilingQuery : _ze_graph_profiling_query_handle_t {
   public:

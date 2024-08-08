@@ -1,28 +1,28 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include "gtest/gtest.h"
-
 #include "level_zero_driver/api/core/ze_cmdlist.hpp"
-#include "vpu_driver/source/device/hw_info.hpp"
-#include "vpu_driver/source/device/vpu_device_context.hpp"
-#include "vpu_driver/unit_tests/test_macros/test.hpp"
-#include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
-
+#include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
+#include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
 #include "level_zero_driver/core/source/context/context.hpp"
-#include "level_zero_driver/core/source/driver/driver_handle.hpp"
+#include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/core/source/fence/fence.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
-#include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
-#include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
+#include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
+#include "vpu_driver/unit_tests/test_macros/test.hpp"
 
 #include <level_zero/ze_api.h>
-#include <thread>
-#include <chrono>
+#include <string>
 
 namespace L0 {
 namespace ult {
@@ -315,7 +315,7 @@ TEST_F(CommandQueueExecTest, eventAttachedToSingleQueuesRespectively) {
     ASSERT_EQ(nnQue->executeCommandLists(1, &hNNCmdlist, nullptr), ZE_RESULT_SUCCESS);
 
     // Make sure a single command buffer was submitted.
-    EXPECT_EQ(1U, nnQue->getSubmittedJobCount());
+    EXPECT_EQ(1U, osInfc.callCntSubmit);
 
     // COPY queue event attaching.
     // Append wait on event 0, L2S copy and signal event 1 to the same COPY queue.
@@ -337,7 +337,7 @@ TEST_F(CommandQueueExecTest, eventAttachedToSingleQueuesRespectively) {
     ASSERT_EQ(cpQue->executeCommandLists(1, &hCPCmdlist, nullptr), ZE_RESULT_SUCCESS);
 
     // Make sure a single command buffer was submitted.
-    EXPECT_EQ(1U, cpQue->getSubmittedJobCount());
+    EXPECT_EQ(2U, osInfc.callCntSubmit);
 
     // Deallocate instances
     ctx->freeMemAlloc(srcShareMem);
@@ -371,15 +371,6 @@ struct CommandQueueJobTest : public Test<CommandQueueFixture> {
         hCPCmdlist = createCommandList(getCopyOnlyQueueOrdinal());
         ASSERT_NE(nullptr, hCPCmdlist);
         cpCmdlist = CommandList::fromHandle(hCPCmdlist);
-
-        // Fence.
-        ze_fence_desc_t fenceDesc{.stype = ZE_STRUCTURE_TYPE_FENCE_DESC,
-                                  .pNext = nullptr,
-                                  .flags = 0};
-        ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdque->createFence(&fenceDesc, &hFence));
-        fence = static_cast<Fence *>(hFence);
-        ASSERT_NE(nullptr, hFence);
-        ASSERT_NE(nullptr, fence);
     }
 
     void TearDown() override {
@@ -395,18 +386,12 @@ struct CommandQueueJobTest : public Test<CommandQueueFixture> {
         if (cpCmdlist != nullptr) {
             cpCmdlist->destroy();
         }
-        if (fence != nullptr) {
-            fence->destroy();
-        }
 
         CommandQueueFixture::TearDown();
     }
 
     const size_t memAllocSize = 4 * 1024; // Default memory allocation size.
     uint64_t syncTimeout = 2e9;           // 2seconds default time out.
-
-    ze_fence_handle_t hFence = nullptr;
-    Fence *fence = nullptr;
 
     CommandQueue *nnCmdque = nullptr;
     CommandQueue *cpCmdque = nullptr;
@@ -422,7 +407,7 @@ TEST_F(CommandQueueJobTest, emptyCommandListDoesNotKeepJob) {
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
 
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdque->executeCommandLists(1, &hNNCmdlist, nullptr));
-    EXPECT_EQ(0u, nnCmdque->getSubmittedJobCount());
+    EXPECT_EQ(0u, osInfc.callCntSubmit);
 
     // Call buffer sync against failed command queue.
     EXPECT_EQ(ZE_RESULT_SUCCESS, nnCmdque->synchronize(syncTimeout));
@@ -440,64 +425,10 @@ TEST_F(CommandQueueJobTest, submittedJobsShouldBeKept) {
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdque->executeCommandLists(1, &hNNCmdlist, nullptr));
 
     // 1 BB should be added in the cmd queue.
-    EXPECT_EQ(1u, nnCmdque->getSubmittedJobCount());
+    EXPECT_EQ(1u, osInfc.callCntSubmit);
 
     // Deallocate memory.
     ASSERT_TRUE(ctx->freeMemAlloc(tsDest));
-}
-
-TEST_F(CommandQueueJobTest, submittedJobsShouldBeKeptInFence) {
-    // Execute non empty NN command list.
-    uint64_t *tsDest =
-        static_cast<uint64_t *>(ctx->createMemAlloc(memAllocSize,
-                                                    VPU::VPUBufferObject::Type::CachedFw,
-                                                    VPU::VPUBufferObject::Location::Shared));
-    ASSERT_EQ(ZE_RESULT_SUCCESS,
-              nnCmdlist->appendWriteGlobalTimestamp(tsDest, nullptr, 0, nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdque->executeCommandLists(1, &hNNCmdlist, hFence));
-    ASSERT_EQ(1u, nnCmdque->getSubmittedJobCount());
-
-    // Associated fence should have the submitted command buffer.
-    EXPECT_EQ(1u, fence->getTrackedJobCount());
-
-    // Deallocate the memory.
-    ASSERT_TRUE(ctx->freeMemAlloc(tsDest));
-}
-
-TEST_F(CommandQueueJobTest, submittedJobsShouldBeKeptUntilQueueDestroyed) {
-    // First execution.
-    uint64_t *tsDest =
-        static_cast<uint64_t *>(ctx->createMemAlloc(memAllocSize,
-                                                    VPU::VPUBufferObject::Type::CachedFw,
-                                                    VPU::VPUBufferObject::Location::Shared));
-    ASSERT_EQ(ZE_RESULT_SUCCESS,
-              nnCmdlist->appendWriteGlobalTimestamp(tsDest, nullptr, 0, nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdque->executeCommandLists(1, &hNNCmdlist, hFence));
-    ASSERT_EQ(1u, nnCmdque->getSubmittedJobCount());
-
-    // Reset the fence.
-    fence->reset();
-    EXPECT_EQ(1u, fence->getTrackedJobCount());
-
-    // Second execution.
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->reset());
-    ASSERT_EQ(ZE_RESULT_SUCCESS,
-              nnCmdlist->appendWriteGlobalTimestamp(tsDest, nullptr, 0, nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdque->executeCommandLists(1, &hNNCmdlist, hFence));
-    EXPECT_EQ(2u, nnCmdque->getSubmittedJobCount());
-
-    // Destroy command queue.
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdque->destroy());
-    nnCmdque = nullptr;
-
-    // Submitted command buffers in fence should be kept after queue destroyed.
-    EXPECT_EQ(1u, fence->getTrackedJobCount());
-
-    // Deallocate the memory.
-    ctx->freeMemAlloc(tsDest);
 }
 
 TEST_F(CommandQueueJobTest, multipleJobsMaintainedInSingleSubmitId) {
@@ -550,7 +481,7 @@ TEST_F(CommandQueueJobTest, multipleJobsMaintainedInSingleSubmitId) {
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdque->executeCommandLists(3, nnCmdlists, nullptr));
 
     // Expect all submitted command lists are observed within the same submit ID.
-    EXPECT_EQ(3u, nnCmdque->getSubmittedJobCount());
+    EXPECT_EQ(3u, osInfc.callCntSubmit);
 
     // Deallocate the memory.
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist1->destroy());

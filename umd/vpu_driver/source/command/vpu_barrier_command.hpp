@@ -1,13 +1,19 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
 #pragma once
+
+#include <cstddef> // IWYU pragma: keep
+#include <cstdint> // IWYU pragma: keep
+
+#include "api/vpu_jsm_job_cmd_api.h"
 #include "vpu_driver/source/command/vpu_command.hpp"
 
+#include <any>
 #include <memory>
 
 namespace VPU {

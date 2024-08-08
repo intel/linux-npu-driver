@@ -5,8 +5,19 @@
  *
  */
 
-#include "ze_ddi_tables.hpp"
-#include "ze_core_api_tables.hpp"
+#include "level_zero_driver/api/core/ze_barrier.hpp"
+#include "level_zero_driver/api/core/ze_cmdlist.hpp"
+#include "level_zero_driver/api/core/ze_cmdqueue.hpp"
+#include "level_zero_driver/api/core/ze_context.hpp"
+#include "level_zero_driver/api/core/ze_copy.hpp"
+#include "level_zero_driver/api/core/ze_device.hpp"
+#include "level_zero_driver/api/core/ze_driver.hpp"
+#include "level_zero_driver/api/core/ze_event.hpp"
+#include "level_zero_driver/api/core/ze_fence.hpp"
+#include "level_zero_driver/api/core/ze_memory.hpp"
+
+#include <level_zero/ze_api.h>
+#include <level_zero/ze_ddi.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -187,6 +198,21 @@ zeGetCommandListProcAddrTable(ze_api_version_t version, ze_command_list_dditable
     pDdiTable->pfnAppendWriteGlobalTimestamp = L0::zeCommandListAppendWriteGlobalTimestamp;
     pDdiTable->pfnAppendMemoryCopyFromContext = L0::zeCommandListAppendMemoryCopyFromContext;
     pDdiTable->pfnAppendQueryKernelTimestamps = L0::zeCommandListAppendQueryKernelTimestamps;
+    return ZE_RESULT_SUCCESS;
+}
+
+ZE_DLLEXPORT ze_result_t ZE_APICALL
+zeGetCommandListExpProcAddrTable(ze_api_version_t version,
+                                 ze_command_list_exp_dditable_t *pDdiTable) {
+    if (nullptr == pDdiTable)
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+
+    pDdiTable->pfnGetNextCommandIdExp = L0::zeCommandListGetNextCommandIdExp;
+    pDdiTable->pfnUpdateMutableCommandsExp = L0::zeCommandListUpdateMutableCommandsExp;
+
     return ZE_RESULT_SUCCESS;
 }
 

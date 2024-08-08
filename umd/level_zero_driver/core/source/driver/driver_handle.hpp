@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,16 +7,21 @@
 
 #pragma once
 
-#include "level_zero_driver/core/source/context/context.hpp"
-#include "vpu_driver/source/device/vpu_device.hpp"
+#include <stdint.h>
+
+#include "level_zero_driver/core/source/device/device.hpp"
 
 #include <level_zero/ze_api.h>
+#include <memory>
+#include <vector>
 
 struct _ze_driver_handle_t {};
 
-namespace L0 {
+namespace VPU {
+class VPUDevice;
+}
 
-struct Device;
+namespace L0 {
 
 struct DriverHandle : _ze_driver_handle_t {
     DriverHandle(std::vector<std::unique_ptr<VPU::VPUDevice>> vpuDevices);

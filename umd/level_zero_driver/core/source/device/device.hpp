@@ -7,25 +7,29 @@
 
 #pragma once
 
-#include "level_zero_driver/core/source/driver/driver_handle.hpp"
-#include "level_zero_driver/core/source/driver/driver.hpp"
-#include "level_zero_driver/core/source/driver/driver_handle.hpp"
-#include "level_zero_driver/ext/source/graph/graph.hpp"
-#include "level_zero_driver/tools/source/metrics/metric.hpp"
+#include <cstdint>
 
+#include "vpu_driver/source/command/vpu_job.hpp"
 #include "vpu_driver/source/device/vpu_device.hpp"
-#include "vpu_driver/source/device/vpu_device_context.hpp"
 
+#include <functional>
 #include <level_zero/ze_api.h>
-#include <level_zero/zet_api.h>
 #include <level_zero/zes_api.h>
-#include <level_zero/ze_graph_ext.h>
-#include <level_zero/ze_intel_npu_uuid.h>
+#include <level_zero/zet_api.h>
+#include <memory>
+#include <sys/types.h>
+#include <uapi/drm/ivpu_accel.h>
+#include <vector>
 
 struct _ze_device_handle_t {};
 
+namespace VPU {
+struct GroupInfo;
+}
+
 namespace L0 {
 
+struct Context;
 struct DriverHandle;
 struct MetricContext;
 struct MetricGroup;

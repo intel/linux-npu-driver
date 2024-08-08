@@ -5,16 +5,18 @@
  *
  */
 
-#include "vpu_driver/source/command/vpu_event_command.hpp"
 #include "vpu_driver/source/command/vpu_job.hpp"
-#include "vpu_driver/source/device/vpu_device_context.hpp"
-#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
-#include "vpu_driver/source/utilities/log.hpp"
-#include "umd_common.hpp"
 
-#include <assert.h>
+#include "umd_common.hpp"
+#include "vpu_driver/source/command/vpu_event_command.hpp"
+#include "vpu_driver/source/utilities/log.hpp"
+
+#include <iterator>
+#include <optional>
+#include <uapi/drm/ivpu_accel.h>
 
 namespace VPU {
+class VPUDeviceContext;
 
 VPUJob::VPUJob(VPUDeviceContext *ctx, bool isCopyOnly)
     : ctx(ctx)
@@ -24,6 +26,17 @@ bool VPUJob::closeCommands() {
     if (ctx == nullptr) {
         LOG_E("VPUDeviceContext is nullptr");
         return false;
+    }
+
+    if (needsUpdate) {
+        needsUpdate = false;
+
+        for (auto &cmdBuffer : cmdBuffers) {
+            if (!cmdBuffer->updateCommands()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     if (isClosed()) {
@@ -46,13 +59,12 @@ bool VPUJob::closeCommands() {
         LOG(VPU_JOB, "Passing %lu commands for target %u", jump, static_cast<uint32_t>(target));
 
         if (safe_cast<size_t>(jump) == commands.size()) {
-            if (!createCommandBuffer(commands, target, nullptr)) {
+            if (!createCommandBuffer(commands.begin(), commands.end(), target, nullptr)) {
                 LOG_E("Failed to initialize VPUCommandBuffer");
                 return false;
             }
         } else {
-            std::vector<std::shared_ptr<VPUCommand>> targetCommands(it, next);
-            if (!createCommandBuffer(targetCommands, target, &lastEvent)) {
+            if (!createCommandBuffer(it, next, target, &lastEvent)) {
                 LOG_E("Failed to initialize VPUCommandBuffer");
                 return false;
             }
@@ -65,10 +77,11 @@ bool VPUJob::closeCommands() {
     return true;
 }
 
-bool VPUJob::createCommandBuffer(const std::vector<std::shared_ptr<VPUCommand>> &cmds,
+bool VPUJob::createCommandBuffer(const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
+                                 const std::vector<std::shared_ptr<VPUCommand>>::iterator &end,
                                  VPUCommandBuffer::Target cmdType,
                                  VPUEventCommand::KMDEventDataType **lastEvent) {
-    auto cmdBuffer = VPUCommandBuffer::allocateCommandBuffer(ctx, cmds, cmdType, lastEvent);
+    auto cmdBuffer = VPUCommandBuffer::allocateCommandBuffer(ctx, begin, end, cmdType, lastEvent);
     if (cmdBuffer == nullptr) {
         LOG_E("Failed to allocate VPUCommandBuffer");
         return false;

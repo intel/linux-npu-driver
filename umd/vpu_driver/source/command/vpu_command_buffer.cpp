@@ -5,23 +5,32 @@
  *
  */
 
-#include "umd_common.hpp"
-
-#include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/command/vpu_command_buffer.hpp"
-#include "vpu_driver/source/command/vpu_copy_command.hpp"
+
+#include "umd_common.hpp"
+#include "vpu_driver/source/command/vpu_command.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <algorithm>
+#include <errno.h>
+#include <limits>
 
 namespace VPU {
 
-VPUCommandBuffer::VPUCommandBuffer(VPUDeviceContext *ctx, VPUBufferObject *buffer, Target target)
+VPUCommandBuffer::VPUCommandBuffer(VPUDeviceContext *ctx,
+                                   VPUBufferObject *buffer,
+                                   const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
+                                   const std::vector<std::shared_ptr<VPUCommand>>::iterator &end,
+                                   Target target)
     : ctx(ctx)
     , buffer(buffer)
     , targetEngine(target)
     , jobStatus(std::numeric_limits<uint32_t>::max())
-    , priority(Priority::NORMAL) {
+    , priority(Priority::NORMAL)
+    , commandsBegin(begin)
+    , commandsEnd(end) {
     bufferHandles.emplace_back(buffer->getHandle());
 }
 
@@ -30,19 +39,21 @@ VPUCommandBuffer::~VPUCommandBuffer() {
         ctx->freeMemAlloc(buffer);
 }
 
-std::unique_ptr<VPUCommandBuffer>
-VPUCommandBuffer::allocateCommandBuffer(VPUDeviceContext *ctx,
-                                        const std::vector<std::shared_ptr<VPUCommand>> &cmds,
-                                        VPUCommandBuffer::Target engineType,
-                                        VPUEventCommand::KMDEventDataType **fenceWait) {
-    if (ctx == nullptr || cmds.empty()) {
+std::unique_ptr<VPUCommandBuffer> VPUCommandBuffer::allocateCommandBuffer(
+    VPUDeviceContext *ctx,
+    const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
+    const std::vector<std::shared_ptr<VPUCommand>>::iterator &end,
+    VPUCommandBuffer::Target engineType,
+    VPUEventCommand::KMDEventDataType **fenceWait) {
+    if (ctx == nullptr || begin == end) {
         LOG_E("VPUDeviceContext is nullptr or command list is empty");
         return nullptr;
     }
 
     size_t cmdSize = 0;
     size_t descriptorSize = 0;
-    for (const auto &cmd : cmds) {
+    for (auto it = begin; it != end; it++) {
+        const auto &cmd = *it;
         cmdSize += cmd->getCommitSize();
         descriptorSize += getFwDataCacheAlign(cmd->getDescriptorSize());
     }
@@ -68,7 +79,7 @@ VPUCommandBuffer::allocateCommandBuffer(VPUDeviceContext *ctx,
         return nullptr;
     }
 
-    auto cmdBuffer = std::make_unique<VPUCommandBuffer>(ctx, buffer, engineType);
+    auto cmdBuffer = std::make_unique<VPUCommandBuffer>(ctx, buffer, begin, end, engineType);
     if (!cmdBuffer->initHeader(cmdSize)) {
         LOG_E("Failed to initialize VPUCommandBuffer - %s", cmdBuffer->getName());
         return nullptr;
@@ -90,7 +101,8 @@ VPUCommandBuffer::allocateCommandBuffer(VPUDeviceContext *ctx,
         }
     }
 
-    for (auto &cmd : cmds) {
+    for (auto it = begin; it != end; it++) {
+        const auto &cmd = *it;
         if (cmd->isSynchronizeCommand() && !cmdBuffer->setSyncFenceAddr(cmd.get())) {
             LOG_E("Failed to set synchronize fence vpu addresss");
             return nullptr;
@@ -167,6 +179,12 @@ bool VPUCommandBuffer::initHeader(size_t cmdSize) {
     return true;
 }
 
+void VPUCommandBuffer::addUniqueBoHandle(uint32_t handle) {
+    auto it = std::find(bufferHandles.begin(), bufferHandles.end(), handle);
+    if (it == bufferHandles.end())
+        bufferHandles.emplace_back(handle);
+}
+
 bool VPUCommandBuffer::addCommand(VPUCommand *cmd, uint64_t &cmdOffset, uint64_t &descOffset) {
     if (cmd == nullptr) {
         LOG_E("Command is nullptr or command is not initialized");
@@ -185,9 +203,7 @@ bool VPUCommandBuffer::addCommand(VPUCommand *cmd, uint64_t &cmdOffset, uint64_t
     }
 
     for (const auto &bo : cmd->getAssociateBufferObjects()) {
-        auto it = std::find(bufferHandles.begin(), bufferHandles.end(), bo->getHandle());
-        if (it == bufferHandles.end())
-            bufferHandles.emplace_back(bo->getHandle());
+        addUniqueBoHandle(bo->getHandle());
     }
 
     void *descPtr = buffer->getBasePointer() + descOffset;
@@ -416,6 +432,34 @@ void VPUCommandBuffer::printCommandBuffer() const {
         i++;
     }
     LOG(VPU_CMD, "Stop %s command buffer printing", targetEngineToStr(targetEngine));
+}
+
+bool VPUCommandBuffer::replaceBufferHandles(std::vector<uint32_t> &oldHandles,
+                                            std::vector<uint32_t> &newHandles) {
+    bufferHandles.erase(std::remove_if(bufferHandles.begin(),
+                                       bufferHandles.end(),
+                                       [&oldHandles](auto x) {
+                                           return std::find(oldHandles.begin(),
+                                                            oldHandles.end(),
+                                                            x) != oldHandles.end();
+                                       }),
+                        bufferHandles.end());
+    for (auto &handle : newHandles) {
+        addUniqueBoHandle(handle);
+    }
+    return true;
+}
+
+bool VPUCommandBuffer::updateCommands() {
+    for (auto it = commandsBegin; it != commandsEnd; it++) {
+        auto &cmd = *it;
+        if (cmd->needsUpdate()) {
+            if (!cmd->update(this)) {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 } // namespace VPU

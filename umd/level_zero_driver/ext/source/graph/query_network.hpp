@@ -1,12 +1,16 @@
 /*
- * Copyright (C) 2023 Intel Corporation
+ * Copyright (C) 2023-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
+#include <stddef.h>
+
 #include "level_zero/ze_graph_ext.h"
-#include "vcl_symbols.hpp"
+#include "npu_driver_compiler.h"
+
+#include <level_zero/ze_api.h>
 
 struct _ze_graph_query_network_handle_t {};
 

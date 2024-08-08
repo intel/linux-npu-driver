@@ -5,23 +5,36 @@
  *
  */
 
-#include "umd_common.hpp"
+// IWYU pragma: no_include <bits/chrono.h>
 
 #include "level_zero_driver/core/source/device/device.hpp"
+
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
 #include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
-#include "level_zero_driver/ext/source/graph/graph.hpp"
+#include "level_zero_driver/core/source/context/context.hpp"
+#include "level_zero_driver/core/source/driver/driver.hpp"
 #include "level_zero_driver/core/source/driver/driver_handle.hpp"
+#include "level_zero_driver/ext/source/graph/compiler.hpp"
+#include "level_zero_driver/include/nested_structs_handler.hpp"
 #include "level_zero_driver/tools/source/metrics/metric.hpp"
-
+#include "umd_common.hpp"
 #include "version.h"
-#include "vpu_driver/source/utilities/log.hpp"
+#include "vpu_driver/source/device/hw_info.hpp"
+#include "vpu_driver/source/device/metric_info.hpp"
 #include "vpu_driver/source/device/vpu_device.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
+#include "vpu_driver/source/utilities/log.hpp"
 
-#include <algorithm>
 #include <bitset>
-#include <chrono>
+#include <chrono> // IWYU pragma: keep
+#include <level_zero/ze_graph_ext.h>
+#include <level_zero/ze_intel_npu_uuid.h>
+#include <limits>
+#include <optional>
 #include <string.h>
+#include <string>
+#include <utility>
 
 namespace L0 {
 
@@ -60,6 +73,34 @@ ze_result_t Device::getP2PProperties(ze_device_handle_t hPeerDevice,
     // Setting property flag
     pP2PProperties->flags = 0;
     return ZE_RESULT_SUCCESS;
+}
+
+static std::optional<void *> handleExtensionProperty(void *pNext, const VPU::VPUHwInfo &hwInfo) {
+    ze_structure_type_t stype = *reinterpret_cast<ze_structure_type_t *>(pNext);
+
+    switch (stype) {
+    case ZE_STRUCTURE_TYPE_DEVICE_IP_VERSION_EXT: {
+        // Using the structure ze_device_ip_version_ext_t to store the platformType value
+        ze_device_ip_version_ext_t *deviceDetails =
+            reinterpret_cast<ze_device_ip_version_ext_t *>(pNext);
+        deviceDetails->ipVersion = hwInfo.platformType;
+        return const_cast<void *>(deviceDetails->pNext);
+    }
+    case ZE_STRUCTURE_TYPE_MUTABLE_COMMAND_LIST_EXP_PROPERTIES: {
+        ze_mutable_command_list_exp_properties_t *mutableCommandListProps =
+            reinterpret_cast<ze_mutable_command_list_exp_properties_t *>(pNext);
+        mutableCommandListProps->mutableCommandListFlags = 0;
+        mutableCommandListProps->mutableCommandFlags = ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT;
+        return mutableCommandListProps->pNext;
+    }
+    default:
+        LOG_E("Unsupported extension structure type: %#x", stype);
+        return {};
+    }
+}
+
+static bool getExtensionSpecificProperties(void *pNext, const VPU::VPUHwInfo &hwInfo) {
+    return handleNestedStructs(pNext, handleExtensionProperty, hwInfo);
 }
 
 ze_result_t Device::getProperties(ze_device_properties_t *pDeviceProperties) {
@@ -108,15 +149,8 @@ ze_result_t Device::getProperties(ze_device_properties_t *pDeviceProperties) {
     pDeviceProperties->flags = ZE_DEVICE_PROPERTY_FLAG_INTEGRATED;
     pDeviceProperties->uuid = ze_intel_npu_device_uuid;
 
-    // Using the structure ze_device_ip_version_ext_t to store the platformType value
-    if (pDeviceProperties->stype == ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES &&
-        pDeviceProperties->pNext != nullptr) {
-        ze_device_ip_version_ext_t *deviceDetails =
-            reinterpret_cast<ze_device_ip_version_ext_t *>(pDeviceProperties->pNext);
-
-        if (deviceDetails->stype == ZE_STRUCTURE_TYPE_DEVICE_IP_VERSION_EXT) {
-            deviceDetails->ipVersion = hwInfo.platformType;
-        }
+    if (!getExtensionSpecificProperties(pDeviceProperties->pNext, hwInfo)) {
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     LOG(DEVICE, "Returning device properties");

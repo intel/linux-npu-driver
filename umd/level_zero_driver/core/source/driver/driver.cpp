@@ -5,17 +5,23 @@
  *
  */
 
-#include "umd_common.hpp"
-#include "level_zero_driver/ext/source/graph/compiler_common.hpp"
-
-#include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/core/source/driver/driver.hpp"
 
+#include "level_zero_driver/api/tools/ze_tools_loader.h"
+#include "level_zero_driver/core/source/driver/driver_handle.hpp"
+#include "level_zero_driver/ext/source/graph/compiler.hpp"
+#include "level_zero_driver/ext/source/graph/compiler_common.hpp"
 #include "version.h"
-#include "vpu_driver/source/utilities/log.hpp"
-#include "vpu_driver/source/os_interface/vpu_device_factory.hpp"
+#include "vpu_driver/source/device/vpu_device.hpp"
 #include "vpu_driver/source/os_interface/os_interface.hpp"
+#include "vpu_driver/source/os_interface/vpu_device_factory.hpp"
+#include "vpu_driver/source/utilities/log.hpp"
+#include "vpu_driver/source/utilities/stats.hpp"
+
 #include <memory>
+#include <stdlib.h>
+#include <utility>
+#include <vector>
 
 namespace L0 {
 
@@ -48,6 +54,12 @@ void Driver::initializeLogging() {
     env = getenv("ZE_INTEL_NPU_COMPILER_LOGLEVEL");
     std::string_view cidLogLevel = env == nullptr ? "" : env;
 
+    env = getenv("ZE_INTEL_NPU_DUMP_MEM_STAT");
+    if (env) {
+        std::string_view umdMemStatsPath = env;
+        MemoryStatistics::get().enable(umdMemStatsPath);
+    }
+
     VPU::setLogLevel(umdLogLevel);
     VPU::setLogMask(umdLogMask);
     setCidLogLevel(cidLogLevel);
@@ -56,6 +68,20 @@ void Driver::initializeLogging() {
 ze_result_t Driver::getInitStatus() {
     LOG(DRIVER, "Current driver init status is %u", initStatus);
     return initStatus;
+}
+
+void Driver::displayComponentVersions() {
+    LOG(MISC, "Driver version: %s", vpu_drv_version_str);
+    LOG(MISC, "L0 Loader version: %s", getLoaderVersion().c_str());
+    LOG(MISC, "CiD version: %s", Compiler::getCompilerVersionString().c_str());
+    if (pGlobalDriverHandle) {
+        for (auto &device : pGlobalDriverHandle->devices) {
+            LOG(MISC, "Device JSM version: %s", device->getVPUDevice()->jsmApiVersion.c_str());
+            LOG(MISC,
+                "Device NNRT version: %s",
+                device->getVPUDevice()->mappedInferenceVersion.c_str());
+        }
+    }
 }
 
 void Driver::driverInit(ze_init_flags_t flags) {
@@ -82,10 +108,10 @@ void Driver::driverInit(ze_init_flags_t flags) {
             }
             initStatus = ZE_RESULT_SUCCESS;
         }
+        displayComponentVersions();
     });
-    LOG(DRIVER, "Driver init status to %u", initStatus);
-    LOG(DRIVER, "Driver version: %s", vpu_drv_version_str);
 
+    LOG(DRIVER, "Driver init status to %u", initStatus);
     return;
 }
 

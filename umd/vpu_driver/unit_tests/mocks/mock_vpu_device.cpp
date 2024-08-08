@@ -7,11 +7,12 @@
 
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
 
-#include <exception>
-#include <limits>
+#include "vpu_driver/source/utilities/log.hpp"
+#include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
+
 #include <memory>
+#include <stdexcept>
 #include <string>
-#include <cassert>
 
 namespace VPU {
 

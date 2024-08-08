@@ -1,11 +1,13 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
 #include "level_zero_driver/unit_tests/mocks/mock_metrics.hpp"
+
+#include <stdint.h>
 
 namespace L0 {
 namespace ult {

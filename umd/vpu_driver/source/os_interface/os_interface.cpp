@@ -5,11 +5,11 @@
  *
  */
 
-#include "vpu_driver/source/utilities/log.hpp"
-#include "vpu_driver/source/os_interface/os_interface_imp.hpp"
-#include "vpu_driver/source/os_interface/null_interface_imp.hpp"
+#include "vpu_driver/source/os_interface/os_interface.hpp"
 
-#include "umd_common.hpp"
+#include "vpu_driver/source/os_interface/null_interface_imp.hpp"
+#include "vpu_driver/source/os_interface/os_interface_imp.hpp"
+#include "vpu_driver/source/utilities/log.hpp"
 
 namespace VPU {
 

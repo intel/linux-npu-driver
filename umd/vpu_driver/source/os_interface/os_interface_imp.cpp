@@ -5,16 +5,18 @@
  *
  */
 
-#include "vpu_driver/source/utilities/log.hpp"
-#include "vpu_driver/source/os_interface/os_interface.hpp"
 #include "vpu_driver/source/os_interface/os_interface_imp.hpp"
 
+#include <stdint.h>
+
 #include "umd_common.hpp"
+#include "vpu_driver/source/os_interface/os_interface.hpp"
+#include "vpu_driver/source/utilities/log.hpp"
 
 #include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <memory>
-#include <stdlib.h>
 #include <string.h>
 #include <string>
 #include <sys/file.h>
@@ -22,6 +24,8 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <system_error>
+#include <unistd.h>
 
 namespace VPU {
 

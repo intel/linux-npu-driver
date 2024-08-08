@@ -7,16 +7,20 @@
 
 #pragma once
 
+#include <cstdint>
+#include <stddef.h>
+
+#include "api/vpu_jsm_job_cmd_api.h"
+#include "umd_common.hpp"
 #include "vpu_driver/source/command/vpu_command.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
-#include "umd_common.hpp"
+#include "vpu_driver/source/utilities/log.hpp"
 
-#include <cstdint>
+#include <any>
 #include <memory>
+#include <vector>
 
 namespace VPU {
-
-class VPUDeviceContext;
 
 class VPUCopyCommand : public VPUCommand {
   public:

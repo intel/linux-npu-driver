@@ -7,13 +7,16 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include "umd_common.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
-#include <cstdint>
-#include <fcntl.h>
+#include <errno.h>
 #include <memory>
+#include <stdexcept>
 #include <string>
+#include <sys/types.h>
 #include <uapi/drm/ivpu_accel.h>
 
 namespace VPU {
@@ -40,6 +43,7 @@ class VPUDriverApi final {
     bool isVpuDevice() const;
     int submitCommandBuffer(drm_ivpu_submit *arg) const;
     bool checkDeviceCapability(uint32_t index) const;
+    bool checkPrimeBuffersCapability() const;
     size_t getPageSize() const;
     std::string getDeviceLink();
 
@@ -53,6 +57,7 @@ class VPUDriverApi final {
                          uint64_t &vpu_address,
                          uint64_t &size,
                          uint64_t &mmap_offset) const;
+    std::string getFWComponentVersion(uint32_t componentVerIndex);
     int exportBuffer(uint32_t handle, uint32_t flags, int32_t &fd) const;
     int importBuffer(int32_t fd, uint32_t flags, uint32_t &handle) const;
     void *mmap(size_t size, off_t offset) const;

@@ -5,17 +5,33 @@
  *
  */
 
-#include "level_zero_driver/core/source/device/device.hpp"
+#include "level_zero_driver/ext/source/graph/graph.hpp"
+
 #include "level_zero/ze_api.h"
 #include "level_zero/ze_graph_ext.h"
 #include "level_zero_driver/core/source/context/context.hpp"
 #include "level_zero_driver/core/source/device/device.hpp"
-#include "level_zero_driver/ext/source/graph/graph.hpp"
-
-#include "vpu_driver/source/command/vpu_barrier_command.hpp"
+#include "level_zero_driver/core/source/driver/driver.hpp"
+#include "level_zero_driver/ext/source/graph/compiler.hpp"
+#include "level_zero_driver/ext/source/graph/disk_cache.hpp"
+#include "level_zero_driver/ext/source/graph/elf_parser.hpp"
+#include "level_zero_driver/ext/source/graph/profiling_data.hpp"
+#include "level_zero_driver/include/l0_exception.hpp"
+#include "npu_driver_compiler.h"
+#include "umd_common.hpp"
+#include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_device.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
-#include "vpux_driver_compiler.h"
+#include "vpux_elf/utils/version.hpp"
+#include "vpux_hpi.hpp"
+
+#include <algorithm>
+#include <string.h>
+#include <string>
+
+namespace VPU {
+class VPUDeviceContext;
+} // namespace VPU
 
 namespace L0 {
 

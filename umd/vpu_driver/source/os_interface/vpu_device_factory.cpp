@@ -5,16 +5,18 @@
  *
  */
 
-#include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/source/os_interface/vpu_device_factory.hpp"
-#include "vpu_driver/source/device/vpu_device.hpp"
 
-#include <filesystem>
+#include "vpu_driver/source/utilities/log.hpp"
+
 #include <memory>
-#include <vector>
 #include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 namespace VPU {
+class OsInterface;
 
 std::vector<std::unique_ptr<VPUDevice>> DeviceFactory::createDevices(OsInterface *osi,
                                                                      bool enableMetrics) {

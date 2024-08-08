@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,16 +7,20 @@
 
 #pragma once
 
-#include "vpu_driver/source/command/vpu_command.hpp"
+#include <stddef.h>
+#include <stdint.h>
+
+#include "api/vpu_jsm_job_cmd_api.h"
 #include "vpu_driver/source/command/vpu_event_command.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 
-#include <linux/kernel.h>
-#include <array>
 #include <memory>
+#include <uapi/drm/ivpu_accel.h>
 #include <vector>
 
 namespace VPU {
+class VPUCommand;
+class VPUDeviceContext;
 
 class VPUCommandBuffer {
   public:
@@ -38,7 +42,11 @@ class VPUCommandBuffer {
         return "UNKNOWN";
     }
 
-    VPUCommandBuffer(VPUDeviceContext *ctx, VPUBufferObject *buffer, Target type);
+    VPUCommandBuffer(VPUDeviceContext *ctx,
+                     VPUBufferObject *buffer,
+                     const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
+                     const std::vector<std::shared_ptr<VPUCommand>>::iterator &end,
+                     Target type);
     ~VPUCommandBuffer();
 
     /**
@@ -50,7 +58,8 @@ class VPUCommandBuffer {
      */
     static std::unique_ptr<VPUCommandBuffer>
     allocateCommandBuffer(VPUDeviceContext *ctx,
-                          const std::vector<std::shared_ptr<VPUCommand>> &cmds,
+                          const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
+                          const std::vector<std::shared_ptr<VPUCommand>>::iterator &end,
                           Target targetEngine,
                           VPUEventCommand::KMDEventDataType **fenceWait = nullptr);
 
@@ -99,6 +108,10 @@ class VPUCommandBuffer {
     void setPriority(Priority p) { priority = p; }
     Priority getPriority() const { return priority; }
 
+    bool replaceBufferHandles(std::vector<uint32_t> &oldHandles, std::vector<uint32_t> &newHandles);
+
+    bool updateCommands();
+
   private:
     /**
      * Initialize command buffer header
@@ -119,6 +132,7 @@ class VPUCommandBuffer {
      * Set fence address that is used for command buffer recognition
      */
     bool setSyncFenceAddr(VPUCommand *cmd);
+    void addUniqueBoHandle(uint32_t handle);
 
   public:
     /* Address CommandHeader has to be aligned to 64 bytes (FW cache line size) */
@@ -150,6 +164,8 @@ class VPUCommandBuffer {
     Target targetEngine;
     uint32_t jobStatus;
     Priority priority;
+    std::vector<std::shared_ptr<VPUCommand>>::iterator commandsBegin;
+    std::vector<std::shared_ptr<VPUCommand>>::iterator commandsEnd;
 
     uint64_t syncFenceVpuAddr = 0;
     std::vector<uint32_t> bufferHandles;

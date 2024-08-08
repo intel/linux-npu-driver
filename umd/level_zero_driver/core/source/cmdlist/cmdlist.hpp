@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,16 +7,36 @@
 
 #pragma once
 
-#include "vpu_driver/source/device/vpu_device_context.hpp"
-#include "level_zero_driver/core/source/device/device.hpp"
-#include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
+#include <stddef.h>
+#include <stdint.h>
+
+#include "level_zero_driver/ext/source/graph/graph.hpp"
+#include "level_zero_driver/include/l0_handler.hpp"
+#include "vpu_driver/source/command/vpu_event_command.hpp"
+#include "vpu_driver/source/command/vpu_job.hpp"
+
+#include <level_zero/ze_api.h>
+#include <level_zero/ze_graph_profiling_ext.h>
+#include <level_zero/zet_api.h>
+#include <memory>
+#include <unordered_map>
+#include <vector>
+
+namespace L0 {
+struct Context;
+} // namespace L0
+namespace VPU {
+class VPUBufferObject;
+class VPUCommand;
+class VPUDeviceContext;
+} // namespace VPU
 
 struct _ze_command_list_handle_t {};
 
 namespace L0 {
 
 struct CommandList : _ze_command_list_handle_t, IContextObject {
-    CommandList(Context *pContext, bool isCopyOnly);
+    CommandList(Context *pContext, bool isCopyOnly, bool isMutable);
     ~CommandList();
 
     ze_result_t destroy();
@@ -68,6 +88,10 @@ struct CommandList : _ze_command_list_handle_t, IContextObject {
                                      uint32_t numWaitEvents,
                                      ze_event_handle_t *phWaitEvents);
 
+    ze_result_t getNextCommandId(const ze_mutable_command_id_exp_desc_t *desc,
+                                 uint64_t *pCommandId);
+    ze_result_t updateMutableCommands(const ze_mutable_commands_exp_desc_t *desc);
+
     inline ze_command_list_handle_t toHandle() { return this; }
     static CommandList *fromHandle(ze_command_list_handle_t handle) {
         return static_cast<CommandList *>(handle);
@@ -103,10 +127,12 @@ struct CommandList : _ze_command_list_handle_t, IContextObject {
   protected:
     Context *pContext = nullptr;
     bool isCopyOnlyCmdList = false;
+    bool isMutable = false;
     VPU::VPUDeviceContext *ctx = nullptr;
     std::shared_ptr<VPU::VPUJob> vpuJob = nullptr;
     std::vector<VPU::VPUBufferObject *> tracedInternalBos;
     std::vector<std::unique_ptr<InferenceExecutor>> tracedInferences;
+    std::unordered_map<uint64_t, uint64_t> commandIdMap;
 };
 
 } // namespace L0

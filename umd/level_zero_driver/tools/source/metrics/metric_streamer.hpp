@@ -7,15 +7,24 @@
 
 #pragma once
 
-#include "level_zero_driver/core/source/context/context.hpp"
+#include <stddef.h>
+#include <stdint.h>
 
+#include "level_zero_driver/include/l0_handler.hpp"
+
+#include <level_zero/ze_api.h>
 #include <level_zero/zet_api.h>
+
+namespace VPU {
+class VPUDeviceContext;
+class VPUDriverApi;
+} // namespace VPU
 
 struct _zet_metric_streamer_handle_t {};
 
 namespace L0 {
 
-struct Device;
+struct Context;
 struct MetricGroup;
 
 struct MetricStreamer : _zet_metric_streamer_handle_t, IContextObject {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,12 +7,17 @@
 
 #pragma once
 
+#include <cstdint>
+
+#include "api/vpu_jsm_job_cmd_api.h"
 #include "vpu_driver/source/command/vpu_command.hpp"
 
-#include <uapi/drm/ivpu_accel.h>
+#include <any>
 #include <memory>
 
 namespace VPU {
+
+class VPUDeviceContext;
 
 class VPUEventCommand : public VPUCommand {
   public:

@@ -1,20 +1,28 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
-#include "vpu_driver/source/utilities/log.hpp"
-#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
-#include "vpu_driver/source/command/vpu_ts_command.hpp"
+#include <stdint.h>
+
+#include "api/vpu_jsm_job_cmd_api.h"
+#include "gtest/gtest.h"
+#include "vpu_driver/source/command/vpu_barrier_command.hpp"
+#include "vpu_driver/source/command/vpu_command.hpp"
 #include "vpu_driver/source/command/vpu_copy_command.hpp"
 #include "vpu_driver/source/command/vpu_event_command.hpp"
-#include "vpu_driver/source/command/vpu_barrier_command.hpp"
 #include "vpu_driver/source/command/vpu_query_command.hpp"
+#include "vpu_driver/source/command/vpu_ts_command.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
+#include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
 
-#include "gtest/gtest.h"
+#include <memory>
+#include <string.h>
+#include <string>
+#include <vector>
 
 using namespace VPU;
 

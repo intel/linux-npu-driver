@@ -5,15 +5,20 @@
  *
  */
 
-#include "level_zero/ze_api.h"
-#include "level_zero_driver/ext/source/graph/graph.hpp"
-
 #include "level_zero_driver/ext/source/graph/profiling_data.hpp"
+
+#include "level_zero/ze_api.h"
+#include "level_zero_driver/ext/source/graph/compiler.hpp"
 #include "level_zero_driver/include/l0_exception.hpp"
+#include "umd_common.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
+#include <algorithm>
 #include <string.h>
+#include <string>
+#include <utility>
 
 namespace L0 {
 

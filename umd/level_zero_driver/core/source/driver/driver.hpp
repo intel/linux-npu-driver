@@ -7,13 +7,19 @@
 
 #pragma once
 
-#include "vpu_driver/source/os_interface/os_interface.hpp"
+#include <stdint.h>
+
 #include "level_zero_driver/core/source/driver/driver_handle.hpp"
 #include "level_zero_driver/ext/source/graph/disk_cache.hpp"
 
 #include <level_zero/ze_api.h>
-
+#include <memory>
 #include <mutex>
+#include <string_view>
+
+namespace VPU {
+class OsInterface;
+} // namespace VPU
 
 namespace L0 {
 
@@ -45,10 +51,11 @@ class Driver {
     std::unique_ptr<DiskCache> diskCache;
 
   protected:
-    static Driver *pDriver;
-    L0EnvVariables envVariables = {};
+    void displayComponentVersions();
     void initializeEnvVariables();
     void initializeLogging();
+    static Driver *pDriver;
+    L0EnvVariables envVariables = {};
 
   private:
     const uint32_t driverCount = 1;

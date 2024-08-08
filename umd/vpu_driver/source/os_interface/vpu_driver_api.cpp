@@ -6,16 +6,20 @@
  */
 
 #include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
+
 #include "vpu_driver/source/os_interface/os_interface.hpp"
 
-#include <cerrno>
-#include <cstdint>
 #include <drm/drm.h>
+#include <fcntl.h>
 #include <memory>
+#include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <uapi/drm/ivpu_accel.h>
+#include <unistd.h>
+#include <utility>
 
 namespace VPU {
 
@@ -187,6 +191,18 @@ bool VPUDriverApi::checkDeviceCapability(uint32_t index) const {
     return true;
 }
 
+bool VPUDriverApi::checkPrimeBuffersCapability() const {
+    drm_get_cap args = {.capability = DRM_CAP_PRIME, .value = 0ULL};
+
+    int ret = doIoctl(DRM_IOCTL_GET_CAP, &args);
+    if (ret) {
+        LOG_E("Failed to call DRM_IOCTL_GET_CAP");
+        return false;
+    }
+    const uint64_t primeMask = DRM_PRIME_CAP_IMPORT | DRM_PRIME_CAP_EXPORT;
+    return (args.value & primeMask) == primeMask ? true : false;
+}
+
 size_t VPUDriverApi::getPageSize() const {
     return osInfc.osiGetSystemPageSize();
 }
@@ -256,6 +272,18 @@ int VPUDriverApi::getExtBufferInfo(uint32_t handle,
     size = args.size;
     mmap_offset = args.mmap_offset;
     return ret;
+}
+
+std::string VPUDriverApi::getFWComponentVersion(uint32_t componentVerIndex) {
+    std::string version;
+
+    try {
+        uint32_t rev = getDeviceParam<uint32_t>(DRM_IVPU_PARAM_FW_API_VERSION, componentVerIndex);
+        version += std::to_string(rev >> 16) + "." + std::to_string(rev & 0xFFFF);
+    } catch (std::exception &e) {
+        version = "not available";
+    }
+    return version;
 }
 
 int VPUDriverApi::exportBuffer(uint32_t handle, uint32_t flags, int32_t &fd) const {

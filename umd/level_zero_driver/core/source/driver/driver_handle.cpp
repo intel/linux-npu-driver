@@ -6,21 +6,22 @@
  */
 
 #include "level_zero_driver/core/source/driver/driver_handle.hpp"
+
 #include "level_zero/ze_api.h"
 #include "level_zero/ze_graph_ext.h"
 #include "level_zero/ze_graph_profiling_ext.h"
 #include "level_zero/ze_intel_npu_uuid.h"
-#include "level_zero_driver/core/source/device/device.hpp"
-#include "level_zero_driver/core/source/driver/driver.hpp"
-#include "level_zero_driver/core/source/context/context.hpp"
 #include "level_zero_driver/api/ext/ze_graph.hpp"
-
+#include "level_zero_driver/core/source/context/context.hpp"
+#include "level_zero_driver/core/source/device/device.hpp"
+#include "umd_common.hpp"
 #include "vpu_driver/source/device/vpu_device.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
-#include <level_zero/ze_ddi.h>
+#include <array>
 #include <string.h>
+#include <utility>
 #include <vector>
 
 namespace L0 {
@@ -90,7 +91,7 @@ ze_result_t DriverHandle::getIPCProperties(ze_driver_ipc_properties_t *pIPCPrope
 ze_result_t
 DriverHandle::getExtensionProperties(uint32_t *pCount,
                                      ze_driver_extension_properties_t *pExtensionProperties) {
-    std::array<ze_driver_extension_properties_t, 8> supportedExts = {{
+    std::array<ze_driver_extension_properties_t, 9> supportedExts = {{
         {ZE_GRAPH_EXT_NAME, ZE_GRAPH_EXT_VERSION_1_0},
         {ZE_GRAPH_EXT_NAME_1_1, ZE_GRAPH_EXT_VERSION_1_1},
         {ZE_GRAPH_EXT_NAME_1_2, ZE_GRAPH_EXT_VERSION_1_2},
@@ -99,6 +100,7 @@ DriverHandle::getExtensionProperties(uint32_t *pCount,
         {ZE_GRAPH_EXT_NAME_1_5, ZE_GRAPH_EXT_VERSION_1_5},
         {ZE_GRAPH_EXT_NAME_1_6, ZE_GRAPH_EXT_VERSION_1_6},
         {ZE_PROFILING_DATA_EXT_NAME, ZE_PROFILING_DATA_EXT_VERSION_1_0},
+        {ZE_MUTABLE_COMMAND_LIST_EXP_NAME, ZE_MUTABLE_COMMAND_LIST_EXP_VERSION_1_0},
     }};
 
     if (pCount == nullptr) {

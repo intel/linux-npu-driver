@@ -1,11 +1,13 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
 #include "compiler_common.hpp"
+
+#include <string>
 
 vcl_log_level_t cidLogLevel = VCL_LOG_NONE;
 

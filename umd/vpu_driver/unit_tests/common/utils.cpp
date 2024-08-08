@@ -1,14 +1,16 @@
 /*
- * Copyright (C) 2022-2023 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
+#include "gtest/gtest.h"
 #include "umd_common.hpp"
 
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
+#include <limits.h>
+#include <stdexcept>
+#include <string>
 
 TEST(Utils, safeCastFromSingedToSignedConversion) {
     EXPECT_NO_THROW(EXPECT_EQ((safe_cast<int, char>(0)), 0));

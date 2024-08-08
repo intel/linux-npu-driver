@@ -5,16 +5,28 @@
  *
  */
 
+// IWYU pragma: no_include <bits/chrono.h>
+
 #include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
+
 #include "level_zero/ze_api.h"
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
+#include "level_zero_driver/core/source/context/context.hpp"
+#include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/core/source/fence/fence.hpp"
-#include "vpu_driver/source/utilities/timer.hpp"
+#include "level_zero_driver/include/l0_exception.hpp"
+#include "vpu_driver/source/command/vpu_command_buffer.hpp"
+#include "vpu_driver/source/command/vpu_job.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
+#include "vpu_driver/source/utilities/timer.hpp"
 
-#include <chrono>
+#include <algorithm>
+#include <chrono> // IWYU pragma: keep
+#include <errno.h>
+#include <iterator>
 #include <mutex>
-#include <thread>
+#include <utility>
 
 namespace L0 {
 
@@ -30,17 +42,26 @@ static VPU::VPUCommandBuffer::Priority toDriverPriority(ze_command_queue_priorit
     }
 }
 
+CommandQueue::CommandQueue(Context *context,
+                           Device *device,
+                           bool isCopyOnly,
+                           ze_command_queue_priority_t priority)
+    : pContext(context)
+    , device(device)
+    , isCopyOnlyCommandQueue(isCopyOnly)
+    , priority(priority) {}
+
 ze_result_t CommandQueue::create(ze_context_handle_t hContext,
                                  ze_device_handle_t hDevice,
                                  const ze_command_queue_desc_t *desc,
                                  ze_command_queue_handle_t *phCommandQueue) {
     if (hContext == nullptr) {
         LOG_E("Invalid hContext pointer");
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
     if (hDevice == nullptr) {
         LOG_E("Invalid hDevice pointer");
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
     if (desc == nullptr) {
         LOG_E("Invalid desc pointer");
@@ -75,7 +96,7 @@ ze_result_t CommandQueue::create(ze_context_handle_t hContext,
 
 ze_result_t CommandQueue::destroy() {
     pContext->removeObject(this);
-    LOG(CMDQUEUE, "CommandQueue destroyed");
+    LOG(CMDQUEUE, "CommandQueue destroyed - %p", this);
     return ZE_RESULT_SUCCESS;
 }
 
@@ -94,10 +115,12 @@ ze_result_t CommandQueue::createFence(const ze_fence_desc_t *desc, ze_fence_hand
     }
 
     try {
-        auto fence = std::make_unique<Fence>(pContext, desc);
+        auto fence = std::make_unique<Fence>(this, desc);
 
         *phFence = fence.get();
-        pContext->appendObject(std::move(fence));
+
+        std::unique_lock lock(fenceMutex);
+        fences.emplace(fence.get(), std::move(fence));
 
         LOG(CMDQUEUE, "Fence created - %p", *phFence);
     } catch (const DriverError &err) {
@@ -107,10 +130,15 @@ ze_result_t CommandQueue::createFence(const ze_fence_desc_t *desc, ze_fence_hand
     return ZE_RESULT_SUCCESS;
 }
 
+void CommandQueue::destroyFence(Fence *pFence) {
+    std::unique_lock lock(fenceMutex);
+    fences.erase(pFence);
+}
+
 ze_result_t CommandQueue::executeCommandLists(uint32_t nCommandLists,
                                               ze_command_list_handle_t *phCommandLists,
                                               ze_fence_handle_t hFence) {
-    LOG(CMDQUEUE, "Executing %u command list(s)", nCommandLists);
+    LOG(CMDQUEUE, "CommandQueue Execute - %p", this);
 
     if (phCommandLists == nullptr) {
         LOG_E("Invalid pointer to handle hCommandLists");
@@ -168,53 +196,56 @@ ze_result_t CommandQueue::executeCommandLists(uint32_t nCommandLists,
     }
 
     if (hFence != nullptr) {
-        LOG(CMDQUEUE, "A fence is given for command queue exec sync");
         auto fence = Fence::fromHandle(hFence);
-        if (fence == nullptr) {
-            LOG_E("Failed to get Fence, invalid fence handle %p.", hFence);
+        std::shared_lock lock(fenceMutex);
+        if (fences.find(fence) == fences.end()) {
+            LOG_E("Fence %p is not from this command queue %p", fence, this);
             return ZE_RESULT_ERROR_INVALID_SYNCHRONIZATION_OBJECT;
         }
 
-        fence->setTrackedJobs(jobs);
+        fence->setTrackedJobs(std::move(jobs));
+    } else {
+        std::copy(jobs.begin(), jobs.end(), std::back_inserter(trackedJobs));
     }
 
-    const std::lock_guard<std::timed_mutex> trackedJobsLock(trackedJobsMutex);
-    std::copy(jobs.begin(), jobs.end(), std::back_inserter(trackedJobs));
     return ZE_RESULT_SUCCESS;
 }
 
 ze_result_t CommandQueue::synchronize(uint64_t timeout) {
-    auto timeoutPoint = VPU::getAbsoluteTimePoint(timeout);
-    /*
-     * try_lock_until raise SIGABRT signal when timeout is => ~INT64_MAX in Ubuntu20.04 because
-     * of signed overflow, detected by compiler flag '-ftrapv'. try_lock_for is free from this
-     * limitation and is a first waiting function
-     */
-    if (!trackedJobsMutex.try_lock_for(std::chrono::nanoseconds(timeout))) {
-        LOG_W("Failed to lock mutex on tracked jobs");
-        return ZE_RESULT_NOT_READY;
+    LOG(CMDQUEUE, "CommandQueue synchronize - %p", this);
+    auto absTp = VPU::getAbsoluteTimePoint(timeout);
+
+    {
+        std::shared_lock lock(fenceMutex);
+        if (trackedJobs.empty() && fences.empty()) {
+            LOG_W("No CommandList submitted");
+            return ZE_RESULT_SUCCESS;
+        }
+
+        for (auto &[_, fence] : fences) {
+            auto result = fence->waitForJobs(absTp);
+            if (result != ZE_RESULT_SUCCESS)
+                return result;
+        }
     }
 
-    const std::lock_guard<std::timed_mutex> trackedJobsLock(trackedJobsMutex, std::adopt_lock);
-    if (trackedJobs.empty()) {
-        LOG(CMDQUEUE, "No command execution to observe");
-        return ZE_RESULT_SUCCESS;
-    }
+    ze_result_t result = waitForJobs(absTp, trackedJobs);
+    if (result != ZE_RESULT_SUCCESS)
+        return result;
 
-    LOG(CMDQUEUE, "Synchronize for %lu ns, %zu job count", timeout, trackedJobs.size());
+    trackedJobs.clear();
+    return result;
+}
 
-    for (auto const &job : trackedJobs) {
-        if (!job->waitForCompletion(timeoutPoint.time_since_epoch().count())) {
-            LOG_W("Commands execution is not finished");
+ze_result_t CommandQueue::waitForJobs(std::chrono::steady_clock::time_point absTimePoint,
+                                      const std::vector<std::shared_ptr<VPU::VPUJob>> &jobs) {
+    for (auto const &job : jobs) {
+        if (!job->waitForCompletion(absTimePoint.time_since_epoch().count())) {
             return ZE_RESULT_NOT_READY;
         }
     }
 
-    ze_result_t result = Device::jobStatusToResult(trackedJobs);
-
-    trackedJobs.clear();
-    LOG(CMDQUEUE, "Commands execution is finished");
-    return result;
+    return Device::jobStatusToResult(jobs);
 }
 
 } // namespace L0

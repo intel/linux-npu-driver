@@ -7,22 +7,33 @@
 
 #pragma once
 
+#include <cstdint>
+#include <stddef.h>
+
 #include "level_zero/ze_graph_ext.h"
 #include "level_zero_driver/ext/source/graph/interface_parser.hpp"
 #include "vpu_driver/source/command/vpu_command.hpp"
-#include "vpu_driver/source/device/vpu_device_context.hpp"
-#include "vpu_driver/source/command/vpu_inference_execute.hpp"
-#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
+#include "vpux_elf/utils/version.hpp"
 
-#include <cstdint>
+#include <level_zero/ze_api.h>
 #include <memory>
-#include <vpux_hpi.hpp>
-#include <vpux_headers/buffer_manager.hpp>
+#include <string>
+#include <type_traits>
+#include <utility>
+#include <vector>
 #include <vpux_elf/accessor.hpp>
+#include <vpux_headers/buffer_manager.hpp>
+#include <vpux_hpi.hpp>
+
+namespace VPU {
+class VPUBufferObject;
+class VPUDeviceContext;
+class VPUInferenceExecute;
+} // namespace VPU
 
 namespace L0 {
 
-class ElfParser : public IParser {
+class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser> {
   public:
     ElfParser(VPU::VPUDeviceContext *ctx,
               std::unique_ptr<elf::BufferManager> manager,
@@ -59,18 +70,18 @@ class ElfParser : public IParser {
                            const std::pair<void *, uint32_t> &profilingPtr,
                            std::shared_ptr<elf::HostParsedInference> &execHpi) override;
 
-  private:
-    bool applyInputOutputs(elf::HostParsedInference &hpi,
+    bool applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &hpi,
                            const std::vector<std::pair<const void *, uint32_t>> &inputs,
                            const std::vector<std::pair<const void *, uint32_t>> &outputs,
                            const std::pair<const void *, uint32_t> &profilingPtr,
                            std::vector<VPU::VPUBufferObject *> &bos);
 
+  private:
     VPU::VPUDeviceContext *ctx;
     std::unique_ptr<elf::BufferManager> bufferManager;
     std::unique_ptr<elf::AccessManager> accessManager;
     std::shared_ptr<elf::HostParsedInference> hpi;
-    bool firstInference = true;
+    bool needCopy = false;
 };
 
 template <class T>

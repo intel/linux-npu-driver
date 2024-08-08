@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,10 +7,15 @@
 
 #pragma once
 
-#include "level_zero_driver/core/source/device/device.hpp"
-#include <level_zero/zet_api.h>
+#include <stddef.h>
+#include <stdint.h>
 
+#include "vpu_driver/source/device/metric_info.hpp"
+
+#include <level_zero/ze_api.h>
+#include <level_zero/zet_api.h>
 #include <memory>
+#include <utility>
 #include <vector>
 
 struct _zet_metric_group_handle_t {};

@@ -6,22 +6,28 @@
  */
 
 #include "level_zero_driver/api/ext/ze_graph.hpp"
-#include "level_zero_driver/include/l0_exception.hpp"
+
 #include "level_zero/loader/ze_loader.h"
 #include "level_zero/ze_api.h"
 #include "level_zero/ze_graph_ext.h"
 #include "level_zero/ze_graph_profiling_ext.h"
-#include "level_zero_driver/ext/source/graph/graph.hpp"
-#include "level_zero_driver/ext/source/graph/query_network.hpp"
+#include "level_zero_driver/api/tools/ze_tools_loader.h"
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
+#include "level_zero_driver/core/source/context/context.hpp"
+#include "level_zero_driver/core/source/device/device.hpp"
+#include "level_zero_driver/ext/source/graph/graph.hpp"
+#include "level_zero_driver/ext/source/graph/profiling_data.hpp"
+#include "level_zero_driver/ext/source/graph/query_network.hpp"
+#include "level_zero_driver/include/l0_exception.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <dlfcn.h>
 #include <memory>
 
 namespace L0 {
+
 static ze_result_t translateHandle(zel_handle_type_t type, void *handler, void **pHandler) {
-    static void *loaderHandle = dlopen("libze_loader.so.1", RTLD_LAZY | RTLD_LOCAL);
+    void *loaderHandle = getLoaderHandle();
     if (loaderHandle == nullptr) {
         LOG_E("Failed to open libze_loader.so.1 library");
         return ZE_RESULT_ERROR_UNKNOWN;
