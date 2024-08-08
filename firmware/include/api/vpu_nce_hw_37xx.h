@@ -3,6 +3,8 @@
  * Copyright (c) 2022-2023, Intel Corporation.
  */
 
+// clang-format off
+
 #ifndef VPU_NCE_HW_37XX_H
 #define VPU_NCE_HW_37XX_H
 
@@ -516,3 +518,5 @@ enum VpuMPEGrid { MPE_GRID_4x4, MPE_GRID_16x1 };
 } // namespace nn_public
 
 #endif
+
+// clang-format on

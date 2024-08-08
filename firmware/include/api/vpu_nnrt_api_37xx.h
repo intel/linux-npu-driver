@@ -3,6 +3,8 @@
  * Copyright (c) 2022-2023, Intel Corporation.
  */
 
+// clang-format off
+
 #ifndef VPU_NNRT_API_37XX_H
 #define VPU_NNRT_API_37XX_H
 
@@ -28,10 +30,16 @@
  */
 #define VPU_NNRT_37XX_API_VER_MAJOR 7
 #define VPU_NNRT_37XX_API_VER_MINOR 0
-#define VPU_NNRT_37XX_API_VER_PATCH 2
+#define VPU_NNRT_37XX_API_VER_PATCH 0
 #define VPU_NNRT_37XX_API_VER ((VPU_NNRT_37XX_API_VER_MAJOR << 16) | VPU_NNRT_37XX_API_VER_MINOR)
 
-/* Index in the API version table, same for all HW generations */
+// Temporarily define VPU_NNRT_API_VER until all consumers of this header are updated
+// to use VPU_NNRT_37XX_API_VER
+#define VPU_NNRT_API_VER VPU_NNRT_37XX_API_VER
+
+/*
+ * Index in the API version table
+ */
 #define VPU_NNRT_37XX_API_VER_INDEX 7
 
 /*
@@ -371,3 +379,5 @@ static_assert(offsetof(VpuHostParsedInference, mapped_) % 8 == 0, "Alignment err
 } // namespace nn_public
 
 #endif
+
+// clang-format on

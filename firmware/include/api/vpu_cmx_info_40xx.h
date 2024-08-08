@@ -3,6 +3,8 @@
  * Copyright (c) 2023, Intel Corporation.
  */
 
+// clang-format off
+
 #ifndef VPU_CMX_INFO_40XX_H_
 #define VPU_CMX_INFO_40XX_H_
 
@@ -12,7 +14,7 @@ namespace nn_public {
 
 // SNN_DATA_SIZE + SNN_STACK_SIZE + ACTSHV_SCRATCH_SIZE + METADATA_SIZE should be multiple of 16K
 // or else the workspace will not work with certain DPU operations - swizzling
-// No SHAVE-NN for VPU40XX
+// No SHAVE-NN for NPUReg40XX
 constexpr static uint32_t VPU_SNN_DATA_SIZE = 0;
 constexpr static uint32_t VPU_SNN_STACK_SIZE = 0;
 constexpr static uint32_t VPU_ACTSHV_SCRATCH_SIZE = 1 * 1024;
@@ -23,8 +25,8 @@ constexpr static uint32_t VPU_RESERVED_SIZE = 512 * 1024;
 
 static_assert(((VPU_SNN_DATA_SIZE + VPU_SNN_STACK_SIZE + VPU_ACTSHV_SCRATCH_SIZE + VPU_ACTSHV_STACKS_SIZE +
                 VPU_METADATA_SIZE) &
-               0x7FFF) == 0,
-              "Workspace size must be multiple of 32k");
+               0x3FFF) == 0,
+              "Workspace size must be multiple of 16k");
 
 constexpr uint32_t VPU_ACTSHV_STACK_PER_SHAVE = VPU_ACTSHV_STACKS_SIZE / VPU_AS_PER_TILE;
 
@@ -67,3 +69,5 @@ constexpr uintptr_t align_storage(uint32_t alignment, uintptr_t ptr) {
 } // namespace nn_public
 
 #endif
+
+// clang-format on

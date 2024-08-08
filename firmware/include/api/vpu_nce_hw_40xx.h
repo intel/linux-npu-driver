@@ -310,7 +310,7 @@ typedef struct {
             uint32_t unused_1 : 2;
             uint32_t reserved3 : 1;
             uint32_t unused_2 : 13;
-        } reserved2;
+        } ppe_lut_ptr_bf;
     } reserved1;
 
     uint32_t nvar_tag;
