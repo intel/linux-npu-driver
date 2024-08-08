@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -38,10 +38,16 @@ TEST_F(Driver, GetExtensionProperties) {
     std::vector<ze_driver_extension_properties_t> props(count);
     EXPECT_EQ(zeDriverGetExtensionProperties(zeDriver, &count, props.data()), ZE_RESULT_SUCCESS);
 
-    bool extension_match = false;
+    bool has_graph_extension = false;
+    bool has_mutable_cmdlist_extension = false;
     for (auto &v : props) {
         if (std::string(v.name) == GRAPH_EXT_NAME && v.version == GRAPH_EXT_VERSION)
-            extension_match = true;
+            has_graph_extension = true;
+        if (std::string(v.name) == ZE_MUTABLE_COMMAND_LIST_EXP_NAME &&
+            v.version == ZE_MUTABLE_COMMAND_LIST_EXP_VERSION_1_0)
+            has_mutable_cmdlist_extension = true;
     }
-    EXPECT_TRUE(extension_match);
+
+    EXPECT_TRUE(has_graph_extension);
+    EXPECT_TRUE(has_mutable_cmdlist_extension);
 }

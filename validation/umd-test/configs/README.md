@@ -110,7 +110,7 @@ compiler_in_driver:
 
 ## Section "image\_classification\_imagenet"
 This section defines models used in image classificiation tests:
-"CompilerInDriverLongBmp.\* , CompilerInDriverThreaded.\*"
+"CompilerInDriverLongBmp.\*"
 For each model must be specified:
 - **path:** path to model to compile, the generated test name will be the name of model
 - **flags:** compilation flags passed directly to compiler

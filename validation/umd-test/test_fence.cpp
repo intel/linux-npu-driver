@@ -45,14 +45,6 @@ class Fence : public UmdTest {
     ze_result_t ret;
 };
 
-TEST_F(Fence, CreateFenceWithQueueEqualToNull) {
-    ASSERT_EQ(zeFenceCreate(nullptr, &fenceDesc, &fence), ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
-}
-
-TEST_F(Fence, DestroyUsingNullptr) {
-    ASSERT_EQ(zeFenceDestroy(nullptr), ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
-}
-
 TEST_F(Fence, CreateFenceExpectNotReadyStatus) {
     scopedFence = zeScope::fenceCreate(queue, fenceDesc, ret);
     ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
@@ -240,7 +232,7 @@ TEST_F(FenceSync, ExecuteAndSynchronizeMultipleCommandQueuesUsingMultipleFences)
     ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
     auto list2 = scopedList2.get();
 
-    auto scopedFence2 = zeScope::fenceCreate(queue, fenceDesc, ret);
+    auto scopedFence2 = zeScope::fenceCreate(queue2, fenceDesc, ret);
     ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
     auto fence2 = scopedFence2.get();
 

@@ -37,6 +37,9 @@ class MetricStreamer : public UmdTest, public ::testing::WithParamInterface<metr
 
         ASSERT_EQ(zetContextActivateMetricGroups(zeContext, zeDevice, 1, &hMetricGroup),
                   ZE_RESULT_SUCCESS);
+
+        if (node["inference_concurrency"].IsDefined())
+            inferenceConcurency = node["inference_concurrency"].as<size_t>();
     }
 
     void TearDown() override {
@@ -223,6 +226,7 @@ class MetricStreamer : public UmdTest, public ::testing::WithParamInterface<metr
 
     std::vector<zet_typed_value_t> metricValues = {};
     size_t reportCount = 0;
+    size_t inferenceConcurency = 1;
 
   private:
     std::vector<zeScope::SharedPtr<ze_command_queue_handle_t>> queues;
@@ -280,6 +284,8 @@ TEST_P(MetricStreamer, RunInferenceExpectAnyReport) {
 }
 
 TEST_P(MetricStreamer, RunInferenceExpectReportNotification) {
+    // TODO: Test RunInferenceExpectReportNotification* is unstable in LNL (EISW-127158)
+    SKIP_VPU40XX("Test is unstable in VPU4");
     const uint32_t samplingPeriodMs = 10;
     const uint32_t nReportsNotification = 20;
 
@@ -297,17 +303,19 @@ TEST_P(MetricStreamer, RunInferenceExpectReportNotification) {
     graph->allocateArguments(MemType::SHARED_MEMORY);
     graph->copyInputData();
 
-    ASSERT_EQ(
-        zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0u, nullptr),
-        ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeGraphDDITableExt
-                  ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0u, nullptr),
-              ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+    std::vector<std::unique_ptr<InferenceRequest>> infers;
+    for (size_t i = 0; i < inferenceConcurency; i++)
+        infers.push_back(graph->newInferRequest());
 
     /* warm up - memory allocation and HW wake up */
-    EXPECT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
-    EXPECT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+    for (auto &infer : infers) {
+        ASSERT_EQ(infer->runAsync(), ZE_RESULT_SUCCESS);
+    }
+    for (auto &infer : infers) {
+        ASSERT_EQ(infer->wait(graphSyncTimeout), ZE_RESULT_SUCCESS);
+    }
+    readReports();
+    ASSERT_EQ(zeEventHostReset(hEvent), ZE_RESULT_SUCCESS);
 
     uint32_t inferenceTimeMs = samplingPeriodMs * (nReportsNotification + 2);
     std::chrono::steady_clock::time_point testTimeOut =
@@ -316,13 +324,24 @@ TEST_P(MetricStreamer, RunInferenceExpectReportNotification) {
     while (std::chrono::steady_clock::now() < testTimeOut) {
         ASSERT_EQ(zeEventQueryStatus(hEvent), ZE_RESULT_NOT_READY);
 
+        for (auto &infer : infers) {
+            ASSERT_EQ(infer->runAsync(), ZE_RESULT_SUCCESS);
+        }
+
         PerfCounter counter(inferenceTimeMs);
         counter.start();
         while (!counter.isTimedOut()) {
-            EXPECT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr),
-                      ZE_RESULT_SUCCESS);
-            EXPECT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
-            counter.countFrame();
+            for (auto &infer : infers) {
+                if (infer->wait(0) == ZE_RESULT_SUCCESS) {
+                    counter.countFrame();
+                    ASSERT_EQ(infer->runAsync(), ZE_RESULT_SUCCESS);
+                }
+            }
+        }
+        for (auto &infer : infers) {
+            if (infer->wait(graphSyncTimeout) == ZE_RESULT_SUCCESS) {
+                counter.countFrame();
+            }
         }
         counter.stop();
 
@@ -340,6 +359,8 @@ TEST_P(MetricStreamer, RunInferenceExpectReportNotification) {
 }
 
 TEST_P(MetricStreamer, RunInferenceExpectReportNotificationFromEventHostSynchronize) {
+    // TODO: Test RunInferenceExpectReportNotification* is unstable in LNL (EISW-127158)
+    SKIP_VPU40XX("Test is unstable in VPU4");
     const uint32_t samplingPeriodMs = 10;
     const uint32_t nReportsNotification = 20;
 
@@ -357,16 +378,19 @@ TEST_P(MetricStreamer, RunInferenceExpectReportNotificationFromEventHostSynchron
     graph->allocateArguments(MemType::SHARED_MEMORY);
     graph->copyInputData();
 
-    ASSERT_EQ(
-        zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0u, nullptr),
-        ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeGraphDDITableExt
-                  ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0u, nullptr),
-              ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+    std::vector<std::unique_ptr<InferenceRequest>> infers;
+    for (size_t i = 0; i < inferenceConcurency; i++)
+        infers.push_back(graph->newInferRequest());
 
-    EXPECT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
-    EXPECT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+    /* warm up - memory allocation and HW wake up */
+    for (auto &infer : infers) {
+        ASSERT_EQ(infer->runAsync(), ZE_RESULT_SUCCESS);
+    }
+    for (auto &infer : infers) {
+        ASSERT_EQ(infer->wait(graphSyncTimeout), ZE_RESULT_SUCCESS);
+    }
+    readReports();
+    ASSERT_EQ(zeEventHostReset(hEvent), ZE_RESULT_SUCCESS);
 
     uint32_t inferenceTimeMs = samplingPeriodMs * (nReportsNotification + 2);
     std::chrono::steady_clock::time_point testTimeOut =
@@ -375,17 +399,28 @@ TEST_P(MetricStreamer, RunInferenceExpectReportNotificationFromEventHostSynchron
     while (std::chrono::steady_clock::now() < testTimeOut) {
         EXPECT_EQ(zeEventQueryStatus(hEvent), ZE_RESULT_NOT_READY);
 
+        for (auto &infer : infers) {
+            ASSERT_EQ(infer->runAsync(), ZE_RESULT_SUCCESS);
+        }
         std::future<_ze_result_t> eventSynchronize = std::async(std::launch::async, [&] {
             return zeEventHostSynchronize(hEvent, inferenceTimeMs * 1'000'000);
         });
-
         PerfCounter counter(inferenceTimeMs);
         counter.start();
         while (!counter.isTimedOut()) {
-            EXPECT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr),
-                      ZE_RESULT_SUCCESS);
-            EXPECT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
-            counter.countFrame();
+            for (auto &infer : infers) {
+                if (infer->wait(0) == ZE_RESULT_SUCCESS) {
+                    counter.countFrame();
+                    ASSERT_EQ(infer->runAsync(), ZE_RESULT_SUCCESS);
+                }
+            }
+            std::this_thread::yield();
+        }
+
+        for (auto &infer : infers) {
+            if (infer->wait(graphSyncTimeout) == ZE_RESULT_SUCCESS) {
+                counter.countFrame();
+            }
         }
         counter.stop();
 

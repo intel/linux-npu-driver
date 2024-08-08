@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,17 +7,18 @@
 
 #pragma once
 
+#include <getopt.h>
+#include <gtest/gtest.h>
 #include <stdio.h>
 #include <string>
-#include <gtest/gtest.h>
-#include <getopt.h>
+#include <unordered_map>
 
 #define ARRAY_SIZE(s) (sizeof(s) / sizeof(s[0]))
 
 #define PRINTF(str, ...) std::fprintf(stderr, str, ##__VA_ARGS__)
-#define TRACE(...)             \
-    if (test_app::log_level) { \
-        PRINTF(__VA_ARGS__);   \
+#define TRACE(...)                \
+    if (test_app::verbose_logs) { \
+        PRINTF(__VA_ARGS__);      \
     }
 
 #define TRACE_IN() TRACE("-->%s\n", __FUNCTION__)
@@ -37,18 +38,21 @@
 
 namespace test_app {
 
-enum LogLevel { NONE = 0, DEBUG = 1 };
-
-extern LogLevel log_level;
-
-extern std::string app_path;
+extern bool verbose_logs;
 extern bool run_skipped_tests;
-extern bool use_sleep_wait;
 extern unsigned pause_after_test_ms;
 
 int hex_dump(void *data, long size, const char *name);
 
-void parse_args(int argc, char **argv);
+struct Argument {
+    const char *longOpt;
+    int hasArg;
+    std::function<void(const char *)> callback;
+};
+
+using ArgumentMap = std::unordered_map<int, test_app::Argument>;
+
+void parse_args(ArgumentMap &extArgs, const char *extHelpMsg, int argc, char **argv);
 void append_negative_filter(const char *negative_pattern);
 int run();
 

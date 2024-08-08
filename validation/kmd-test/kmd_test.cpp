@@ -384,7 +384,7 @@ bool KmdTest::resume() {
     /* Always send HB so to update autosuspend timeout */
     ret = get_param(DRM_IVPU_PARAM_ENGINE_HEARTBEAT, &hb, ENGINE_COPY);
     if (ret) {
-        ADD_FAILURE() << "Failed to send IOCTL Heartbeat.\n";
+        ADD_FAILURE() << "Failed to send IOCTL Heartbeat: " << ret << "\n";
         return false;
     }
 
@@ -872,13 +872,10 @@ void CmdBuffer::add_blob_init_cmd(MemoryBuffer &kernel_heap,
     auto cmd = add_cmd<vpu_cmd_ov_blob_initialize_t>(VPU_CMD_OV_BLOB_INITIALIZE);
     ASSERT_TRUE(cmd);
     cmd->blob_id = blob_id;
-    cmd->kernel_offset = 0;
+    cmd->kernel_offset = kernel_heap.vpu_addr();
     cmd->kernel_size = kernel_heap.size();
-    cmd->desc_table_offset = 0;
+    cmd->desc_table_offset = desc_heap.vpu_addr();
     cmd->desc_table_size = table_size;
-
-    hdr()->kernel_heap_base_address = kernel_heap.vpu_addr();
-    hdr()->descriptor_heap_base_address = desc_heap.vpu_addr();
 
     add_handle(kernel_heap);
     add_handle(desc_heap);
@@ -898,11 +895,8 @@ void CmdBuffer::add_fence_cmd(MemoryBuffer &fence_buf,
                               enum vpu_cmd_type type) {
     auto cmd = add_cmd<vpu_cmd_fence_t>(type);
     ASSERT_TRUE(cmd);
-    cmd->offset = fence_offset;
+    cmd->offset = fence_buf.vpu_addr() + fence_offset;
     cmd->value = fence_value;
-
-    hdr()->fence_heap_base_address = fence_buf.vpu_addr();
-
     add_handle(fence_buf);
 }
 
@@ -962,7 +956,7 @@ void CmdBuffer::add_copy_cmd(MemoryBuffer &desc_buf,
                              uint16_t copy_cmd) {
     auto cmd = add_cmd<vpu_cmd_copy_buffer_t>(copy_cmd);
     ASSERT_TRUE(cmd);
-    cmd->desc_start_offset = desc_start_offset;
+    cmd->desc_start_offset = desc_buf.vpu_addr() + desc_start_offset;
     cmd->desc_count = 1;
 
     auto cmd_copy_desc = (copy_descriptor_t *)desc_buf.ptr(desc_start_offset);
@@ -970,8 +964,6 @@ void CmdBuffer::add_copy_cmd(MemoryBuffer &desc_buf,
                    src_buf.vpu_addr() + (src_offset),
                    dst_buf.vpu_addr() + (dst_offset),
                    length);
-
-    hdr()->descriptor_heap_base_address = desc_buf.vpu_addr();
 
     add_handle(desc_buf);
     add_handle(src_buf);
@@ -985,10 +977,12 @@ void CmdBuffer::prepare_bb_hdr(void) {
     bb_hdr->cmd_offset = sizeof(*bb_hdr);
     bb_hdr->context_save_area_address = vpu_addr() + ALIGN(_end, 64);
 
-    TRACE("kernel_heap_base_address=0x%lx\n", bb_hdr->kernel_heap_base_address);
-    TRACE("descriptor_heap_base_address=0x%lx\n", bb_hdr->descriptor_heap_base_address);
-    TRACE("fence_heap_base_address=0x%lx\n", bb_hdr->fence_heap_base_address);
     TRACE("context_save_area_address=0x%lx\n", bb_hdr->context_save_area_address);
+
+    // Heaps are deprecated and should not be used anymore
+    ASSERT_EQ(bb_hdr->kernel_heap_base_address, 0ull);
+    ASSERT_EQ(bb_hdr->descriptor_heap_base_address, 0ull);
+    ASSERT_EQ(bb_hdr->fence_heap_base_address, 0ull);
 }
 
 void CmdBuffer::prepare_params(int engine, int priority, drm_ivpu_submit *params) {

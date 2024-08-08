@@ -5,32 +5,25 @@
  *
  */
 
+#include "umd_test.h"
+
+#include "utilities/data_handle.h"
+#include "ze_stringify.hpp"
+
 #include <exception>
 #include <fstream>
 #include <functional>
 #include <random>
 
-#include "umd_test.h"
-#include "utilities/data_handle.h"
-#include "testenv.hpp"
-#include "ze_stringify.hpp"
-
 void PrintTo(const ze_result_t &result, std::ostream *os) {
     *os << ze_result_to_str(result) << " (0x" << std::hex << result << ")" << std::dec;
 }
 
-const char *UmdTest::zeDevTypeStr(ze_device_type_t devType) {
-    const char *devStrings[] = {"Unknown", "GPU", "CPU", "FPGA", "MCA", "VPU"};
-    // Unknown device type.
-    if (devType < ZE_DEVICE_TYPE_GPU || devType > ZE_DEVICE_TYPE_VPU) {
-        return devStrings[0];
-    }
-    return devStrings[(int)devType];
-}
-
-void UmdTest::CommandQueueGroupSetUp() {
+void UmdTest::CommandQueueGroupSetUp(ze_device_handle_t dev,
+                                     uint32_t &compOrdinal,
+                                     uint32_t &copyOrdinal) {
     uint32_t cmdGrpCount = 0;
-    ASSERT_EQ(zeDeviceGetCommandQueueGroupProperties(zeDevice, &cmdGrpCount, nullptr),
+    ASSERT_EQ(zeDeviceGetCommandQueueGroupProperties(dev, &cmdGrpCount, nullptr),
               ZE_RESULT_SUCCESS);
 
     std::vector<ze_command_queue_group_properties_t> cmdGroupProps;
@@ -38,20 +31,19 @@ void UmdTest::CommandQueueGroupSetUp() {
     for (auto &v : cmdGroupProps)
         v.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_GROUP_PROPERTIES;
 
-    ASSERT_EQ(zeDeviceGetCommandQueueGroupProperties(zeDevice, &cmdGrpCount, cmdGroupProps.data()),
+    ASSERT_EQ(zeDeviceGetCommandQueueGroupProperties(dev, &cmdGrpCount, cmdGroupProps.data()),
               ZE_RESULT_SUCCESS);
-    ASSERT_EQ(cmdGrpCount, 2u);
 
     for (uint32_t i = 0; i < cmdGrpCount; i++) {
         if (cmdGroupProps[i].flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE) {
-            computeGrpOrdinal = i;
+            compOrdinal = i;
         } else if (cmdGroupProps[i].flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY) {
-            copyGrpOrdinal = i;
+            copyOrdinal = i;
         }
     }
 
-    ASSERT_NE(computeGrpOrdinal, std::numeric_limits<uint32_t>::max());
-    ASSERT_NE(copyGrpOrdinal, std::numeric_limits<uint32_t>::max());
+    ASSERT_NE(compOrdinal, std::numeric_limits<uint32_t>::max());
+    ASSERT_NE(copyOrdinal, std::numeric_limits<uint32_t>::max());
 }
 
 void UmdTest::SetUp() {
@@ -74,7 +66,16 @@ void UmdTest::SetUp() {
     scopedContext = zeScope::contextCreate(zeDriver, contextDesc, ret);
     ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
     zeContext = scopedContext.get();
-    CommandQueueGroupSetUp();
+    CommandQueueGroupSetUp(zeDevice, computeGrpOrdinal, copyGrpOrdinal);
+
+    if (test_vars::test_with_gpu) {
+        zeDriverGpu = testEnv->getDriverGpu();
+        zeDeviceGpu = testEnv->getDeviceGpu();
+        scopedContextGpu = zeScope::contextCreate(zeDriverGpu, contextDesc, ret);
+        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+        zeContextGpu = scopedContextGpu.get();
+        CommandQueueGroupSetUp(zeDeviceGpu, computeGrpOrdinalGpu, copyGrpOrdinalGpu);
+    }
 
     if (!isSilicon()) {
         syncTimeout = 30'000'000'000;       // 30 seconds
@@ -195,12 +196,14 @@ bool UmdTest::isHwsModeEnabled() {
 }
 
 TEST(Umd, ZeDevTypeStr) {
-    EXPECT_NE(UmdTest::zeDevTypeStr((ze_device_type_t)0), nullptr);
-    EXPECT_NE(UmdTest::zeDevTypeStr((ze_device_type_t)-1), nullptr);
-    EXPECT_NE(UmdTest::zeDevTypeStr((ze_device_type_t)(ZE_DEVICE_TYPE_MCA + 1)), nullptr);
-    EXPECT_NE(UmdTest::zeDevTypeStr(ZE_DEVICE_TYPE_VPU), nullptr);
-    EXPECT_NE(UmdTest::zeDevTypeStr(ZE_DEVICE_TYPE_VPU), "Unknown");
-    TRACE_STR(UmdTest::zeDevTypeStr(ZE_DEVICE_TYPE_VPU));
+    Environment *testEnv = Environment::getInstance();
+    EXPECT_NE(testEnv->zeDevTypeStr((ze_device_type_t)0), nullptr);
+    EXPECT_NE(testEnv->zeDevTypeStr((ze_device_type_t)0), nullptr);
+    EXPECT_NE(testEnv->zeDevTypeStr((ze_device_type_t)-1), nullptr);
+    EXPECT_NE(testEnv->zeDevTypeStr((ze_device_type_t)(ZE_DEVICE_TYPE_MCA + 1)), nullptr);
+    EXPECT_NE(testEnv->zeDevTypeStr(ZE_DEVICE_TYPE_VPU), nullptr);
+    EXPECT_NE(testEnv->zeDevTypeStr(ZE_DEVICE_TYPE_VPU), "Unknown");
+    TRACE_STR(testEnv->zeDevTypeStr(ZE_DEVICE_TYPE_VPU));
 }
 
 TEST(Umd, File) {

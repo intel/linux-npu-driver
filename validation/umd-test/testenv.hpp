@@ -9,6 +9,7 @@
 
 #include "test_app.h"
 #include "umd_extensions.h"
+#include "umd_test.h"
 
 #include <filesystem>
 #include <gtest/gtest.h>
@@ -16,26 +17,59 @@
 #include <level_zero/zes_api.h>
 #include <yaml-cpp/yaml.h>
 
+namespace test_vars {
+extern bool test_with_gpu;
+} // namespace test_vars
+
 class Environment : public ::testing::Environment {
   public:
     Environment(const Environment &obj) = delete;
     Environment &operator=(const Environment &) = delete;
 
-    void SetUp() {
-        uint32_t drvCount = 0u;
-        uint32_t devCount = 0u;
+    struct tc {
+        bool metricsEnable;
+    } config =
+        {
+            .metricsEnable = 1,
+        },
+      configWithGpu = {
+          .metricsEnable = 0,
+      };
 
-        EXPECT_EQ(setenv("ZET_ENABLE_METRICS", "1", 0), 0);
+    const char *zeDevTypeStr(ze_device_type_t devType) {
+        const char *devStrings[] = {"Unknown", "GPU", "CPU", "FPGA", "MCA", "NPU"};
+        // Unknown device type.
+        if (devType < ZE_DEVICE_TYPE_GPU || devType > ZE_DEVICE_TYPE_VPU)
+            return devStrings[0];
+
+        return devStrings[(int)devType];
+    }
+
+    void SetUp() {
+        if (test_vars::test_with_gpu) {
+            config = configWithGpu;
+            PRINTF("Testing with GPU L0.\n");
+            PRINTF("Disabling metrics (ZET_ENABLE_METRICS=%d) (EISW-131452).\n",
+                   config.metricsEnable);
+        }
+
+        EXPECT_EQ(setenv("ZET_ENABLE_METRICS", config.metricsEnable ? "1" : "0", 0), 0);
+        /*
+         * TODO: reenable validation layer: EISW-128620
         EXPECT_EQ(setenv("ZE_ENABLE_VALIDATION_LAYER", "1", 0), 0);
         EXPECT_EQ(setenv("ZE_ENABLE_PARAMETER_VALIDATION", "1", 0), 0);
+        */
 
-        ASSERT_EQ(zeInit(ZE_INIT_FLAG_VPU_ONLY), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(zeInit(0), ZE_RESULT_SUCCESS); // 0 - ZE_INIT_ALL_DRIVER_TYPES_ENABLED
+
+        uint32_t drvCount = 0u;
         ASSERT_EQ(zeDriverGet(&drvCount, nullptr), ZE_RESULT_SUCCESS);
 
         std::vector<ze_driver_handle_t> drivers(drvCount);
         ASSERT_EQ(zeDriverGet(&drvCount, drivers.data()), ZE_RESULT_SUCCESS);
 
         for (const auto &driver : drivers) {
+            uint32_t devCount = 0u;
             ASSERT_EQ(zeDeviceGet(driver, &devCount, nullptr), ZE_RESULT_SUCCESS);
             if (devCount != 1)
                 continue;
@@ -55,22 +89,29 @@ class Environment : public ::testing::Environment {
 
             ASSERT_EQ(zeDeviceGetProperties(device, &devProp), ZE_RESULT_SUCCESS);
 
-            pciDevId = devProp.deviceId;
-            ASSERT_NE(pciDevId, 0u);
-
-            platformType = devDetails.ipVersion;
-
+            TRACE("Driver: %p - Device %s: %p\n", driver, zeDevTypeStr(devProp.type), device);
             if (devProp.type == ZE_DEVICE_TYPE_VPU) {
                 zeDriver = driver;
                 zeDevice = device;
                 maxMemAllocSize = devProp.maxMemAllocSize;
-                break;
-            }
+                pciDevId = devProp.deviceId;
+                ASSERT_NE(pciDevId, 0u);
+
+                platformType = devDetails.ipVersion;
+            } else if (devProp.type == ZE_DEVICE_TYPE_GPU) {
+                zeDriverGpu = driver;
+                zeDeviceGpu = device;
+            };
         }
 
         ASSERT_NE(zeDriver, nullptr) << "Failed to initialize Driver";
         ASSERT_NE(zeDevice, nullptr) << "Failed to initialize Device";
         ASSERT_GT(maxMemAllocSize, 0);
+
+        if (test_vars::test_with_gpu) {
+            ASSERT_NE(zeDriverGpu, nullptr) << "Failed to initialize Driver GPU L0";
+            ASSERT_NE(zeDeviceGpu, nullptr) << "Failed to initialize Device GPU L0";
+        }
 
         ASSERT_EQ(
             zeDriverGetExtensionFunctionAddress(zeDriver,
@@ -98,6 +139,9 @@ class Environment : public ::testing::Environment {
     uint64_t getMaxMemAllocSize() { return maxMemAllocSize; }
     uint16_t getPciDevId() { return pciDevId; }
     uint16_t getPlatformType() { return platformType; }
+
+    ze_driver_handle_t getDriverGpu() { return zeDriverGpu; }
+    ze_device_handle_t getDeviceGpu() { return zeDeviceGpu; }
 
     static Environment *getInstance() {
         static Environment *testEnv = nullptr;
@@ -137,8 +181,6 @@ class Environment : public ::testing::Environment {
             searchPathPrefixes.push_back("./");
             searchPathPrefixes.push_back("/usr/local/share/vpu/");
             searchPathPrefixes.push_back("/usr/local/share/vpu/validation/umd-test/configs/");
-            searchPathPrefixes.push_back("/usr/share/vpu/");
-            searchPathPrefixes.push_back("/usr/share/vpu/validation/umd-test/configs/");
         }
 
         for (auto &pathPrefix : searchPathPrefixes) {
@@ -197,15 +239,14 @@ class Environment : public ::testing::Environment {
   private:
     Environment() = default;
 
-    /** @brief Handle to the Level Zero API driver object */
     ze_driver_handle_t zeDriver = nullptr;
-    /** @brief Handle to the Level Zero API device object */
     ze_device_handle_t zeDevice = nullptr;
-    /** @brief Pointer to the Level Zero API graph extension DDI table */
     graph_dditable_ext_t *zeGraphDDITableExt = nullptr;
-    /** @brief Pointer to the Level Zero API graph extension profiling DDI table */
     ze_graph_profiling_dditable_ext_t *zeGraphProfilingDDITableExt = nullptr;
     uint64_t maxMemAllocSize = 0;
     uint16_t pciDevId = 0;
     uint32_t platformType = 0;
+
+    ze_driver_handle_t zeDriverGpu = nullptr;
+    ze_device_handle_t zeDeviceGpu = nullptr;
 };
