@@ -51,6 +51,21 @@ SPDX-License-Identifier: MIT
 
 ## Changelog
 
+
+<details>
+<summary>zeMutableCommandList extension implementation (from v1.6.0)</summary>
+
+Implemented zeMutableCommandList extension from Level Zero API in v1.6.0 driver
+release. This feature allows to change arguments of inference recorded in
+zeCommandList by zeGraph->appendGraphExecute call. Using zeMutableCommandList
+user can easily exchange argument of Graph Execute without recording new
+command.
+
+Ref.:
+https://spec.oneapi.io/level-zero/latest/core/EXT_Exp_MutableCommandList.html#mutable-command-list
+
+</details>
+
 <details>
 <summary>Model driver caching (from v1.5.0)</summary>
 
