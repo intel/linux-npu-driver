@@ -66,7 +66,6 @@ graph_execution:
      name: yolo-v4-tiny
      in: [ input-0.bin ]
      out: [ exp-output-0.bin, exp-output-1.bin ]
-
 ```
 
 ## Section "graph\_metrics"
@@ -74,7 +73,7 @@ Defines list of blobs used by metric and metric streamer tests:
 "MetricStreamer.\* , MetricQuery.\*"
 
 Section definition is similar to "graph\_execution"(see above) there is one additional flag:
-- **act\_shave\_tasks:** true means that blob has activation shave tasks and all counters are validated
+- **metric_groups:** the metric group name that will be used for testing
 
 Example:
 
@@ -114,17 +113,17 @@ This section defines models used in image classificiation tests:
 For each model must be specified:
 - **path:** path to model to compile, the generated test name will be the name of model
 - **flags:** compilation flags passed directly to compiler
-- **input:** images list used as an input for network, "image\_dir" prefix will added to this by default
-- **class_index:** expected class index for each image
-- **iterations:** number of iterations for each network
+- **in:** image used as an input for network, "image\_dir" prefix will added to this by default
+- **class_index:** expected class index for image
+- **iterations:** number of iterations
 
 Example:
 ```
 image_classification_imagenet:
   - path: public/resnet-50-pytorch/onnx/FP16-INT8/resnet-50-pytorch.xml
     flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NHWC" --outputs_precisions="495:fp32" --outputs_layouts="495:NC"
-    input: [ cat3.bmp, watch.bmp ]
-    class_index: [ 283, 531 ]
+    in: [ cat3.bmp ]
+    class_index: [ 283 ]
     iterations: 100
 ```
 ## Section "multi\_inference"
@@ -135,7 +134,7 @@ The input and class_index are optional, when input is not defined the random dat
 For each model can be specified:
 - **path:** path to model to compile, the generated test name will be the name of model
 - **flags:** compilation flags passed directly to compiler
-- **input:** optional, images list used as an input for network, "image\_dir" prefix will added to this by default
+- **in:** optional, images list used as an input for network, "image\_dir" prefix will added to this by default
 - **class_index:** optional, expected class index for each image
 - **target\_fps:** target fps rate
 - **exec\_time\_in\_secs:** execution time in seconds
@@ -149,7 +148,7 @@ multi_inference:
     pipeline:
     - path: public/resnet-50-pytorch/onnx/FP16-INT8/resnet-50-pytorch.xml
       flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NHWC" --outputs_precisions="495:fp32" --outputs_layouts="495:NC"
-      input: [ watch.bmp ]
+      in: [ watch.bmp ]
       class_index: [ 531 ]
       target_fps: 30
       exec_time_in_secs: 10
