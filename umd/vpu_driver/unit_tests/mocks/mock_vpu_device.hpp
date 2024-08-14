@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,14 +7,21 @@
 
 #pragma once
 
-#include "vpu_driver/source/utilities/log.hpp"
+#include <stddef.h>
+
 #include "vpu_driver/source/device/vpu_device.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
-#include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
+#include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
 
-#include <string>
 #include <memory>
-#include <uapi/drm/ivpu_accel.h>
+#include <string>
+#include <utility>
+
+namespace VPU {
+class MockOsInterfaceImp;
+struct VPUHwInfo;
+} // namespace VPU
 
 // MOCK CAPS.
 #define FAKE_TEST_DEV_NODE "dev/node/test"

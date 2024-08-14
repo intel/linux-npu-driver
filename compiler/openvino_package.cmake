@@ -63,7 +63,7 @@ file(MAKE_DIRECTORY ${OPENCV_BINARY_DIR})
 ExternalProject_Add(
   opencv_build
   GIT_REPOSITORY https://github.com/opencv/opencv.git
-  GIT_TAG 8e43c8f200b1b785df7f265dfa79ee97278977f0
+  GIT_TAG ${OPENCV_REVISION}
   DEPENDS openvino_build
   UPDATE_DISCONNECTED TRUE
   PATCH_COMMAND ""
@@ -86,25 +86,21 @@ ExternalProject_Add(
     -DWITH_TIFF=OFF
     -DWITH_WEBP=OFF)
 
-### VPUX plugin ###
-set(VPUX_PLUGIN_BINARY_DIR ${VPUX_PLUGIN_PREFIX_DIR}/build)
-file(MAKE_DIRECTORY ${VPUX_PLUGIN_BINARY_DIR})
-
+### single-image-test ###
 ExternalProject_Add(
-  vpux_plugin_build
+  single_image_test_build
   DOWNLOAD_COMMAND ""
-  DEPENDS openvino_build opencv_build
-  PREFIX ${VPUX_PLUGIN_PREFIX_DIR}
-  SOURCE_DIR ${VPUX_PLUGIN_SOURCE_DIR}
-  BINARY_DIR ${VPUX_PLUGIN_BINARY_DIR}
+  DEPENDS opencv_build
+  PREFIX ${OPENVINO_PREFIX_DIR}
+  SOURCE_DIR ${OPENVINO_SOURCE_DIR}
+  BINARY_DIR ${OPENVINO_BINARY_DIR}
   INSTALL_DIR ${OPENVINO_PACKAGE_DIR}
   CMAKE_ARGS
-    ${COMMON_CMAKE_ARGS}
-    -DCMAKE_BUILD_TYPE=Release
-    -DCMAKE_INSTALL_PREFIX=${OPENVINO_PACKAGE_DIR}
     -DOpenCV_DIR=${OPENCV_BINARY_DIR}
-    -DInferenceEngineDeveloperPackage_DIR=${OPENVINO_BINARY_DIR}
-    -DTHREADING=${THREADING})
+  BUILD_COMMAND
+    ${CMAKE_COMMAND}
+    --build ${OPENVINO_BINARY_DIR}
+    --target single-image-test)
 
 ### Sample applications from OpenVINO (benchmark_app ...) ###
 set(SAMPLES_APPS_BUILD_DIR ${OPENVINO_PREFIX_DIR}/build-samples)
@@ -116,7 +112,7 @@ file(MAKE_DIRECTORY ${SAMPLES_APPS_PACKAGE_DIR})
 ExternalProject_Add(
   sample_apps_build
   DOWNLOAD_COMMAND ""
-  DEPENDS openvino_build opencv_build
+  DEPENDS single_image_test_build
   PREFIX ${OPENVINO_PREFIX_DIR}
   SOURCE_DIR ${OPENVINO_SOURCE_DIR}/samples/cpp
   BINARY_DIR ${SAMPLES_APPS_BUILD_DIR}
@@ -127,6 +123,26 @@ ExternalProject_Add(
     -DCMAKE_PREFIX_PATH=${OPENVINO_BINARY_DIR}
     -DOpenCV_DIR=${OPENCV_BINARY_DIR}
     -DSAMPLES_ENABLE_OPENCL=OFF)
+
+### VPUX plugin ###
+set(VPUX_PLUGIN_BINARY_DIR ${VPUX_PLUGIN_PREFIX_DIR}/build)
+file(MAKE_DIRECTORY ${VPUX_PLUGIN_BINARY_DIR})
+
+ExternalProject_Add(
+  vpux_plugin_build
+  DOWNLOAD_COMMAND ""
+  DEPENDS sample_apps_build
+  PREFIX ${VPUX_PLUGIN_PREFIX_DIR}
+  SOURCE_DIR ${VPUX_PLUGIN_SOURCE_DIR}
+  BINARY_DIR ${VPUX_PLUGIN_BINARY_DIR}
+  INSTALL_DIR ${OPENVINO_PACKAGE_DIR}
+  CMAKE_ARGS
+    ${COMMON_CMAKE_ARGS}
+    -DCMAKE_BUILD_TYPE=Release
+    -DCMAKE_INSTALL_PREFIX=${OPENVINO_PACKAGE_DIR}
+    -DOpenCV_DIR=${OPENCV_BINARY_DIR}
+    -DOpenVINODeveloperPackage_DIR=${OPENVINO_BINARY_DIR}
+    -DTHREADING=${THREADING})
 
 ### OV+VPUX plugin package ###
 set(COMPILE_TOOL_PACKAGE_DIR "${OPENVINO_PACKAGE_DIR}/tools/compile_tool")
@@ -152,7 +168,7 @@ add_custom_target(
     echo `git -C ${OPENVINO_SOURCE_DIR} rev-parse HEAD` `git -C ${OPENVINO_SOURCE_DIR} config --local --get remote.origin.url` > ${OPENVINO_PACKAGE_DIR}/manifest.txt &&
     echo `git -C ${VPUX_PLUGIN_SOURCE_DIR} rev-parse HEAD` `git -C ${VPUX_PLUGIN_SOURCE_DIR} config --local --get remote.origin.url` >> ${OPENVINO_PACKAGE_DIR}/manifest.txt &&
     tar -C ${OPENVINO_PACKAGE_DIR} -czf ${CMAKE_BINARY_DIR}/${OPENVINO_PACKAGE_NAME}.tar.gz .
-  DEPENDS openvino_build opencv_build vpux_plugin_build sample_apps_build
+  DEPENDS openvino_build opencv_build vpux_plugin_build sample_apps_build single_image_test_build
   BYPRODUCTS ${CMAKE_BINARY_DIR}/${OPENVINO_PACKAGE_NAME}.tar.gz)
 
 install(

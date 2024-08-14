@@ -51,6 +51,21 @@ SPDX-License-Identifier: MIT
 
 ## Changelog
 
+
+<details>
+<summary>zeMutableCommandList extension implementation (from v1.6.0)</summary>
+
+Implemented zeMutableCommandList extension from Level Zero API in v1.6.0 driver
+release. This feature allows to change arguments of inference recorded in
+zeCommandList by zeGraph->appendGraphExecute call. Using zeMutableCommandList
+user can easily exchange argument of Graph Execute without recording new
+command.
+
+Ref.:
+https://spec.oneapi.io/level-zero/latest/core/EXT_Exp_MutableCommandList.html#mutable-command-list
+
+</details>
+
 <details>
 <summary>Model driver caching (from v1.5.0)</summary>
 
@@ -113,8 +128,8 @@ The Intel® NPU driver supports following Intel® processor families
 |Platform|Kernel support|NPU driver release|
 |---|---|---|
 |[Meteor Lake](https://ark.intel.com/content/www/us/en/ark/products/codename/90353/products-formerly-meteor-lake.html)|v6.5.0-35-generic - Ubuntu22.04 Stock kernel|[v1.1.0](https://github.com/intel/linux-npu-driver/tree/v1.1.0)|
-|Arrow Lake|[v6.8.12](https://kernel.ubuntu.com/mainline/v6.8.12/)|[v1.5.0](https://github.com/intel/linux-npu-driver/tree/v1.5.0)|
-|Lunar Lake|[v6.8.12](https://kernel.ubuntu.com/mainline/v6.8.12/)|[v1.5.0](https://github.com/intel/linux-npu-driver/tree/v1.5.0)|
+|Arrow Lake|v6.5.0-45-generic - Ubuntu22.04 Stock kernel|[v1.5.0](https://github.com/intel/linux-npu-driver/tree/v1.5.0)|
+|Lunar Lake|v6.8.0-40-generic - Ubuntu24.04 Stock kernel|[v1.5.0](https://github.com/intel/linux-npu-driver/tree/v1.5.0)|
 
 ## Kernel module driver
 

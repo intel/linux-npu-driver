@@ -10,6 +10,8 @@
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <getopt.h>
+#include <stdio.h>
+#include <unistd.h>
 
 static void printHelpMessage() {
     constexpr auto helpMessage =

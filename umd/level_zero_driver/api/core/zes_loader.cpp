@@ -5,9 +5,11 @@
  *
  */
 
-#include "ze_ddi_tables.hpp"
 #include "zes_device.hpp"
 #include "zes_driver.hpp"
+
+#include <level_zero/ze_api.h>
+#include <level_zero/zes_ddi.h>
 
 #if defined(__cplusplus)
 extern "C" {

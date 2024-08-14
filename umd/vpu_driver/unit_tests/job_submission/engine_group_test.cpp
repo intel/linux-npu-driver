@@ -1,16 +1,19 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
-#include "vpu_driver/source/utilities/log.hpp"
-#include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
+#include <stdint.h>
 
 #include "gtest/gtest.h"
+#include "vpu_driver/source/device/vpu_device.hpp"
+#include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
+#include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
 
-#include <vector>
+#include <memory>
+#include <string>
 
 using namespace VPU;
 

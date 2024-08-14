@@ -75,7 +75,7 @@ TEST_P(PrimeBuffers, exportDeviceMemory) {
               zeMemGetAllocProperties(zeContext, scopedMem.get(), &pMemAllocProperties, nullptr));
     ASSERT_GE(primeHelper.externalExportFdDesc.fd, 0);
     EXPECT_EQ(pMemAllocProperties.type, ZE_MEMORY_TYPE_DEVICE);
-    EXPECT_EQ(pMemAllocProperties.id, 0u);
+    EXPECT_GT(pMemAllocProperties.id, 0u);
     EXPECT_EQ(pMemAllocProperties.pageSize, size);
     EXPECT_EQ(lseek(primeHelper.externalExportFdDesc.fd, 0, SEEK_END), ALLIGN_TO_PAGE(size));
     lseek(primeHelper.externalExportFdDesc.fd, 0, SEEK_CUR);
@@ -112,7 +112,7 @@ TEST_P(PrimeBuffers, exportHostMemory) {
               zeMemGetAllocProperties(zeContext, scopedMem.get(), &pMemAllocProperties, nullptr));
     ASSERT_GE(primeHelper.externalExportFdDesc.fd, 0);
     EXPECT_EQ(pMemAllocProperties.type, ZE_MEMORY_TYPE_HOST);
-    EXPECT_EQ(pMemAllocProperties.id, 0u);
+    EXPECT_GT(pMemAllocProperties.id, 0u);
     EXPECT_EQ(pMemAllocProperties.pageSize, size);
     EXPECT_EQ(lseek(primeHelper.externalExportFdDesc.fd, 0, SEEK_END), ALLIGN_TO_PAGE(size));
     lseek(primeHelper.externalExportFdDesc.fd, 0, SEEK_CUR);
@@ -155,7 +155,7 @@ TEST_P(PrimeBuffers, exportSharedMemory) {
               zeMemGetAllocProperties(zeContext, scopedMem.get(), &pMemAllocProperties, nullptr));
     ASSERT_GE(primeHelper.externalExportFdDesc.fd, 0);
     EXPECT_EQ(pMemAllocProperties.type, ZE_MEMORY_TYPE_SHARED);
-    EXPECT_EQ(pMemAllocProperties.id, 0u);
+    EXPECT_GT(pMemAllocProperties.id, 0u);
     EXPECT_EQ(pMemAllocProperties.pageSize, size);
     EXPECT_EQ(lseek(primeHelper.externalExportFdDesc.fd, 0, SEEK_END), ALLIGN_TO_PAGE(size));
     lseek(primeHelper.externalExportFdDesc.fd, 0, SEEK_CUR);
@@ -201,7 +201,7 @@ TEST_P(PrimeBuffers, importDeviceMemory) {
                                       &pMemAllocProperties,
                                       nullptr));
     ASSERT_EQ(pMemAllocProperties.type, ZE_MEMORY_TYPE_DEVICE);
-    ASSERT_EQ(pMemAllocProperties.id, 0u);
+    ASSERT_GT(pMemAllocProperties.id, 0u);
     ASSERT_EQ(pMemAllocProperties.pageSize, ALLIGN_TO_PAGE(dmaBufferSize));
 
     /* mmap original dma buffer and write pattern to it */

@@ -1,20 +1,22 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
-#include "vpu_driver/include/umd_common.hpp"
 #include "vpu_driver/source/command/vpu_command.hpp"
+
+#include <cstddef>
+#include <cstdint>
+
+#include "vpu_driver/include/umd_common.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <algorithm>
-#include <cstddef>
-#include <cstdint>
 #include <vector>
-#include <map>
 
 namespace VPU {
 
@@ -128,6 +130,10 @@ void VPUCommand::appendAssociateBufferObject(VPUBufferObject *bo) {
     if (it == bufferObjects.end()) {
         bufferObjects.emplace_back(bo);
     }
+}
+
+void VPUCommand::eraseAssociatedBufferObjects(size_t pos) {
+    bufferObjects.erase(bufferObjects.begin() + static_cast<ssize_t>(pos), bufferObjects.end());
 }
 
 } // namespace VPU

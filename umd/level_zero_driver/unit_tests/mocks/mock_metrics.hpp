@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,13 +7,20 @@
 
 #pragma once
 
+#include <stddef.h>
+
 #include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/tools/source/metrics/metric.hpp"
 #include "level_zero_driver/tools/source/metrics/metric_query.hpp"
-#include "level_zero_driver/tools/source/metrics/metric_streamer.hpp"
-#include "vpu_driver/source/device/hw_info.hpp"
+#include "vpu_driver/source/device/vpu_device.hpp"
+
+#include <memory>
+#include <utility>
+#include <vector>
 
 namespace L0 {
+struct DriverHandle;
+
 namespace ult {
 
 class MockMetricDevice : public L0::Device {

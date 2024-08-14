@@ -5,13 +5,18 @@
  *
  */
 
-#include "level_zero_driver/tools/source/metrics/metric.hpp"
 #include "level_zero_driver/tools/source/metrics/metric_query.hpp"
 
+#include "level_zero_driver/core/source/context/context.hpp"
+#include "level_zero_driver/include/l0_exception.hpp"
+#include "level_zero_driver/tools/source/metrics/metric.hpp"
+#include "umd_common.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
-#include <cstddef>
 #include <string.h>
+#include <utility>
 
 namespace L0 {
 

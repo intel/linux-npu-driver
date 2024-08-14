@@ -1,16 +1,34 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
+// IWYU pragma: no_include <bits/chrono.h>
+
 #pragma once
 
-#include "level_zero_driver/core/source/context/context.hpp"
-#include "level_zero_driver/core/source/device/device.hpp"
+#include <stdint.h>
 
+#include "level_zero_driver/include/l0_handler.hpp"
+
+#include <chrono> // IWYU pragma: keep
 #include <level_zero/ze_api.h>
+#include <memory>
+#include <shared_mutex>
+#include <unordered_map>
+#include <vector>
+
+namespace L0 {
+struct Context;
+struct Device;
+struct Fence;
+} // namespace L0
+
+namespace VPU {
+class VPUJob;
+} // namespace VPU
 
 struct _ze_command_queue_handle_t {};
 
@@ -20,11 +38,7 @@ struct CommandQueue : _ze_command_queue_handle_t, IContextObject {
     CommandQueue(Context *context,
                  Device *device,
                  bool isCopyOnly,
-                 ze_command_queue_priority_t priority)
-        : pContext(context)
-        , device(device)
-        , isCopyOnlyCommandQueue(isCopyOnly)
-        , priority(priority) {}
+                 ze_command_queue_priority_t priority);
     ~CommandQueue() = default;
 
     static ze_result_t create(ze_context_handle_t hContext,
@@ -42,19 +56,11 @@ struct CommandQueue : _ze_command_queue_handle_t, IContextObject {
     ze_result_t executeCommandLists(uint32_t nCommandLists,
                                     ze_command_list_handle_t *phCommandLists,
                                     ze_fence_handle_t hFence);
-
-    /**
-     * @brief Busy wait until the command queue gets signalled.
-     *
-     * @param timeout [in]: Maximum waiting time. uint64_t::max() for unlimited waiting.
-     * @return ze_result_t
-     */
     ze_result_t synchronize(uint64_t timeout);
 
-    /**
-     * @brief Return the number of submitted command buffers for execution.
-     */
-    size_t getSubmittedJobCount() const { return trackedJobs.size(); }
+    void destroyFence(Fence *pFence);
+    ze_result_t waitForJobs(std::chrono::steady_clock::time_point timeout,
+                            const std::vector<std::shared_ptr<VPU::VPUJob>> &jobs);
 
   protected:
     Context *pContext = nullptr;
@@ -62,7 +68,9 @@ struct CommandQueue : _ze_command_queue_handle_t, IContextObject {
     bool isCopyOnlyCommandQueue = false;
     ze_command_queue_priority_t priority;
     std::vector<std::shared_ptr<VPU::VPUJob>> trackedJobs;
-    std::timed_mutex trackedJobsMutex;
+
+    std::shared_mutex fenceMutex;
+    std::unordered_map<Fence *, std::unique_ptr<Fence>> fences;
 };
 
 } // namespace L0

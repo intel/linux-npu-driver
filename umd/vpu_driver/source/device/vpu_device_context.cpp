@@ -5,22 +5,28 @@
  *
  */
 
-#include "umd_common.hpp"
+// IWYU pragma: no_include <bits/chrono.h>
 
-#include "vpu_driver/source/command/vpu_copy_command.hpp"
-#include "vpu_driver/source/device/hw_info.hpp"
-#include "vpu_driver/source/device/vpu_device.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
+
+#include "umd_common.hpp"
+#include "vpu_driver/source/command/vpu_command_buffer.hpp"
+#include "vpu_driver/source/command/vpu_job.hpp"
+#include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
-#include <chrono>
+#include <chrono> // IWYU pragma: keep
+#include <errno.h>
+#include <exception>
 #include <memory>
 #include <string.h>
-#include <sys/mman.h>
 #include <thread>
+#include <uapi/drm/ivpu_accel.h>
+#include <vector>
 
 namespace VPU {
+struct VPUDescriptor;
 
 VPUDeviceContext::VPUDeviceContext(std::unique_ptr<VPUDriverApi> drvApi, VPUHwInfo *info)
     : drvApi(std::move(drvApi))
@@ -72,20 +78,18 @@ VPUBufferObject *VPUDeviceContext::createBufferObject(size_t size,
         return nullptr;
     }
 
-    void *ptr = bo->getBasePointer();
-    if (ptr == nullptr) {
-        LOG_E("Failed to received base pointer from new VPUBufferObject");
-        return nullptr;
-    }
+    LOG(DEVICE,
+        "Create BO: %p, cpu: %p, vpu: %#lx",
+        bo.get(),
+        bo->getBasePointer(),
+        bo->getVPUAddr());
 
     const std::lock_guard<std::mutex> lock(mtx);
-    auto [it, success] = trackedBuffers.try_emplace(ptr, std::move(bo));
+    auto [it, success] = trackedBuffers.try_emplace(bo->getBasePointer(), std::move(bo));
     if (!success) {
         LOG_E("Failed to add buffer object to trackedBuffers");
         return nullptr;
     }
-
-    LOG(DEVICE, "Buffer object %p successfully added to trackedBuffers", &it->second);
     return it->second.get();
 }
 
@@ -112,12 +116,15 @@ bool VPUDeviceContext::freeMemAlloc(VPUBufferObject *bo) {
         return false;
     }
 
+    LOG(DEVICE, "Free BO: %p, cpu: %p, vpu: %#lx", bo, bo->getBasePointer(), bo->getVPUAddr());
+
     const std::lock_guard<std::mutex> lock(mtx);
     if (trackedBuffers.erase(bo->getBasePointer()) == 0) {
         LOG_E("Failed to remove VPUBufferObject from trackedBuffers!");
         return false;
     }
 
+    MemoryStatistics::get().snapshot();
     return true;
 }
 
@@ -140,11 +147,6 @@ VPUBufferObject *VPUDeviceContext::findBuffer(const void *ptr) const {
         return nullptr;
     }
 
-    LOG(DEVICE,
-        "Pointer %p was found in device context(type: %d, range: %d).",
-        ptr,
-        static_cast<int>(bo->getLocation()),
-        static_cast<int>(bo->getType()));
     return bo.get();
 }
 
@@ -196,7 +198,7 @@ bool VPUDeviceContext::submitCommandBuffer(const VPUCommandBuffer *cmdBuffer) {
     execParam.engine = cmdBuffer->getEngine();
     execParam.priority = static_cast<uint32_t>(cmdBuffer->getPriority());
 
-    LOG(DEVICE, "Submit buffer type: %s.", cmdBuffer->getName());
+    LOG(DEVICE, "Submit cmdBuffer: %p, name: %s.", cmdBuffer, cmdBuffer->getName());
     LOG(DEVICE,
         "Submit params -> engine: %u, flags: %u, offset: %u, count: %u, ptr: %#llx, prior: %u",
         execParam.engine,

@@ -7,12 +7,22 @@
 
 #pragma once
 
-#include "level_zero_driver/core/source/device/device.hpp"
-#include "level_zero_driver/tools/source/metrics/metric_streamer.hpp"
+#include <stddef.h>
+#include <stdint.h>
 
+#include "level_zero_driver/include/l0_handler.hpp"
+#include "vpu_driver/source/command/vpu_event_command.hpp"
+
+#include <functional>
 #include <level_zero/ze_api.h>
 #include <memory>
+#include <utility>
 #include <vector>
+
+namespace VPU {
+class VPUDeviceContext;
+class VPUJob;
+} // namespace VPU
 
 struct _ze_event_handle_t {};
 

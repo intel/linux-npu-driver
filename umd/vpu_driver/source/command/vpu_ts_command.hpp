@@ -1,18 +1,21 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
 #pragma once
-#include "vpu_driver/source/command/vpu_command.hpp"
-
-#include <memory>
-
 #include <cstdint>
 
+#include "api/vpu_jsm_job_cmd_api.h"
+#include "vpu_driver/source/command/vpu_command.hpp"
+
+#include <any>
+#include <memory>
+
 namespace VPU {
+class VPUDeviceContext;
 
 class VPUTimeStampCommand : public VPUCommand {
   public:

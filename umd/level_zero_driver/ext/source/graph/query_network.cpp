@@ -1,18 +1,22 @@
 /*
- * Copyright (C) 2023 Intel Corporation
+ * Copyright (C) 2023-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
-#include "level_zero/ze_graph_ext.h"
-#include "level_zero_driver/core/source/context/context.hpp"
-#include "vpu_driver/source/utilities/log.hpp"
+#include "query_network.hpp"
+
+#include <stdint.h>
 
 #include "compiler.hpp"
 #include "compiler_common.hpp"
-#include "query_network.hpp"
 #include "level_zero/ze_api.h"
+#include "level_zero/ze_graph_ext.h"
+#include "level_zero_driver/core/source/context/context.hpp"
+#include "level_zero_driver/ext/source/graph/vcl_symbols.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/utilities/log.hpp"
 
 namespace L0 {
 
@@ -33,7 +37,7 @@ ze_result_t QueryNetwork::create(ze_context_handle_t hContext,
         return ZE_RESULT_ERROR_UNSUPPORTED_ENUMERATION;
     }
 
-    if (!Compiler::checkVersion(VCL_COMPILER_VERSION_MAJOR, VCL_COMPILER_VERSION_MINOR)) {
+    if (!Compiler::checkVersion(VCL_COMPILER_VERSION_MAJOR)) {
         LOG_E("Compiler version mismatch! Version expected:%d.%d, current:%d.%d",
               VCL_COMPILER_VERSION_MAJOR,
               VCL_COMPILER_VERSION_MINOR,

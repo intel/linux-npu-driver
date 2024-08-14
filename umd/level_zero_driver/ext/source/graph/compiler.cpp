@@ -5,15 +5,18 @@
  *
  */
 
-#include "level_zero/ze_api.h"
 #include "level_zero_driver/ext/source/graph/compiler.hpp"
-#include "umd_common.hpp"
+
 #include "compiler_common.hpp"
+#include "level_zero/ze_api.h"
+#include "npu_driver_compiler.h"
+#include "umd_common.hpp"
 #include "vcl_symbols.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
-#include "vpux_driver_compiler.h"
 
 #include <string.h>
+#include <string_view>
 
 namespace L0 {
 
@@ -43,8 +46,6 @@ bool Compiler::compilerInit(int compilerPlatformType) {
         Vcl::sym().compilerDestroy(compiler);
         return false;
     }
-
-    LOG(GRAPH, "Compiler ID: %s", compilerProperties.id);
     Vcl::sym().compilerDestroy(compiler);
     compilerPlatform = compilerPlatformType;
     return true;
@@ -158,13 +159,17 @@ bool Compiler::getCompiledBlob(VPU::VPUDeviceContext *ctx,
     compilerDesc.platform = static_cast<vcl_platform_t>(compilerPlatform);
     compilerDesc.debug_level = cidLogLevel;
 
-    if (!checkVersion(VCL_COMPILER_VERSION_MAJOR, VCL_COMPILER_VERSION_MINOR)) {
+    if (!checkVersion(VCL_COMPILER_VERSION_MAJOR)) {
         LOG_E("Compiler version mismatch! Version expected:%d.%d, current:%d.%d",
               VCL_COMPILER_VERSION_MAJOR,
               VCL_COMPILER_VERSION_MINOR,
               getCompilerVersionMajor(),
               getCompilerVersionMinor());
-        logBuffer = "Compiler version mismatch";
+        logBuffer = "Compiler version mismatch. Expected version: " +
+                    std::to_string(VCL_COMPILER_VERSION_MAJOR) + "." +
+                    std::to_string(VCL_COMPILER_VERSION_MINOR) +
+                    ", current version: " + std::to_string(getCompilerVersionMajor()) + "." +
+                    std::to_string(getCompilerVersionMinor());
         return false;
     }
 
@@ -226,10 +231,19 @@ uint16_t Compiler::getCompilerVersionMinor() {
     return compilerProperties.version.minor;
 }
 
-bool Compiler::checkVersion(uint16_t major, uint16_t minor) {
-    if (compilerProperties.version.major == major && compilerProperties.version.minor >= minor)
+bool Compiler::checkVersion(uint16_t major) {
+    if (compilerProperties.version.major == major)
         return true;
     return false;
+}
+
+std::string Compiler::getCompilerVersionString() {
+    std::string version = "not available";
+    if (!compilerProperties.version.major)
+        return version;
+    version = std::to_string(compilerProperties.version.major) + "." +
+              std::to_string(compilerProperties.version.minor) + "(" + compilerProperties.id + ")";
+    return version;
 }
 
 ze_result_t Compiler::getDecodedProfilingBuffer(ze_graph_profiling_type_t profilingType,

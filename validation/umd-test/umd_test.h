@@ -15,11 +15,11 @@
 #include "ze_memory.hpp"
 #include "ze_scope.hpp"
 
+#include <filesystem>
 #include <memory>
 #include <string>
-#include <vector>
-#include <filesystem>
 #include <thread>
+#include <vector>
 
 // Custom printer to dump ze_result_t as hex string
 void PrintTo(const ze_result_t &result, std::ostream *os);
@@ -27,6 +27,11 @@ void PrintTo(const ze_result_t &result, std::ostream *os);
 #define SKIP_(msg)                      \
     if (!test_app::run_skipped_tests) { \
         GTEST_SKIP_(msg);               \
+    }
+
+#define SKIP_VPU40XX(msg) \
+    if (isVPU40xx()) {    \
+        SKIP_(msg);       \
     }
 
 #define SKIP_PRESILICON(msg) \
@@ -78,13 +83,6 @@ inline std::string generateTestNameFromNode(const YAML::Node &node) {
 class UmdTest : public ::testing::Test {
   public:
     /**
-     * @brief Return string representing device type
-     * @param devType[in]: ZE device type
-     * @return : The name of the ZE type or "Unknown"
-     */
-    static const char *zeDevTypeStr(ze_device_type_t devType);
-
-    /**
      * @brief Write data out to a file
      * @param filePath[in]: Path to the file to written.
      * @param dataIn[in]: Reference to vector to obtain data for storing.
@@ -97,6 +95,9 @@ class UmdTest : public ::testing::Test {
 
     uint32_t computeGrpOrdinal = std::numeric_limits<uint32_t>::max();
     uint32_t copyGrpOrdinal = std::numeric_limits<uint32_t>::max();
+
+    uint32_t computeGrpOrdinalGpu = std::numeric_limits<uint32_t>::max();
+    uint32_t copyGrpOrdinalGpu = std::numeric_limits<uint32_t>::max();
 
     struct GlobalConfig {
         std::string blobDir = "";
@@ -119,21 +120,22 @@ class UmdTest : public ::testing::Test {
 
     bool isSilicon();
     bool isHwsModeEnabled();
+    bool isVPU37xx() { return test_app::is_vpu37xx(pciDevId); }
+    bool isVPU40xx() { return test_app::is_vpu40xx(pciDevId); }
 
-    /** @brief Handle to the Level Zero API driver object */
     ze_driver_handle_t zeDriver = nullptr;
-    /** @brief Handle to the Level Zero API device object */
     ze_device_handle_t zeDevice = nullptr;
-    /** @brief Handle to the Level Zero API context object */
     ze_context_handle_t zeContext = nullptr;
-    /** @brief Pointer to the Level Zero API graph extension DDI table */
     graph_dditable_ext_t *zeGraphDDITableExt = nullptr;
-    /** @brief Pointer to the Level Zero API graph extension profiling DDI table */
     ze_graph_profiling_dditable_ext_t *zeGraphProfilingDDITableExt = nullptr;
     uint64_t maxMemAllocSize = 0;
 
-    /** @brief Retrieve command group ordinals for compute and copy engine usage */
-    void CommandQueueGroupSetUp();
+    ze_driver_handle_t zeDriverGpu = nullptr;
+    ze_device_handle_t zeDeviceGpu = nullptr;
+    ze_context_handle_t zeContextGpu = nullptr;
+
+    void
+    CommandQueueGroupSetUp(ze_device_handle_t dev, uint32_t &compOrdinal, uint32_t &copyOrdinal);
 
     uint16_t pciDevId = 0u;
     uint32_t platformType = 0u;
@@ -143,4 +145,5 @@ class UmdTest : public ::testing::Test {
 
   private:
     zeScope::SharedPtr<ze_context_handle_t> scopedContext;
+    zeScope::SharedPtr<ze_context_handle_t> scopedContextGpu;
 };

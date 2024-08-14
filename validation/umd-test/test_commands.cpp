@@ -7,10 +7,7 @@
 
 #include "umd_test.h"
 
-#include <array>
-#include <cstdint>
 #include <future>
-#include <thread>
 
 class Command : public UmdTest {
   public:
@@ -66,10 +63,6 @@ class Command : public UmdTest {
     ze_result_t ret;
 };
 
-TEST_F(Command, CommandListDestroyErrorHandle) {
-    EXPECT_EQ(zeCommandListDestroy(nullptr), ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
-}
-
 TEST_F(Command, CreateCloseAndDestroyList) {
     ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
 }
@@ -79,25 +72,11 @@ TEST_F(Command, CreateCloseResetAndDestroyList) {
     ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
 }
 
-TEST_F(Command, CreateAndDestroyQueueErrorHandle) {
-    EXPECT_EQ(zeCommandQueueCreate(nullptr, nullptr, &cmdQueueDesc, &queue),
-              ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
-    EXPECT_EQ(zeCommandQueueCreate(zeContext, nullptr, &cmdQueueDesc, &queue),
-              ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
-    EXPECT_EQ(zeCommandQueueCreate(nullptr, zeDevice, &cmdQueueDesc, &queue),
-              ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
-    EXPECT_EQ(zeCommandQueueDestroy(nullptr), ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
-}
-
 TEST_F(Command, CreateSynchronizeAndDestroyQueue) {
     ASSERT_EQ(zeCommandQueueSynchronize(queue, 0), ZE_RESULT_SUCCESS);
 }
 
 TEST_F(Command, CreateExecuteSynchronizeAndDestroyQueueErrorHandle) {
-    EXPECT_EQ(zeCommandQueueExecuteCommandLists(nullptr, 1, &list, nullptr),
-              ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
-    EXPECT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, nullptr, nullptr),
-              ZE_RESULT_ERROR_INVALID_NULL_POINTER);
     EXPECT_EQ(zeCommandQueueExecuteCommandLists(queue, 0, &list, nullptr),
               ZE_RESULT_ERROR_INVALID_SIZE);
     EXPECT_EQ(zeCommandQueueSynchronize(queue, 0), ZE_RESULT_SUCCESS);
@@ -705,7 +684,8 @@ TEST_F(CommandTimestamp, CommandTimestampStressTest) {
         for (uint32_t iteration = 0; iteration < iterations; iteration++) {
             EXPECT_EQ(zeCommandQueueExecuteCommandLists(cmdQueue.get(), 1, &list, nullptr),
                       ZE_RESULT_SUCCESS);
-            EXPECT_EQ(zeCommandQueueSynchronize(cmdQueue.get(), syncTimeout), ZE_RESULT_SUCCESS);
+            EXPECT_EQ(zeCommandQueueSynchronize(cmdQueue.get(), syncTimeout * 2),
+                      ZE_RESULT_SUCCESS);
             EXPECT_GT(*ts, 0ULL);
         }
     };

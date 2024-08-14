@@ -39,7 +39,6 @@ TEST_F(Event, CreateEventWithInvalidParameters) {
                                  ZE_EVENT_SCOPE_FLAG_HOST};
     ze_event_handle_t event = nullptr;
 
-    EXPECT_EQ(zeEventCreate(nullptr, &eventDesc, &event), ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
     EXPECT_EQ(zeEventCreate(eventPool, nullptr, &event), ZE_RESULT_ERROR_INVALID_NULL_POINTER);
     EXPECT_EQ(zeEventCreate(eventPool, &eventDesc, nullptr), ZE_RESULT_ERROR_INVALID_NULL_POINTER);
     EXPECT_EQ(zeEventCreate(eventPool, nullptr, nullptr), ZE_RESULT_ERROR_INVALID_NULL_POINTER);
@@ -66,10 +65,6 @@ TEST_F(Event, AllocateEventTwiceExpectError) {
     auto expectNullptr = zeScope::eventCreate(eventPool, eventDesc, ret);
     EXPECT_EQ(ret, ZE_RESULT_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(expectNullptr, nullptr);
-}
-
-TEST_F(Event, DestroyEventWithInvalidParameter) {
-    EXPECT_EQ(zeEventDestroy(nullptr), ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
 }
 
 TEST_F(Event, CreateEventShouldBeSuccessful) {

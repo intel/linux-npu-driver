@@ -7,15 +7,21 @@
 
 #pragma once
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/metric_info.hpp"
-#include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
-#include "vpu_driver/source/command/vpu_job.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
 
+#include <array>
 #include <memory>
-#include <uapi/drm/ivpu_accel.h>
+#include <string>
+#include <vector>
 
 namespace VPU {
+class OsInterface;
+class VPUDriverApi;
 
 enum class EngineType { COMPUTE = 0, COPY, INVALID, ENGINE_MAX = INVALID };
 
@@ -45,6 +51,9 @@ class VPUDevice {
      * Return device's connection status.
      */
     bool isConnected();
+
+    std::string jsmApiVersion;
+    std::string mappedInferenceVersion;
 
   private:
     virtual bool initializeCaps(VPUDriverApi *drvApi);

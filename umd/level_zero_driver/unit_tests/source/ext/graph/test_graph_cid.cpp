@@ -5,17 +5,27 @@
  *
  */
 
+#include <cstddef>
+#include <cstdint>
+
+#include "gtest/gtest.h"
 #include "level_zero/ze_graph_ext.h"
+#include "level_zero_driver/core/source/context/context.hpp"
+#include "level_zero_driver/core/source/device/device.hpp"
+#include "level_zero_driver/ext/source/graph/compiler.hpp"
 #include "level_zero_driver/ext/source/graph/graph.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
 #include "level_zero_driver/unit_tests/options.hpp"
+#include "npu_driver_compiler.h"
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
 
 #include <api/vpu_nnrt_api_37xx.h>
-
-#include "gtest/gtest.h"
-#include "vpux_driver_compiler.h"
-
+#include <filesystem>
+#include <fstream>
+#include <level_zero/ze_api.h>
+#include <level_zero/ze_graph_profiling_ext.h>
+#include <string.h>
+#include <string>
 #include <vector>
 
 namespace L0 {
@@ -40,7 +50,7 @@ struct CompilerInDriverFixture : public ContextFixture {
         EXPECT_EQ(pDeviceGraphProperties2.runtimeVersion.minor, VPU_NNRT_37XX_API_VER_MINOR);
 
         EXPECT_EQ(pDeviceGraphProperties2.elfVersion.major, 1);
-        EXPECT_EQ(pDeviceGraphProperties2.elfVersion.minor, 2);
+        EXPECT_EQ(pDeviceGraphProperties2.elfVersion.minor, 3);
 
         if (!(pDeviceGraphProperties.graphFormatsSupported & ZE_GRAPH_FORMAT_NGRAPH_LITE))
             GTEST_SKIP_("Compiler in driver is not loaded!");
@@ -126,7 +136,7 @@ TEST_F(CompilerInDriver, versionCheck) {
     ASSERT_GT(Compiler::getCompilerVersionMajor(), 0);
     ASSERT_EQ(Compiler::getCompilerVersionMajor(), VCL_COMPILER_VERSION_MAJOR);
     ASSERT_EQ(Compiler::getCompilerVersionMinor(), VCL_COMPILER_VERSION_MINOR);
-    ASSERT_TRUE(Compiler::checkVersion(VCL_COMPILER_VERSION_MAJOR, VCL_COMPILER_VERSION_MINOR));
+    ASSERT_TRUE(Compiler::checkVersion(VCL_COMPILER_VERSION_MAJOR));
 }
 
 TEST_F(CompilerInDriver, creatingNgraphLiteWithNullInputReturnsFailure) {

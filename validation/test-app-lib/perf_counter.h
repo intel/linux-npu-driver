@@ -4,11 +4,9 @@
  * SPDX-License-Identifier: MIT
  *
  */
-
 #pragma once
 
-#include <stdint.h>
-#include <time.h>
+#include "drm_helpers.h"
 
 // Performance counter utility class, useful for performance measurements
 class PerfCounter {
@@ -17,6 +15,7 @@ class PerfCounter {
     ~PerfCounter();
 
     void setTimeout(unsigned timeout_msec);
+    unsigned getTimeout();
     void start();
     void stop();
     void reset();
@@ -35,13 +34,7 @@ class PerfCounter {
         countFrame(step);
     }
 
-    inline long long getTime() {
-#define SEC_TO_NSEC(t) (t * INT64_C(1e9))
-        struct timespec tv;
-
-        clock_gettime(CLOCK_MONOTONIC, &tv);
-        return tv.tv_nsec + SEC_TO_NSEC(tv.tv_sec);
-    }
+    inline long long getTime() { return drm::time_ns(); }
 
     inline bool isTimedOut() { return getTime() >= tout; }
 

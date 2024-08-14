@@ -6,9 +6,13 @@
  */
 
 #include "level_zero_driver/tools/source/metrics/metric.hpp"
+
+#include "level_zero_driver/core/source/device/device.hpp"
+#include "umd_common.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <algorithm>
+#include <array>
 
 namespace L0 {
 

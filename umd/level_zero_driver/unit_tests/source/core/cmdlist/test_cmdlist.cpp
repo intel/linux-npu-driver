@@ -1,22 +1,32 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
-#include "gtest/gtest.h"
-#include "vpu_driver/unit_tests/test_macros/test.hpp"
-#include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
-#include "vpu_driver/source/device/hw_info.hpp"
-#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
+#include <stddef.h>
+#include <stdint.h>
 
-#include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
+#include "api/vpu_jsm_job_cmd_api.h"
+#include "gtest/gtest.h"
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
-#include "level_zero_driver/core/source/event/eventpool.hpp"
+#include "level_zero_driver/core/source/context/context.hpp"
+#include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/core/source/event/event.hpp"
-#include "level_zero_driver/unit_tests/mocks/mock_driver.hpp"
+#include "level_zero_driver/core/source/event/eventpool.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
+#include "level_zero_driver/unit_tests/mocks/mock_driver.hpp"
+#include "vpu_driver/source/command/vpu_command.hpp"
+#include "vpu_driver/source/command/vpu_job.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
+#include "vpu_driver/unit_tests/test_macros/test.hpp"
+
+#include <level_zero/ze_api.h>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace L0 {
 namespace ult {

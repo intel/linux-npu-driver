@@ -5,12 +5,12 @@
  *
  */
 
-#include "vpu_driver/source/utilities/log.hpp"
-#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
-#include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/command/vpu_ts_command.hpp"
 
 #include <cstdint>
+
+#include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/utilities/log.hpp"
 
 namespace VPU {
 

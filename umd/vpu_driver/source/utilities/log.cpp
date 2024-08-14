@@ -8,6 +8,7 @@
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <cstdlib>
+#include <string>
 
 namespace VPU {
 

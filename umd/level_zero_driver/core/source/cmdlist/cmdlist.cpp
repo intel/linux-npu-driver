@@ -6,23 +6,34 @@
  */
 
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
-#include "level_zero_driver/core/source/driver/driver.hpp"
+
+#include "level_zero_driver/core/source/context/context.hpp"
+#include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/core/source/event/event.hpp"
+#include "level_zero_driver/ext/source/graph/profiling_data.hpp"
 #include "level_zero_driver/include/l0_exception.hpp"
+#include "level_zero_driver/include/nested_structs_handler.hpp"
 #include "level_zero_driver/tools/source/metrics/metric_query.hpp"
 #include "vpu_driver/source/command/vpu_barrier_command.hpp"
+#include "vpu_driver/source/command/vpu_command.hpp"
 #include "vpu_driver/source/command/vpu_copy_command.hpp"
 #include "vpu_driver/source/command/vpu_query_command.hpp"
 #include "vpu_driver/source/command/vpu_ts_command.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
+
 #include <level_zero/ze_api.h>
+#include <level_zero/ze_graph_ext.h>
+#include <optional>
+#include <utility>
 
 namespace L0 {
 
-CommandList::CommandList(Context *pContext, bool isCopyOnly)
+CommandList::CommandList(Context *pContext, bool isCopyOnly, bool isMutable)
     : pContext(pContext)
     , isCopyOnlyCmdList(isCopyOnly)
+    , isMutable(isMutable)
     , ctx(pContext->getDeviceContext())
     , vpuJob(std::make_shared<VPU::VPUJob>(ctx, isCopyOnly)) {}
 
@@ -60,7 +71,13 @@ ze_result_t CommandList::create(ze_context_handle_t hContext,
 
         Context *pContext = Context::fromHandle(hContext);
         bool isCopyOnly = flags == ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY;
-        auto commandList = std::make_unique<CommandList>(pContext, isCopyOnly);
+        bool isMutable = false;
+        if (desc->pNext != nullptr) {
+            const ze_structure_type_t stype =
+                *reinterpret_cast<const ze_structure_type_t *>(desc->pNext);
+            isMutable = stype == ZE_STRUCTURE_TYPE_MUTABLE_COMMAND_LIST_EXP_DESC;
+        }
+        auto commandList = std::make_unique<CommandList>(pContext, isCopyOnly, isMutable);
 
         *phCommandList = commandList.get();
         pContext->appendObject(std::move(commandList));
@@ -79,7 +96,7 @@ ze_result_t CommandList::destroy() {
 }
 
 ze_result_t CommandList::close() {
-    if (isCmdListClosed()) {
+    if (isCmdListClosed() && !isMutable) {
         LOG_W("CommandList already closed");
         return ZE_RESULT_SUCCESS;
     }
@@ -363,6 +380,8 @@ ze_result_t CommandList::appendGraphExecute(ze_graph_handle_t hGraph,
     if (result != ZE_RESULT_SUCCESS)
         return result;
 
+    uint64_t newCommandId = getNumCommands();
+
     if (numWaitEvents > 0) {
         if (phWaitEvents == nullptr) {
             LOG_E("Invalid wait event input. phWaitEvents: %p, numWaitEvents: %u",
@@ -375,6 +394,13 @@ ze_result_t CommandList::appendGraphExecute(ze_graph_handle_t hGraph,
         if (result != ZE_RESULT_SUCCESS) {
             LOG_E("Failed to add %u wait on events.", numWaitEvents);
             return result;
+        }
+    }
+
+    if (isMutable) {
+        uint64_t newCommandIdAfterEvents = getNumCommands();
+        if (newCommandId < newCommandIdAfterEvents) {
+            commandIdMap.emplace(newCommandId, newCommandIdAfterEvents);
         }
     }
 
@@ -594,6 +620,116 @@ ze_result_t CommandList::appendMetricQueryEnd(zet_metric_query_handle_t hMetricQ
                                                             ctx,
                                                             metricQuery->getMetricGroupMask(),
                                                             metricQuery->getMetricAddrPtr());
+}
+
+ze_result_t CommandList::getNextCommandId(const ze_mutable_command_id_exp_desc_t *desc,
+                                          uint64_t *pCommandId) {
+    if (!isMutable) {
+        LOG_E("Command list is not mutable. Unable to get the next command id");
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (isCmdListClosed()) {
+        LOG_E("Command list is closed. Unable to get the next command id");
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (desc->flags != ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT) {
+        LOG_E("Unsupported flag (%#x) in ze_mutable_command_id_exp_desc_t::flags. Only "
+              "ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT is supported",
+              desc->flags);
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    *pCommandId = getNumCommands();
+
+    return ZE_RESULT_SUCCESS;
+}
+
+using CommandUpdatesMap = std::unordered_map<uint64_t, // key: command id
+                                             VPU::VPUCommand::ArgumentUpdatesMap>;
+
+static std::optional<const void *>
+getCommandUpdates(const void *pNext,
+                  const std::unordered_map<uint64_t, uint64_t> &commandIdMap,
+                  CommandUpdatesMap &updatesMap) {
+    const ze_structure_type_graph_ext_t stype =
+        *reinterpret_cast<const ze_structure_type_graph_ext_t *>(pNext);
+
+    switch (stype) {
+    case ZE_STRUCTURE_TYPE_MUTABLE_GRAPH_ARGUMENT_EXP_DESC: {
+        const ze_mutable_graph_argument_exp_desc_t *desc =
+            reinterpret_cast<const ze_mutable_graph_argument_exp_desc_t *>(pNext);
+        uint64_t commandId = desc->commandId;
+        if (commandIdMap.count(commandId) > 0) {
+            commandId = commandIdMap.at(commandId);
+        }
+
+        uint32_t argIndex = desc->argIndex;
+
+        if (updatesMap[commandId].count(argIndex) > 0) {
+            LOG_W("Argument %u for command %lu is being mutated more than once. "
+                  "Verify the values in ze_mutable_graph_argument_exp_desc_t structs",
+                  argIndex,
+                  commandId);
+        }
+
+        updatesMap[commandId][argIndex] = desc->pArgValue;
+        LOG(CMDLIST, "Mutate GraphArgument[%u] = %p", argIndex, desc->pArgValue);
+
+        return desc->pNext;
+    }
+    default: {
+        LOG_E("Unsupported descriptor type (%#x) to mutate commands. Only "
+              "ZE_STRUCTURE_TYPE_MUTABLE_GRAPH_ARGUMENT_EXP_DESC is supported",
+              stype);
+        return {};
+    }
+    }
+}
+
+static bool gatherCommandUpdates(const void *pNext,
+                                 const std::unordered_map<uint64_t, uint64_t> &commandIdMap,
+                                 CommandUpdatesMap &updatesMap) {
+    return handleNestedStructs(pNext, getCommandUpdates, commandIdMap, updatesMap);
+}
+
+ze_result_t CommandList::updateMutableCommands(const ze_mutable_commands_exp_desc_t *desc) {
+    if (!isMutable) {
+        LOG_E("Command list is not mutable. Unable to update mutable commands");
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (desc->flags != 0) {
+        LOG_E("ze_mutable_commands_exp_desc_t::flags must be 0");
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    CommandUpdatesMap updatesMap;
+    if (!gatherCommandUpdates(desc->pNext, commandIdMap, updatesMap) || updatesMap.size() == 0) {
+        LOG_E("Unable to gather command updates. Verify the values in "
+              "ze_mutable_commands_exp_desc_t struct");
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    for (const auto &[commandId, update] : updatesMap) {
+        auto command = vpuJob->getCommand(commandId);
+        if (command == nullptr) {
+            LOG_E("Unable to get command with id %lu", commandId);
+            return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        }
+
+        if (!command->setUpdates(update)) {
+            LOG_E("Unable to set updates for command with id %lu and type %#x",
+                  commandId,
+                  command->getCommandType());
+            return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        }
+    }
+
+    vpuJob->setNeedsUpdate(true);
+
+    return ZE_RESULT_SUCCESS;
 }
 
 } // namespace L0

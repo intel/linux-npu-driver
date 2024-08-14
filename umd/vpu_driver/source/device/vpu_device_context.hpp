@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,17 +7,26 @@
 
 #pragma once
 
-#include "vpu_driver/source/command/vpu_command.hpp"
+#include <stddef.h>
+#include <stdint.h>
+
+#include "api/vpu_jsm_job_cmd_api.h"
 #include "vpu_driver/source/device/hw_info.hpp"
-#include "vpu_driver/source/device/vpu_device.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
+#include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
+#include "vpu_driver/source/utilities/stats.hpp"
 
 #include <bitset>
+#include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
-#include <map>
+#include <utility>
 
 namespace VPU {
+class VPUCommandBuffer;
+class VPUJob;
+struct VPUDescriptor;
 
 class VPUDeviceContext {
   public:
@@ -32,6 +41,7 @@ class VPUDeviceContext {
         VPUBufferObject *bo = createBufferObject(size, type, loc);
         if (bo == nullptr)
             return nullptr;
+        MemoryStatistics::get().snapshot();
         return bo->getBasePointer();
     }
 
@@ -86,7 +96,7 @@ class VPUDeviceContext {
      * Return assigned VPUDriverApi
      */
     const VPUDriverApi &getDriverApi() const { return *drvApi; }
-
+    const VPUHwInfo &getDeviceCapabilities() const { return *hwInfo; }
     /**
      * Return value of VPU Device ID
      */

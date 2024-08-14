@@ -7,13 +7,19 @@
 
 #include "level_zero_driver/core/source/context/context.hpp"
 
-#include "level_zero_driver/core/source/driver/driver_handle.hpp"
 #include "level_zero_driver/core/source/device/device.hpp"
-#include "level_zero_driver/core/source/event/eventpool.hpp"
+#include "level_zero_driver/core/source/driver/driver_handle.hpp"
+#include "level_zero_driver/core/source/event/event.hpp"
+#include "level_zero_driver/include/l0_exception.hpp"
+#include "level_zero_driver/tools/source/metrics/metric.hpp"
 #include "level_zero_driver/tools/source/metrics/metric_query.hpp"
 #include "level_zero_driver/tools/source/metrics/metric_streamer.hpp"
+#include "vpu_driver/source/device/vpu_device.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
+#include <errno.h>
+#include <linux/sysinfo.h>
+#include <string.h>
 #include <sys/sysinfo.h>
 
 namespace L0 {

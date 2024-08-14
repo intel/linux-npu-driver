@@ -3,6 +3,8 @@
  * Copyright (c) 2022-2023, Intel Corporation.
  */
 
+// clang-format off
+
 /**
  * @brief VPU DMA public header file.
  *
@@ -108,3 +110,5 @@ static_assert(sizeof(vpu_dma_descriptor_t) == 80, "DMA descriptor size != 80");
 #endif /* ifndef VPU_DMA_HW_37XX_H_ */
 
 /** @} */
+
+// clang-format on

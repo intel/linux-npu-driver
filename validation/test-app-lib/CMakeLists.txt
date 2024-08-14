@@ -4,12 +4,10 @@
 # SPDX-License-Identifier: MIT
 #
 
-cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
-
 project(test_app_lib)
 
-# try to use c++17 or fallback to an older standard
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include_directories(${CMAKE_BINARY_DIR})
 include_directories(../../linux/include)

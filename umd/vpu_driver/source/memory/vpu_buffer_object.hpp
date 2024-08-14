@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,19 +7,14 @@
 
 #pragma once
 
-#include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
-#include "vpu_driver/source/utilities/log.hpp"
-
-#include <array>
 #include <cstddef>
 #include <cstdint>
-#include <map>
-#include <memory>
 
+#include <memory>
 #include <uapi/drm/ivpu_accel.h>
-#include <api/vpu_jsm_job_cmd_api.h>
 
 namespace VPU {
+class VPUDriverApi;
 
 class VPUBufferObject {
   public:

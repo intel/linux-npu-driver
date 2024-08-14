@@ -6,11 +6,13 @@
  */
 
 #include "vpu_driver/source/command/vpu_event_command.hpp"
+
+#include "umd_common.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
-#include "umd_common.hpp"
 
 namespace VPU {
+class VPUBufferObject;
 
 std::shared_ptr<VPUEventCommand> VPUEventCommand::create(VPUDeviceContext *ctx,
                                                          const EngineSupport engType,

@@ -7,16 +7,26 @@
 
 #pragma once
 
-#include "gtest/gtest.h"
-#include <memory>
+#include <stdint.h>
 
-#include "vpu_driver/unit_tests/test_macros/test.hpp"
+#include "gtest/gtest.h"
+#include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
+#include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
+#include "level_zero_driver/core/source/context/context.hpp"
+#include "level_zero_driver/core/source/device/device.hpp"
+#include "level_zero_driver/core/source/driver/driver_handle.hpp"
+#include "level_zero_driver/ext/source/graph/disk_cache.hpp"
+#include "level_zero_driver/unit_tests/mocks/mock_driver.hpp"
+#include "vpu_driver/source/device/vpu_device.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/utilities/log.hpp"
+#include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
 
-#include "level_zero_driver/core/source/device/device.hpp"
-#include "level_zero_driver/core/source/context/context.hpp"
-#include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
-#include "level_zero_driver/unit_tests/mocks/mock_driver.hpp"
+#include <level_zero/ze_api.h>
+#include <memory>
+#include <utility>
+#include <vector>
 
 namespace L0 {
 namespace ult {

@@ -5,12 +5,16 @@
  *
  */
 
+#include <stdint.h>
+
+#include "gmock/gmock.h"
+#include "gtest/gtest.h"
 #include "level_zero_driver/ext/source/graph/disk_cache.hpp"
 #include "vpu_driver/unit_tests/mocks/gmock_os_interface_imp.hpp"
 
-#include <gtest/gtest.h>
 #include <level_zero/ze_graph_ext.h>
 #include <memory>
+#include <string>
 
 namespace L0 {
 

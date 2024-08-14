@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "vpux_driver_compiler.h"
+#include "npu_driver_compiler.h"
 
 #include <string_view>
 

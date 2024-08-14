@@ -9,6 +9,11 @@
 
 #include "vpu_driver/source/os_interface/os_interface.hpp"
 
+#include <filesystem>
+#include <functional>
+#include <memory>
+#include <sys/types.h>
+
 namespace VPU {
 
 class OsInterfaceImp : public OsInterface {

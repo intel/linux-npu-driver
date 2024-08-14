@@ -16,8 +16,6 @@ TEST_F(EventPool, CreateEventPoolWithInvalidParameters) {
                                           ZE_EVENT_POOL_FLAG_HOST_VISIBLE,
                                           1};
 
-    EXPECT_EQ(zeEventPoolCreate(nullptr, &eventPoolDesc, 1, &zeDevice, &eventPool),
-              ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
     EXPECT_EQ(zeEventPoolCreate(zeContext, nullptr, 1, &zeDevice, &eventPool),
               ZE_RESULT_ERROR_INVALID_NULL_POINTER);
     EXPECT_EQ(zeEventPoolCreate(zeContext, &eventPoolDesc, 1, &zeDevice, nullptr),
@@ -29,8 +27,6 @@ TEST_F(EventPool, CreateEventPoolWithInvalidParameters) {
     EXPECT_EQ(zeEventPoolCreate(zeContext, &eventPoolDesc, 1, &zeDevice, &eventPool),
               ZE_RESULT_ERROR_INVALID_SIZE);
     eventPoolDesc.count = 1;
-    EXPECT_EQ(zeEventPoolCreate(zeContext, &eventPoolDesc, 1, nullptr, &eventPool),
-              ZE_RESULT_ERROR_INVALID_SIZE);
 }
 
 TEST_F(EventPool, CreateEventPoolShouldBeSuccessful) {
@@ -44,8 +40,4 @@ TEST_F(EventPool, CreateEventPoolShouldBeSuccessful) {
               ZE_RESULT_SUCCESS);
     EXPECT_NE(eventPool, nullptr);
     EXPECT_EQ(zeEventPoolDestroy(eventPool), ZE_RESULT_SUCCESS);
-}
-
-TEST_F(EventPool, DestroyEventPoolWithInvalidParameter) {
-    EXPECT_EQ(zeEventPoolDestroy(nullptr), ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
 }

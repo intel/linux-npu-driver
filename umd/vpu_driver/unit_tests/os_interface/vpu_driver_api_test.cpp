@@ -1,16 +1,20 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
+#include <stdint.h>
+
+#include "gtest/gtest.h"
 #include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
 
+#include <errno.h>
 #include <memory>
-#include <gtest/gtest.h>
 #include <stdexcept>
+#include <string>
 #include <uapi/drm/ivpu_accel.h>
 
 #define FAKE_TEST_DEV_NODE "dev/node/fake"

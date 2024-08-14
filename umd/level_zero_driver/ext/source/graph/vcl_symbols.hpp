@@ -1,15 +1,18 @@
 /*
- * Copyright (C) 2022-2023 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
+#pragma once
+
+#include "npu_driver_compiler.h"
+#include "vpu_driver/source/utilities/log.hpp"
+
+#include <array>
 #include <dlfcn.h>
 #include <memory>
-
-#include "vpux_driver_compiler.h"
-#include "vpu_driver/source/utilities/log.hpp"
 
 class Vcl {
   public:
@@ -95,6 +98,6 @@ class Vcl {
     using VclHandle = std::unique_ptr<void, decltype(&closeHandle)>;
     VclHandle handle = VclHandle(nullptr, nullptr);
 
-    std::array<const char *, 2> compilerNames = {"libvpux_driver_compiler.so",
-                                                 "libVPUXCompilerL0.so"};
+    std::array<const char *, 2> compilerNames = {"libnpu_driver_compiler.so",
+                                                 "libvpux_driver_compiler.so"};
 };

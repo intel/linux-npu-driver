@@ -367,12 +367,11 @@ void PrepareInvalidCopyCommand(CmdBuffer &buf, uint16_t direction) {
     buf._end += sizeof(vpu_cmd_copy_buffer_t);
     copy_cmd->header.type = direction;
     copy_cmd->header.size = sizeof(vpu_cmd_copy_buffer_t);
-    copy_cmd->desc_start_offset = 0;
+    copy_cmd->desc_start_offset = buf.vpu_addr() + 1024;
     copy_cmd->desc_count = 1;
 
     auto cmd_copy_desc = (copy_descriptor_t *)buf.ptr(1024);
     // Any values here will do as long as one address falls outside legal range
     // Those particular values were taken from malformed elf tests
     buf.copy_desc_fill(cmd_copy_desc, 0x55550189876000, 0x2E05D800, 0x24C00);
-    buf.hdr()->descriptor_heap_base_address = buf.vpu_addr() + 1024;
 }

@@ -79,6 +79,36 @@ TEST_F(Device, GetZesProperties) {
     TRACE("DriverVersion: %s\n", devProp.driverVersion);
 }
 
+TEST_F(Device, GetPropertiesMutableCmdListDeviceIpVersion) {
+    ze_device_ip_version_ext_t deviceIpVersion{
+        .stype = ZE_STRUCTURE_TYPE_DEVICE_IP_VERSION_EXT,
+        .pNext = nullptr,
+        .ipVersion = std::numeric_limits<uint32_t>::max(),
+    };
+    ze_mutable_command_list_exp_properties_t mutableCmdListProps{
+        .stype = ZE_STRUCTURE_TYPE_MUTABLE_COMMAND_LIST_EXP_PROPERTIES,
+        .pNext = &deviceIpVersion,
+        .mutableCommandListFlags = 0,
+        .mutableCommandFlags = 0,
+    };
+    ze_device_properties_t devProp = {};
+    devProp.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
+    devProp.pNext = &mutableCmdListProps;
+
+    EXPECT_EQ(zeDeviceGetProperties(zeDevice, &devProp), ZE_RESULT_SUCCESS);
+    EXPECT_EQ(devProp.type, ZE_DEVICE_TYPE_VPU);
+    EXPECT_EQ(devProp.vendorId, 0x8086u);
+    EXPECT_TRUE(test_app::is_vpu(devProp.deviceId)) << "Invalid PCI Device ID" << devProp.deviceId;
+    EXPECT_STREQ(devProp.name, "Intel(R) AI Boost");
+
+    EXPECT_NE(deviceIpVersion.ipVersion, std::numeric_limits<uint32_t>::max());
+    EXPECT_EQ(mutableCmdListProps.mutableCommandListFlags, 0);
+    EXPECT_EQ(mutableCmdListProps.mutableCommandFlags, ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT);
+
+    TRACE("PCI Device ID: %#x\n", devProp.deviceId);
+    TRACE("Tile count: %u\n", devProp.numSlices);
+}
+
 TEST_F(Device, GetGlobalTimestamps) {
     auto checkTimestamp = [&]() {
         using namespace std::chrono_literals;

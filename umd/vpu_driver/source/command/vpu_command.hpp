@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,18 +7,24 @@
 
 #pragma once
 
-#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
-
 #include <cstddef>
 #include <cstdint>
-#include <vector>
+
+#include "api/vpu_jsm_job_cmd_api.h"
+#include "vpu_driver/source/utilities/log.hpp"
+
+#include <any>
 #include <optional>
 #include <uapi/drm/ivpu_accel.h>
-#include <any>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace VPU {
 
+class VPUCommandBuffer;
 class VPUDeviceContext;
+class VPUBufferObject;
 
 struct VPUDescriptor {
     std::vector<char> data = {};
@@ -169,6 +175,21 @@ class VPUCommand {
 
     bool copyDescriptor(VPUDeviceContext *ctx, void **desc);
 
+    using ArgumentUpdatesMap =
+        std::unordered_map<uint32_t, const void *>; // key - argument index
+                                                    // value - new pointer for the argument
+    virtual bool setUpdates(const ArgumentUpdatesMap &updatesMap) {
+        LOG_E("Command with type %#x does not support changing arguments", getCommandType());
+        return false;
+    }
+
+    virtual bool update(VPUCommandBuffer *commandBuffer) {
+        LOG_E("Command with type %#x does not support changing arguments", getCommandType());
+        return false;
+    }
+
+    bool needsUpdate() const { return cmdNeedsUpdate; }
+
   protected:
     /**
      * Add associated VPUBufferObject to vector bufferObjects.
@@ -182,10 +203,17 @@ class VPUCommand {
      * Add associated VPUBufferObject to vector bufferObjects.
      */
     void appendAssociateBufferObject(VPUBufferObject *bo);
+    /**
+     * Remove associated VPUBufferObject after pos
+     */
+    void eraseAssociatedBufferObjects(size_t pos);
+
     void setDescriptor(VPUDescriptor &&d) { descriptor = std::move(d); }
     virtual const vpu_cmd_header_t *getHeader() const { return nullptr; }
 
     std::any command = {};
+
+    bool cmdNeedsUpdate = false;
 
   private:
     EngineSupport engineSupport;

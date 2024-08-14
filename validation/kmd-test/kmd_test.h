@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,26 +7,27 @@
 
 #pragma once
 
+#include <stdint.h>
+
+#include "api/vpu_jsm_job_cmd_api.h"
+#include "drm/ivpu_accel.h"
+#include "drm_helpers.h"
+#include "file_helper.h"
+#include "linux/dma-heap.h"
+#include "perf_counter.h"
+#include "test_app.h"
+
 #include <algorithm>
+#include <fcntl.h>
+#include <filesystem>
+#include <fstream>
 #include <libudev.h>
 #include <linux/kernel.h>
 #include <linux/magic.h>
-#include <stdint.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
-#include <sys/vfs.h>
 #include <sys/utsname.h>
-#include <fcntl.h>
-#include <fstream>
-#include <filesystem>
-
-#include "drm_helpers.h"
-#include "file_helper.h"
-#include "api/vpu_jsm_job_cmd_api.h"
-#include "test_app.h"
-#include "perf_counter.h"
-#include "drm/ivpu_accel.h"
-#include "linux/dma-heap.h"
+#include <sys/vfs.h>
 
 #define SKIP_(msg)                    \
     if (!test_app::run_skipped_tests) \

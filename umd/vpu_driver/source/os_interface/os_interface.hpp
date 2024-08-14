@@ -7,13 +7,12 @@
 
 #pragma once
 
-#include <fcntl.h>
 #include <filesystem>
 #include <functional>
-#include <string>
-#include <sys/stat.h>
+#include <memory>
 #include <sys/types.h>
-#include <unistd.h>
+
+struct stat;
 
 namespace VPU {
 
@@ -47,7 +46,7 @@ class OsInterface {
     virtual std::unique_ptr<OsFile> osiOpenWithSharedLock(const std::filesystem::path &path,
                                                           bool writeAccess) = 0;
     virtual void osiScanDir(const std::filesystem::path &path,
-                            std::function<void(const char *name, struct stat &stat)> f) = 0;
+                            std::function<void(const char *name, struct ::stat &stat)> f) = 0;
 };
 
 OsInterface &getOsInstance();

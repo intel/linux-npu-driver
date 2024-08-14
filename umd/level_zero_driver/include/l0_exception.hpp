@@ -7,9 +7,10 @@
 
 #pragma once
 
-#include <stdexcept>
-
 #include "level_zero/ze_api.h"
+#include "vpu_driver/source/utilities/log.hpp"
+
+#include <stdexcept>
 
 namespace L0 {
 

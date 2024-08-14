@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,15 +7,16 @@
 
 #pragma once
 
-#include "umd_common.hpp"
-
-#include "vpu_driver/source/device/hw_info.hpp"
-#include "vpu_driver/source/os_interface/os_interface.hpp"
-#include "vpu_driver/source/device/vpu_device.hpp"
-#include <bitset>
 #include <cstdint>
-#include <memory.h>
+
+#include "vpu_driver/source/os_interface/os_interface.hpp"
+
+#include <bitset>
+#include <filesystem>
+#include <functional>
+#include <memory>
 #include <string>
+#include <sys/types.h>
 #include <uapi/drm/ivpu_accel.h>
 
 namespace VPU {
@@ -33,6 +34,7 @@ class MockOsInterfaceImp : public OsInterface {
     uint32_t callCntAlloc = 0;
     uint32_t callCntFree = 0;
     uint32_t callCntIoctl = 0;
+    uint32_t callCntSubmit = 0;
 
     unsigned long ioctlLastCommand = 0;
     int fd = 3;

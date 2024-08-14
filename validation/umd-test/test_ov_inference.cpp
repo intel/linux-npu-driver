@@ -138,7 +138,7 @@ TEST_P(OpenVinoBasic, CompileModelWithGraphInitAndExecute) {
     ASSERT_EQ(mainModel->inputs().size(), 1);
 
     std::vector<std::string> testImages;
-    for (auto &image : node["input"].as<std::vector<std::string>>()) {
+    for (auto &image : node["in"].as<std::vector<std::string>>()) {
         testImages.push_back(globalConfig.imageDir + image);
     }
 

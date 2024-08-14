@@ -1,25 +1,25 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
-#include "umd_common.hpp"
-#include "vpu_driver/source/command/vpu_job.hpp"
-#include "vpu_driver/source/command/vpu_barrier_command.hpp"
-#include "vpu_driver/source/command/vpu_copy_command.hpp"
-#include "vpu_driver/source/command/vpu_event_command.hpp"
-#include "vpu_driver/source/command/vpu_ts_command.hpp"
-#include "vpu_driver/source/utilities/log.hpp"
-
-#include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
+#include <stdint.h>
 
 #include "gtest/gtest.h"
+#include "vpu_driver/source/command/vpu_command_buffer.hpp"
+#include "vpu_driver/source/command/vpu_copy_command.hpp"
+#include "vpu_driver/source/command/vpu_ts_command.hpp"
+#include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
+#include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
 
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace VPU {
+class VPUCommand;
 
 struct VPUCommandBufferTest : public ::testing::Test {
     void SetUp() override {}
@@ -33,8 +33,12 @@ struct VPUCommandBufferTest : public ::testing::Test {
 };
 
 TEST_F(VPUCommandBufferTest, allocateCommandBufferWithoutCommandExpectNullptr) {
+    std::vector<std::shared_ptr<VPUCommand>> cmds;
     EXPECT_EQ(nullptr,
-              VPUCommandBuffer::allocateCommandBuffer(ctx, {}, VPUCommandBuffer::Target::COMPUTE));
+              VPUCommandBuffer::allocateCommandBuffer(ctx,
+                                                      cmds.begin(),
+                                                      cmds.end(),
+                                                      VPUCommandBuffer::Target::COMPUTE));
 }
 
 TEST_F(VPUCommandBufferTest, allocateCommandBufferWithTimestampCommand) {
@@ -44,9 +48,11 @@ TEST_F(VPUCommandBufferTest, allocateCommandBufferWithTimestampCommand) {
     cmds.emplace_back(VPUTimeStampCommand::create(ctx, tsHeap));
     ASSERT_NE(cmds.back(), nullptr);
 
-    EXPECT_NE(
-        nullptr,
-        VPUCommandBuffer::allocateCommandBuffer(ctx, cmds, VPUCommandBuffer::Target::COMPUTE));
+    EXPECT_NE(nullptr,
+              VPUCommandBuffer::allocateCommandBuffer(ctx,
+                                                      cmds.begin(),
+                                                      cmds.end(),
+                                                      VPUCommandBuffer::Target::COMPUTE));
 
     EXPECT_TRUE(ctx->freeMemAlloc(tsHeap));
 }
@@ -59,9 +65,11 @@ TEST_F(VPUCommandBufferTest, allocateCommandBufferWithMallocFailureExpectNullptr
     ASSERT_NE(cmds.back(), nullptr);
 
     osInfc.mockFailNextAlloc();
-    EXPECT_EQ(
-        nullptr,
-        VPUCommandBuffer::allocateCommandBuffer(ctx, cmds, VPUCommandBuffer::Target::COMPUTE));
+    EXPECT_EQ(nullptr,
+              VPUCommandBuffer::allocateCommandBuffer(ctx,
+                                                      cmds.begin(),
+                                                      cmds.end(),
+                                                      VPUCommandBuffer::Target::COMPUTE));
     EXPECT_TRUE(ctx->freeMemAlloc(tsHeap));
 }
 
@@ -73,9 +81,11 @@ TEST_F(VPUCommandBufferTest, allocateCommandBufferWithCopyCommand) {
     cmds.emplace_back(VPUCopyCommand::create(ctx, src, dst, sizeof(uint64_t)));
     ASSERT_NE(cmds.back(), nullptr);
 
-    EXPECT_NE(
-        nullptr,
-        VPUCommandBuffer::allocateCommandBuffer(ctx, cmds, VPUCommandBuffer::Target::COMPUTE));
+    EXPECT_NE(nullptr,
+              VPUCommandBuffer::allocateCommandBuffer(ctx,
+                                                      cmds.begin(),
+                                                      cmds.end(),
+                                                      VPUCommandBuffer::Target::COMPUTE));
 
     EXPECT_TRUE(ctx->freeMemAlloc(src));
     EXPECT_TRUE(ctx->freeMemAlloc(dst));

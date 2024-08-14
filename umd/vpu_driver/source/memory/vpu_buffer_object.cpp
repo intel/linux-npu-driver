@@ -1,17 +1,21 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
-#include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
-#include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 
 #include "umd_common.hpp"
+#include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
+#include "vpu_driver/source/utilities/log.hpp"
+#include "vpu_driver/source/utilities/stats.hpp"
 
+#include <algorithm>
+#include <fcntl.h>
 #include <string.h>
+#include <sys/types.h>
 
 namespace VPU {
 
@@ -41,6 +45,11 @@ VPUBufferObject::~VPUBufferObject() {
     if (static_cast<uint32_t>(location) & externalMemMask)
         return;
 
+    if (MemoryStatistics::get().isEnabled()) {
+        size_t pageSize = drvApi.getPageSize();
+        MemoryStatistics::get().dec(location, ALIGN(allocSize, pageSize));
+    }
+
     if (drvApi.closeBuffer(handle) != 0) {
         LOG_E("Failed to close handle %d", handle);
     }
@@ -68,6 +77,11 @@ VPUBufferObject::create(const VPUDriverApi &drvApi, Location type, Type range, s
         LOG_E("Failed to mmap the created buffer");
         drvApi.closeBuffer(handle);
         return nullptr;
+    }
+
+    if (MemoryStatistics::get().isEnabled()) {
+        size_t pageSize = drvApi.getPageSize();
+        MemoryStatistics::get().inc(type, ALIGN(size, pageSize));
     }
 
     return std::make_unique<VPUBufferObject>(drvApi, type, range, ptr, size, handle, vpuAddr);

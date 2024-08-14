@@ -5,26 +5,24 @@
  *
  */
 
-#include "umd_common.hpp"
-
-#include "vpu_driver/source/device/hw_info.hpp"
-#include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/source/device/vpu_device.hpp"
-#include "vpu_driver/source/device/vpu_device_context.hpp"
-#include "vpu_driver/source/command/vpu_job.hpp"
-#include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
-#include "vpu_driver/source/os_interface/os_interface.hpp"
-#include "api/vpu_jsm_api.h"
 
-#include <cassert>
+#include "api/vpu_jsm_api.h"
+#include "vpu_driver/source/device/hw_info.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
+#include "vpu_driver/source/utilities/log.hpp"
+
 #include <cerrno>
 #include <charconv>
-#include <limits>
-#include <stdexcept>
-#include <sys/mman.h>
+#include <exception>
+#include <sys/types.h>
+#include <system_error>
 #include <uapi/drm/ivpu_accel.h>
+#include <utility>
 
 namespace VPU {
+class OsInterface;
 VPUDevice::VPUDevice(std::string devPath, OsInterface &osInfc)
     : devPath(std::move(devPath))
     , osInfc(osInfc) {}
@@ -52,11 +50,15 @@ bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
         return false;
     }
 
+    if (drvApi->checkPrimeBuffersCapability())
+        hwInfo.primeBuffersCapability = true;
     if (drvApi->checkDeviceCapability(DRM_IVPU_CAP_METRIC_STREAMER))
         hwInfo.metricStreamerCapability = true;
     if (drvApi->checkDeviceCapability(DRM_IVPU_CAP_DMA_MEMORY_RANGE))
         hwInfo.dmaMemoryRangeCapability = true;
 
+    jsmApiVersion = drvApi->getFWComponentVersion(hwInfo.fwJsmCmdApiVerIndex);
+    mappedInferenceVersion = drvApi->getFWComponentVersion(hwInfo.fwMappedInferenceIndex);
     return true;
 }
 

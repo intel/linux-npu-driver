@@ -1,12 +1,16 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
-#include "ze_ddi_tables.hpp"
-#include "ze_tools_api_tables.hpp"
+#include "level_zero/loader/ze_loader.h"
+#include "level_zero_driver/api/tools/zet_metric.hpp"
+
+#include <dlfcn.h>
+#include <level_zero/ze_api.h>
+#include <level_zero/zet_ddi.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -367,3 +371,38 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetTracerExpProcAddrTable(
 #if defined(__cplusplus)
 }
 #endif
+
+namespace L0 {
+
+void *getLoaderHandle() {
+    static void *loaderHandle = dlopen("libze_loader.so.1", RTLD_LAZY | RTLD_LOCAL);
+    return loaderHandle;
+}
+
+std::string getLoaderVersion() {
+    std::string version = "not available";
+    void *loaderHandle = getLoaderHandle();
+
+    if (loaderHandle == nullptr) {
+        return version;
+    }
+
+    static void *functionPointer = dlsym(loaderHandle, "zelLoaderGetVersions");
+    if (functionPointer == nullptr) {
+        return version;
+    }
+
+    zel_component_version_t loaderVersion;
+    size_t num = 1;
+    static auto *pLoaderGetVersions =
+        reinterpret_cast<decltype(zelLoaderGetVersions) *>(functionPointer);
+    if (pLoaderGetVersions(&num, &loaderVersion) != ZE_RESULT_SUCCESS) {
+        return version;
+    }
+
+    version = std::to_string(loaderVersion.component_lib_version.major) + ".";
+    version += std::to_string(loaderVersion.component_lib_version.minor) + ".";
+    version += std::to_string(loaderVersion.component_lib_version.patch);
+    return version;
+}
+} // namespace L0

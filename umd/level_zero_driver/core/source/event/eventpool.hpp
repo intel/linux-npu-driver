@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,12 +7,23 @@
 
 #pragma once
 
+#include <stdint.h>
+
 #include "level_zero_driver/core/source/event/event.hpp"
-#include "level_zero_driver/core/source/context/context.hpp"
-#include "level_zero_driver/core/source/device/device.hpp"
+#include "level_zero_driver/include/l0_handler.hpp"
 #include "vpu_driver/source/command/vpu_event_command.hpp"
 
 #include <level_zero/ze_api.h>
+#include <memory>
+#include <vector>
+
+namespace L0 {
+struct Context;
+} // namespace L0
+namespace VPU {
+class VPUBufferObject;
+class VPUDeviceContext;
+} // namespace VPU
 
 struct _ze_event_pool_handle_t {};
 

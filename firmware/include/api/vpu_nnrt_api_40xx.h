@@ -3,6 +3,8 @@
  * Copyright (c) 2022-2023, Intel Corporation.
  */
 
+// clang-format off
+
 #ifndef VPU_NNRT_API_40XX_H
 #define VPU_NNRT_API_40XX_H
 
@@ -29,7 +31,7 @@
  */
 #define VPU_NNRT_40XX_API_VER_MAJOR 11
 #define VPU_NNRT_40XX_API_VER_MINOR 4
-#define VPU_NNRT_40XX_API_VER_PATCH 4
+#define VPU_NNRT_40XX_API_VER_PATCH 0
 #define VPU_NNRT_40XX_API_VER ((VPU_NNRT_40XX_API_VER_MAJOR << 16) | VPU_NNRT_40XX_API_VER_MINOR)
 
 /* Index in the API version table, same for all HW generations */
@@ -44,7 +46,7 @@
  * should be incremented. It resets to 0 when the major version is incremented.
  */
 #define VPU_ACT_RT_VER_MAJOR 1
-#define VPU_ACT_RT_VER_MINOR 4
+#define VPU_ACT_RT_VER_MINOR 2
 #define VPU_ACT_RT_VER_PATCH 0
 #define VPU_ACT_RT_VER ((VPU_ACT_RT_VER_MAJOR << 16) | VPU_ACT_RT_VER_MINOR)
 
@@ -264,7 +266,7 @@ struct VPU_ALIGNED_STRUCT(32) VpuActKernelInvocation {
     uint32_t invo_index;
     uint32_t invo_tile;
     uint32_t kernel_range_index;
-    uint32_t next_aki_wl_addr;
+    uint8_t pad_[4];
 };
 
 static_assert(sizeof(VpuActKernelInvocation) == 96, "VpuActKernelInvocation size != 96");
@@ -379,3 +381,5 @@ static_assert(offsetof(VpuHostParsedInference, mapped_) % 8 == 0, "Alignment err
 } // namespace nn_public
 
 #endif
+
+// clang-format on

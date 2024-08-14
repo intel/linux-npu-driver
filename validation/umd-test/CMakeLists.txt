@@ -4,8 +4,6 @@
 # SPDX-License-Identifier: MIT
 #
 
-cmake_minimum_required(VERSION 3.2 FATAL_ERROR)
-
 project(vpu-umd-test)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -22,33 +20,33 @@ add_executable(${PROJECT_NAME}
     model_params.cpp
     main.cpp
     umd_test.cpp
+    test_buffers_export_gpu.cpp
     test_commands.cpp
-    test_copy_performance.cpp
-    test_inference_performance.cpp
-    test_graph_commands.cpp
     test_context.cpp
+    test_copy_performance.cpp
     test_device.cpp
     test_driver.cpp
-    test_memory.cpp
-    test_graph.cpp
-    test_graph_inference.cpp
-    test_graph_cid.cpp
-    test_fence.cpp
     test_event.cpp
     test_event_sync.cpp
     test_eventpool.cpp
+    test_fence.cpp
+    test_graph.cpp
+    test_graph_cid.cpp
+    test_graph_commands.cpp
+    test_graph_inference.cpp
+    test_inference_performance.cpp
+    test_memory.cpp
     test_metric.cpp
     test_metric_streamer.cpp
-    test_priority.cpp
     test_prime_buffers.cpp
+    test_priority.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/linux/include/uapi")
 
 if (OpenVINO_FOUND)
-    target_sources(${PROJECT_NAME} PRIVATE test_ov_inference.cpp)
+    target_sources(${PROJECT_NAME} PRIVATE test_ov_inference.cpp test_mutable_cmdlist.cpp)
     target_link_libraries(${PROJECT_NAME} openvino::runtime)
-    target_compile_definitions(${PROJECT_NAME} PUBLIC UMD_TESTS_USE_OPENVINO=1)
 endif()
 
 if (OpenCV_FOUND)

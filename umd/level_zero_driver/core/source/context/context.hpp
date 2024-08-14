@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,16 +7,20 @@
 
 #pragma once
 
-#include "level_zero_driver/core/source/driver/driver_handle.hpp"
-#include "level_zero_driver/include/l0_exception.hpp"
+#include <stddef.h>
+#include <stdint.h>
+
 #include "level_zero_driver/include/l0_handler.hpp"
-#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 
 #include <level_zero/ze_api.h>
-#include <level_zero/zet_api.h>
 #include <level_zero/ze_graph_ext.h>
+#include <level_zero/zet_api.h>
+#include <memory>
+#include <mutex>
 #include <unordered_map>
+#include <utility>
 
 struct _ze_context_handle_t {};
 
@@ -33,7 +37,10 @@ struct Context : _ze_context_handle_t {
     ze_result_t getStatus();
     DriverHandle *getDriverHandle();
 
-    ze_result_t checkMemInputs(size_t size, size_t alignment, void **ptr);
+    ze_result_t checkMemInputs(VPU::VPUBufferObject::Location location,
+                               size_t size,
+                               size_t alignment,
+                               void **ptr);
 
     ze_result_t allocMemory(size_t size,
                             size_t alignment,

@@ -5,13 +5,15 @@
  *
  */
 
-#include "umd_common.hpp"
 #include "vpu_driver/source/command/vpu_copy_command.hpp"
-#include "vpu_driver/source/device/vpu_device.hpp"
+
+#include <cstdint>
+
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
-#include <cstdint>
+#include <uapi/drm/ivpu_accel.h>
+#include <utility>
 
 namespace VPU {
 

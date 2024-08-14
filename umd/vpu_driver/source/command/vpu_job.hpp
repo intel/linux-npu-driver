@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,14 +7,20 @@
 
 #pragma once
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include "vpu_driver/source/command/vpu_command.hpp"
 #include "vpu_driver/source/command/vpu_command_buffer.hpp"
 #include "vpu_driver/source/command/vpu_event_command.hpp"
+#include "vpu_driver/source/utilities/log.hpp"
 
 #include <memory>
+#include <utility>
 #include <vector>
 
 namespace VPU {
+class VPUDeviceContext;
 
 class VPUJob {
   public:
@@ -63,6 +69,17 @@ class VPUJob {
 
     const std::vector<std::shared_ptr<VPUCommand>> &getCommands() const { return commands; }
 
+    VPUCommand *getCommand(size_t index) {
+        if (index >= commands.size()) {
+            LOG_E("Invalid command index %zu (number of avail commands %zu)",
+                  index,
+                  commands.size());
+            return nullptr;
+        }
+
+        return commands[index].get();
+    }
+
     /* Job is closed, no more append commands is allowed. Job is ready for submission */
     bool isClosed() const { return closed; }
 
@@ -70,6 +87,8 @@ class VPUJob {
         for (auto &c : cmdBuffers)
             c->setPriority(p);
     }
+
+    void setNeedsUpdate(bool value) { needsUpdate = value; }
 
   private:
     /**
@@ -97,7 +116,8 @@ class VPUJob {
      * @param targetEngine[in]: Target of VPUCommandBuffer
      * @return true when successfully added, false otherwise.
      */
-    bool createCommandBuffer(const std::vector<std::shared_ptr<VPUCommand>> &cmds,
+    bool createCommandBuffer(const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
+                             const std::vector<std::shared_ptr<VPUCommand>>::iterator &end,
                              VPUCommandBuffer::Target cmdtype,
                              VPUEventCommand::KMDEventDataType **lastEvent);
 
@@ -111,6 +131,7 @@ class VPUJob {
     std::vector<std::shared_ptr<VPUCommand>> commands;
 
     bool closed = false;
+    bool needsUpdate = false;
 };
 
 } // namespace VPU

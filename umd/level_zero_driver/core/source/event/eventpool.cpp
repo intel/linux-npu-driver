@@ -6,15 +6,17 @@
  */
 
 #include "level_zero_driver/core/source/event/eventpool.hpp"
-#include "level_zero_driver/core/source/event/event.hpp"
-#include "level_zero_driver/core/source/context/context.hpp"
 
+#include "level_zero_driver/core/source/context/context.hpp"
+#include "level_zero_driver/core/source/event/event.hpp"
 #include "level_zero_driver/include/l0_exception.hpp"
-#include "vpu_driver/source/utilities/log.hpp"
-#include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/command/vpu_event_command.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
+#include "vpu_driver/source/utilities/log.hpp"
 
 #include <level_zero/ze_api.h>
+#include <utility>
 
 namespace L0 {
 
@@ -98,6 +100,14 @@ ze_result_t EventPool::createEvent(const ze_event_desc_t *desc, ze_event_handle_
     if (phEvent == nullptr) {
         LOG_E("Invalid phEvent pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    if (desc->signal > 7) {
+        LOG_E("Invalid signal flags");
+        return ZE_RESULT_ERROR_INVALID_ENUMERATION;
+    }
+    if (desc->wait > 7) {
+        LOG_E("Invalid wait flags");
+        return ZE_RESULT_ERROR_INVALID_ENUMERATION;
     }
 
     uint32_t index = desc->index;

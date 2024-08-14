@@ -7,12 +7,18 @@
 
 #pragma once
 
-#include "level_zero/ze_graph_ext.h"
-#include "vpu_driver/source/os_interface/os_interface.hpp"
-
+#include <stddef.h>
 #include <stdint.h>
+
+#include "level_zero/ze_graph_ext.h"
+
+#include <filesystem>
 #include <string>
 #include <vector>
+
+namespace VPU {
+class OsInterface;
+} // namespace VPU
 
 namespace L0 {
 

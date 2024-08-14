@@ -33,6 +33,10 @@ void PerfCounter::setTimeout(unsigned timeout_msec) {
         test_timeout_msec = default_timeout_msec;
 }
 
+unsigned PerfCounter::getTimeout() {
+    return test_timeout_msec;
+}
+
 void PerfCounter::start() {
     counter = 0;
     data_size = 0;

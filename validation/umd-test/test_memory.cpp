@@ -103,7 +103,7 @@ TEST_F(MemoryAllocation, GetMemPropertiesWithAllocHostMemExpectSuccess) {
     EXPECT_EQ(pMemAllocProperties.stype, ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES);
     EXPECT_EQ(pMemAllocProperties.pNext, nullptr);
     EXPECT_EQ(pMemAllocProperties.type, ZE_MEMORY_TYPE_HOST);
-    EXPECT_EQ(pMemAllocProperties.id, 0u);
+    EXPECT_GT(pMemAllocProperties.id, 0u);
     EXPECT_EQ(pMemAllocProperties.pageSize, size);
 }
 
@@ -119,7 +119,7 @@ TEST_F(MemoryAllocation, GetMemPropertiesWithAllocDeviceMemExpectSuccess) {
     EXPECT_EQ(pMemAllocProperties.stype, ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES);
     EXPECT_EQ(pMemAllocProperties.pNext, nullptr);
     EXPECT_EQ(pMemAllocProperties.type, ZE_MEMORY_TYPE_DEVICE);
-    EXPECT_EQ(pMemAllocProperties.id, 0u);
+    EXPECT_GT(pMemAllocProperties.id, 0u);
     EXPECT_EQ(pMemAllocProperties.pageSize, size);
 }
 

@@ -1,18 +1,29 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
-#include "gtest/gtest.h"
-#include "vpu_driver/unit_tests/test_macros/test.hpp"
+#include <stdint.h>
 
+#include "gtest/gtest.h"
 #include "level_zero_driver/core/source/context/context.hpp"
+#include "level_zero_driver/core/source/device/device.hpp"
+#include "level_zero_driver/core/source/driver/driver_handle.hpp"
 #include "level_zero_driver/tools/source/metrics/metric.hpp"
 #include "level_zero_driver/tools/source/metrics/metric_query.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
 #include "level_zero_driver/unit_tests/mocks/mock_metrics.hpp"
+#include "umd_common.hpp"
+#include "vpu_driver/unit_tests/test_macros/test.hpp"
+
+#include <level_zero/ze_api.h>
+#include <level_zero/zet_api.h>
+#include <memory>
+#include <string.h>
+#include <string>
+#include <vector>
 
 namespace L0 {
 namespace ult {

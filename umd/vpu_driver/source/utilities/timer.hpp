@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,8 +7,11 @@
 
 #pragma once
 
+// IWYU pragma: no_include <bits/chrono.h>
+
 #include <stdint.h>
-#include <chrono>
+
+#include <chrono> // IWYU pragma: keep
 
 namespace VPU {
 

@@ -5,14 +5,20 @@
  *
  */
 
-#include "level_zero_driver/core/source/event/event.hpp"
-#include "level_zero_driver/core/source/device/device.hpp"
+// IWYU pragma: no_include <bits/chrono.h>
 
+#include "level_zero_driver/core/source/event/event.hpp"
+
+#include "level_zero_driver/tools/source/metrics/metric.hpp"
+#include "level_zero_driver/tools/source/metrics/metric_streamer.hpp"
+#include "vpu_driver/source/command/vpu_command_buffer.hpp"
 #include "vpu_driver/source/command/vpu_job.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/source/utilities/timer.hpp"
 
 #include <algorithm>
+#include <chrono> // IWYU pragma: keep
 #include <level_zero/ze_api.h>
 #include <thread>
 

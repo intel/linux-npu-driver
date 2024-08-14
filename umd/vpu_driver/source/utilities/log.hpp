@@ -8,6 +8,7 @@
 #pragma once
 
 #include <cstdint>
+
 #include <cstdio>
 #include <cstring>
 #include <string_view>
@@ -16,24 +17,24 @@ enum LogLevel { QUIET = 0, ERROR, WARNING, INFO };
 
 #define BIT(nr) ((1UL) << (nr))
 enum LogMask : uint64_t {
-    CMDLIST = BIT(0),
-    CMDQUEUE = BIT(1),
-    CONTEXT = BIT(2),
-    DEVICE = BIT(3),
-    DRIVER = BIT(4),
-    EVENT = BIT(5),
-    FENCE = BIT(6),
-    FSYS = BIT(7),
-    GRAPH = BIT(8),
-    IOCTL = BIT(9),
-    MEMORY = BIT(10),
-    METRIC = BIT(11),
-    MISC = BIT(12),
-    UTEST = BIT(13),
-    VPU_CMD = BIT(14),
-    VPU_CTX = BIT(15),
-    VPU_JOB = BIT(16),
-    CACHE = BIT(17),
+    CMDLIST = BIT(0),  // 0x1
+    CMDQUEUE = BIT(1), // 0x2
+    CONTEXT = BIT(2),  // 0x4
+    DEVICE = BIT(3),   // 0x8
+    DRIVER = BIT(4),   // 0x10
+    EVENT = BIT(5),    // 0x20
+    FENCE = BIT(6),    // 0x40
+    FSYS = BIT(7),     // 0x80
+    GRAPH = BIT(8),    // 0x100
+    IOCTL = BIT(9),    // 0x200
+    MEMORY = BIT(10),  // 0x400
+    METRIC = BIT(11),  // 0x800
+    MISC = BIT(12),    // 0x1000
+    UTEST = BIT(13),   // 0x2000
+    VPU_CMD = BIT(14), // 0x4000
+    VPU_CTX = BIT(15), // 0x8000
+    VPU_JOB = BIT(16), // 0x10000
+    CACHE = BIT(17),   // 0x20000
 };
 #undef BIT
 

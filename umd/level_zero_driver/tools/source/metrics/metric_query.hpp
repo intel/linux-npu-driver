@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,17 +7,30 @@
 
 #pragma once
 
-#include "umd_common.hpp"
-#include "level_zero_driver/core/source/context/context.hpp"
+#include <stddef.h>
+#include <stdint.h>
+
+#include "level_zero_driver/include/l0_handler.hpp"
 #include "level_zero_driver/tools/source/metrics/metric.hpp"
+
+#include <functional>
+#include <level_zero/ze_api.h>
 #include <level_zero/zet_api.h>
+#include <memory>
+#include <vector>
+
+namespace L0 {
+struct Context;
+} // namespace L0
+namespace VPU {
+class VPUBufferObject;
+class VPUDeviceContext;
+} // namespace VPU
 
 struct _zet_metric_query_pool_handle_t {};
 struct _zet_metric_query_handle_t {};
 
 namespace L0 {
-
-struct MetricQueryPool;
 
 struct MetricQuery : _zet_metric_query_handle_t {
     MetricQuery(MetricGroup &metricGroupInput,

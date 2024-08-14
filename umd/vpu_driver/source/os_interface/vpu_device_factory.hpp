@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2024 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -8,11 +8,12 @@
 #pragma once
 
 #include "vpu_driver/source/device/vpu_device.hpp"
-#include "vpu_driver/source/os_interface/os_interface.hpp"
 
 #include <memory>
+#include <vector>
 
 namespace VPU {
+class OsInterface;
 
 class DeviceFactory {
   public:

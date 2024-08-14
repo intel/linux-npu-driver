@@ -6,62 +6,64 @@
  */
 
 #include "level_zero_driver/core/source/fence/fence.hpp"
-#include "vpu_driver/source/utilities/timer.hpp"
+
+#include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
+#include "vpu_driver/source/utilities/timer.hpp"
+
+#include <level_zero/ze_api.h>
+#include <utility>
 
 namespace L0 {
 
-Fence::Fence(Context *pContext, const ze_fence_desc_t *desc)
-    : pContext(pContext) {
+Fence::Fence(CommandQueue *pCmdQueue, const ze_fence_desc_t *desc)
+    : pCmdQueue(pCmdQueue) {
     if (desc->flags & ZE_FENCE_FLAG_SIGNALED)
         signaled = true;
 }
 
 ze_result_t Fence::destroy() {
-    pContext->removeObject(this);
-    LOG(FENCE, "Fence destroyed");
+    LOG(FENCE, "Fence destroy - %p", this);
+    pCmdQueue->destroyFence(this);
     return ZE_RESULT_SUCCESS;
 }
 
-ze_result_t Fence::hostSynchronize(uint64_t timeout) {
-    LOG(FENCE, "Fence status: %d", signaled);
+ze_result_t Fence::synchronize(uint64_t timeout) {
+    LOG(FENCE, "Fence synchronize - %p", this);
     if (signaled)
         return ZE_RESULT_SUCCESS;
 
-    if (trackedJobs.empty()) {
-        LOG_E("Fence does not have any jobs to track");
+    if (trackedJobs.empty())
         return ZE_RESULT_NOT_READY;
-    }
 
-    LOG(FENCE, "Synchronize for %lu ns, %zu jobs count", timeout, trackedJobs.size());
-
-    auto absTimeout = VPU::getAbsoluteTimeoutNanoseconds(timeout);
-    for (auto const &job : trackedJobs) {
-        if (!job->waitForCompletion(absTimeout)) {
-            LOG_W("Commands execution is not finished");
-            return ZE_RESULT_NOT_READY;
-        }
-    }
-
-    ze_result_t result = Device::jobStatusToResult(trackedJobs);
-
-    trackedJobs.clear();
-    signaled = true;
-    LOG(FENCE, "Commands execution is finished");
-    return result;
+    auto absTp = VPU::getAbsoluteTimePoint(timeout);
+    return waitForJobs(absTp);
 }
 
 ze_result_t Fence::reset() {
-    LOG(FENCE, "Reset the fence");
+    LOG(FENCE, "Fence reset - %p", this);
     signaled = false;
     return ZE_RESULT_SUCCESS;
 }
 
-void Fence::setTrackedJobs(std::vector<std::shared_ptr<VPU::VPUJob>> &jobs) {
-    trackedJobs = jobs;
-    if (!trackedJobs.size())
+void Fence::setTrackedJobs(std::vector<std::shared_ptr<VPU::VPUJob>> jobs) {
+    if (jobs.empty())
         signaled = true;
-    LOG(FENCE, "%zu sync jobs copied", trackedJobs.size());
+    trackedJobs = std::move(jobs);
+}
+
+ze_result_t Fence::waitForJobs(std::chrono::steady_clock::time_point absTimePoint) {
+    if (trackedJobs.empty())
+        return ZE_RESULT_SUCCESS;
+
+    ze_result_t result = pCmdQueue->waitForJobs(absTimePoint, trackedJobs);
+    if (result != ZE_RESULT_SUCCESS)
+        return result;
+
+    trackedJobs.clear();
+    signaled = true;
+
+    return ZE_RESULT_SUCCESS;
 }
 
 } // namespace L0

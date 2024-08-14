@@ -72,6 +72,20 @@ ze_result_t zeCommandListAppendQueryKernelTimestamps(ze_command_list_handle_t hC
                                                      ze_event_handle_t *phWaitEvents) {
     return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
 }
+
+ze_result_t zeCommandListGetNextCommandIdExp(ze_command_list_handle_t hCommandList,
+                                             const ze_mutable_command_id_exp_desc_t *desc,
+                                             uint64_t *pCommandId) {
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::CommandList::fromHandle(hCommandList)->getNextCommandId(desc, pCommandId));
+}
+
+ze_result_t zeCommandListUpdateMutableCommandsExp(ze_command_list_handle_t hCommandList,
+                                                  const ze_mutable_commands_exp_desc_t *desc) {
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::CommandList::fromHandle(hCommandList)->updateMutableCommands(desc));
+}
+
 } // namespace L0
 
 extern "C" {
@@ -133,4 +147,18 @@ zeCommandListAppendQueryKernelTimestamps(ze_command_list_handle_t hCommandList,
                                                         numWaitEvents,
                                                         phWaitEvents);
 }
+
+ZE_APIEXPORT ze_result_t ZE_APICALL
+zeCommandListGetNextCommandIdExp(ze_command_list_handle_t hCommandList,
+                                 const ze_mutable_command_id_exp_desc_t *desc,
+                                 uint64_t *pCommandId) {
+    return L0::zeCommandListGetNextCommandIdExp(hCommandList, desc, pCommandId);
+}
+
+ZE_APIEXPORT ze_result_t ZE_APICALL
+zeCommandListUpdateMutableCommandsExp(ze_command_list_handle_t hCommandList,
+                                      const ze_mutable_commands_exp_desc_t *desc) {
+    return L0::zeCommandListUpdateMutableCommandsExp(hCommandList, desc);
+}
+
 } // extern "C"
