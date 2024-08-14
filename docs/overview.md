@@ -30,7 +30,7 @@ SPDX-License-Identifier: MIT
      │ User Mode Driver                    │   │ NPU compiler                           │    
      │                                     │   │                                        │    
      │        intel-level-zero-npu         ◀═══▶     intel-driver-compiler-npu         │    
-     │        (libze_intel_vpu.so)         │   │     (libvpux_driver_compiler.so)       │    
+     │        (libze_intel_vpu.so)         │   │     (libnpu_driver_compiler.so)        │    
      │                                     │   │                                        │    
      └──────────────────▲──────────────────┘   └────────────────────────────────────────┘    
                         ╚════════════════════╗                                               
@@ -214,7 +214,7 @@ cmake --install build --prefix /usr
 rmmod intel_vpu; modprobe intel_vpu
 ```
 
-The compiler binary `libvpux_driver_compiler.so` can be found in `build/lib/`.
+The compiler binary `libnpu_driver_compiler.so` can be found in `build/lib/`.
 
 ## Driver test application
 
