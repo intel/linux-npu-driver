@@ -356,14 +356,11 @@ bool KmdTest::is_fw_api_version_supported(int index, int major, int minor) {
 }
 
 void KmdTest::check_api_version() {
-    int kmd_major_version = context.get_major_version();
-
-    ASSERT_EQ(DRM_IVPU_DRIVER_MAJOR, kmd_major_version)
-        << "KMD UAPI major version: " << DRM_IVPU_DRIVER_MAJOR
-        << " different from KMD major version:  " << kmd_major_version << std::endl;
+    ASSERT_EQ(context.get_major_version(), 1);
 }
 
 bool KmdTest::wait_for_resume(int timeout_ms) {
+    test_app::overwrite_timeout(timeout_ms);
     auto timeout = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
     std::string state;
 
@@ -392,6 +389,7 @@ bool KmdTest::resume() {
 }
 
 bool KmdTest::wait_for_suspend(int timeout_ms) {
+    test_app::overwrite_timeout(timeout_ms);
     auto timeout = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
     std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
     std::string power_state;
@@ -414,6 +412,8 @@ bool KmdTest::wait_for_suspend(int timeout_ms) {
 }
 
 bool KmdTest::wait_for_recovery_event(int timeout_ms) {
+    test_app::overwrite_timeout(timeout_ms);
+
     if (pm_mon.wait_for_recovery_event(timeout_ms))
         return true;
 
@@ -470,12 +470,14 @@ bool KmdTest::get_TDR_timeout(int &tdr) {
 }
 
 bool KmdTest::is_hws_enabled() {
-    int sched_mode;
+    std::string sched_mode;
+    int err;
 
-    if (read_module_param("sched_mode", sched_mode) == 0 && sched_mode == 1)
-        return true;
+    err = read_sysfs_file("sched_mode", sched_mode);
+    if (err)
+        return false;
 
-    return false;
+    return sched_mode == "HW";
 }
 
 void KmdTest::SendCheckTimestamp(int engine, KmdContext &ctx) {
@@ -865,22 +867,6 @@ void CmdBuffer::add_barrier_cmd() {
     ASSERT_TRUE(add_cmd<vpu_cmd_barrier_t>(VPU_CMD_BARRIER));
 }
 
-void CmdBuffer::add_blob_init_cmd(MemoryBuffer &kernel_heap,
-                                  MemoryBuffer &desc_heap,
-                                  uint64_t blob_id,
-                                  uint32_t table_size) {
-    auto cmd = add_cmd<vpu_cmd_ov_blob_initialize_t>(VPU_CMD_OV_BLOB_INITIALIZE);
-    ASSERT_TRUE(cmd);
-    cmd->blob_id = blob_id;
-    cmd->kernel_offset = kernel_heap.vpu_addr();
-    cmd->kernel_size = kernel_heap.size();
-    cmd->desc_table_offset = desc_heap.vpu_addr();
-    cmd->desc_table_size = table_size;
-
-    add_handle(kernel_heap);
-    add_handle(desc_heap);
-}
-
 void CmdBuffer::add_ts_cmd(MemoryBuffer &ts_buf, uint32_t ts_offset, enum vpu_time_type type) {
     auto cmd = add_cmd<vpu_cmd_timestamp_t>(VPU_CMD_TIMESTAMP);
     ASSERT_TRUE(cmd);
@@ -994,6 +980,7 @@ void CmdBuffer::prepare_params(int engine, int priority, drm_ivpu_submit *params
 }
 
 int CmdBuffer::submit(int engine, int priority, uint32_t submit_timeout_ms) {
+    test_app::overwrite_timeout(submit_timeout_ms);
     drm_ivpu_submit params = {};
 
     if (ALIGN(_end, 64) + VPU_CONTEXT_SAVE_AREA_SIZE > _size)
@@ -1007,6 +994,7 @@ int CmdBuffer::submit(int engine, int priority, uint32_t submit_timeout_ms) {
 
 // Retry submit if VPU is BUSY
 int CmdBuffer::submit_retry(drm_ivpu_submit *params, uint32_t submit_timeout_ms) {
+    test_app::overwrite_timeout(submit_timeout_ms);
     std::chrono::steady_clock::time_point timeOut =
         std::chrono::steady_clock::now() + std::chrono::milliseconds(submit_timeout_ms);
     constexpr std::chrono::milliseconds sleep_time_ms = std::chrono::milliseconds(100);
@@ -1024,6 +1012,7 @@ int CmdBuffer::submit_retry(drm_ivpu_submit *params, uint32_t submit_timeout_ms)
 }
 
 int CmdBuffer::wait(uint32_t timeout_ms) {
+    test_app::overwrite_timeout(timeout_ms);
     int64_t timeout_abs_ns = drm::time_ns() + MILLI_TO_NSEC(timeout_ms);
     struct drm_ivpu_bo_wait args = {.handle = _handle,
                                     .flags = 0,
@@ -1073,6 +1062,7 @@ PmMonitor::~PmMonitor() {
 }
 
 bool PmMonitor::wait_for_recovery_event(unsigned timeout_ms) {
+    test_app::overwrite_timeout(timeout_ms);
     std::chrono::steady_clock::time_point timeout =
         std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
     udev_device *dev;

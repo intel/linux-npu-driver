@@ -44,6 +44,11 @@ void PrintTo(const ze_result_t &result, std::ostream *os);
         SKIP_(msg);            \
     }
 
+#define SKIP_NEEDS_ROOT()               \
+    if (!test_app::has_root_access()) { \
+        SKIP_("Needs root privileges")  \
+    }
+
 #define KB (1024llu)
 #define MB (1024llu * 1024)
 

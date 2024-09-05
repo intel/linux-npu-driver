@@ -7,27 +7,25 @@
 
 #pragma once
 
-#include <stdint.h>
-
-#include "api/vpu_jsm_job_cmd_api.h"
-#include "drm/ivpu_accel.h"
-#include "drm_helpers.h"
-#include "file_helper.h"
-#include "linux/dma-heap.h"
-#include "perf_counter.h"
-#include "test_app.h"
-
-#include <algorithm>
-#include <fcntl.h>
-#include <filesystem>
-#include <fstream>
 #include <libudev.h>
 #include <linux/kernel.h>
 #include <linux/magic.h>
+#include <stdint.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
-#include <sys/utsname.h>
 #include <sys/vfs.h>
+#include <sys/utsname.h>
+#include <fcntl.h>
+#include <fstream>
+#include <filesystem>
+
+#include "drm_helpers.h"
+#include "file_helper.h"
+#include "api/vpu_jsm_job_cmd_api.h"
+#include "test_app.h"
+#include "perf_counter.h"
+#include "drm/ivpu_accel.h"
+#include "linux/dma-heap.h"
 
 #define SKIP_(msg)                    \
     if (!test_app::run_skipped_tests) \
@@ -53,22 +51,10 @@
     if (is_vpu40xx())     \
     SKIP_(msg)
 
-#define SKIP_VPU40XX_SILICON(msg)     \
-    if (is_vpu40xx() && is_silicon()) \
-    SKIP_(msg)
-
-#define SKIP_VPU40XX_SIMICS(msg)     \
-    if (is_vpu40xx() && is_simics()) \
-    SKIP_(msg)
-
-#define SKIP_SIMICS_CHROMEOS(msg)                                       \
-    if (is_simics() && std::filesystem::exists("/etc/chrome_dev.conf")) \
-    SKIP_(msg)
-
 #define SKIP_NO_DEBUGFS(fname)                            \
     if (!debugfs_is_available())                          \
         SKIP_("Debugfs not supported or mounted");        \
-    if (!has_root_access())                               \
+    if (!test_app::has_root_access())                     \
         SKIP_("Needs root privileges to access debugfs"); \
     if (!debugfs_file_exists(fname))                      \
         SKIP_("No " fname " debugfs file");
@@ -77,8 +63,8 @@
     if (!sysfs_file_exists(fname)) \
         SKIP_("No " fname " sysfs file");
 
-#define SKIP_NEEDS_ROOT()   \
-    if (!has_root_access()) \
+#define SKIP_NEEDS_ROOT()             \
+    if (!test_app::has_root_access()) \
     SKIP_("Needs root privileges")
 
 #define SKIP_HARDENING(msg)    \
@@ -107,11 +93,11 @@
 
 #define VPU_CMD_DATA_ALIGNMENT 64
 
-#define JOB_SYNC_TIMEOUT_MS (600 * 1000)
+#define JOB_SYNC_TIMEOUT_MS (60 * 1000)
 
 #define PM_STATE_D0 "D0"
 #define PM_STATE_D3 "D3hot"
-#define PM_STATE_TIMEOUT_MS (60 * 1000)
+#define PM_STATE_TIMEOUT_MS (6 * 1000)
 
 #define ENGINE_COMPUTE DRM_IVPU_ENGINE_COMPUTE
 #define ENGINE_COPY DRM_IVPU_ENGINE_COPY
@@ -278,8 +264,6 @@ class KmdTest : public ::testing::Test {
     void SendCheckTimestamp(int engine = ENGINE_COMPUTE);
     void SendCheckTimestamp(int engine, KmdContext &ctx);
     void SendFence(int buf_size, int write_offset, int read_offset);
-
-    bool has_root_access() { return geteuid() == 0; }
 
     bool is_hardening_kernel() {
         struct utsname uts;
@@ -494,10 +478,6 @@ struct CmdBuffer : MemoryBuffer {
     void add_handle(MemoryBuffer &buf);
     ssize_t get_free_space();
     void add_barrier_cmd();
-    void add_blob_init_cmd(MemoryBuffer &kernel_heap,
-                           MemoryBuffer &desc_heap,
-                           uint64_t blob_id,
-                           uint32_t table_size);
     void
     add_ts_cmd(MemoryBuffer &ts_buf, uint32_t ts_offset, enum vpu_time_type type = VPU_TIME_RAW);
     void add_fence_reset_cmd(MemoryBuffer &fence_buf,

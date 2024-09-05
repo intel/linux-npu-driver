@@ -110,7 +110,7 @@ TEST_F(Device, GetDeviceParams) {
     EXPECT_EQ(get_param(DRM_IVPU_PARAM_FW_API_VERSION, &value), 0);
 }
 
-TEST_F(Device, ResetCopyComputeEngine) {
+TEST_F(Device, ResetComputeEngine) {
     bool hws = is_hws_enabled();
     SKIP_NO_DEBUGFS("reset_engine");
 
@@ -118,10 +118,10 @@ TEST_F(Device, ResetCopyComputeEngine) {
         SKIP_NO_DEBUGFS("resume_engine");
     }
 
-    ASSERT_EQ(write_debugfs_file("reset_engine", 1), 0);
+    ASSERT_EQ(write_debugfs_file("reset_engine", ENGINE_COMPUTE), 0);
 
     if (hws) {
-        ASSERT_EQ(write_debugfs_file("resume_engine", 1), 0);
+        ASSERT_EQ(write_debugfs_file("resume_engine", ENGINE_COMPUTE), 0);
     }
 }
 
@@ -129,13 +129,6 @@ TEST_F(Device, Heartbeat_ComputeEngine) {
     uint64_t hb;
 
     ASSERT_EQ(get_param(DRM_IVPU_PARAM_ENGINE_HEARTBEAT, &hb, ENGINE_COMPUTE), 0);
-    TRACE_P64(hb);
-}
-
-TEST_F(Device, Heartbeat_CopyEngine) {
-    uint64_t hb;
-
-    ASSERT_EQ(get_param(DRM_IVPU_PARAM_ENGINE_HEARTBEAT, &hb, ENGINE_COPY), 0);
     TRACE_P64(hb);
 }
 

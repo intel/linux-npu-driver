@@ -9,6 +9,7 @@
 
 #include <getopt.h>
 #include <gtest/gtest.h>
+#include <limits>
 #include <stdio.h>
 #include <string>
 #include <unordered_map>
@@ -38,6 +39,7 @@
 
 namespace test_app {
 
+extern bool max_timeout;
 extern bool verbose_logs;
 extern bool run_skipped_tests;
 extern unsigned pause_after_test_ms;
@@ -56,8 +58,16 @@ void parse_args(ArgumentMap &extArgs, const char *extHelpMsg, int argc, char **a
 void append_negative_filter(const char *negative_pattern);
 int run();
 
+template <typename T>
+void overwrite_timeout(T &timeout) {
+    if (test_app::max_timeout && timeout != 0)
+        timeout = std::numeric_limits<T>::max();
+}
+
 bool is_vpu37xx(uint16_t pci_id);
 bool is_vpu40xx(uint16_t pci_id);
 bool is_vpu(uint16_t pci_id);
+
+bool has_root_access();
 
 } // namespace test_app

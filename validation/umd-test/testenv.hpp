@@ -19,6 +19,7 @@
 
 namespace test_vars {
 extern bool test_with_gpu;
+extern bool disable_metrics;
 } // namespace test_vars
 
 class Environment : public ::testing::Environment {
@@ -32,7 +33,11 @@ class Environment : public ::testing::Environment {
         {
             .metricsEnable = 1,
         },
-      configWithGpu = {
+      configWithGpu =
+          {
+              .metricsEnable = 0,
+          },
+      configWithoutMetrics = {
           .metricsEnable = 0,
       };
 
@@ -50,6 +55,12 @@ class Environment : public ::testing::Environment {
             config = configWithGpu;
             PRINTF("Testing with GPU L0.\n");
             PRINTF("Disabling metrics (ZET_ENABLE_METRICS=%d) (EISW-131452).\n",
+                   config.metricsEnable);
+        }
+
+        if (test_vars::disable_metrics) {
+            config = configWithoutMetrics;
+            PRINTF("Disabling metrics (ZET_ENABLE_METRICS=%d). No metric test will be run.\n",
                    config.metricsEnable);
         }
 
@@ -179,8 +190,8 @@ class Environment : public ::testing::Environment {
         /* For not absolute paths add search directories*/
         if (configFilePath[0] != '/') {
             searchPathPrefixes.push_back("./");
-            searchPathPrefixes.push_back("/usr/local/share/vpu/");
-            searchPathPrefixes.push_back("/usr/local/share/vpu/validation/umd-test/configs/");
+            searchPathPrefixes.push_back("/usr/share/vpu/");
+            searchPathPrefixes.push_back("/usr/share/vpu/validation/umd-test/configs/");
         }
 
         for (auto &pathPrefix : searchPathPrefixes) {

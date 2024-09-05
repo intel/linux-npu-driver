@@ -10,28 +10,30 @@
  or implied warranties, other than those that are expressly stated in
  the License. -->
 
-# VPU Umd test configuration overview
+# NPU UMD test configuration overview
 
-The configuration uses yaml format.
-The main purpose of configuration file is to provide right configuration
-for particular platform and driver release and it allows user to add
-own models and blobs.
-Some tests cases depends on configuration and they can be present or not
+The configuration uses the YAML format.
+The main purpose of a configuration file is to ensure proper configuration
+for a specific platform and allows the user to add own models.
+Some test cases are configuration dependent and may or may not exist
 depending on the contents of the configuration file.
-It is possible to run vpu-umd-test without configuration file, in this case
-only basic generic testcases would be executed and Umd.ConfigurationCheck test
-fails. Umd.ConfigurationCheck prevent user to incidentally run tests without configuration.
+It is possible to run npu-umd-test without a configuration file, but
+only basic generic test cases will be executed and the Umd.ConfigurationCheck
+test will fail. Umd.ConfigurationCheck prevents the user from accidentally running
+tests without configuration.
 
 ---
 
 # Configuration file structure
-Each section is optional. Configuration file should consist at least one valid section.
-Empty configuration causes that Umd.ConfigurationCheck test fails.
+Each section is optional. The configuration file should consist of at least one valid section.
+An empty configuration causes the Umd.ConfigurationCheck test to fail.
+
+The order in which the network is defined is important, API tests only take the first node
+from the section.
 
 ## Global variables
-Defines directories where models, blobs and pictures are stored that are used by tests
-
-In this section is also defined logging level, accepted values are: QUIET, ERROR, WARNING, INFO, VERBOSE
+Global variables define the directories where models, blobs, and images used in tests are stored.
+This section also defines the logging level, accepted values ​​are: QUIET, ERROR, WARNING, INFO, VERBOSE.
 
 Example:
 ```
@@ -39,120 +41,113 @@ log_level: ERROR
 model_dir: /opt/user/models/
 blob_dir: /opt/user/blobs/
 image_dir: /opt/user/sample-images/
-
 ```
 
-## Section "graph\_execution"
-Defines list of compiled blobs used for graph execution tests from groups:
-"CommandGraph\*.\*, GraphInference.\*, GraphNative\*.\*, InferencePerformance.\*"
+> [!NOTE]
+> By default, the model_dir, blob_dir will be added to field **path** in the YAML section.
+> The same applies to the image_dir prefix - it will be added to the **in** field containing the image.
 
-Order of defining blobs is significant, simple tests takes only first blob from this
-section most complex executes all defined.
+## Section graph\_execution
+Defines a list of models used in most graph tests.
 
-There must be specified:
-- **path:** path to blob binary, "blob_dir" prefix will added to this by default
-- **name:** test name, this name will be displayed when test will be executed
-- **in:** input data, can be specified more than one
-- **out:** expected output, can be specified more than one
+This section consists of fields:
+- **path:** path to the XML file or compiled model in native binary format represented by the blob
+- **name:** test name, this name will be displayed when the test is executed
+- **flags:** compilation flags passed directly to the compiler
+- **in:** image or binary data
+- **out:** expected output
+- **class_index:** expected image class index
+- **graph_profiling:** bool, if defined and set to false, graph profiling tests will be disabled
 
 Example:
 ```
 graph_execution:
-   - path: mobilenet-v2/vpuip.blob
-     name: mobilenet-v2
-     in: [ input-0.bin ]
-     out: [ exp-output-0.bin ]
-   - path: yolo-v4-tiny/vpuip.blob
-     name: yolo-v4-tiny
-     in: [ input-0.bin ]
-     out: [ exp-output-0.bin, exp-output-1.bin ]
+  - path: mobilenet-v2/vpuip.blob
+    name: mobilenet-v2
+    in: [ input-0.bin ]
+    out: [ exp-output-0.bin ]
+    graph_profiling: false
+  - path: public/resnet-50-pytorch.xml
+    name: resnet-50-pytorch_FP16-INT8_AS_NHWC_NC_U8_FP32
+    flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NHWC" --outputs_precisions="495:fp32" --outputs_layouts="495:NC"
+    in: [ husky.bmp ]
+    class_index: [ 248 ]
 ```
 
-## Section "graph\_metrics"
-Defines list of blobs used by metric and metric streamer tests:
-"MetricStreamer.\* , MetricQuery.\*"
+## Section graph\_metrics
+Defines a list of models used in metric tests.
 
-Section definition is similar to "graph\_execution"(see above) there is one additional flag:
-- **metric_groups:** the metric group name that will be used for testing
+This section consists of fields:
+- **path:** path to the XML file
+- **name:** test name, this name will be displayed when the test is executed
+- **flags:** compilation flags passed directly to the compiler
+- **metric_groups:** the name of the metric group that will be used for testing
+- **inference_concurrency:** indicates how many requests will be executed simultaneously
 
 Example:
-
 ```
 graph_metrics:
-   - path: mobilenet-v2/vpuip.blob
-     name: mobilenet-v2
-     in: [ input-0.bin ]
-     out: [ exp-output-0.bin ]
-     metric_groups: [ NOC ]
+  - path: public/mobilenet-v2.xml
+    name: mobilenet-v2_FP16-INT8_AS_NCHW_NC_FP32_FP32_THROUGHPUT
+    flags: --inputs_precisions="result.1:FP32" --inputs_layouts="result.1:NCHW" --outputs_precisions="473:FP32" --outputs_layouts="473:NC" --config PERFORMANCE_HINT="THROUGHPUT"
+    metric_groups: [ NOC ]
+    inference_concurrency: 4
 ```
 
+## Section image\_classification\_imagenet
+This section defines the models used in accuracy tests.
 
-## Section "compiler\_in\_driver"
-Defines list of models used to test compiler in driver.
-It is used by tests:
-"CompilerInDriver.\*, CompilerInDriverLayers.\*, CompilerInDriverLong.\*, CompilerInDriverWithProfiling.\*"
-There must be specified:
-- **path:** path to model to compile, the generated test name will be the name of model
-- **flags:** compilation flags passed directly to compiler
-- **graph_profiling:** if the flag is set to "false", graph profiling tests are disabled
-
-Example:
-
-```
-compiler_in_driver:
-  - path: add_abc/add_abc.xml
-    flags: --inputs_precisions="A:fp16 B:fp16 C:fp16" --inputs_layouts="A:C B:C C:C" --outputs_precisions="Y:fp16" --outputs_layouts="Y:C"
-  - path: public/mobilenet-v2/onnx/FP16-INT8/mobilenet-v2.xml
-    flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NHWC" --outputs_precisions="473:fp32" --outputs_layouts="473:NC"
-    graph_profiling: false
-```
-
-## Section "image\_classification\_imagenet"
-This section defines models used in image classificiation tests:
-"CompilerInDriverLongBmp.\*"
-For each model must be specified:
-- **path:** path to model to compile, the generated test name will be the name of model
-- **flags:** compilation flags passed directly to compiler
-- **in:** image used as an input for network, "image\_dir" prefix will added to this by default
-- **class_index:** expected class index for image
-- **iterations:** number of iterations
+It should contain:
+- **path:** path to XML file
+- **name:** test name, this name will be displayed when the test is executed
+- **flags:** compilation flags passed directly to the compiler
+- **in:** image used as input to the network
+- **class_index:** expected image class index
 
 Example:
 ```
 image_classification_imagenet:
-  - path: public/resnet-50-pytorch/onnx/FP16-INT8/resnet-50-pytorch.xml
+  - path: public/resnet-50-pytorch.xml
+    name: resnet-50-pytorch_FP16-INT8_AS_NHWC_NC_U8_FP32
     flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NHWC" --outputs_precisions="495:fp32" --outputs_layouts="495:NC"
     in: [ cat3.bmp ]
-    class_index: [ 283 ]
-    iterations: 100
+    class_index: [ 284 ]
 ```
-## Section "multi\_inference"
-This configuration is used by single CompilerInDriverMultiInference.Pipeline test
-All defined models are compiled and then executed simultanously in separate threads with target fps rate.
-The input and class_index are optional, when input is not defined the random data is passed to network
 
-For each model can be specified:
-- **path:** path to model to compile, the generated test name will be the name of model
-- **flags:** compilation flags passed directly to compiler
-- **in:** optional, images list used as an input for network, "image\_dir" prefix will added to this by default
-- **class_index:** optional, expected class index for each image
+## Section multi\_inference
+This section is mainly used in the CompilerInDriverMultiInference.Pipeline test.
+All defined models are compiled and then executed simultaneously in separate threads
+with a target frame rate. The input and class index are optional. When **in** is not defined,
+the input will be filled with random values.
+
+A section may consist of fields:
+- **path:** path to XML file
+- **flags:** compilation flags passed directly to the compiler
+- **in:** optional, image used as an input for network
+- **class_index:** optional, expected image class index
 - **target\_fps:** target fps rate
 - **exec\_time\_in\_secs:** execution time in seconds
-- **priority:** set command queue priority, available priority levels: high, low, normal
-- **delay_in_us:** wait for specific time before starting the inference
+- **priority:** command queue priority, available priority levels: high, low, normal
+- **delay_in_us:** wait a specified period of time before starting the inference
 
 Example:
 ```
 multi_inference:
-  - name: "ImageClassificationNetworks"
+  - name: "ImageClassificationNetwork"
     pipeline:
-    - path: public/resnet-50-pytorch/onnx/FP16-INT8/resnet-50-pytorch.xml
+    - path: public/resnet-50-pytorch.xml
       flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NHWC" --outputs_precisions="495:fp32" --outputs_layouts="495:NC"
-      in: [ watch.bmp ]
-      class_index: [ 531 ]
+      in: [ cat3.bmp ]
+      class_index: [ 284 ]
       target_fps: 30
       exec_time_in_secs: 10
-    - path: public/mobilenet-v2/onnx/FP16-INT8/mobilenet-v2.xml
+    - path: public/resnet-50-pytorch.xml
+      flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NHWC" --outputs_precisions="495:fp32" --outputs_layouts="495:NC"
+      in: [ watch.bmp ]
+      class_index: [ 826 ]
+      target_fps: 30
+      exec_time_in_secs: 10
+    - path: public/mobilenet-v2.xml
       flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NHWC" --outputs_precisions="473:fp32" --outputs_layouts="473:NC"
       target_fps: 30
       exec_time_in_secs: 10
@@ -160,25 +155,25 @@ multi_inference:
 
 ---
 
-# Running tests with configuration
-There are two options to point configuration file: -c or --config
+# Running tests with a configuration file
 
-./vpu-umd-test --config=/fullpath/config.yaml
-
+There are two options for specifying a configuration file: `-c` or `--config`
+```
+./npu-umd-test --config=<full_path>/config.yaml
+```
 or
+```
+./npu-umd-test -c <full_path>/config.yaml
+```
 
-./vpu-umd-test -c /fullpath/config.yaml
+When the configuration file is placed in the default location, it is not necessary to provide the full path:
+```
+./npu-umd-test --config=config.yaml
+```
 
-vpu-umd-test application has hardcoded some default paths to lockup for configuration,
-used when full path is not provided.
-When configuration file is placed in default location it is not necessary to specify full path.
-
-For example:
-
-./vpu-umd-test --config=config.yaml
-
-The configuration file config.yaml will be searched in the following locations:
-- ./
-- /usr/local/share/vpu/
-- /usr/local/share/vpu/validation/umd-test/configs/
-
+The config.yaml will be searched in the following locations:
+```
+./
+/usr/share/vpu/
+/usr/share/vpu/validation/umd-test/configs/
+```

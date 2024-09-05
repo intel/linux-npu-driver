@@ -27,7 +27,7 @@ class CompilerInDriver : public CompilerInDriverBase {
   public:
     void SetUp() override {
         CompilerInDriverBase::SetUp();
-        auto cfgNodes = Environment::getConfiguration("compiler_in_driver");
+        auto cfgNodes = Environment::getConfiguration("graph_execution");
 
         if (cfgNodes.size() == 0)
             SKIP_("Missing models for testing");
@@ -68,17 +68,38 @@ TEST_F(CompilerInDriver, CreatingGraphCorrectBlobFileAndDescExpectSuccess) {
     EXPECT_EQ(ret, ZE_RESULT_SUCCESS);
 }
 
-class CompilerInDriverLayers : public CompilerInDriver,
+class CompilerInDriverLayers : public CompilerInDriverBase,
                                public ::testing::WithParamInterface<YAML::Node> {
   protected:
-    void SetUp() override { CompilerInDriver::SetUp(); }
+    void SetUp() override {
+        CompilerInDriverBase::SetUp();
+
+        const YAML::Node node = GetParam();
+
+        /* Validate configuration */
+        ASSERT_GT(node["path"].as<std::string>().size(), 0);
+        std::filesystem::path path = node["path"].as<std::string>();
+
+        if (path.extension() == ".blob") {
+            SKIP_("The test is not intended for use with a precompiled blob.");
+        }
+
+        ASSERT_GT(node["flags"].as<std::string>().size(), 0);
+
+        /* Setup */
+        buildFlags = getFlagsFromString(node["flags"].as<std::string>());
+        createGraphDescriptorForModel(globalConfig.modelDir + node["path"].as<std::string>(),
+                                      buildFlags,
+                                      modelIR,
+                                      graphDesc);
+    }
 };
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilerInDriverLayers);
 
 INSTANTIATE_TEST_SUITE_P(,
                          CompilerInDriverLayers,
-                         ::testing::ValuesIn(Environment::getConfiguration("compiler_in_driver")),
+                         ::testing::ValuesIn(Environment::getConfiguration("graph_execution")),
                          [](const testing::TestParamInfo<YAML::Node> &p) {
                              return generateTestNameFromNode(p.param);
                          });
@@ -162,7 +183,7 @@ GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilerInDriverLong);
 
 INSTANTIATE_TEST_SUITE_P(,
                          CompilerInDriverLong,
-                         ::testing::ValuesIn(Environment::getConfiguration("compiler_in_driver")),
+                         ::testing::ValuesIn(Environment::getConfiguration("graph_execution")),
                          [](const testing::TestParamInfo<YAML::Node> &p) {
                              return generateTestNameFromNode(p.param);
                          });
@@ -183,6 +204,8 @@ TEST_P(CompilerInDriverLong, CompileModelWithGraphInitAndExecute) {
     ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+
+    graph->checkResults();
 }
 
 class CompilerInDriverWithProfiling : public CompilerInDriverLongT,
@@ -192,10 +215,12 @@ class CompilerInDriverWithProfiling : public CompilerInDriverLongT,
         CompilerInDriverLongT::SetUp();
 
         const YAML::Node node = GetParam();
+
         if (node["graph_profiling"].IsDefined() && node["graph_profiling"].as<bool>() == false) {
             SKIP_("The profiling graph test has been disabled.");
         }
 
+        // TODO: an option with or without profiling (this should apply to blob as well)
         graph = Graph::create(zeContext,
                               zeDevice,
                               zeGraphDDITableExt,
@@ -236,7 +261,7 @@ GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilerInDriverWithProfiling);
 
 INSTANTIATE_TEST_SUITE_P(,
                          CompilerInDriverWithProfiling,
-                         ::testing::ValuesIn(Environment::getConfiguration("compiler_in_driver")),
+                         ::testing::ValuesIn(Environment::getConfiguration("graph_execution")),
                          [](const testing::TestParamInfo<YAML::Node> &p) {
                              return generateTestNameFromNode(p.param);
                          });
@@ -373,6 +398,11 @@ class CompilerInDriverBmpWithPrimeBuffers : public CompilerInDriverLongBmp {
 
         graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
 
+        if (graph->images.empty()) {
+            GTEST_FAIL() << "No image provided. Check the correctness of the fields used in the "
+                            "configuration file.";
+        }
+
         /* Create list of DMA memory buffers outside driver and use it as network inputs */
 
         ze_device_mem_alloc_desc_t pDeviceMemAllocDesc = {
@@ -435,9 +465,7 @@ TEST_P(CompilerInDriverBmpWithPrimeBuffers, CompileInitExecuteUsingPrimeBufferIn
 
     ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
 
-    Image image(graph->images[0]);
-    ASSERT_EQ(graph->inputSize.at(0), image.getSizeInBytes());
-    memcpy(dmaBuffers[0], image.getPtr(), image.getSizeInBytes());
+    graph->copyInputData(dmaBuffers);
 
     ASSERT_EQ(zeGraphDDITableExt
                   ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),

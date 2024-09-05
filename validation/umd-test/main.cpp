@@ -11,6 +11,7 @@
 
 namespace test_vars {
 bool test_with_gpu;
+bool disable_metrics;
 } // namespace test_vars
 
 static void setConfig(const char *optarg) {
@@ -26,12 +27,19 @@ static void setQuickFilter(const char *) {
                                      "CompilerInDriverWithProfiling*:CompilerInDriverLayers*");
 }
 
+static void disableMetrics(const char *) {
+    test_vars::disable_metrics = true;
+    test_app::append_negative_filter("Metric*:ImmediateCmdList.MetricQuerryTest");
+}
+
 const char *helpMsg = "  -q/--quick\n"
-                      "      Disable long running tests. Useful for pre-commit testing\n"
+                      "       Disable long running tests. Useful for pre-commit testing\n"
                       "  -c/--config [CONFIGURATION_PATH]\n"
                       "       Test configuration file in yaml format\n"
                       "  -G/--test_with_gpu\n"
-                      "       Enable testing with loaded GPU L0\n";
+                      "       Enable testing with loaded GPU L0\n"
+                      "  -M/--disable_metrics\n"
+                      "       Disabling metrics. No metric test will be run\n";
 
 int main(int argc, char **argv) {
     ::testing::AddGlobalTestEnvironment(Environment::getInstance());
@@ -52,6 +60,7 @@ int main(int argc, char **argv) {
         {'c', {"config", required_argument, [](auto) {}}},
         {'q', {"quick", no_argument, &setQuickFilter}},
         {'G', {"test_with_gpu", no_argument, [](auto) { test_vars::test_with_gpu = true; }}},
+        {'M', {"disable_metrics", no_argument, &disableMetrics}},
     };
 
     test_app::parse_args(args, helpMsg, argc, argv);

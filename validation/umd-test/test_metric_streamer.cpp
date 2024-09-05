@@ -284,8 +284,6 @@ TEST_P(MetricStreamer, RunInferenceExpectAnyReport) {
 }
 
 TEST_P(MetricStreamer, RunInferenceExpectReportNotification) {
-    // TODO: Test RunInferenceExpectReportNotification* is unstable in LNL (EISW-127158)
-    SKIP_VPU40XX("Test is unstable in VPU4");
     const uint32_t samplingPeriodMs = 10;
     const uint32_t nReportsNotification = 20;
 
@@ -359,8 +357,6 @@ TEST_P(MetricStreamer, RunInferenceExpectReportNotification) {
 }
 
 TEST_P(MetricStreamer, RunInferenceExpectReportNotificationFromEventHostSynchronize) {
-    // TODO: Test RunInferenceExpectReportNotification* is unstable in LNL (EISW-127158)
-    SKIP_VPU40XX("Test is unstable in VPU4");
     const uint32_t samplingPeriodMs = 10;
     const uint32_t nReportsNotification = 20;
 
@@ -518,6 +514,18 @@ TEST_P(MetricStreamerCopyEngine, RunCopyExpectAnyReport) {
                               << counter.duration() << " s, frame count: " << counter.getCount()
                               << " bytes, bandwith: " << counter.getMbps() << " Mbps";
     ASSERT_GT(metricValues.size(), 0);
-    EXPECT_GT(metricValues[0].value.ui64, 0llu);
+    uint32_t metricCount = metricGroupProperties.metricCount;
+    ASSERT_EQ(reportCount * metricCount, metricValues.size());
+
+    size_t numIgnoredSamples = reportCount > 3 ? 3 : 1;
+    ASSERT_GT(reportCount, numIgnoredSamples);
+    for (size_t i = numIgnoredSamples; i < reportCount; i++) {
+        EXPECT_GT(metricValues[metricCount * i].value.ui64, 0llu)
+            << "Incorrect NOC_noc metric value at sample " << i;
+        EXPECT_GT(metricValues[metricCount * i + 1].value.ui64, 0llu)
+            << "Incorrect NOC_dma metric value at sample " << i;
+        EXPECT_GT(metricValues[metricCount * i + 3].value.ui64, 0llu)
+            << "Incorrect timestamp metric value at sample " << i;
+    }
     TRACE_BUF(metricValues.data(), metricValues.size() * sizeof(zet_typed_value_t));
 }

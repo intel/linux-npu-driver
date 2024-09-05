@@ -110,6 +110,11 @@ TEST_F(Device, GetPropertiesMutableCmdListDeviceIpVersion) {
 }
 
 TEST_F(Device, GetGlobalTimestamps) {
+    SKIP_VPU40XX(
+        "Ubuntu linux-image-6.8.0-41-generic is missing a support for FW boot param "
+        "systime_time_us\n"
+        "Support for it has been added in Kernel patch 00b9151cd4a33040b7f5ae04aaf1650e885ff3e0");
+
     auto checkTimestamp = [&]() {
         using namespace std::chrono_literals;
         uint64_t hostTimestamp1 = 0, deviceTimestamp1 = 0;

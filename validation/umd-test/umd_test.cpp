@@ -230,5 +230,5 @@ TEST(Umd, ConfigurationCheck) {
     EXPECT_GT(config.size(), 0) << "Missed configuration file." << std::endl
                                 << "Test scope is reduced." << std::endl
                                 << "Provide valid configurtion file, use:" << std::endl
-                                << "vpu-umd-test -c/--config [CONFIGURATION_PATH]";
+                                << "npu-umd-test -c/--config [CONFIGURATION_PATH]";
 }
