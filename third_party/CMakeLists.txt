@@ -1,11 +1,11 @@
 #
-# Copyright (C) 2022 Intel Corporation
+# Copyright (C) 2022-2024 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 #
 
 # Ignore compiler warnings from other third party libraries
-add_compile_options(-Wno-error)
+add_compile_options(-Wno-error -include cstdint)
 
 include(cmake/vpux_elf.cmake)
 include(cmake/level-zero.cmake)
