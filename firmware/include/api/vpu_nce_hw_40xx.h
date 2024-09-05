@@ -3,8 +3,6 @@
  * Copyright (c) 2022-2023, Intel Corporation.
  */
 
-// clang-format off
-
 #ifndef VPU_NCE_HW_40XX_H
 #define VPU_NCE_HW_40XX_H
 
@@ -72,8 +70,8 @@ typedef struct {
         struct {
             uint32_t tensor_size_z : 14;
             uint32_t npo2_se_size : 9;
-            uint32_t reserved1 : 4;
-            uint32_t reserved2 : 4;
+            uint32_t tensor_cmp_size : 4;
+            uint32_t tensor_cmp_offset : 4;
             uint32_t unused : 1;
         } tensor_size1_bf;
     } tensor_size1;
@@ -104,8 +102,8 @@ typedef struct {
             uint32_t pool_wt_data : 16;
             uint32_t unused1 : 6;
             uint32_t pool_wt_rd_dis : 1;
-            uint32_t reserved1 : 3;
-            uint32_t reserved2 : 1;
+            uint32_t elop_operation : 3;
+            uint32_t repeat_dis : 1;
             uint32_t unused2 : 1;
         } elops_wload_bf;
     } elops_wload;
@@ -120,9 +118,9 @@ typedef struct {
             uint32_t dw_opt_offset : 6;
             uint32_t dw_opt_en : 1;
             uint32_t dw_3x3s1_opt_dis : 1;
-            uint32_t reserved1 : 1;
-            uint32_t reserved2 : 1;
-            uint32_t reserved3 : 2;
+            uint32_t wt_dense_opt_en : 1;
+            uint32_t small_hw_opt_en : 1;
+            uint32_t idu_cmx_mux_mode : 2;
             uint32_t reserved_0 : 2;
         } base_offset_b_bf;
     } base_offset_b;
@@ -239,14 +237,14 @@ typedef struct {
     union {
         uint32_t ppe_misc;
         struct {
-            uint32_t reserved1 : 2;
-            uint32_t reserved2 : 2;
-            uint32_t reserved3 : 2;
+            uint32_t ppe_mode : 2;
+            uint32_t ppe_rnd_fd : 2;
+            uint32_t ppe_rnd_int : 2;
             uint32_t ppe_fp16_ftz : 1;
             uint32_t ppe_fp16_clamp : 1;
             uint32_t ppe_i32_convert : 2;
-            uint32_t reserved4 : 2;
-            uint32_t reserved5 : 1;
+            uint32_t ppe_sb_dtype : 2;
+            uint32_t ppe_mult2_mode : 1;
             uint32_t unused : 19;
         } ppe_misc_bf;
     } ppe_misc;
@@ -301,17 +299,17 @@ typedef struct {
         } odu_cast_bf;
     } odu_cast[3];
 
-    uint32_t reserved0;
+    uint32_t tensor2_start;
 
     union {
-        uint32_t reserved1;
+        uint32_t ppe_lut_ptr;
         struct {
-            uint32_t reserved2 : 16;
+            uint32_t ppe_lut_ptr : 16;
             uint32_t unused_1 : 2;
-            uint32_t reserved3 : 1;
+            uint32_t ppe_lut_ptr_force : 1;
             uint32_t unused_2 : 13;
         } ppe_lut_ptr_bf;
-    } reserved1;
+    } ppe_lut_ptr;
 
     uint32_t nvar_tag;
 
@@ -433,15 +431,15 @@ typedef struct {
             uint32_t reserved_1 : 1;
             uint32_t odu_stat_clr_mode : 1;
             uint32_t idu_stat_clr_mode : 1;
-            uint32_t reserved1 : 1;
+            uint32_t se_only_en : 1;
             uint32_t shave_l2_cache_en : 1;
             uint32_t idu_dbg_en : 2;
-            uint32_t reserved2 : 1;
-            uint32_t reserved3 : 1;
+            uint32_t sb_read_en : 1;
+            uint32_t tensor2_act_dense : 1;
             uint32_t reserved_2 : 3;
             uint32_t wt_swizzle_key : 3;
             uint32_t wt_swizzle_sel : 1;
-            uint32_t reserved4 : 1;
+            uint32_t gif_clk_en : 1;
         } offset_addr_bf;
     } offset_addr;
 
@@ -457,7 +455,7 @@ typedef struct {
         uint32_t var_cfg;
         struct {
             uint32_t reserved_0 : 8;
-            uint32_t reserved1 : 1;
+            uint32_t invar_lut_rd_en : 1;
             uint32_t invar_line_cnt_en : 1;
             uint32_t invar_line_cnt_cnt : 4;
             uint32_t invar_lptr_force : 1;
@@ -542,6 +540,7 @@ static_assert(sizeof(VpuDPUVariantRegisters) == 192, "VpuDPUVariantRegisters siz
 
 // base resources
 constexpr uint32_t VPU_MAX_TILES = 6;
+constexpr uint32_t VPU_BARRIERS_PER_GROUP = 16;
 constexpr uint32_t VPU_DPU_PER_TILE = 1;
 constexpr uint32_t VPU_SNN_PER_TILE = VPU_DPU_PER_TILE;
 constexpr uint32_t VPU_SNN_TOTAL = VPU_SNN_PER_TILE * VPU_MAX_TILES;
@@ -585,7 +584,7 @@ enum class VpuInputTensorDType : uint8_t {
     U4 = 0x06,
     BIN = 0x07,
     FP8 = 0x08,
-    RESERVED = 0x09,
+    HF8 = 0x09,
     INPUT_DTYPE_UNKNOWN
 };
 
@@ -640,5 +639,3 @@ enum VpuMPEGrid { MPE_GRID_4x4, MPE_GRID_16x1 };
 } // namespace nn_public
 
 #endif
-
-// clang-format on

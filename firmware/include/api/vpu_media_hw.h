@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (c) 2022-2023, Intel Corporation.
+ * Copyright (c) 2022-2024, Intel Corporation.
  */
-
-// clang-format off
 
 #ifndef VPU_MEDIA_HW_H
 #define VPU_MEDIA_HW_H
@@ -24,6 +22,22 @@ extern "C" {
 #endif
 
 #pragma pack(push, 1)
+
+typedef struct ALIGN_MEDIA(16) {
+    uint64_t descAddr : 64;
+    uint64_t fetchTime : 64;
+    uint64_t readyTime : 64;
+    uint64_t startTime : 64;
+    uint64_t doneTime : 64;
+    uint64_t finishTime : 64;
+    uint64_t linkAgentID : 8;
+    uint64_t parentID : 8;
+    uint64_t RSVD : 16;
+    uint64_t RStallCount : 16;
+    uint64_t WStallCount : 16;
+    uint64_t WRCycleCount : 32;
+    uint64_t RDCycleCount : 32;
+} Media_HWPDescriptor_t;
 
 typedef struct {
     uint64_t Coeff11 : 16;
@@ -83,7 +97,7 @@ typedef struct {
 
 typedef struct {
     union {
-        uint64_t roiBase_offset;           // Used by the compiler to get the offset of the roiBase field
+        uint64_t roiBase_offset; // Used by the compiler to get the offset of the roiBase field
         struct {
             uint64_t roiBase : 32;         // Base output address
             uint64_t outFormatLocal : 8;   // Output format local, optional
@@ -171,10 +185,10 @@ typedef struct ALIGN_MEDIA(16) {
     Media_NormFactor_t normFactor[MEDIA_MAX_NUM_PLANES]; // Normalization factor 0/1/2/3
     Media_PSOB_t PSOB;                                   // plane stride and out buffer (HI) config
     union {
-        uint64_t nextDesc_offset;                         // Used by the compiler to get the offset of the nextDesc field
+        uint64_t nextDesc_offset; // Used by the compiler to get the offset of the nextDesc field
         struct {
-            uint64_t nextDesc : 48;                      // next descriptor base address, NULL terminates list
-            uint64_t HWPAddrHI : 16;                     // Hardware profiler HI address
+            uint64_t nextDesc : 48;  // next descriptor base address, NULL terminates list
+            uint64_t HWPAddrHI : 16; // Hardware profiler HI address
         };
     };
 } VpuMediaBuffDescriptor;
@@ -191,5 +205,3 @@ static_assert(sizeof(VpuMediaBuffDescriptor) == 96, "VpuMediaBuffDescriptor size
 #endif
 
 #endif
-
-// clang-format on
