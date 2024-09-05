@@ -9,19 +9,19 @@
 # This software and the related documents are provided as is, with no express or
 # implied warranties, other than those that are expressly stated in the License.
 
-add_library(vpux_compiler INTERFACE)
+add_library(npu_compiler INTERFACE)
 
-if(ENABLE_VPUX_COMPILER_BUILD)
-  include(vpux_compiler_build.cmake)
+if(ENABLE_NPU_COMPILER_BUILD)
+  include(npu_compiler_build.cmake)
 
-  add_dependencies(vpux_compiler ${VPUX_COMPILER_DEPENDENCY})
-  install(FILES ${VPUX_COMPILER_LIBS}
+  add_dependencies(npu_compiler ${NPU_COMPILER_DEPENDENCY})
+  install(FILES ${NPU_COMPILER_LIBS}
           TYPE LIB
           COMPONENT driver-compiler-npu)
 elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/include/)
-  set(VPUX_COMPILER_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  set(NPU_COMPILER_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 else()
-  message(FATAL_ERROR "Missing VPUXCompilerL0 headers in path ${CMAKE_CURRENT_SOURCE_DIR}/include/")
+  message(FATAL_ERROR "Missing NPU Driver Compiler headers in path ${CMAKE_CURRENT_SOURCE_DIR}/include/")
 endif()
 
-target_include_directories(vpux_compiler INTERFACE ${VPUX_COMPILER_INCLUDE_DIR})
+target_include_directories(npu_compiler INTERFACE ${NPU_COMPILER_INCLUDE_DIR})

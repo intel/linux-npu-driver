@@ -1,4 +1,4 @@
-# Copyright 2022-2024 Intel Corporation.
+# Copyright 2022-2023 Intel Corporation.
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -38,7 +38,7 @@ file(MAKE_DIRECTORY ${OPENVINO_BINARY_DIR})
 ExternalProject_Add(
   openvino_build
   DOWNLOAD_COMMAND ""
-  DEPENDS vpux_plugin_source openvino_source
+  DEPENDS npu_plugin_source openvino_source
   PREFIX ${OPENVINO_PREFIX_DIR}
   SOURCE_DIR ${OPENVINO_SOURCE_DIR}
   BINARY_DIR ${OPENVINO_BINARY_DIR}
@@ -124,17 +124,17 @@ ExternalProject_Add(
     -DOpenCV_DIR=${OPENCV_BINARY_DIR}
     -DSAMPLES_ENABLE_OPENCL=OFF)
 
-### VPUX plugin ###
-set(VPUX_PLUGIN_BINARY_DIR ${VPUX_PLUGIN_PREFIX_DIR}/build)
-file(MAKE_DIRECTORY ${VPUX_PLUGIN_BINARY_DIR})
+### NPU plugin ###
+set(NPU_PLUGIN_BINARY_DIR ${NPU_PLUGIN_PREFIX_DIR}/build)
+file(MAKE_DIRECTORY ${NPU_PLUGIN_BINARY_DIR})
 
 ExternalProject_Add(
-  vpux_plugin_build
+  npu_plugin_build
   DOWNLOAD_COMMAND ""
   DEPENDS sample_apps_build
-  PREFIX ${VPUX_PLUGIN_PREFIX_DIR}
-  SOURCE_DIR ${VPUX_PLUGIN_SOURCE_DIR}
-  BINARY_DIR ${VPUX_PLUGIN_BINARY_DIR}
+  PREFIX ${NPU_PLUGIN_PREFIX_DIR}
+  SOURCE_DIR ${NPU_PLUGIN_SOURCE_DIR}
+  BINARY_DIR ${NPU_PLUGIN_BINARY_DIR}
   INSTALL_DIR ${OPENVINO_PACKAGE_DIR}
   CMAKE_ARGS
     ${COMMON_CMAKE_ARGS}
@@ -144,11 +144,13 @@ ExternalProject_Add(
     -DOpenVINODeveloperPackage_DIR=${OPENVINO_BINARY_DIR}
     -DTHREADING=${THREADING})
 
-### OV+VPUX plugin package ###
+### OV+NPU plugin package ###
 set(COMPILE_TOOL_PACKAGE_DIR "${OPENVINO_PACKAGE_DIR}/tools/compile_tool")
 file(MAKE_DIRECTORY ${COMPILE_TOOL_PACKAGE_DIR})
 
 set(OPENVINO_BINARY_RELEASE_DIR "${OPENVINO_SOURCE_DIR}/bin/intel64/Release")
+set(OPENVINO_LIBRARY_DIR ${OPENVINO_BINARY_RELEASE_DIR} PARENT_SCOPE)
+set(OPENCV_LIBRARY_DIR "${OPENCV_BINARY_DIR}/lib" PARENT_SCOPE)
 
 add_custom_target(
   openvino_package ALL
@@ -159,16 +161,15 @@ add_custom_target(
     cp -d ${SAMPLES_APPS_BUILD_DIR}/intel64/hello_classification ${SAMPLES_APPS_PACKAGE_DIR}/ &&
     cp -d ${SAMPLES_APPS_BUILD_DIR}/intel64/hello_query_device ${SAMPLES_APPS_PACKAGE_DIR}/ &&
     cp -d ${OPENVINO_BINARY_RELEASE_DIR}/protopipe ${SAMPLES_APPS_PACKAGE_DIR}/ &&
-    cp -d ${OPENVINO_BINARY_RELEASE_DIR}/single-image-test ${SAMPLES_APPS_PACKAGE_DIR}/ &&
     cp -d ${OPENVINO_BINARY_RELEASE_DIR}/compile_tool ${COMPILE_TOOL_PACKAGE_DIR}/ &&
     git -C ${OPENCV_SOURCE_DIR} rev-list --max-count=1 HEAD > ${OPENVINO_PACKAGE_DIR}/opencv_sha &&
     git -C ${OPENVINO_SOURCE_DIR} rev-list --max-count=1 HEAD > ${OPENVINO_PACKAGE_DIR}/openvino_sha &&
-    git -C ${VPUX_PLUGIN_SOURCE_DIR} rev-list --max-count=1 HEAD > ${OPENVINO_PACKAGE_DIR}/vpux_plugin_sha &&
+    git -C ${NPU_PLUGIN_SOURCE_DIR} rev-list --max-count=1 HEAD > ${OPENVINO_PACKAGE_DIR}/npu_plugin_sha &&
     echo ${OPENVINO_PACKAGE_NAME} > ${OPENVINO_PACKAGE_DIR}/build_version &&
     echo `git -C ${OPENVINO_SOURCE_DIR} rev-parse HEAD` `git -C ${OPENVINO_SOURCE_DIR} config --local --get remote.origin.url` > ${OPENVINO_PACKAGE_DIR}/manifest.txt &&
-    echo `git -C ${VPUX_PLUGIN_SOURCE_DIR} rev-parse HEAD` `git -C ${VPUX_PLUGIN_SOURCE_DIR} config --local --get remote.origin.url` >> ${OPENVINO_PACKAGE_DIR}/manifest.txt &&
+    echo `git -C ${NPU_PLUGIN_SOURCE_DIR} rev-parse HEAD` `git -C ${NPU_PLUGIN_SOURCE_DIR} config --local --get remote.origin.url` >> ${OPENVINO_PACKAGE_DIR}/manifest.txt &&
     tar -C ${OPENVINO_PACKAGE_DIR} -czf ${CMAKE_BINARY_DIR}/${OPENVINO_PACKAGE_NAME}.tar.gz .
-  DEPENDS openvino_build opencv_build vpux_plugin_build sample_apps_build single_image_test_build
+  DEPENDS openvino_build opencv_build npu_plugin_build sample_apps_build single_image_test_build
   BYPRODUCTS ${CMAKE_BINARY_DIR}/${OPENVINO_PACKAGE_NAME}.tar.gz)
 
 install(

@@ -10,5 +10,5 @@
 # or implied warranties, other than those that are expressly stated in
 # the License.
 
-include(openvino_package.cmake)
-include(vpux_compiler.cmake)
+include(openvino.cmake)
+include(npu_compiler.cmake)
