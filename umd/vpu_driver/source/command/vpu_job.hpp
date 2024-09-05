@@ -16,7 +16,6 @@
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <memory>
-#include <utility>
 #include <vector>
 
 namespace VPU {
@@ -24,7 +23,7 @@ class VPUDeviceContext;
 
 class VPUJob {
   public:
-    VPUJob(VPUDeviceContext *ctx, bool isCopyOnly);
+    VPUJob(VPUDeviceContext *ctx);
 
     /**
      * Finalize building the job by moving commands into appropriate VPUCommandBuffers
@@ -80,7 +79,6 @@ class VPUJob {
         return commands[index].get();
     }
 
-    /* Job is closed, no more append commands is allowed. Job is ready for submission */
     bool isClosed() const { return closed; }
 
     void setPriority(VPUCommandBuffer::Priority p) {
@@ -91,43 +89,16 @@ class VPUJob {
     void setNeedsUpdate(bool value) { needsUpdate = value; }
 
   private:
-    /**
-     * @brief Segregate commands into command buffers based on following rules:
-     *  - if command is copy type it is pushed to copy command collection
-     *  - if command is compute type it is pushed to compute command collection
-     *  - if command is backward type it is pushed to command collection that was used in
-     * previous appendCommand call
-     *  - if command is forward type it is pushed to command collection that will be used in
-     * next appendCommand call
-     *  If there was no commands in copy or compute type then forward and backward commands are
-     * pushed to collection based on isCopyOnly member. If isCopyOnly is true, then commands are
-     * flushed to copy collection. If isCopyOnly is false, then commands are flushed to compute
-     * collection
-     *
-     * @param begin [in]: Iterator of command list where algorithm should start.
-     * @return last element in command list for specific target. Target can be only COMPUTE or COPY
-     */
-    std::pair<std::vector<std::shared_ptr<VPUCommand>>::iterator, VPUCommandBuffer::Target>
+    std::vector<std::shared_ptr<VPUCommand>>::iterator
     scheduleCommands(std::vector<std::shared_ptr<VPUCommand>>::iterator begin);
 
-    /**
-     * Create VPUCommandBuffer with user VPUCommands and designed for specific VPU engine
-     * @param cmds[in]: Commands vector to be attached to the buffer
-     * @param targetEngine[in]: Target of VPUCommandBuffer
-     * @return true when successfully added, false otherwise.
-     */
     bool createCommandBuffer(const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
                              const std::vector<std::shared_ptr<VPUCommand>>::iterator &end,
-                             VPUCommandBuffer::Target cmdtype,
                              VPUEventCommand::KMDEventDataType **lastEvent);
 
     VPUDeviceContext *ctx = nullptr;
-    bool isCopyOnly = false;
 
-    /* Collection of VPUCommandBuffer that later will be pushed for submission */
     std::vector<std::unique_ptr<VPUCommandBuffer>> cmdBuffers;
-
-    /* Commands collection */
     std::vector<std::shared_ptr<VPUCommand>> commands;
 
     bool closed = false;

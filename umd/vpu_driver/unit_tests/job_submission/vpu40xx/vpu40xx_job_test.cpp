@@ -20,7 +20,6 @@
 #include <memory>
 #include <set>
 #include <string>
-#include <uapi/drm/ivpu_accel.h>
 #include <vector>
 
 namespace VPU {
@@ -55,14 +54,13 @@ TEST_F(VPUJobTestForVPU40xx, jobCanGenerateSingleCopyBuffer) {
     void *sharedMem = ctx->createSharedMemAlloc(allocSize);
     void *hostMem = ctx->createHostMemAlloc(allocSize);
 
-    auto job = std::make_unique<VPUJob>(ctx, true);
+    auto job = std::make_unique<VPUJob>(ctx);
     for (int i = 0; i < cmdCount; i++)
         EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx, hostMem, sharedMem, allocSize)));
     EXPECT_TRUE(job->closeCommands());
 
     EXPECT_EQ(1u, job->getCommandBuffers().size());
     for (const auto &cmdBuffer : job->getCommandBuffers()) {
-        EXPECT_EQ(DRM_IVPU_ENGINE_COPY, cmdBuffer->getEngine());
         EXPECT_EQ(getExpBufferCount(cmdBuffer->getBufferHandles()),
                   cmdBuffer->getBufferHandles().size());
     }
@@ -84,7 +82,7 @@ TEST_F(VPUJobTestForVPU40xx, jobShouldProperlySaveAppendedCommands) {
     // engineCmds store expected commands segregated by VPUJob per engine
     std::array<std::vector<std::shared_ptr<VPUCommand>>, 2> engineCmds = {};
 
-    auto job = std::make_unique<VPUJob>(ctx, false);
+    auto job = std::make_unique<VPUJob>(ctx);
 
     for (int i = 0; i < 3; i++)
         EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx, tsHeap)));
@@ -103,12 +101,6 @@ TEST_F(VPUJobTestForVPU40xx, jobShouldProperlySaveAppendedCommands) {
         const auto &cmdBuffer = job->getCommandBuffers()[i];
         EXPECT_EQ(getExpBufferCount(cmdBuffer->getBufferHandles()),
                   cmdBuffer->getBufferHandles().size());
-
-        if (i == 0) {
-            EXPECT_EQ(DRM_IVPU_ENGINE_COMPUTE, cmdBuffer->getEngine());
-        } else {
-            EXPECT_EQ(DRM_IVPU_ENGINE_COPY, cmdBuffer->getEngine());
-        }
     }
 
     EXPECT_TRUE(ctx->freeMemAlloc(sharedMem));

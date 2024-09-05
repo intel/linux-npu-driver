@@ -7,6 +7,7 @@
 
 #include "level_zero_driver/ext/source/graph/elf_parser.hpp"
 
+#include <cstddef>
 #include <cstdint>
 
 #include "level_zero/ze_api.h"
@@ -196,11 +197,11 @@ ElfParser::ElfParser(VPU::VPUDeviceContext *ctx,
     , accessManager(std::move(access))
     , hpi(std::move(hpi)) {}
 
-bool ElfParser::checkMagic(uint8_t *ptr, size_t size) {
-    if (size == 0)
+bool ElfParser::checkMagic(const struct BlobInfo *blob) {
+    if (blob->size == 0)
         return false;
 
-    return elf::utils::checkELFMagic(ptr);
+    return elf::utils::checkELFMagic(blob->ptr);
 }
 
 static inline elf::platform::ArchKind toArchKind(int platform) {
@@ -279,11 +280,11 @@ copyHostParsedInference(std::shared_ptr<elf::HostParsedInference> &hpi) {
 }
 
 std::unique_ptr<ElfParser> ElfParser::getElfParser(VPU::VPUDeviceContext *ctx,
-                                                   uint8_t *ptr,
-                                                   size_t size,
+                                                   const struct BlobInfo *blob,
                                                    std::string &logBuffer) {
     auto bufferManager = std::make_unique<DriverBufferManager>(ctx);
-    auto accessManager = std::make_unique<ElfAccessManager>(ptr, size, bufferManager.get());
+    auto accessManager =
+        std::make_unique<ElfAccessManager>(blob->ptr, blob->size, bufferManager.get());
     auto hpi = createHostParsedInference(bufferManager.get(), accessManager.get(), ctx, logBuffer);
     if (hpi != nullptr)
         return std::make_unique<ElfParser>(ctx,
@@ -760,9 +761,7 @@ ze_result_t ElfParser::parse(std::vector<ze_graph_argument_properties_3_t> &argu
     return ZE_RESULT_SUCCESS;
 }
 
-std::shared_ptr<VPU::VPUCommand> ElfParser::allocateInitCommand(VPU::VPUDeviceContext *ctx,
-                                                                uint8_t *graphBlobRawData,
-                                                                size_t graphBlobRawSize) {
+std::shared_ptr<VPU::VPUCommand> ElfParser::allocateInitCommand(VPU::VPUDeviceContext *ctx) {
     /* No initialize command for elf, return empty command that will be ignored */
     return std::make_shared<VPU::VPUCommand>();
 }

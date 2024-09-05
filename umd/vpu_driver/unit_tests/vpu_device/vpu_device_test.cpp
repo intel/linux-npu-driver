@@ -38,7 +38,7 @@ TEST_F(VPUDeviceTest, jobSubmissionTriggersIoctls) {
     uint64_t *tsDest = static_cast<uint64_t *>(ctx->createSharedMemAlloc(4096));
     ASSERT_NE(nullptr, tsDest);
 
-    auto job = std::make_unique<VPUJob>(ctx.get(), false);
+    auto job = std::make_unique<VPUJob>(ctx.get());
     EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx.get(), tsDest)));
     EXPECT_TRUE(job->closeCommands());
 

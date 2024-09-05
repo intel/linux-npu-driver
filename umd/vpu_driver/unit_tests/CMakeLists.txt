@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2022 Intel Corporation
+# Copyright (C) 2022-2024 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 #
@@ -10,7 +10,7 @@ if(SKIP_UNIT_TESTS)
   return()
 endif()
 
-set(TARGET_NAME vpu_shared_tests)
+set(TARGET_NAME npu_shared_tests)
 
 add_executable(${TARGET_NAME} main.cpp)
 target_link_libraries(${TARGET_NAME} vpu_driver gtest gmock vpu_driver_mocks)

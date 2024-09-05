@@ -5,16 +5,20 @@
  *
  */
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include "gtest/gtest.h"
+#include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
 #include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
-#include "level_zero_driver/core/source/context/context.hpp"
-#include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/core/source/fence/fence.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
 
 #include <level_zero/ze_api.h>
-#include <memory>
+#include <string>
 
 namespace L0 {
 namespace ult {

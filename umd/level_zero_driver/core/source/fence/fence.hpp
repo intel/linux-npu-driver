@@ -7,9 +7,11 @@
 
 #pragma once
 
+// IWYU pragma: no_include <bits/chrono.h>
+
 #include <stdint.h>
 
-#include <chrono>
+#include <chrono> // IWYU pragma: keep
 #include <level_zero/ze_api.h>
 #include <memory>
 #include <vector>

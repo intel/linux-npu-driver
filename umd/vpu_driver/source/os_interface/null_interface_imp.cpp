@@ -8,6 +8,8 @@
 #include "vpu_driver/source/os_interface/null_interface_imp.hpp"
 
 #include "umd_common.hpp"
+#include "vpu_driver/source/device/vpu_37xx/vpu_hw_37xx.hpp"
+#include "vpu_driver/source/device/vpu_40xx/vpu_hw_40xx.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <cstring>
@@ -37,13 +39,13 @@ bool NullOsInterfaceImp::isNullDeviceRequested() {
     NullOsInterfaceImp *dev =
         reinterpret_cast<NullOsInterfaceImp *>(&NullOsInterfaceImp::getInstance());
     if (std::string("INPU_MTL") == env) {
-        dev->nullHwInfo = getHwInfoByDeviceId(0x7d1d);
-        dev->nullHwInfo.deviceId = 0x7d1d;
-        LOG_W("MTL(%x) null device is set.", dev->nullHwInfo.deviceId);
+        dev->nullHwInfo = getHwInfoByDeviceId(PCI_DEVICE_ID_MTL);
+        dev->nullHwInfo.deviceId = PCI_DEVICE_ID_MTL;
+        LOG_W("MTL(%#x) null device is set.", dev->nullHwInfo.deviceId);
     } else if (std::string("INPU_LNL") == env) {
-        dev->nullHwInfo = getHwInfoByDeviceId(0x643e);
-        dev->nullHwInfo.deviceId = 0x643e;
-        LOG_W("LNL(%x) null device is set.", dev->nullHwInfo.deviceId);
+        dev->nullHwInfo = getHwInfoByDeviceId(PCI_DEVICE_ID_LNL);
+        dev->nullHwInfo.deviceId = PCI_DEVICE_ID_LNL;
+        LOG_W("LNL(%#x) null device is set.", dev->nullHwInfo.deviceId);
     } else {
         LOG_E("Null device(%s) requested but configured device is not supported.", env);
         return false;
@@ -153,14 +155,14 @@ int NullOsInterfaceImp::osiIoctl(int fd, unsigned long request, void *arg) {
 
     switch (request) {
     case DRM_IOCTL_VERSION: {
-        auto *version = reinterpret_cast<drm_version_t *>(arg);
-        version->version_major = DRM_IVPU_DRIVER_MAJOR;
-        version->version_minor = DRM_IVPU_DRIVER_MINOR;
-        if (version->name_len < strlen("intel_npu")) {
-            version->name_len = strlen("intel_npu");
+        auto *uapi_version = reinterpret_cast<drm_version_t *>(arg);
+        uapi_version->version_major = 1;
+        uapi_version->version_minor = 0;
+        if (uapi_version->name_len < strlen("intel_npu")) {
+            uapi_version->name_len = strlen("intel_npu");
             break;
         }
-        strncpy(version->name, "intel_npu", version->name_len);
+        strncpy(uapi_version->name, "intel_npu", uapi_version->name_len);
         break;
     }
     case DRM_IOCTL_IVPU_GET_PARAM: {

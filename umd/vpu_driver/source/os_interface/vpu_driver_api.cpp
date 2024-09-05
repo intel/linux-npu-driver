@@ -10,6 +10,7 @@
 #include "vpu_driver/source/os_interface/os_interface.hpp"
 
 #include <drm/drm.h>
+#include <exception>
 #include <fcntl.h>
 #include <memory>
 #include <stdio.h>

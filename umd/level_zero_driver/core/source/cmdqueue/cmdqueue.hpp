@@ -11,6 +11,7 @@
 
 #include <stdint.h>
 
+#include "level_zero_driver/core/source/fence/fence.hpp" // IWYU pragma: keep
 #include "level_zero_driver/include/l0_handler.hpp"
 
 #include <chrono> // IWYU pragma: keep
@@ -23,7 +24,6 @@
 namespace L0 {
 struct Context;
 struct Device;
-struct Fence;
 } // namespace L0
 
 namespace VPU {
@@ -61,6 +61,7 @@ struct CommandQueue : _ze_command_queue_handle_t, IContextObject {
     void destroyFence(Fence *pFence);
     ze_result_t waitForJobs(std::chrono::steady_clock::time_point timeout,
                             const std::vector<std::shared_ptr<VPU::VPUJob>> &jobs);
+    bool isCopyOnly() { return isCopyOnlyCommandQueue; }
 
   protected:
     Context *pContext = nullptr;

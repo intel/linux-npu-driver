@@ -44,8 +44,6 @@ struct Device : _ze_device_handle_t {
     ze_result_t getProperties(ze_device_properties_t *pDeviceProperties);
     ze_result_t getProperties(zes_device_properties_t *pDeviceProperties);
     ze_result_t getSubDevices(uint32_t *pCount, ze_device_handle_t *phSubdevices);
-    ze_result_t setIntermediateCacheConfig(ze_cache_config_flags_t cacheConfig);
-    ze_result_t setLastLevelCacheConfig(ze_cache_config_flags_t cacheConfig);
     ze_result_t getMemoryProperties(uint32_t *pCount,
                                     ze_device_memory_properties_t *pMemProperties);
     ze_result_t getGetExternalMemoryProperties(

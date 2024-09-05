@@ -7,6 +7,8 @@
 target_sources(${TARGET_NAME_L0} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/cmdlist/cmdlist.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/cmdlist/cmdlist.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmdlist/immediate_cmdlist.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmdlist/immediate_cmdlist.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/cmdqueue/cmdqueue.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/cmdqueue/cmdqueue.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/context/context.hpp

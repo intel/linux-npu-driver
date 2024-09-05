@@ -66,3 +66,8 @@ To safe_cast(From x) {
 inline size_t getFwDataCacheAlign(size_t a) {
     return ALIGN(a, 64);
 }
+
+struct BlobInfo {
+    uint8_t *ptr;
+    size_t size;
+};

@@ -18,6 +18,8 @@
 #include <string>
 #include <vector>
 
+struct BlobInfo; // IWYU pragma: keep
+
 namespace VPU {
 class VPUDeviceContext;
 } // namespace VPU
@@ -38,7 +40,7 @@ class Compiler {
     static bool checkVersion(uint16_t major);
     static std::string getCompilerVersionString();
     static ze_result_t getDecodedProfilingBuffer(ze_graph_profiling_type_t profilingType,
-                                                 const std::vector<uint8_t> *blobRaw,
+                                                 const struct BlobInfo *blob,
                                                  const uint8_t *profData,
                                                  uint64_t profSize,
                                                  uint32_t *size,

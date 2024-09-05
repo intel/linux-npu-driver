@@ -8,6 +8,7 @@
 #include "level_zero_driver/core/source/driver/driver.hpp"
 
 #include "level_zero_driver/api/tools/ze_tools_loader.h"
+#include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/core/source/driver/driver_handle.hpp"
 #include "level_zero_driver/ext/source/graph/compiler.hpp"
 #include "level_zero_driver/ext/source/graph/compiler_common.hpp"
@@ -20,6 +21,7 @@
 
 #include <memory>
 #include <stdlib.h>
+#include <string>
 #include <utility>
 #include <vector>
 

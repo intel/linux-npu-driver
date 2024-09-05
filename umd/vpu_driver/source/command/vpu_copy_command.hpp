@@ -38,9 +38,6 @@ class VPUCopyCommand : public VPUCommand {
             std::any_cast<vpu_cmd_copy_buffer_t>(&command));
     }
 
-    bool isCopyTypeCommand() { return true; }
-    bool changeCopyCommandType(uint32_t engine_id);
-
     template <class T>
     static bool fillDescriptor(VPUDeviceContext *ctx,
                                const void *srcPtr,

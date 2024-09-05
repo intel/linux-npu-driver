@@ -206,14 +206,6 @@ ze_result_t Device::getSubDevices(uint32_t *pCount, ze_device_handle_t *phSubdev
     return ZE_RESULT_SUCCESS;
 }
 
-ze_result_t Device::setIntermediateCacheConfig(ze_cache_config_flags_t cacheConfig) {
-    return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
-}
-
-ze_result_t Device::setLastLevelCacheConfig(ze_cache_config_flags_t cacheConfig) {
-    return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
-}
-
 const char *Device::getDeviceMemoryName() const {
     return "DDR";
 }

@@ -12,6 +12,7 @@
 
 #include "level_zero_driver/ext/source/graph/interface_parser.hpp"
 #include "level_zero_driver/include/l0_handler.hpp"
+#include "umd_common.hpp"
 #include "vpu_driver/source/command/vpu_command.hpp"
 
 #include <level_zero/ze_api.h>
@@ -105,7 +106,9 @@ struct Graph : _ze_graph_handle_t, IContextObject {
     Context *pContext;
     VPU::VPUDeviceContext *ctx;
     ze_graph_desc_2_t desc;
-    std::vector<uint8_t> graphBlobRaw;
+
+    struct BlobInfo blob = {};
+    std::vector<uint8_t> blobCached;
 
     std::vector<std::pair<const void *, uint32_t>> inputArgs;
     std::vector<std::pair<const void *, uint32_t>> outputArgs;

@@ -34,11 +34,7 @@ struct VPUCommandBufferTest : public ::testing::Test {
 
 TEST_F(VPUCommandBufferTest, allocateCommandBufferWithoutCommandExpectNullptr) {
     std::vector<std::shared_ptr<VPUCommand>> cmds;
-    EXPECT_EQ(nullptr,
-              VPUCommandBuffer::allocateCommandBuffer(ctx,
-                                                      cmds.begin(),
-                                                      cmds.end(),
-                                                      VPUCommandBuffer::Target::COMPUTE));
+    EXPECT_EQ(nullptr, VPUCommandBuffer::allocateCommandBuffer(ctx, cmds.begin(), cmds.end()));
 }
 
 TEST_F(VPUCommandBufferTest, allocateCommandBufferWithTimestampCommand) {
@@ -48,11 +44,7 @@ TEST_F(VPUCommandBufferTest, allocateCommandBufferWithTimestampCommand) {
     cmds.emplace_back(VPUTimeStampCommand::create(ctx, tsHeap));
     ASSERT_NE(cmds.back(), nullptr);
 
-    EXPECT_NE(nullptr,
-              VPUCommandBuffer::allocateCommandBuffer(ctx,
-                                                      cmds.begin(),
-                                                      cmds.end(),
-                                                      VPUCommandBuffer::Target::COMPUTE));
+    EXPECT_NE(nullptr, VPUCommandBuffer::allocateCommandBuffer(ctx, cmds.begin(), cmds.end()));
 
     EXPECT_TRUE(ctx->freeMemAlloc(tsHeap));
 }
@@ -65,11 +57,7 @@ TEST_F(VPUCommandBufferTest, allocateCommandBufferWithMallocFailureExpectNullptr
     ASSERT_NE(cmds.back(), nullptr);
 
     osInfc.mockFailNextAlloc();
-    EXPECT_EQ(nullptr,
-              VPUCommandBuffer::allocateCommandBuffer(ctx,
-                                                      cmds.begin(),
-                                                      cmds.end(),
-                                                      VPUCommandBuffer::Target::COMPUTE));
+    EXPECT_EQ(nullptr, VPUCommandBuffer::allocateCommandBuffer(ctx, cmds.begin(), cmds.end()));
     EXPECT_TRUE(ctx->freeMemAlloc(tsHeap));
 }
 
@@ -81,11 +69,7 @@ TEST_F(VPUCommandBufferTest, allocateCommandBufferWithCopyCommand) {
     cmds.emplace_back(VPUCopyCommand::create(ctx, src, dst, sizeof(uint64_t)));
     ASSERT_NE(cmds.back(), nullptr);
 
-    EXPECT_NE(nullptr,
-              VPUCommandBuffer::allocateCommandBuffer(ctx,
-                                                      cmds.begin(),
-                                                      cmds.end(),
-                                                      VPUCommandBuffer::Target::COMPUTE));
+    EXPECT_NE(nullptr, VPUCommandBuffer::allocateCommandBuffer(ctx, cmds.begin(), cmds.end()));
 
     EXPECT_TRUE(ctx->freeMemAlloc(src));
     EXPECT_TRUE(ctx->freeMemAlloc(dst));

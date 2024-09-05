@@ -89,17 +89,17 @@ ze_result_t Graph::getNativeBinary(size_t *pSize, uint8_t *pGraphNativeBinary) {
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    if (graphBlobRaw.size() == 0) {
+    if (blob.size == 0) {
         LOG_E("Native binary does not exist for Graph");
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 
-    if (*pSize == 0 || *pSize > graphBlobRaw.size()) {
-        *pSize = graphBlobRaw.size();
+    if (*pSize == 0 || *pSize > blob.size) {
+        *pSize = blob.size;
     }
 
     if (pGraphNativeBinary != nullptr) {
-        memcpy(pGraphNativeBinary, graphBlobRaw.data(), *pSize);
+        memcpy(pGraphNativeBinary, blob.ptr, *pSize);
     }
     return ZE_RESULT_SUCCESS;
 }
@@ -227,7 +227,7 @@ ze_result_t Graph::createProfilingPool(uint32_t count,
             std::make_unique<GraphProfilingPool>(ctx,
                                                  profilingOutputSize,
                                                  count,
-                                                 &graphBlobRaw,
+                                                 &blob,
                                                  [this](auto *x) { profilingPools.erase(x); });
         auto [it, success] = profilingPools.emplace(profilingPool.get(), std::move(profilingPool));
         L0_THROW_WHEN(!success,
@@ -343,34 +343,46 @@ void Graph::initialize() {
                   ZE_RESULT_ERROR_INVALID_NULL_POINTER);
     L0_THROW_WHEN(desc.inputSize == 0, "Invalid size", ZE_RESULT_ERROR_INVALID_SIZE);
 
-    size_t graphSize = desc.inputSize;
-    if (desc.format == ZE_GRAPH_FORMAT_NGRAPH_LITE) {
-        DiskCache &cache = Driver::getInstance()->getDiskCache();
-        DiskCache::Key key;
+    DiskCache &cache = Driver::getInstance()->getDiskCache();
+    DiskCache::Key key;
+
+    switch (desc.format) {
+    case ZE_GRAPH_FORMAT_NATIVE:
+        LOG(GRAPH, "Format: ZE_GRAPH_FORMAT_NATIVE");
+        blob.ptr = (uint8_t *)desc.pInput;
+        blob.size = desc.inputSize;
+        break;
+    case ZE_GRAPH_FORMAT_NGRAPH_LITE:
+        LOG(GRAPH, "Format: ZE_GRAPH_FORMAT_NGRAPH_LITE");
+
         if (!(desc.flags & ZE_GRAPH_FLAG_DISABLE_CACHING)) {
             key = cache.computeKey(desc);
-            graphBlobRaw = cache.getBlob(key);
+            blobCached = cache.getBlob(key);
         }
 
-        if (graphBlobRaw.empty()) {
-            if (!Compiler::getCompiledBlob(ctx, graphSize, graphBlobRaw, desc, lastErrorMsg)) {
+        if (blobCached.empty()) {
+            if (!Compiler::getCompiledBlob(ctx, desc.inputSize, blobCached, desc, lastErrorMsg)) {
                 LOG_E("Failed to get compiled blob!");
                 throw DriverError(ZE_RESULT_ERROR_UNKNOWN);
             }
 
             if (!(desc.flags & ZE_GRAPH_FLAG_DISABLE_CACHING)) {
-                cache.setBlob(key, graphBlobRaw);
+                cache.setBlob(key, blobCached);
             }
         }
-    } else {
-        graphBlobRaw.resize(graphSize);
-        memcpy(graphBlobRaw.data(), desc.pInput, graphBlobRaw.size());
+
+        blob.ptr = blobCached.data();
+        blob.size = blobCached.size();
+        break;
+    default:
+        LOG_E("Graph desc (ze_graph_desc_2_t) format invalid.");
+        lastErrorMsg = "Graph desc (ze_graph_desc_2_t) format invalid.";
+        throw DriverError(ZE_RESULT_ERROR_INVALID_ARGUMENT);
     }
 
-    if (ElfParser::checkMagic(graphBlobRaw.data(), graphBlobRaw.size())) {
+    if (ElfParser::checkMagic(&blob)) {
         LOG(GRAPH, "Detected Elf format");
-        parser =
-            ElfParser::getElfParser(ctx, graphBlobRaw.data(), graphBlobRaw.size(), lastErrorMsg);
+        parser = ElfParser::getElfParser(ctx, &blob, lastErrorMsg);
     } else {
         LOG_E("Failed to recognize blob format");
         lastErrorMsg = "Failed to recognize native binary format";
@@ -395,7 +407,7 @@ void Graph::initialize() {
 }
 
 std::shared_ptr<VPU::VPUCommand> Graph::allocateGraphInitCommand(VPU::VPUDeviceContext *ctx) {
-    return parser->allocateInitCommand(ctx, graphBlobRaw.data(), graphBlobRaw.size());
+    return parser->allocateInitCommand(ctx);
 }
 
 std::unique_ptr<InferenceExecutor> Graph::getGraphExecutor(VPU::VPUDeviceContext *ctx,

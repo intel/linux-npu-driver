@@ -22,11 +22,9 @@ namespace VPU {
 VPUCommandBuffer::VPUCommandBuffer(VPUDeviceContext *ctx,
                                    VPUBufferObject *buffer,
                                    const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
-                                   const std::vector<std::shared_ptr<VPUCommand>>::iterator &end,
-                                   Target target)
+                                   const std::vector<std::shared_ptr<VPUCommand>>::iterator &end)
     : ctx(ctx)
     , buffer(buffer)
-    , targetEngine(target)
     , jobStatus(std::numeric_limits<uint32_t>::max())
     , priority(Priority::NORMAL)
     , commandsBegin(begin)
@@ -43,7 +41,6 @@ std::unique_ptr<VPUCommandBuffer> VPUCommandBuffer::allocateCommandBuffer(
     VPUDeviceContext *ctx,
     const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
     const std::vector<std::shared_ptr<VPUCommand>>::iterator &end,
-    VPUCommandBuffer::Target engineType,
     VPUEventCommand::KMDEventDataType **fenceWait) {
     if (ctx == nullptr || begin == end) {
         LOG_E("VPUDeviceContext is nullptr or command list is empty");
@@ -74,14 +71,13 @@ std::unique_ptr<VPUCommandBuffer> VPUCommandBuffer::allocateCommandBuffer(
     VPUBufferObject *buffer =
         ctx->createInternalBufferObject(cmdBufferSize, VPUBufferObject::Type::CachedFw);
     if (buffer == nullptr) {
-        LOG_E("Failed to allocate buffer object for command buffer for %s engine",
-              targetEngineToStr(engineType));
+        LOG_E("Failed to allocate buffer object for command buffer");
         return nullptr;
     }
 
-    auto cmdBuffer = std::make_unique<VPUCommandBuffer>(ctx, buffer, begin, end, engineType);
+    auto cmdBuffer = std::make_unique<VPUCommandBuffer>(ctx, buffer, begin, end);
     if (!cmdBuffer->initHeader(cmdSize)) {
-        LOG_E("Failed to initialize VPUCommandBuffer - %s", cmdBuffer->getName());
+        LOG_E("Failed to initialize VPUCommandBuffer");
         return nullptr;
     }
 
@@ -106,13 +102,6 @@ std::unique_ptr<VPUCommandBuffer> VPUCommandBuffer::allocateCommandBuffer(
         if (cmd->isSynchronizeCommand() && !cmdBuffer->setSyncFenceAddr(cmd.get())) {
             LOG_E("Failed to set synchronize fence vpu addresss");
             return nullptr;
-        }
-
-        if (cmd->isCopyTypeCommand()) {
-            if (!cmd->changeCopyCommandType(static_cast<uint32_t>(engineType))) {
-                LOG_E("Engine mismatch, can not append copy command to buffer");
-                return nullptr;
-            }
         }
 
         if (!cmdBuffer->addCommand(cmd.get(), cmdOffset, descOffset)) {
@@ -192,10 +181,9 @@ bool VPUCommandBuffer::addCommand(VPUCommand *cmd, uint64_t &cmdOffset, uint64_t
     }
 
     LOG(VPU_CMD,
-        "Attempting append a command %#x (size: %zu) to %s buffer",
+        "Attempting append a command %#x (size: %zu) to command buffer",
         cmd->getCommandType(),
-        cmd->getCommitSize(),
-        getName());
+        cmd->getCommitSize());
 
     if (cmdOffset >= descOffset) {
         LOG_E("Command override the descriptor");
@@ -217,10 +205,7 @@ bool VPUCommandBuffer::addCommand(VPUCommand *cmd, uint64_t &cmdOffset, uint64_t
         return false;
     }
 
-    LOG(VPU_CMD,
-        "Command appended to %s buffer: cmdOffset: %zu",
-        targetEngineToStr(targetEngine),
-        cmdOffset);
+    LOG(VPU_CMD, "Command appended to command buffer: cmdOffset: %zu", cmdOffset);
 
     cmdOffset += cmd->getCommitSize();
     descOffset += getFwDataCacheAlign(cmd->getDescriptorSize());
@@ -305,13 +290,12 @@ void VPUCommandBuffer::printCommandBuffer() const {
     uint8_t *bufferPtr = buffer->getBasePointer();
     vpu_cmd_buffer_header_t *cmdHeader = reinterpret_cast<vpu_cmd_buffer_header_t *>(bufferPtr);
     LOG(VPU_CMD,
-        "Start %s command buffer printing:\n"
+        "Start compute command buffer printing:\n"
         "\tCommand buffer ptr cpu = %p, vpu = %#lx\n"
         "\tSize = %u bytes, commands offset %u\n"
         "\tKernel heap addr = %#lx\n"
         "\tDescriptor heap addr = %#lx\n"
         "\tFence heap addr = %#lx",
-        targetEngineToStr(targetEngine),
         cmdHeader,
         buffer->getVPUAddr(),
         cmdHeader->cmd_buffer_size,
@@ -431,7 +415,7 @@ void VPUCommandBuffer::printCommandBuffer() const {
         cmdOffset += cmd->size;
         i++;
     }
-    LOG(VPU_CMD, "Stop %s command buffer printing", targetEngineToStr(targetEngine));
+    LOG(VPU_CMD, "Stop compute command buffer printing");
 }
 
 bool VPUCommandBuffer::replaceBufferHandles(std::vector<uint32_t> &oldHandles,

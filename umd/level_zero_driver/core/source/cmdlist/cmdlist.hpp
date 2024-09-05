@@ -37,17 +37,18 @@ namespace L0 {
 
 struct CommandList : _ze_command_list_handle_t, IContextObject {
     CommandList(Context *pContext, bool isCopyOnly, bool isMutable);
-    ~CommandList();
+    virtual ~CommandList();
 
-    ze_result_t destroy();
     bool isCopyOnly() const { return isCopyOnlyCmdList; };
 
     static ze_result_t create(ze_context_handle_t hContext,
                               ze_device_handle_t hDevice,
                               const ze_command_list_desc_t *desc,
                               ze_command_list_handle_t *phCommandList);
-
-    ze_result_t close();
+    virtual ze_result_t isImmediate(ze_bool_t *pIsImmediate);
+    virtual ze_result_t close();
+    virtual ze_result_t destroy();
+    virtual ze_result_t hostSynchronize(uint64_t timeout) { return ZE_RESULT_ERROR_UNINITIALIZED; }
     ze_result_t reset();
     ze_result_t appendBarrier(ze_event_handle_t hSignalEvent,
                               uint32_t numWaitEvents,
@@ -79,8 +80,8 @@ struct CommandList : _ze_command_list_handle_t, IContextObject {
                                    ze_event_handle_t hSignalEvent,
                                    uint32_t numWaitEvents,
                                    ze_event_handle_t *phWaitEvents);
-    ze_result_t appendSignalEvent(ze_event_handle_t hEvent);
-    ze_result_t appendWaitOnEvents(uint32_t numEvents, ze_event_handle_t *phEvent);
+    virtual ze_result_t appendSignalEvent(ze_event_handle_t hEvent);
+    virtual ze_result_t appendWaitOnEvents(uint32_t numEvents, ze_event_handle_t *phEvent);
     ze_result_t appendEventReset(ze_event_handle_t hEvent);
     ze_result_t appendMetricQueryBegin(zet_metric_query_handle_t hMetricQuery);
     ze_result_t appendMetricQueryEnd(zet_metric_query_handle_t hMetricQuery,
@@ -105,26 +106,18 @@ struct CommandList : _ze_command_list_handle_t, IContextObject {
     }
     std::shared_ptr<VPU::VPUJob> getJob() const { return vpuJob; }
 
-  private:
-    ze_result_t checkCommandAppendCondition();
+  protected:
+    virtual ze_result_t checkCommandAppendCondition();
+    virtual ze_result_t postAppend() { return ZE_RESULT_SUCCESS; }
     VPU::VPUEventCommand::KMDEventDataType *getEventSyncPointerFromHandle(ze_event_handle_t hEvent);
-
-    /**
-     * @brief Append given command to the command list with events.
-     *
-     * @param hSignalEvent [in]: Nullable, event to be signaled upon completion.
-     * @param numWaitEvents [in]: Number of wait on events.
-     * @param phWaitEvents [in]: Nullable, array of waiting on events.
-     * @param args[in]: Parameters for the command.
-     * @return ze_result_t ZE_RESULT_SUCCESS on successful appending.
-     */
+    template <typename Cmd, typename... Args>
+    ze_result_t appendCommand(Args... args);
     template <typename Cmd, typename... Args>
     ze_result_t appendCommandWithEvents(ze_event_handle_t hSignalEvent,
                                         uint32_t numWaitEvents,
                                         ze_event_handle_t *phWaitEvents,
                                         Args... args);
 
-  protected:
     Context *pContext = nullptr;
     bool isCopyOnlyCmdList = false;
     bool isMutable = false;
@@ -134,5 +127,4 @@ struct CommandList : _ze_command_list_handle_t, IContextObject {
     std::vector<std::unique_ptr<InferenceExecutor>> tracedInferences;
     std::unordered_map<uint64_t, uint64_t> commandIdMap;
 };
-
 } // namespace L0

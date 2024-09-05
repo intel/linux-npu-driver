@@ -35,7 +35,7 @@ CommandList::CommandList(Context *pContext, bool isCopyOnly, bool isMutable)
     , isCopyOnlyCmdList(isCopyOnly)
     , isMutable(isMutable)
     , ctx(pContext->getDeviceContext())
-    , vpuJob(std::make_shared<VPU::VPUJob>(ctx, isCopyOnly)) {}
+    , vpuJob(std::make_shared<VPU::VPUJob>(ctx)) {}
 
 CommandList::~CommandList() {
     for (auto &bo : tracedInternalBos)
@@ -89,6 +89,15 @@ ze_result_t CommandList::create(ze_context_handle_t hContext,
     return ZE_RESULT_SUCCESS;
 }
 
+ze_result_t CommandList::isImmediate(ze_bool_t *pIsImmediate) {
+    if (pIsImmediate == nullptr) {
+        LOG_E("Invalid data pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    *pIsImmediate = false;
+    return ZE_RESULT_SUCCESS;
+}
+
 ze_result_t CommandList::destroy() {
     pContext->removeObject(this);
     LOG(CMDLIST, "CommandList destroyed");
@@ -114,7 +123,7 @@ ze_result_t CommandList::reset() {
         ctx->freeMemAlloc(bo);
     tracedInternalBos.clear();
     tracedInferences.clear();
-    vpuJob = std::make_shared<VPU::VPUJob>(ctx, isCopyOnlyCmdList);
+    vpuJob = std::make_shared<VPU::VPUJob>(ctx);
 
     return ZE_RESULT_SUCCESS;
 }
@@ -128,6 +137,24 @@ ze_result_t CommandList::checkCommandAppendCondition() {
         LOG_W("CommandList has already been closed");
         return ZE_RESULT_ERROR_NOT_AVAILABLE;
     }
+
+    return ZE_RESULT_SUCCESS;
+}
+
+template <typename Cmd, typename... Args>
+ze_result_t CommandList::appendCommand(Args... args) {
+    auto cmd = Cmd::create(args...);
+    if (cmd == nullptr) {
+        LOG_E("Command is NULL / failed to be initialized!");
+        return ZE_RESULT_ERROR_UNINITIALIZED;
+    }
+
+    if (!vpuJob->appendCommand(cmd)) {
+        LOG_E("Command(%#x) failed to push to list!", cmd->getCommandType());
+        return ZE_RESULT_ERROR_UNKNOWN;
+    }
+
+    LOG(CMDLIST, "Successfully appended the command(%#x) to CommandList", cmd->getCommandType());
 
     return ZE_RESULT_SUCCESS;
 }
@@ -156,17 +183,9 @@ ze_result_t CommandList::appendCommandWithEvents(ze_event_handle_t hSignalEvent,
         }
     }
 
-    auto cmd = Cmd::create(args...);
-    if (cmd == nullptr) {
-        LOG_E("Command(%#x) is NULL / failed to be initialized!",
-              (cmd == nullptr) ? 0 : cmd->getCommandType());
-        return ZE_RESULT_ERROR_UNINITIALIZED;
-    }
-
-    if (!vpuJob->appendCommand(cmd)) {
-        LOG_E("Command(%#x) failed to push to list!", cmd->getCommandType());
-        return ZE_RESULT_ERROR_UNKNOWN;
-    }
+    result = appendCommand<Cmd>(args...);
+    if (result != ZE_RESULT_SUCCESS)
+        return result;
 
     if (hSignalEvent != nullptr) {
         result = appendSignalEvent(hSignalEvent);
@@ -179,14 +198,12 @@ ze_result_t CommandList::appendCommandWithEvents(ze_event_handle_t hSignalEvent,
     }
 
     LOG(CMDLIST,
-        "Successfully appended the command(%#x) to CommandList with hSignal(%p), %u wait "
-        "events(%p).",
-        cmd->getCommandType(),
+        "Successfully appended the command with hSignal(%p), %u wait events(%p).",
         hSignalEvent,
         numWaitEvents,
         phWaitEvents);
 
-    return ZE_RESULT_SUCCESS;
+    return postAppend();
 }
 
 ze_result_t CommandList::appendBarrier(ze_event_handle_t hSignalEvent,
@@ -239,6 +256,10 @@ ze_result_t CommandList::appendMemoryFill(void *ptr,
         return ZE_RESULT_ERROR_INVALID_SIZE;
     }
 
+    ze_result_t result = checkCommandAppendCondition();
+    if (result != ZE_RESULT_SUCCESS)
+        return result;
+
     auto patternBo =
         ctx->createInternalBufferObject(size + patternSize, VPU::VPUBufferObject::Type::CachedDma);
     if (patternBo == nullptr) {
@@ -251,8 +272,7 @@ ze_result_t CommandList::appendMemoryFill(void *ptr,
         LOG_E("Failed to fill memory");
         return ZE_RESULT_ERROR_INVALID_SIZE;
     }
-
-    // Implemet fill by memory copy from internal filled buffer to user buffer.
+    // Implement fill by memory copy from internal filled buffer to user buffer.
     return appendCommandWithEvents<VPU::VPUCopyCommand>(hSignalEvent,
                                                         numWaitEvents,
                                                         phWaitEvents,
@@ -280,12 +300,15 @@ ze_result_t CommandList::appendWriteGlobalTimestamp(uint64_t *dstptr,
 
     if (skipDmaCopy) {
         return appendCommandWithEvents<VPU::VPUTimeStampCommand>(
-            nullptr,
+            hSignalEvent,
             numWaitEvents,
             phWaitEvents,
             ctx,
             reinterpret_cast<uint64_t *>(dstBo->getBasePointer()));
     }
+    ze_result_t result = checkCommandAppendCondition();
+    if (result != ZE_RESULT_SUCCESS)
+        return result;
 
     auto allignedBo =
         ctx->createInternalBufferObject(sizeof(uint64_t), VPU::VPUBufferObject::Type::CachedFw);
@@ -296,25 +319,45 @@ ze_result_t CommandList::appendWriteGlobalTimestamp(uint64_t *dstptr,
     }
     tracedInternalBos.push_back(allignedBo);
 
-    ze_result_t ret;
-    ret = appendCommandWithEvents<VPU::VPUTimeStampCommand>(
-        nullptr,
-        numWaitEvents,
-        phWaitEvents,
-        ctx,
-        reinterpret_cast<uint64_t *>(allignedBo->getBasePointer()));
-    if (ret != ZE_RESULT_SUCCESS) {
-        LOG_E("Failed to append command");
-        return ret;
+    if (numWaitEvents > 0) {
+        if (phWaitEvents == nullptr) {
+            LOG_E("Invalid wait event input. phWaitEvents: %p, numWaitEvents: %u",
+                  phWaitEvents,
+                  numWaitEvents);
+            return ZE_RESULT_ERROR_INVALID_SIZE;
+        }
+
+        result = appendWaitOnEvents(numWaitEvents, phWaitEvents);
+        if (result != ZE_RESULT_SUCCESS) {
+            LOG_E("Failed to add %u wait on events.", numWaitEvents);
+            return result;
+        }
     }
 
-    return appendCommandWithEvents<VPU::VPUCopyCommand>(hSignalEvent,
-                                                        0,
-                                                        nullptr,
-                                                        ctx,
-                                                        allignedBo->getBasePointer(),
-                                                        dstptr,
-                                                        sizeof(uint64_t));
+    result = appendCommand<VPU::VPUTimeStampCommand>(
+        ctx,
+        reinterpret_cast<uint64_t *>(allignedBo->getBasePointer()));
+    if (result != ZE_RESULT_SUCCESS)
+        return result;
+
+    result = appendCommand<VPU::VPUCopyCommand>(ctx,
+                                                allignedBo->getBasePointer(),
+                                                dstptr,
+                                                sizeof(uint64_t));
+    if (result != ZE_RESULT_SUCCESS)
+        return result;
+
+    if (hSignalEvent != nullptr) {
+        result = appendSignalEvent(hSignalEvent);
+        if (result != ZE_RESULT_SUCCESS) {
+            LOG_E("Failed to append signal event command (handle: %p, error: %#x).",
+                  hSignalEvent,
+                  result);
+            return result;
+        }
+    }
+
+    return postAppend();
 }
 
 ze_result_t CommandList::appendGraphInitialize(ze_graph_handle_t hGraph,
@@ -368,7 +411,7 @@ ze_result_t CommandList::appendGraphInitialize(ze_graph_handle_t hGraph,
     }
 
     LOG(CMDLIST, "Successfully appended graph initialize command to CommandList");
-    return ZE_RESULT_SUCCESS;
+    return postAppend();
 }
 
 ze_result_t CommandList::appendGraphExecute(ze_graph_handle_t hGraph,
@@ -379,7 +422,6 @@ ze_result_t CommandList::appendGraphExecute(ze_graph_handle_t hGraph,
     ze_result_t result = checkCommandAppendCondition();
     if (result != ZE_RESULT_SUCCESS)
         return result;
-
     uint64_t newCommandId = getNumCommands();
 
     if (numWaitEvents > 0) {
@@ -454,7 +496,7 @@ ze_result_t CommandList::appendGraphExecute(ze_graph_handle_t hGraph,
 
     tracedInferences.push_back(std::move(inferenceExecutor));
     LOG(CMDLIST, "Successfully appended graph execute command to CommandList");
-    return ZE_RESULT_SUCCESS;
+    return postAppend();
 }
 
 ze_result_t CommandList::appendSignalEvent(ze_event_handle_t hEvent) {
@@ -474,20 +516,13 @@ ze_result_t CommandList::appendSignalEvent(ze_event_handle_t hEvent) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
 
-    auto cmd = VPU::VPUEventSignalCommand::create(ctx, evSyncPtr);
-    if (cmd == nullptr) {
-        LOG_E("Failed to initialize signal event Command");
-        return ZE_RESULT_ERROR_UNINITIALIZED;
-    }
-
-    if (!vpuJob->appendCommand(cmd)) {
-        LOG_E("Failed to push signal event command to list!");
-        return ZE_RESULT_ERROR_UNKNOWN;
-    }
+    result = appendCommand<VPU::VPUEventSignalCommand>(ctx, evSyncPtr);
+    if (result != ZE_RESULT_SUCCESS)
+        return result;
 
     event->associateJob(vpuJob);
     LOG(CMDLIST, "Successfully appended signal event command to CommandList");
-    return ZE_RESULT_SUCCESS;
+    return postAppend();
 }
 
 ze_result_t CommandList::appendWaitOnEvents(uint32_t numEvents, ze_event_handle_t *phEvent) {
@@ -514,20 +549,13 @@ ze_result_t CommandList::appendWaitOnEvents(uint32_t numEvents, ze_event_handle_
             return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
         }
 
-        auto cmd = VPU::VPUEventWaitCommand::create(ctx, evSyncPtr);
-        if (cmd == nullptr) {
-            LOG_E("Failed to initialize event wait Command");
-            return ZE_RESULT_ERROR_UNINITIALIZED;
-        }
-
-        if (!vpuJob->appendCommand(cmd)) {
-            LOG_E("Failed to push event wait command to list!");
-            return ZE_RESULT_ERROR_UNKNOWN;
-        }
+        result = appendCommand<VPU::VPUEventWaitCommand>(ctx, evSyncPtr);
+        if (result != ZE_RESULT_SUCCESS)
+            return result;
 
         LOG(CMDLIST, "Successfully appended event wait command to CommandList");
     }
-    return ZE_RESULT_SUCCESS;
+    return postAppend();
 }
 
 ze_result_t CommandList::appendEventReset(ze_event_handle_t hEvent) {
@@ -559,7 +587,7 @@ ze_result_t CommandList::appendEventReset(ze_event_handle_t hEvent) {
     }
 
     LOG(CMDLIST, "Successfully appended reset event command to CommandList");
-    return ZE_RESULT_SUCCESS;
+    return postAppend();
 }
 
 ze_result_t CommandList::appendMetricQueryBegin(zet_metric_query_handle_t hMetricQuery) {
@@ -594,7 +622,7 @@ ze_result_t CommandList::appendMetricQueryBegin(zet_metric_query_handle_t hMetri
     }
 
     LOG(CMDLIST, "Successfully appended metric query begin command to CommandList");
-    return ZE_RESULT_SUCCESS;
+    return postAppend();
 }
 
 ze_result_t CommandList::appendMetricQueryEnd(zet_metric_query_handle_t hMetricQuery,

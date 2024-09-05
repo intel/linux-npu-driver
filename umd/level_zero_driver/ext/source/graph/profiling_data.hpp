@@ -7,13 +7,15 @@
 
 #pragma once
 
-#include <stdint.h>
+#include <cstdint>
 
 #include <functional>
 #include <level_zero/ze_api.h>
 #include <level_zero/ze_graph_profiling_ext.h>
 #include <memory>
 #include <vector>
+
+struct BlobInfo; // IWYU pragma: keep
 
 namespace VPU {
 class VPUBufferObject;
@@ -27,7 +29,7 @@ namespace L0 {
 
 struct GraphProfilingQuery : _ze_graph_profiling_query_handle_t {
   public:
-    GraphProfilingQuery(std::vector<uint8_t> *graphBlobRaw,
+    GraphProfilingQuery(const struct BlobInfo *blob,
                         const uint32_t size,
                         void *queryPtrInput,
                         std::function<void()> &&destroyCb);
@@ -46,7 +48,7 @@ struct GraphProfilingQuery : _ze_graph_profiling_query_handle_t {
   private:
     uint32_t size = 0u;
     void *data = nullptr;
-    std::vector<uint8_t> *graphBlobRaw;
+    const struct BlobInfo *blob;
     std::function<void()> destroyCb;
 };
 
@@ -55,7 +57,7 @@ struct GraphProfilingPool : _ze_graph_profiling_pool_handle_t {
     GraphProfilingPool(VPU::VPUDeviceContext *ctx,
                        const uint32_t size,
                        const uint32_t count,
-                       std::vector<uint8_t> *graphBlobRaw,
+                       const struct BlobInfo *blob,
                        std::function<void(GraphProfilingPool *)> destroyCb);
     ~GraphProfilingPool();
 
@@ -72,7 +74,7 @@ struct GraphProfilingPool : _ze_graph_profiling_pool_handle_t {
     VPU::VPUDeviceContext *ctx = nullptr;
     uint32_t querySize = 0u;
     VPU::VPUBufferObject *poolBuffer = nullptr;
-    std::vector<uint8_t> *graphBlobRaw;
+    const struct BlobInfo *blob;
 
     std::vector<std::unique_ptr<GraphProfilingQuery>> queries;
     std::function<void(GraphProfilingPool *)> destroyCb;

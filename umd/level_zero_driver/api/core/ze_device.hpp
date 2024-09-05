@@ -118,15 +118,6 @@ ze_result_t zeDeviceCanAccessPeer(ze_device_handle_t hDevice,
     return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
 }
 
-ze_result_t zeDeviceSetLastLevelCacheConfig(ze_device_handle_t hDevice,
-                                            ze_cache_config_flags_t cacheConfig) {
-    if (hDevice == nullptr) {
-        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
-    }
-    L0_HANDLE_EXCEPTION_AND_RETURN(
-        L0::Device::fromHandle(hDevice)->setLastLevelCacheConfig(cacheConfig));
-}
-
 ze_result_t zeDeviceGetCommandQueueGroupProperties(
     ze_device_handle_t hDevice,
     uint32_t *pCount,
@@ -233,11 +224,6 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeDeviceCanAccessPeer(ze_device_handle_t hDe
                                                           ze_device_handle_t hPeerDevice,
                                                           ze_bool_t *value) {
     return L0::zeDeviceCanAccessPeer(hDevice, hPeerDevice, value);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeDeviceSetLastLevelCacheConfig(ze_device_handle_t hDevice, ze_cache_config_flags_t cacheConfig) {
-    return L0::zeDeviceSetLastLevelCacheConfig(hDevice, cacheConfig);
 }
 
 ZE_APIEXPORT ze_result_t ZE_APICALL zeDeviceGetCommandQueueGroupProperties(
