@@ -1,4 +1,4 @@
-# Copyright 2022-2023 Intel Corporation.
+# Copyright 2022-2024 Intel Corporation.
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -29,5 +29,5 @@ function(read_os_release ENTRY VAR_OUTPUT)
   set(${VAR_OUTPUT} ${OUTPUT} PARENT_SCOPE)
 endfunction()
 
-read_os_release(NAME LINUX_SYSTEM_NAME)
+read_os_release(ID LINUX_SYSTEM_NAME)
 read_os_release(VERSION_ID LINUX_SYSTEM_VERSION_ID)

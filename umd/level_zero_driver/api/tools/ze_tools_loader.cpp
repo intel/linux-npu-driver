@@ -5,12 +5,15 @@
  *
  */
 
+#include <cstddef>
+
 #include "level_zero/loader/ze_loader.h"
 #include "level_zero_driver/api/tools/zet_metric.hpp"
 
 #include <dlfcn.h>
 #include <level_zero/ze_api.h>
 #include <level_zero/zet_ddi.h>
+#include <string>
 
 #if defined(__cplusplus)
 extern "C" {

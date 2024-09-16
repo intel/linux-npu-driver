@@ -27,11 +27,11 @@ static thread_local std::string lastErrorMsg = {};
 GraphProfilingPool::GraphProfilingPool(VPU::VPUDeviceContext *ctx,
                                        const uint32_t size,
                                        const uint32_t count,
-                                       std::vector<uint8_t> *graphBlobRaw,
+                                       const struct BlobInfo *blob,
                                        std::function<void(GraphProfilingPool *)> destroyCb)
     : ctx(ctx)
     , querySize(size)
-    , graphBlobRaw(graphBlobRaw)
+    , blob(blob)
     , queries(count)
     , destroyCb(std::move(destroyCb)) {
     size_t poolSize = queries.size() * getFwDataCacheAlign(querySize);
@@ -47,13 +47,13 @@ GraphProfilingPool::~GraphProfilingPool() {
     }
 }
 
-GraphProfilingQuery::GraphProfilingQuery(std::vector<uint8_t> *graphBlobRaw,
+GraphProfilingQuery::GraphProfilingQuery(const struct BlobInfo *blob,
                                          const uint32_t size,
                                          void *pData,
                                          std::function<void()> &&destroyCb)
     : size(size)
     , data(pData)
-    , graphBlobRaw(graphBlobRaw)
+    , blob(blob)
     , destroyCb(std::move(destroyCb)) {}
 
 ze_result_t
@@ -76,7 +76,7 @@ GraphProfilingPool::createProfilingQuery(const uint32_t index,
 
     auto *dataPtr = poolBuffer->getBasePointer() + (index * getFwDataCacheAlign(querySize));
     queries[index] =
-        std::make_unique<GraphProfilingQuery>(graphBlobRaw, querySize, dataPtr, [this, index]() {
+        std::make_unique<GraphProfilingQuery>(blob, querySize, dataPtr, [this, index]() {
             queries[index].reset();
         });
     *phProfilingQuery = queries[index].get();
@@ -95,7 +95,7 @@ ze_result_t GraphProfilingQuery::getData(ze_graph_profiling_type_t profilingType
     if (profilingType == ZE_GRAPH_PROFILING_LAYER_LEVEL ||
         profilingType == ZE_GRAPH_PROFILING_TASK_LEVEL) {
         return Compiler::getDecodedProfilingBuffer(profilingType,
-                                                   graphBlobRaw,
+                                                   blob,
                                                    static_cast<uint8_t *>(data),
                                                    size,
                                                    pSize,

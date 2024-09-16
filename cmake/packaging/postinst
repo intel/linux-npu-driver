@@ -14,7 +14,7 @@
 
 set -e -o pipefail
 
-if lsmod | grep intel_vpu > /dev/null; then
+if lsmod | grep intel_vpu > /dev/null && [ -e "$(modinfo -n intel_vpu 2> /dev/null)" ]; then
     rmmod intel_vpu
     modprobe intel_vpu
 fi

@@ -24,7 +24,6 @@ class VPUDeviceContext;
 
 class VPUCommandBuffer {
   public:
-    enum class Target { COMPUTE = DRM_IVPU_ENGINE_COMPUTE, COPY = DRM_IVPU_ENGINE_COPY };
     enum class Priority : uint32_t {
         IDLE = DRM_IVPU_JOB_PRIORITY_IDLE,
         NORMAL = DRM_IVPU_JOB_PRIORITY_NORMAL,
@@ -32,21 +31,10 @@ class VPUCommandBuffer {
         REALTIME = DRM_IVPU_JOB_PRIORITY_REALTIME,
     };
 
-    static const char *targetEngineToStr(Target type) {
-        switch (type) {
-        case Target::COMPUTE:
-            return "COMPUTE";
-        case Target::COPY:
-            return "COPY";
-        }
-        return "UNKNOWN";
-    }
-
     VPUCommandBuffer(VPUDeviceContext *ctx,
                      VPUBufferObject *buffer,
                      const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
-                     const std::vector<std::shared_ptr<VPUCommand>>::iterator &end,
-                     Target type);
+                     const std::vector<std::shared_ptr<VPUCommand>>::iterator &end);
     ~VPUCommandBuffer();
 
     /**
@@ -60,7 +48,6 @@ class VPUCommandBuffer {
     allocateCommandBuffer(VPUDeviceContext *ctx,
                           const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
                           const std::vector<std::shared_ptr<VPUCommand>>::iterator &end,
-                          Target targetEngine,
                           VPUEventCommand::KMDEventDataType **fenceWait = nullptr);
 
     /**
@@ -79,16 +66,6 @@ class VPUCommandBuffer {
      * Return the vector of stored buffer handles
      */
     const std::vector<uint32_t> &getBufferHandles() const { return bufferHandles; };
-
-    /**
-     * Return the type of engine for what buffer is targeted
-     */
-    uint32_t getEngine() const { return static_cast<uint32_t>(targetEngine); }
-
-    /**
-     * Return the name of target engine
-     */
-    const char *getName() const { return targetEngineToStr(targetEngine); }
 
     /**
      * Print the content of command buffer
@@ -161,7 +138,6 @@ class VPUCommandBuffer {
   private:
     VPUDeviceContext *ctx;
     VPUBufferObject *buffer;
-    Target targetEngine;
     uint32_t jobStatus;
     Priority priority;
     std::vector<std::shared_ptr<VPUCommand>>::iterator commandsBegin;

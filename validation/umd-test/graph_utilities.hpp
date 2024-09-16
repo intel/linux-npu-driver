@@ -128,9 +128,6 @@ class Graph {
                 }
 
                 graph->classIndexes = node["class_index"].as<std::vector<uint16_t>>();
-
-                if (node["iterations"].IsDefined())
-                    graph->iterations = node["iterations"].as<uint32_t>();
             }
         } else {
             graph->format = GraphFormat::BLOB;
@@ -227,8 +224,8 @@ class Graph {
             Image image(images[0]);
             ASSERT_EQ(inputSize[0], image.getSizeInBytes());
             memcpy(inArgs[0], image.getPtr(), inputSize[0]);
-
         } else {
+            TRACE("No input file was provided: input will be filled with random values.\n");
             setRandomInput();
         }
     }
@@ -238,6 +235,12 @@ class Graph {
             for (uint32_t i = 0; i < inputSize.size(); i++) {
                 memcpy(target[i], inputBin[i].data(), inputBin[i].size());
             }
+        } else if (inputType == InputType::IMAGE) {
+            TRACE("Image: %s\n", images[0].c_str());
+
+            Image image(images[0]);
+            ASSERT_EQ(inputSize[0], image.getSizeInBytes());
+            memcpy(target[0], image.getPtr(), inputSize[0]);
         } else {
             std::vector<std::vector<char>> inputData;
             inputData.resize(inputSize.size());
@@ -312,14 +315,32 @@ class Graph {
     }
 
     void *allocMemory(size_t size, MemType memType) {
-        if (memType == DEVICE_MEMORY) {
-            mem.push_back(zeMemory::allocDevice(hContext, hDevice, size));
-        } else if (memType == HOST_MEMORY) {
-            mem.push_back(zeMemory::allocHost(hContext, size));
-        } else {
-            mem.push_back(zeMemory::allocShared(hContext, hDevice, size));
-        }
+        mem.push_back(allocManagedMemory(size, memType));
         return mem.back().get();
+    }
+
+    std::shared_ptr<void> allocManagedMemory(size_t size, MemType memType) {
+        if (memType == DEVICE_MEMORY) {
+            return zeMemory::allocDevice(hContext, hDevice, size);
+        } else if (memType == HOST_MEMORY) {
+            return zeMemory::allocHost(hContext, size);
+        } else {
+            return zeMemory::allocShared(hContext, hDevice, size);
+        }
+        return nullptr;
+    }
+
+    void *reallocArgument(size_t i, MemType memType) {
+        std::unique_ptr<uint8_t[]> tmp(new uint8_t[inputSize[i]]);
+        memcpy(tmp.get(), inArgs[i], inputSize[i]);
+
+        mem[i].reset();
+        mem[i] = allocManagedMemory(inputSize[i], memType);
+
+        inArgs[i] = mem[i].get();
+        memcpy(inArgs[i], tmp.get(), inputSize[i]);
+
+        return inArgs[i];
     }
 
     void deallocateAllArguments() { mem.clear(); }

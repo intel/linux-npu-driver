@@ -7,12 +7,9 @@
 
 #include "vpu_driver/source/command/vpu_copy_command.hpp"
 
-#include <cstdint>
-
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
-#include <uapi/drm/ivpu_accel.h>
 #include <utility>
 
 namespace VPU {
@@ -36,7 +33,7 @@ VPUCopyCommand::VPUCopyCommand(VPUDeviceContext *ctx,
                                void *dstPtr,
                                size_t size,
                                VPUDescriptor &descriptor)
-    : VPUCommand(EngineSupport::Backward) {
+    : VPUCommand() {
     vpu_cmd_copy_buffer_t cmd = {};
 
     cmd.header.type = VPU_CMD_COPY_LOCAL_TO_LOCAL;
@@ -52,24 +49,6 @@ VPUCopyCommand::VPUCopyCommand(VPUDeviceContext *ctx,
     appendAssociateBufferObject(ctx, dstPtr);
 
     LOG(VPU_CMD, "Copy Command successfully created!");
-}
-
-bool VPUCopyCommand::changeCopyCommandType(uint32_t engine_id) {
-    vpu_cmd_header_t *hdr = nullptr;
-
-    hdr = reinterpret_cast<vpu_cmd_header_t *>(std::any_cast<vpu_cmd_copy_buffer_t>(&command));
-    if (hdr == nullptr)
-        return false;
-
-    if (engine_id == DRM_IVPU_ENGINE_COMPUTE) {
-        hdr->type = VPU_CMD_COPY_LOCAL_TO_LOCAL;
-    } else if (engine_id == DRM_IVPU_ENGINE_COPY) {
-        hdr->type = VPU_CMD_COPY_SYSTEM_TO_SYSTEM;
-    } else {
-        LOG(VPU_CMD, "Unsupported engine conversion for copy command");
-        return false;
-    }
-    return true;
 }
 
 } // namespace VPU

@@ -87,8 +87,8 @@ class VPUDriverApi final {
     bool closeDevice();
     int doIoctl(unsigned long request, void *arg) const;
 
-    const static int32_t umdIoctlVersionMajor = DRM_IVPU_DRIVER_MAJOR;
-    const static int32_t umdIoctlVersionMinor = DRM_IVPU_DRIVER_MINOR;
+    const static int32_t umdIoctlVersionMajor = 1;
+    const static int32_t umdIoctlVersionMinor = 0;
     constexpr static char const *umdIoctlDeviceName1 = "intel_vpu";
     constexpr static char const *umdIoctlDeviceName2 = "intel_npu";
 

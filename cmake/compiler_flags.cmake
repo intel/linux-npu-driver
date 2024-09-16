@@ -25,7 +25,7 @@ add_compile_options(
   -fdebug-prefix-map=${CMAKE_SOURCE_DIR}=.
 )
 
-if(NOT ${LINUX_SYSTEM_NAME} STREQUAL "cros sdk")
+if(NOT ${LINUX_SYSTEM_NAME} STREQUAL "cros_sdk")
     add_compile_options(
       # Enable macro security features
       -D_FORTIFY_SOURCE=2

@@ -71,15 +71,6 @@ void Exec::JobTest(int engine, int jobs) {
     }
 }
 
-// Copy engine is ~10 faster than copute engine, use it for large number of jobs
-TEST_F(Exec, Jobs65_CopyEngine) {
-    JobTest(ENGINE_COPY, 65);
-}
-
-TEST_F(Exec, Jobs133_Slow_CopyEngine) {
-    JobTest(ENGINE_COPY, 133);
-}
-
 TEST_F(Exec, Jobs33_ComputeEngine) {
     JobTest(ENGINE_COMPUTE, 33);
 }
@@ -147,10 +138,6 @@ void Exec::JobSubmitWithoutWait(int engine) {
     ASSERT_EQ(*cmd_buf.ptr64(1024), FENCE_SIGNAL_VAL);
 }
 
-TEST_F(Exec, Job_SubmitWithoutWait_CopyEngine) {
-    JobSubmitWithoutWait(ENGINE_COPY);
-}
-
 TEST_F(Exec, Job_SubmitWithoutWait_ComputeEngine) {
     JobSubmitWithoutWait(ENGINE_COMPUTE);
 }
@@ -176,8 +163,4 @@ void Exec::JobPerf(int engine) {
 
 TEST_F(Exec, Perf_ComputeEngine) {
     JobPerf(ENGINE_COMPUTE);
-}
-
-TEST_F(Exec, Perf_CopyEngine) {
-    JobPerf(ENGINE_COPY);
 }

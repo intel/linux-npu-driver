@@ -28,12 +28,11 @@ VPUQueryEndCommand::create(VPUDeviceContext *ctx, uint32_t groupMask, void *data
 }
 
 VPUQueryCommand::VPUQueryCommand(VPUDeviceContext *ctx,
-                                 EngineSupport engType,
                                  vpu_cmd_type cmdType,
                                  uint32_t groupMask,
                                  void *dataAddress,
                                  uint64_t metricDataAddress)
-    : VPUCommand(engType) {
+    : VPUCommand() {
     // dataAddress       - table address containing pointers to buffers storing metric data
     // metricDataAddress - VPU address of the table containing pointers to buffers storing metric
     //                     data

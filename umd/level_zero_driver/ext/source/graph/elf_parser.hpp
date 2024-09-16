@@ -8,7 +8,6 @@
 #pragma once
 
 #include <cstdint>
-#include <stddef.h>
 
 #include "level_zero/ze_graph_ext.h"
 #include "level_zero_driver/ext/source/graph/interface_parser.hpp"
@@ -40,9 +39,9 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
               std::unique_ptr<elf::AccessManager> access,
               std::shared_ptr<elf::HostParsedInference> loader);
 
-    static bool checkMagic(uint8_t *ptr, size_t size);
+    static bool checkMagic(const struct BlobInfo *blob);
     static std::unique_ptr<ElfParser>
-    getElfParser(VPU::VPUDeviceContext *ctx, uint8_t *ptr, size_t size, std::string &logBuffer);
+    getElfParser(VPU::VPUDeviceContext *ctx, const struct BlobInfo *blob, std::string &logBuffer);
     static elf::VersionsProvider getElfVer(int arch);
 
     bool getArgumentProperties(std::vector<ze_graph_argument_properties_3_t> &props) const;
@@ -59,9 +58,7 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
                       std::vector<ze_graph_argument_metadata_t> &argumentMetadata,
                       uint32_t &profilingOutputSize) override;
 
-    std::shared_ptr<VPU::VPUCommand> allocateInitCommand(VPU::VPUDeviceContext *ctx,
-                                                         uint8_t *graphBlobRawData,
-                                                         size_t graphBlobRawSize) override;
+    std::shared_ptr<VPU::VPUCommand> allocateInitCommand(VPU::VPUDeviceContext *ctx) override;
 
     std::shared_ptr<VPU::VPUCommand>
     allocateExecuteCommand(VPU::VPUDeviceContext *ctx,

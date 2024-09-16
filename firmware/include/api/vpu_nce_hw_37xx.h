@@ -3,8 +3,6 @@
  * Copyright (c) 2022-2023, Intel Corporation.
  */
 
-// clang-format off
-
 #ifndef VPU_NCE_HW_37XX_H
 #define VPU_NCE_HW_37XX_H
 
@@ -424,6 +422,7 @@ static_assert(sizeof(VpuDPUVariantRegisters) == 44, "VpuDPUVariantRegisters size
 
 // base resources
 constexpr uint32_t VPU_MAX_TILES = 2;
+constexpr uint32_t VPU_BARRIERS_PER_GROUP = 32;
 constexpr uint32_t VPU_DPU_PER_TILE = 1;
 constexpr uint32_t VPU_SNN_PER_TILE = VPU_DPU_PER_TILE;
 constexpr uint32_t VPU_SNN_TOTAL = VPU_SNN_PER_TILE * VPU_MAX_TILES;
@@ -518,5 +517,3 @@ enum VpuMPEGrid { MPE_GRID_4x4, MPE_GRID_16x1 };
 } // namespace nn_public
 
 #endif
-
-// clang-format on

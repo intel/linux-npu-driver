@@ -17,7 +17,6 @@
 #include <memory>
 #include <string>
 #include <sys/types.h>
-#include <uapi/drm/ivpu_accel.h>
 
 namespace VPU {
 class MockOsInterfaceImp : public OsInterface {
@@ -42,8 +41,8 @@ class MockOsInterfaceImp : public OsInterface {
     uint64_t deviceAddress = deviceLowBaseAddress;
     uint64_t unique_id = 0;
 
-    int32_t kmdApiVersionMajor = DRM_IVPU_DRIVER_MAJOR;
-    int32_t kmdApiVersionMinor = DRM_IVPU_DRIVER_MINOR;
+    int32_t kmdApiVersionMajor = 1;
+    int32_t kmdApiVersionMinor = 0;
     std::string kmdApiDeviceName = "intel_vpu";
 
     int kmdIoctlRetCode = 0;

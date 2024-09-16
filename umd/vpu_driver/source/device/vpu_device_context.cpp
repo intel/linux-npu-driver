@@ -195,12 +195,13 @@ bool VPUDeviceContext::submitCommandBuffer(const VPUCommandBuffer *cmdBuffer) {
     drm_ivpu_submit execParam = {};
     execParam.buffers_ptr = reinterpret_cast<uint64_t>(cmdBuffer->getBufferHandles().data());
     execParam.buffer_count = safe_cast<uint32_t>(cmdBuffer->getBufferHandles().size());
-    execParam.engine = cmdBuffer->getEngine();
+    execParam.engine = DRM_IVPU_ENGINE_COMPUTE;
     execParam.priority = static_cast<uint32_t>(cmdBuffer->getPriority());
 
-    LOG(DEVICE, "Submit cmdBuffer: %p, name: %s.", cmdBuffer, cmdBuffer->getName());
     LOG(DEVICE,
-        "Submit params -> engine: %u, flags: %u, offset: %u, count: %u, ptr: %#llx, prior: %u",
+        "Submit VPUCommandBuffer: %p, params -> engine: %u, flags: %u, offset: %u, count: %u, ptr: "
+        "%#llx, prior: %u",
+        cmdBuffer,
         execParam.engine,
         execParam.flags,
         execParam.commands_offset,
@@ -217,7 +218,7 @@ bool VPUDeviceContext::submitCommandBuffer(const VPUCommandBuffer *cmdBuffer) {
          * to match with TDR timeout.
          */
         if (errno != EBUSY) {
-            LOG_E("Failed to submit %s command buffer: %p", cmdBuffer->getName(), cmdBuffer);
+            LOG_E("Failed to submit command buffer: %p", cmdBuffer);
             return false;
         }
 

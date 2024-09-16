@@ -247,7 +247,7 @@ std::string Compiler::getCompilerVersionString() {
 }
 
 ze_result_t Compiler::getDecodedProfilingBuffer(ze_graph_profiling_type_t profilingType,
-                                                const std::vector<uint8_t> *blobRaw,
+                                                const struct BlobInfo *blob,
                                                 const uint8_t *profData,
                                                 uint64_t profSize,
                                                 uint32_t *pSize,
@@ -257,8 +257,8 @@ ze_result_t Compiler::getDecodedProfilingBuffer(ze_graph_profiling_type_t profil
         return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
 
     vcl_profiling_handle_t profHandle = NULL;
-    vcl_profiling_input_t profilingApiInput = {.blobData = blobRaw->data(),
-                                               .blobSize = blobRaw->size(),
+    vcl_profiling_input_t profilingApiInput = {.blobData = blob->ptr,
+                                               .blobSize = blob->size,
                                                .profData = profData,
                                                .profSize = profSize};
     vcl_log_handle_t logHandle = NULL;

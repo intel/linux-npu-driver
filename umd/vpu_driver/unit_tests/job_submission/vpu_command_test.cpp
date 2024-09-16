@@ -46,7 +46,6 @@ TEST_F(VPUCommandTest, timestampCommandShouldReturnExpectedProperties) {
     VPUTimeStampCommand tsCmd(ctx, static_cast<uint64_t *>(mem));
     EXPECT_EQ(VPU_CMD_TIMESTAMP, tsCmd.getCommandType());
     EXPECT_EQ(sizeof(vpu_cmd_timestamp_t), tsCmd.getCommitSize());
-    EXPECT_TRUE(tsCmd.isForwardCommand());
 
     // Compare associated pointers
     VPUBufferObject *bo = ctx->findBuffer(mem);
@@ -77,7 +76,6 @@ TEST_F(VPUCommandTest, copyCommandShouldReturnExpectedProperties) {
 
     EXPECT_EQ(VPU_CMD_COPY_LOCAL_TO_LOCAL, copyCmd->getCommandType());
     EXPECT_EQ(sizeof(vpu_cmd_copy_buffer_t), copyCmd->getCommitSize());
-    EXPECT_TRUE(copyCmd->isBackwardCommand());
 
     // Compare buffer handle
     auto copyCmdAssocVec = copyCmd->getAssociateBufferObjects();
@@ -106,7 +104,6 @@ TEST_F(VPUCommandTest, barrierCommandShouldReturnExpectedProperties) {
 
     EXPECT_EQ(VPU_CMD_BARRIER, barrierCmd->getCommandType());
     EXPECT_EQ(sizeof(vpu_cmd_barrier_t), barrierCmd->getCommitSize());
-    EXPECT_TRUE(barrierCmd->isBackwardCommand());
 
     // Compare command stream return value in byte wise.
     vpu_cmd_barrier_t expKMDBarrierCmd{{VPU_CMD_BARRIER, sizeof(vpu_cmd_barrier_t)}, 0};
@@ -123,7 +120,6 @@ TEST_F(VPUCommandTest, queryBeginShouldReturnExpectedProperties) {
     ASSERT_NE(queryBeginCmd, nullptr);
     EXPECT_EQ(VPU_CMD_METRIC_QUERY_BEGIN, queryBeginCmd->getCommandType());
     EXPECT_EQ(sizeof(vpu_cmd_metric_query_t), queryBeginCmd->getCommitSize());
-    EXPECT_TRUE(queryBeginCmd->isForwardCommand());
 
     // Compare command stream return value in byte wise.
     vpu_cmd_metric_query_t expKMDQBeginCmd{
@@ -144,7 +140,6 @@ TEST_F(VPUCommandTest, queryEndShouldReturnExpectedProperties) {
 
     EXPECT_EQ(VPU_CMD_METRIC_QUERY_END, queryEndCmd->getCommandType());
     EXPECT_EQ(sizeof(vpu_cmd_metric_query_t), queryEndCmd->getCommitSize());
-    EXPECT_TRUE(queryEndCmd->isBackwardCommand());
 
     // Compare command stream return value in byte wise.
     vpu_cmd_metric_query_t expKMDQEndCmd{{VPU_CMD_METRIC_QUERY_END, sizeof(vpu_cmd_metric_query_t)},
@@ -188,7 +183,6 @@ TEST_F(VPUEventCommandTest, eventWaitCommandsShouldReturnExpectedProperties) {
     // Check expected command contents.
     EXPECT_EQ(VPU_CMD_FENCE_WAIT, waitCmd->getCommandType());
     EXPECT_EQ(sizeof(vpu_cmd_fence_t), waitCmd->getCommitSize());
-    EXPECT_TRUE(waitCmd->isForwardCommand());
 
     const vpu_cmd_fence_t *actual =
         reinterpret_cast<const vpu_cmd_fence_t *>(waitCmd->getCommitStream());
@@ -244,7 +238,6 @@ TEST_F(VPUEventCommandTest, eventResetCommandsShouldReturnExpectedProperties) {
     // Check expected command contents.
     EXPECT_EQ(VPU_CMD_FENCE_SIGNAL, resetCmd->getCommandType());
     EXPECT_EQ(sizeof(vpu_cmd_fence_t), resetCmd->getCommitSize());
-    EXPECT_TRUE(resetCmd->isBackwardCommand());
 
     // Compare command stream return value in byte wise.
     vpu_cmd_fence_t expKMDResetCmd = {};

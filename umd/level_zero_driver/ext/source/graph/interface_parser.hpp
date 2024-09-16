@@ -23,9 +23,7 @@ class IParser {
     virtual ze_result_t parse(std::vector<ze_graph_argument_properties_3_t> &props,
                               std::vector<ze_graph_argument_metadata_t> &args,
                               uint32_t &size) = 0;
-    virtual std::shared_ptr<VPU::VPUCommand> allocateInitCommand(VPU::VPUDeviceContext *ctx,
-                                                                 uint8_t *graphBlobRawData,
-                                                                 size_t graphBlobRawSize) = 0;
+    virtual std::shared_ptr<VPU::VPUCommand> allocateInitCommand(VPU::VPUDeviceContext *ctx) = 0;
     virtual std::shared_ptr<VPU::VPUCommand>
     allocateExecuteCommand(VPU::VPUDeviceContext *ctx,
                            const std::vector<std::pair<const void *, uint32_t>> &inputArgs,

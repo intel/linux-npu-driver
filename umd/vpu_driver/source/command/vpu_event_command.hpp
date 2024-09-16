@@ -38,13 +38,13 @@ class VPUEventCommand : public VPUCommand {
     static_assert(sizeof(JsmEventData) % 64 == 0, "JsmEventData is misaligned");
 
     static std::shared_ptr<VPUEventCommand> create(VPUDeviceContext *ctx,
-                                                   const EngineSupport engType,
+                                                   const ScheduleType sType,
                                                    const vpu_cmd_type cmdType,
                                                    KMDEventDataType *eventHeapPtr,
                                                    const KMDEventDataType eventState);
 
     VPUEventCommand(VPUDeviceContext *ctx,
-                    const EngineSupport engType,
+                    const ScheduleType sType,
                     const vpu_cmd_type cmdType,
                     KMDEventDataType *eventHeapPtr,
                     const KMDEventDataType eventState);
@@ -63,7 +63,7 @@ class VPUEventResetCommand : public VPUEventCommand {
     static std::shared_ptr<VPUEventCommand> create(VPUDeviceContext *ctx,
                                                    KMDEventDataType *eventHeapPtr) {
         return VPUEventCommand::create(ctx,
-                                       EngineSupport::Backward,
+                                       ScheduleType::Generic,
                                        VPU_CMD_FENCE_SIGNAL,
                                        eventHeapPtr,
                                        VPUEventCommand::STATE_DEVICE_RESET);
@@ -75,7 +75,7 @@ class VPUEventSignalCommand : public VPUEventCommand {
     static std::shared_ptr<VPUEventCommand> create(VPUDeviceContext *ctx,
                                                    KMDEventDataType *eventHeapPtr) {
         return VPUEventCommand::create(ctx,
-                                       EngineSupport::Synchronize,
+                                       ScheduleType::Synchronize,
                                        VPU_CMD_FENCE_SIGNAL,
                                        eventHeapPtr,
                                        VPUEventCommand::STATE_DEVICE_SIGNAL);
@@ -87,7 +87,7 @@ class VPUEventWaitCommand : public VPUEventCommand {
     static std::shared_ptr<VPUEventCommand> create(VPUDeviceContext *ctx,
                                                    KMDEventDataType *eventHeapPtr) {
         return VPUEventCommand::create(ctx,
-                                       EngineSupport::Forward,
+                                       ScheduleType::Generic,
                                        VPU_CMD_FENCE_WAIT,
                                        eventHeapPtr,
                                        VPUEventCommand::STATE_WAIT);

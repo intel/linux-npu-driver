@@ -15,7 +15,7 @@ namespace VPU {
 class VPUBufferObject;
 
 std::shared_ptr<VPUEventCommand> VPUEventCommand::create(VPUDeviceContext *ctx,
-                                                         const EngineSupport engType,
+                                                         const ScheduleType sType,
                                                          const vpu_cmd_type cmdType,
                                                          KMDEventDataType *eventHeapPtr,
                                                          const KMDEventDataType eventState) {
@@ -37,15 +37,15 @@ std::shared_ptr<VPUEventCommand> VPUEventCommand::create(VPUDeviceContext *ctx,
     }
 
     LOG(VPU_CMD, "%s event ptr: %p", getEventCommandStr(cmdType, eventState), eventHeapPtr);
-    return std::make_shared<VPUEventCommand>(ctx, engType, cmdType, eventHeapPtr, eventState);
+    return std::make_shared<VPUEventCommand>(ctx, sType, cmdType, eventHeapPtr, eventState);
 }
 
 VPUEventCommand::VPUEventCommand(VPUDeviceContext *ctx,
-                                 const EngineSupport engType,
+                                 const ScheduleType schType,
                                  const vpu_cmd_type cmdType,
                                  KMDEventDataType *eventHeapPtr,
                                  const KMDEventDataType eventState)
-    : VPUCommand(engType) {
+    : VPUCommand(schType) {
     vpu_cmd_fence_t cmd = {};
 
     cmd.header.type = cmdType;

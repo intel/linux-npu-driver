@@ -25,6 +25,7 @@ namespace test_app {
 
 bool g_list_tests = false;
 pid_t g_parent_pid;
+bool max_timeout = false;
 bool verbose_logs = false;
 bool run_skipped_tests;
 unsigned pause_after_test_ms;
@@ -281,6 +282,10 @@ bool is_vpu40xx(uint16_t pci_id) {
 
 bool is_vpu(uint16_t pci_id) {
     return is_vpu37xx(pci_id) || is_vpu40xx(pci_id);
+}
+
+bool has_root_access() {
+    return geteuid() == 0;
 }
 
 } // namespace test_app

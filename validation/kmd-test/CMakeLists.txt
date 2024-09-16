@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 #
 
-project(vpu-kmd-test VERSION 0.1)
+project(npu-kmd-test VERSION 0.1)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

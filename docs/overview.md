@@ -15,7 +15,7 @@ SPDX-License-Identifier: MIT
      │ User Mode Driver tests              │   │ OpenVINO + NPU plugin                  │    
      │                                     │   │                                        │    
      │         intel-validation-npu        │   │            openvino_toolkit            │    
-     │            (vpu-umd-test)           │   │                                        │    
+     │            (npu-umd-test)           │   │                                        │
      │                                     │   │                                        │    
      └──────────────────▲──────────────────┘   └────────────────────▲───────────────────┘    
                         ╚════════════════════╦══════════════════════╝                        
@@ -85,10 +85,10 @@ used compiled models are removed to save the filesystem space.
 </details>
 
 <details>
-<summary>Kernel module functional tests - vpu-kmd-test (from v1.5.0)</summary>
+<summary>Kernel module functional tests - npu-kmd-test (from v1.5.0)</summary>
 
-Introduced `vpu-kmd-test` in v1.5.0 release that can be used for `intel_vpu`
-module validation. `vpu-kmd-test` is built together with the driver and can be
+Introduced `npu-kmd-test` in v1.5.0 release that can be used for `intel_vpu`
+module validation. `npu-kmd-test` is built together with the driver and can be
 found in `<build-dir>/bin`
 
 </details>
@@ -218,13 +218,13 @@ The compiler binary `libnpu_driver_compiler.so` can be found in `build/lib/`.
 
 ## Driver test application
 
-The `validation/umd-test` directory contains `vpu-umd-test` functional tests for driver.
-The binary `vpu-umd-test` is located in the build folder, ex. `build/bin/`.
+The `validation/umd-test` directory contains `npu-umd-test` functional tests for driver.
+The binary `npu-umd-test` is located in the build folder, ex. `build/bin/`.
 
 Command line to run functional tests (after driver installation):
 
 ```
-vpu-umd-test
+npu-umd-test
 ```
 
 It is expected that `Umd.ConfigurationCheck` test fails when `--config` option
@@ -240,7 +240,7 @@ curl -o models/add_abc/add_abc.xml https://raw.githubusercontent.com/openvinotoo
 touch models/add_abc/add_abc.bin
 
 # Run tests with add_abc.xml
-vpu-umd-test --config=validation/umd-test/configs/basic.yaml
+npu-umd-test --config=validation/umd-test/configs/basic.yaml
 ```
 
 More information about config can be found in [validation/umd-test/configs](/validation/umd-test/configs).

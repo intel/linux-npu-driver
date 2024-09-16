@@ -12,15 +12,14 @@
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <iterator>
-#include <optional>
 #include <uapi/drm/ivpu_accel.h>
+#include <utility>
 
 namespace VPU {
 class VPUDeviceContext;
 
-VPUJob::VPUJob(VPUDeviceContext *ctx, bool isCopyOnly)
-    : ctx(ctx)
-    , isCopyOnly(isCopyOnly) {}
+VPUJob::VPUJob(VPUDeviceContext *ctx)
+    : ctx(ctx) {}
 
 bool VPUJob::closeCommands() {
     if (ctx == nullptr) {
@@ -45,7 +44,7 @@ bool VPUJob::closeCommands() {
     }
 
     if (cmdBuffers.size()) {
-        LOG_E("Failed to close the VPUJob because of dirty state");
+        LOG_E("Failed to close the job because of dirty state");
         return false;
     }
 
@@ -53,19 +52,19 @@ bool VPUJob::closeCommands() {
 
     VPUEventCommand::KMDEventDataType *lastEvent = nullptr;
     for (auto it = commands.begin(); it != commands.end();) {
-        auto [next, target] = scheduleCommands(it);
+        auto next = scheduleCommands(it);
 
         long jump = std::distance(it, next);
-        LOG(VPU_JOB, "Passing %lu commands for target %u", jump, static_cast<uint32_t>(target));
+        LOG(VPU_JOB, "Passing %lu commands to command buffer", jump);
 
         if (safe_cast<size_t>(jump) == commands.size()) {
-            if (!createCommandBuffer(commands.begin(), commands.end(), target, nullptr)) {
-                LOG_E("Failed to initialize VPUCommandBuffer");
+            if (!createCommandBuffer(commands.begin(), commands.end(), nullptr)) {
+                LOG_E("Failed to initialize command buffer");
                 return false;
             }
         } else {
-            if (!createCommandBuffer(it, next, target, &lastEvent)) {
-                LOG_E("Failed to initialize VPUCommandBuffer");
+            if (!createCommandBuffer(it, next, &lastEvent)) {
+                LOG_E("Failed to initialize command buffer");
                 return false;
             }
         }
@@ -79,9 +78,8 @@ bool VPUJob::closeCommands() {
 
 bool VPUJob::createCommandBuffer(const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
                                  const std::vector<std::shared_ptr<VPUCommand>>::iterator &end,
-                                 VPUCommandBuffer::Target cmdType,
                                  VPUEventCommand::KMDEventDataType **lastEvent) {
-    auto cmdBuffer = VPUCommandBuffer::allocateCommandBuffer(ctx, begin, end, cmdType, lastEvent);
+    auto cmdBuffer = VPUCommandBuffer::allocateCommandBuffer(ctx, begin, end, lastEvent);
     if (cmdBuffer == nullptr) {
         LOG_E("Failed to allocate VPUCommandBuffer");
         return false;
@@ -120,12 +118,10 @@ void VPUJob::printResult() const {
     for (const auto &cmdBuffer : cmdBuffers) {
         if (cmdBuffer->getResult() == DRM_IVPU_JOB_STATUS_SUCCESS) {
             LOG(VPU_JOB,
-                "%s Command Buffer (%p): execution is completed with success",
-                cmdBuffer->getName(),
+                "Compute command buffer (%p): execution is completed with success",
                 cmdBuffer.get());
         } else {
-            LOG_E("%s Command Buffer (%p): execution failed with status %#lx",
-                  cmdBuffer->getName(),
+            LOG_E("Compute command buffer (%p): execution failed with status %#lx",
                   cmdBuffer.get(),
                   cmdBuffer->getResult());
         }
@@ -148,63 +144,23 @@ bool VPUJob::appendCommand(std::shared_ptr<VPUCommand> cmd) {
         return true;
     }
 
-    if (cmd->isComputeCommand() && isCopyOnly) {
-        LOG_E("Command(%#x) is of compute type and cannot be appended to copy-only list!",
-              cmd->getCommandType());
-        return false;
-    }
-
     commands.push_back(cmd);
     return true;
 }
 
-std::pair<std::vector<std::shared_ptr<VPUCommand>>::iterator, VPUCommandBuffer::Target>
+std::vector<std::shared_ptr<VPUCommand>>::iterator
 VPUJob::scheduleCommands(std::vector<std::shared_ptr<VPUCommand>>::iterator begin) {
-    std::optional<VPUCommandBuffer::Target> target;
-
     auto it = begin;
     for (; it != commands.end(); it++) {
         const auto &cmd = *it;
 
-        if (cmd->isForwardCommand()) {
-            if (target.has_value() && it + 1 != commands.end()) {
-                const auto &nextCmd = *(it + 1);
-                if ((nextCmd->isCopyCommand() && target != VPUCommandBuffer::Target::COPY) ||
-                    (nextCmd->isComputeCommand() && target != VPUCommandBuffer::Target::COMPUTE)) {
-                    break;
-                }
-            }
-        } else if (cmd->isComputeCommand()) {
-            if (target.has_value()) {
-                if (target != VPUCommandBuffer::Target::COMPUTE) {
-                    break;
-                }
-            } else {
-                target = VPUCommandBuffer::Target::COMPUTE;
-            }
-        } else if (cmd->isCopyCommand()) {
-            if (target.has_value()) {
-                if (target != VPUCommandBuffer::Target::COPY) {
-                    break;
-                }
-            } else {
-                target = VPUCommandBuffer::Target::COPY;
-            }
-        } else if (cmd->isSynchronizeCommand()) {
+        if (cmd->isSynchronizeCommand()) {
             it++;
             break;
         }
     }
 
-    if (!target.has_value()) {
-        if (isCopyOnly) {
-            target = VPUCommandBuffer::Target::COPY;
-        } else {
-            target = VPUCommandBuffer::Target::COMPUTE;
-        }
-    }
-
-    return {it, *target};
+    return it;
 }
 
 } // namespace VPU

@@ -21,7 +21,6 @@
 #include <memory>
 #include <set>
 #include <string>
-#include <uapi/drm/ivpu_accel.h>
 #include <vector>
 
 using namespace VPU;
@@ -44,12 +43,12 @@ struct VPUJobTest : public ::testing::Test {
 };
 
 TEST_F(VPUJobTest, closeCommandsOnJobWithoutCommandsReturnTrue) {
-    auto job = std::make_unique<VPUJob>(ctx, false);
+    auto job = std::make_unique<VPUJob>(ctx);
     EXPECT_TRUE(job->closeCommands());
 }
 
 TEST_F(VPUJobTest, afterCloseCommandsCallAppendCommandReturnFalse) {
-    auto job = std::make_unique<VPUJob>(ctx, false);
+    auto job = std::make_unique<VPUJob>(ctx);
     EXPECT_TRUE(job->closeCommands());
 
     void *mem = ctx->createSharedMemAlloc(sizeof(uint64_t));
@@ -60,7 +59,7 @@ TEST_F(VPUJobTest, afterCloseCommandsCallAppendCommandReturnFalse) {
 }
 
 TEST_F(VPUJobTest, createJobWithTimestampAndDoNotCloseItExpectNoCommandBuffers) {
-    auto job = std::make_unique<VPUJob>(ctx, false);
+    auto job = std::make_unique<VPUJob>(ctx);
 
     void *mem = ctx->createSharedMemAlloc(sizeof(uint64_t));
     uint64_t *tsHeap = reinterpret_cast<uint64_t *>(mem);
@@ -72,43 +71,19 @@ TEST_F(VPUJobTest, createJobWithTimestampAndDoNotCloseItExpectNoCommandBuffers) 
     EXPECT_TRUE(ctx->freeMemAlloc(mem));
 }
 
-TEST_F(VPUJobTest,
-       createJobWithOnlyCopyFlagAndTimestampCommandsAndDoNotCloseItExpectNoCommandBuffers) {
-    auto job = std::make_unique<VPUJob>(ctx, true);
-
-    void *mem = ctx->createSharedMemAlloc(sizeof(uint64_t));
-    uint64_t *tsHeap = reinterpret_cast<uint64_t *>(mem);
-
-    EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx, tsHeap)));
-    EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx, tsHeap)));
-    EXPECT_EQ(0u, job->getCommandBuffers().size());
-
-    EXPECT_TRUE(ctx->freeMemAlloc(mem));
-}
-
-TEST_F(VPUJobTest, createJobWithOnlyCopyFlagAndComputeCommandExpectAppendCommandSuccess) {
-    auto job = std::make_unique<VPUJob>(ctx, true);
-
-    void *mem = ctx->createSharedMemAlloc(sizeof(uint64_t));
-    EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx, mem, mem, sizeof(uint64_t))));
-
-    EXPECT_TRUE(ctx->freeMemAlloc(mem));
-}
-
-TEST_F(VPUJobTest, createJobWithTimestampCommandsForComputeEngine) {
+TEST_F(VPUJobTest, createJobWithTimestampCommands) {
     const int cmdCount = 4;
 
     void *mem = ctx->createSharedMemAlloc(sizeof(uint64_t) * cmdCount);
     uint64_t *tsHeap = reinterpret_cast<uint64_t *>(mem);
 
-    auto job = std::make_unique<VPUJob>(ctx, false);
+    auto job = std::make_unique<VPUJob>(ctx);
     for (int i = 0; i < cmdCount; i++)
         EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx, tsHeap++)));
     EXPECT_TRUE(job->closeCommands());
 
     EXPECT_EQ(1u, job->getCommandBuffers().size());
     for (const auto &cmdBuffer : job->getCommandBuffers()) {
-        EXPECT_EQ(DRM_IVPU_ENGINE_COMPUTE, cmdBuffer->getEngine());
         EXPECT_EQ(getExpBufferCount(cmdBuffer->getBufferHandles()),
                   cmdBuffer->getBufferHandles().size());
     }
@@ -116,41 +91,19 @@ TEST_F(VPUJobTest, createJobWithTimestampCommandsForComputeEngine) {
     EXPECT_TRUE(ctx->freeMemAlloc(mem));
 }
 
-TEST_F(VPUJobTest, createJobWithTimestampCommandsForCopyEngine) {
-    const int cmdCount = 3;
-
-    void *mem = ctx->createSharedMemAlloc(sizeof(uint64_t) * cmdCount);
-    uint64_t *tsHeap = reinterpret_cast<uint64_t *>(mem);
-
-    auto job = std::make_unique<VPUJob>(ctx, true);
-    for (int i = 0; i < cmdCount; i++)
-        EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx, tsHeap++)));
-    EXPECT_TRUE(job->closeCommands());
-
-    EXPECT_EQ(1u, job->getCommandBuffers().size());
-    for (const auto &cmdBuffer : job->getCommandBuffers()) {
-        EXPECT_EQ(DRM_IVPU_ENGINE_COPY, cmdBuffer->getEngine());
-        EXPECT_EQ(getExpBufferCount(cmdBuffer->getBufferHandles()),
-                  cmdBuffer->getBufferHandles().size());
-    }
-
-    EXPECT_TRUE(ctx->freeMemAlloc(mem));
-}
-
-TEST_F(VPUJobTest, createJobWithCopyCommandsforCopyEngine) {
+TEST_F(VPUJobTest, createJobWithCopyCommands) {
     int cmdCount = 3;
 
     void *destPtr = ctx->createSharedMemAlloc(allocSize);
     void *srcPtr = ctx->createHostMemAlloc(allocSize);
 
-    auto job = std::make_unique<VPUJob>(ctx, true);
+    auto job = std::make_unique<VPUJob>(ctx);
     for (int i = 0; i < cmdCount; i++)
         EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx, srcPtr, destPtr, 4096)));
     EXPECT_TRUE(job->closeCommands());
 
     EXPECT_EQ(1u, job->getCommandBuffers().size());
     for (const auto &cmdBuffer : job->getCommandBuffers()) {
-        EXPECT_EQ(DRM_IVPU_ENGINE_COPY, cmdBuffer->getEngine());
         EXPECT_EQ(getExpBufferCount(cmdBuffer->getBufferHandles()),
                   cmdBuffer->getBufferHandles().size());
     }
@@ -170,7 +123,7 @@ TEST_F(VPUJobTest, createJobWithDifferentTypesOfCommandExpectSuccess) {
     void *shareMem = ctx->createSharedMemAlloc(allocSize);
     void *hostMem = ctx->createHostMemAlloc(allocSize);
 
-    auto job = std::make_unique<VPUJob>(ctx, false);
+    auto job = std::make_unique<VPUJob>(ctx);
     EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx, tsHeap)));
     EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx, shareMem, shareMem, allocSize)));
 
@@ -195,10 +148,6 @@ TEST_F(VPUJobTest, createJobWithDifferentTypesOfCommandExpectSuccess) {
         const auto &cmdBuffer = job->getCommandBuffers()[i];
         EXPECT_EQ(getExpBufferCount(cmdBuffer->getBufferHandles()),
                   cmdBuffer->getBufferHandles().size());
-        if (i % 2 == 0)
-            EXPECT_EQ(DRM_IVPU_ENGINE_COMPUTE, cmdBuffer->getEngine());
-        else
-            EXPECT_EQ(DRM_IVPU_ENGINE_COPY, cmdBuffer->getEngine());
     }
 
     EXPECT_TRUE(ctx->freeMemAlloc(hostMem));
@@ -207,10 +156,10 @@ TEST_F(VPUJobTest, createJobWithDifferentTypesOfCommandExpectSuccess) {
     EXPECT_TRUE(ctx->freeMemAlloc(event));
 }
 
-TEST_F(VPUJobTest, checkJobStatusWhenOneEngineIsUsed) {
+TEST_F(VPUJobTest, checkJobStatus) {
     uint64_t *tsHeap = reinterpret_cast<uint64_t *>(ctx->createSharedMemAlloc(sizeof(uint64_t)));
 
-    auto job = std::make_unique<VPUJob>(ctx, false);
+    auto job = std::make_unique<VPUJob>(ctx);
     EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx, tsHeap)));
     EXPECT_TRUE(job->closeCommands());
 
@@ -226,45 +175,4 @@ TEST_F(VPUJobTest, checkJobStatusWhenOneEngineIsUsed) {
     EXPECT_EQ(true, job->isSuccess());
 
     EXPECT_TRUE(ctx->freeMemAlloc(tsHeap));
-}
-
-TEST_F(VPUJobTest, checkJobStatusWhenTwoEnginesAreUsed) {
-    void *devMem = ctx->createHostMemAlloc(sizeof(uint64_t));
-    void *hostMem = ctx->createSharedMemAlloc(sizeof(uint64_t));
-
-    // There are two command buffers in VPUJob - for copy and compute engine
-    auto job = std::make_unique<VPUJob>(ctx, false);
-    EXPECT_TRUE(
-        job->appendCommand(VPUCopyCommand::create(ctx, hostMem, hostMem, sizeof(uint64_t))));
-    EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx, devMem, devMem, sizeof(uint64_t))));
-    EXPECT_TRUE(job->closeCommands());
-
-    // First job wait fails with timeout
-    osInfc.mockFailNextJobWait();
-    EXPECT_EQ(false, job->waitForCompletion(0));
-    EXPECT_EQ(false, job->isSuccess());
-
-    // Second job wait fails with timeout
-    osInfc.mockSuccessNextJobWait();
-    osInfc.mockFailNextJobWait();
-    EXPECT_EQ(false, job->waitForCompletion(0));
-    EXPECT_EQ(false, job->isSuccess());
-
-    // First job status fails
-    osInfc.mockFailNextJobStatus();
-    EXPECT_EQ(true, job->waitForCompletion(0));
-    EXPECT_EQ(false, job->isSuccess());
-
-    // Second job status fails
-    osInfc.mockSuccessNextJobStatus();
-    osInfc.mockFailNextJobStatus();
-    EXPECT_EQ(true, job->waitForCompletion(0));
-    EXPECT_EQ(false, job->isSuccess());
-
-    // Jobs are successfull
-    EXPECT_EQ(true, job->waitForCompletion(0));
-    EXPECT_EQ(true, job->isSuccess());
-
-    EXPECT_TRUE(ctx->freeMemAlloc(hostMem));
-    EXPECT_TRUE(ctx->freeMemAlloc(devMem));
 }

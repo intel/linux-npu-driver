@@ -19,12 +19,16 @@ static void setQuickTestFilter(const char *) {
                                      "OsSuspend*:");
 }
 
-const char *helpMsg = "  -q/--quick\n"
-                      "      Disable long running tests. Useful for pre-commit testing\n";
+const char *helpMsg =
+    "  -q/--quick\n"
+    "      Disable long running tests. Useful for pre-commit testing\n"
+    "  -T/--max_timeout [MSEC]\n"
+    "       [EXPERIMENTAL] Set timeout to maximum for PM operations, job syncing, etc.\n";
 
 int main(int argc, char **argv) {
     test_app::ArgumentMap args = {
         {'q', {"quick", no_argument, &setQuickTestFilter}},
+        {'T', {"max_timeout", no_argument, [](auto) { test_app::max_timeout = true; }}},
     };
 
     test_app::parse_args(args, helpMsg, argc, argv);

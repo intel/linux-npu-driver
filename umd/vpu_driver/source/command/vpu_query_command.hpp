@@ -23,7 +23,6 @@ class VPUQueryCommand : public VPUCommand {
 
   protected:
     VPUQueryCommand(VPUDeviceContext *ctx,
-                    EngineSupport engType,
                     vpu_cmd_type cmdType,
                     uint32_t groupMask,
                     void *dataAddress,
@@ -44,7 +43,6 @@ class VPUQueryBeginCommand : public VPUQueryCommand {
                          void *dataAddress,
                          uint64_t metricDataAddress)
         : VPUQueryCommand(ctx,
-                          EngineSupport::Forward,
                           VPU_CMD_METRIC_QUERY_BEGIN,
                           groupMask,
                           dataAddress,
@@ -61,7 +59,6 @@ class VPUQueryEndCommand : public VPUQueryCommand {
                        void *dataAddress,
                        uint64_t metricDataAddress)
         : VPUQueryCommand(ctx,
-                          EngineSupport::Backward,
                           VPU_CMD_METRIC_QUERY_END,
                           groupMask,
                           dataAddress,

@@ -7,17 +7,20 @@
 
 #pragma once
 
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
 
-#include "umd_common.hpp"
 #include "vpu_driver/source/command/vpu_command.hpp"
-#include "vpux_hpi.hpp"
 
 #include <any>
 #include <api/vpu_jsm_job_cmd_api.h>
 #include <memory>
 #include <utility>
 #include <vector>
+
+namespace elf {
+class HostParsedInference;
+}
 
 namespace L0 {
 class ElfParser;

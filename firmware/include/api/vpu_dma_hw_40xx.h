@@ -3,8 +3,6 @@
  * Copyright (c) 2022-2023, Intel Corporation.
  */
 
-// clang-format off
-
 /**
  * @brief VPU DMA public header file.
  *
@@ -40,6 +38,8 @@ typedef enum {
     DMA_JOB_BLOCKED,             // Job blocked on barrier dependency that wont be lifted
     DMA_JOB_DISCARDED,           // Job was discarded due to error before it was started
     DMA_JOB_NACK,                // Job refused by the DMA HW
+    DMA_JOB_STATUS_INVALID,      // Failed to get Job Status (DmaGetJobStatus)
+    DMA_JOB_STATUS_MAX
 } DmaJobStatus;
 
 // Dma descriptor type enum (1D / MultiD)
@@ -101,9 +101,9 @@ typedef enum {
 typedef enum {
     DMA_DATA_CONV_DISABLED = 0, // Disabled
     DMA_DATA_CONV_INT8_INT4,    // Enabled, INT8 -> INT4
-    DMA_DATA_CONV_FP16_FP8,     // Enabled, FP16 -> FP8
-    DMA_DATA_CONV_FP32_FP16,    // Enabled, FP32 -> FP16
-    DMA_DATA_CONV_FP32_BF16,    // Enabled, FP32 -> BF16
+    // set DMA_DATA_CONV_FP32_FP16 enum to 3 as enum 2 is defined as NA
+    DMA_DATA_CONV_FP32_FP16 = 3, // Enabled, FP32 -> FP16
+    DMA_DATA_CONV_FP32_BF16,     // Enabled, FP32 -> BF16
     DMA_DATA_CONV_MAX
 } DmaDataConversionCfg;
 
@@ -279,7 +279,7 @@ typedef struct {
     uint64_t axi_user_bits_cfg : 2; // Configuration for AXI User Bits
     uint64_t hwp_id_en : 1;         // Enable use of SW provided ID for HW profiling
     uint64_t hwp_id : 12;           // ID for HW profiling (if feature is set)
-    uint64_t reserved1 : 1;
+    uint64_t hwp_skip : 1;
     uint64_t dynamic_task_en : 1;   // Enable Dynamic tasks
     uint64_t ptr_wr_en : 1;         // Enable Descriptor Pointer Write
 } DmaConfigFields;
@@ -368,31 +368,29 @@ typedef struct ALIGN_DMA(DMA_L2CACHE_ALIGNMENT) {
         uint32_t remote_width_store; // Remote width store
         uint32_t stride_dst_2;       // Destination stride 3D
     };
-    uint16_t dim_size_src_3;      // Source dimension size 4D
-    uint16_t dim_size_src_4;      // Source dimension size 5D
-    uint16_t dim_size_dst_3;      // Destination stride 4D
-    uint16_t dim_size_dst_4;      // Destination stride 5D
-    uint16_t dim_size_src_5;      // Source dimension size 6D
+    uint16_t dim_size_src_3;       // Source dimension size 4D
+    uint16_t dim_size_src_4;       // Source dimension size 5D
+    uint16_t dim_size_dst_3;       // Destination stride 4D
+    uint16_t dim_size_dst_4;       // Destination stride 5D
+    uint16_t dim_size_src_5;       // Source dimension size 6D
     uint16_t src_dyn_size_cfg : 2; // Dynamic task source dimension configuration
-    uint16_t rsvd6 : 14;          // Reserved
-    uint16_t dim_size_dst_5;      // Destination stride 6D
+    uint16_t rsvd6 : 14;           // Reserved
+    uint16_t dim_size_dst_5;       // Destination stride 6D
     uint16_t dst_dyn_size_cfg : 2; // Dynamic task destination dimension configuration
-    uint16_t rsvd7 : 14;          // Reserved
-    uint32_t stride_src_3;        // Source stride 4D
-    uint32_t stride_dst_3;        // Destination stride 4D
-    uint32_t stride_src_4;        // Source stride 5D
-    uint32_t stride_dst_4;        // Destination stride 5D
-    uint32_t stride_src_5;        // Source stride 6D
-    uint32_t stride_dst_5;        // Destination stride 6D
-    uint16_t task_dyn_id;         // Dynamic task phase ID
-    uint16_t rsvd8;               // Reserved
-    uint32_t task_dyn_addr;       // Dynamic Task address
-    uint64_t pad[2];              // Padding to make all descriptors 32-Byte aligned
+    uint16_t rsvd7 : 14;           // Reserved
+    uint32_t stride_src_3;         // Source stride 4D
+    uint32_t stride_dst_3;         // Destination stride 4D
+    uint32_t stride_src_4;         // Source stride 5D
+    uint32_t stride_dst_4;         // Destination stride 5D
+    uint32_t stride_src_5;         // Source stride 6D
+    uint32_t stride_dst_5;         // Destination stride 6D
+    uint16_t task_dyn_id;          // Dynamic task phase ID
+    uint16_t rsvd8;                // Reserved
+    uint32_t task_dyn_addr;        // Dynamic Task address
+    uint64_t pad[2];               // Padding to make all descriptors 32-Byte aligned
 } DmaDescriptor;
 
 static_assert(sizeof(DmaDescriptor) == 192, "DmaDescriptor size != 192");
 
 #pragma pack(pop)
 #endif /* ifndef VPU_DMA_HW_40XX_H_ */
-
-// clang-format on

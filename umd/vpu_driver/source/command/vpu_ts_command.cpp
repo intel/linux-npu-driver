@@ -30,7 +30,7 @@ std::shared_ptr<VPUTimeStampCommand> VPUTimeStampCommand::create(VPUDeviceContex
 }
 
 VPUTimeStampCommand::VPUTimeStampCommand(VPUDeviceContext *ctx, uint64_t *dstPtr)
-    : VPUCommand(EngineSupport::Forward) {
+    : VPUCommand() {
     vpu_cmd_timestamp_t cmd = {};
 
     cmd.header.type = VPU_CMD_TIMESTAMP;

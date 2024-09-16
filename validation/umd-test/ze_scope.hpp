@@ -115,6 +115,21 @@ inline SharedPtr<ze_command_list_handle_t> commandListCreate(ze_context_handle_t
     });
 }
 
+inline SharedPtr<ze_command_list_handle_t>
+immediateCommandListCreate(ze_context_handle_t ctx,
+                           ze_device_handle_t dev,
+                           const ze_command_queue_desc_t &desc,
+                           ze_result_t &ret) {
+    ze_command_list_handle_t handle = nullptr;
+    ret = zeCommandListCreateImmediate(ctx, dev, &desc, &handle);
+    if (ret != ZE_RESULT_SUCCESS)
+        return nullptr;
+
+    return SharedPtr<ze_command_list_handle_t>(std::move(handle), [](auto x) {
+        EXPECT_EQ(zeCommandListDestroy(x), ZE_RESULT_SUCCESS);
+    });
+}
+
 inline SharedPtr<ze_graph_handle_t> graphCreate(graph_dditable_ext_t *ddi,
                                                 ze_context_handle_t ctx,
                                                 ze_device_handle_t dev,

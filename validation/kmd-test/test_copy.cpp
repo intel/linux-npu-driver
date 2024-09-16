@@ -18,7 +18,6 @@ class Copy : public KmdTest, public ::testing::WithParamInterface<std::tuple<__u
 
     void CopySystem2Local2System(int size, bool L2L) {
         const unsigned char pattern = 0xCD;
-        const int timeout_ms = JOB_SYNC_TIMEOUT_MS;
 
         MemoryBuffer src_buf(*this, size, VPU_BUF_USAGE_INPUT_HIGH);
         ASSERT_EQ(src_buf.create(), 0);
@@ -48,7 +47,7 @@ class Copy : public KmdTest, public ::testing::WithParamInterface<std::tuple<__u
                              size,
                              VPU_CMD_COPY_SYSTEM_TO_LOCAL);
         ASSERT_EQ(cmd_buf.submit(ENGINE_COPY), 0);
-        ASSERT_EQ(cmd_buf.wait(timeout_ms), 0);
+        ASSERT_EQ(cmd_buf.wait(), 0);
 
         if (L2L) {
             cmd_buf.start(0);
@@ -61,7 +60,7 @@ class Copy : public KmdTest, public ::testing::WithParamInterface<std::tuple<__u
                                  size,
                                  VPU_CMD_COPY_LOCAL_TO_LOCAL);
             ASSERT_EQ(cmd_buf.submit(ENGINE_COMPUTE), 0);
-            ASSERT_EQ(cmd_buf.wait(timeout_ms), 0);
+            ASSERT_EQ(cmd_buf.wait(), 0);
         }
 
         cmd_buf.start(0);
@@ -74,7 +73,7 @@ class Copy : public KmdTest, public ::testing::WithParamInterface<std::tuple<__u
                              size,
                              VPU_CMD_COPY_LOCAL_TO_SYSTEM);
         ASSERT_EQ(cmd_buf.submit(ENGINE_COPY), 0);
-        ASSERT_EQ(cmd_buf.wait(timeout_ms), 0);
+        ASSERT_EQ(cmd_buf.wait(), 0);
 
         ASSERT_EQ(*(uint32_t *)(src_buf.ptr()), *(uint32_t *)(dst_buf.ptr()));
         ASSERT_EQ(memcmp(src_buf.ptr(), dst_buf.ptr(), size), 0);
@@ -347,7 +346,7 @@ void Copy::CopyDuringCtxCreation(int engine) {
     cmd_buf.start(0);
     cmd_buf.add_copy_cmd(descr_buf, 0, src_buf, 0, dst_buf, 0, size, command);
     ASSERT_EQ(cmd_buf.submit(engine), 0);
-    ASSERT_EQ(cmd_buf.wait(JOB_SYNC_TIMEOUT_MS), 0);
+    ASSERT_EQ(cmd_buf.wait(), 0);
 
     stop = true;
     tdr_thread.join();

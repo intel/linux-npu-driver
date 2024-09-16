@@ -175,6 +175,9 @@ zeGetCommandListProcAddrTable(ze_api_version_t version, ze_command_list_dditable
     pDdiTable->pfnAppendMemoryRangesBarrier = L0::zeCommandListAppendMemoryRangesBarrier;
     pDdiTable->pfnCreate = L0::zeCommandListCreate;
     pDdiTable->pfnCreateImmediate = L0::zeCommandListCreateImmediate;
+    pDdiTable->pfnImmediateGetIndex = L0::zeCommandListImmediateGetIndex;
+    pDdiTable->pfnIsImmediate = L0::zeCommandListIsImmediate;
+    pDdiTable->pfnHostSynchronize = L0::zeCommandListHostSynchronize;
     pDdiTable->pfnDestroy = L0::zeCommandListDestroy;
     pDdiTable->pfnClose = L0::zeCommandListClose;
     pDdiTable->pfnReset = L0::zeCommandListReset;

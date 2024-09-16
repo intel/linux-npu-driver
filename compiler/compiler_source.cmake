@@ -10,16 +10,16 @@
 # or implied warranties, other than those that are expressly stated in
 # the License.
 
-if(TARGET vpux_plugin_source)
+if(TARGET npu_plugin_source)
   return()
 endif()
 
 include(ExternalProject)
 
-# OpenVINO + VPUX Plugin package options
+# OpenVINO + NPU Plugin package options
 set(OPENVINO_REVISION 7edb05f29487cbf5cc6a7d7ae0a8e228aac763b0)
-set(VPUX_PLUGIN_REVISION 593bbd4f19605993bdb4948b3b2db6061f63d257)
-set(VPUX_PLUGIN_RELEASE npu_ud_2024_32_rc1)
+set(VPUX_PLUGIN_REVISION 1a83394af6430a8a4a29dfc6faf50ed26594e387)
+set(VPUX_PLUGIN_RELEASE npu_ud_2024_36_rc1)
 set(OPENCV_REVISION 5dc1b39e4c9dfb3339e0b910f7d824a02474ceed)
 
 # Directories
@@ -27,9 +27,9 @@ set(OPENVINO_PREFIX_DIR "${CMAKE_BINARY_DIR}/third_party/openvino")
 set(OPENVINO_SOURCE_DIR "${OPENVINO_PREFIX_DIR}/src/openvino")
 file(MAKE_DIRECTORY ${OPENVINO_SOURCE_DIR})
 
-set(VPUX_PLUGIN_PREFIX_DIR "${CMAKE_BINARY_DIR}/third_party/vpux_plugin")
-set(VPUX_PLUGIN_SOURCE_DIR "${VPUX_PLUGIN_PREFIX_DIR}/src/vpux_plugin")
-file(MAKE_DIRECTORY ${VPUX_PLUGIN_SOURCE_DIR})
+set(NPU_PLUGIN_PREFIX_DIR "${CMAKE_BINARY_DIR}/third_party/npu_plugin")
+set(NPU_PLUGIN_SOURCE_DIR "${NPU_PLUGIN_PREFIX_DIR}/src/npu_plugin")
+file(MAKE_DIRECTORY ${NPU_PLUGIN_SOURCE_DIR})
 
 ExternalProject_Add(
   openvino_source
@@ -44,16 +44,18 @@ ExternalProject_Add(
   INSTALL_COMMAND "")
 
 ExternalProject_Add(
-  vpux_plugin_source
+  npu_plugin_source
   GIT_REPOSITORY
     https://github.com/openvinotoolkit/npu_plugin.git
   GIT_TAG ${VPUX_PLUGIN_REVISION}
-  PREFIX ${VPUX_PLUGIN_PREFIX_DIR}
-  SOURCE_DIR ${VPUX_PLUGIN_SOURCE_DIR}
+  PREFIX ${NPU_PLUGIN_PREFIX_DIR}
+  SOURCE_DIR ${NPU_PLUGIN_SOURCE_DIR}
   UPDATE_DISCONNECTED TRUE
   PATCH_COMMAND
-    git -C ${VPUX_PLUGIN_SOURCE_DIR}/thirdparty/vpucostmodel lfs install &&
-    git -C ${VPUX_PLUGIN_SOURCE_DIR}/thirdparty/vpucostmodel lfs pull
+    git -C ${NPU_PLUGIN_SOURCE_DIR} lfs install &&
+    git -C ${NPU_PLUGIN_SOURCE_DIR} lfs pull &&
+    git -C ${NPU_PLUGIN_SOURCE_DIR}/thirdparty/vpucostmodel lfs install &&
+    git -C ${NPU_PLUGIN_SOURCE_DIR}/thirdparty/vpucostmodel lfs pull
   CONFIGURE_COMMAND ""
   BUILD_COMMAND ""
   INSTALL_COMMAND "")
