@@ -65,7 +65,7 @@ TEST_F(BuffersImport, GPUclKernelToNPUzeCopy) {
     ASSERT_EQ(CL_SUCCESS, oclResult);
 
     // create input buffer
-    size_t size = 20;
+    const size_t size = 20;
     uint8_t inputBuffer[size];
     std::iota(inputBuffer, inputBuffer + size, 1);
 
@@ -232,8 +232,8 @@ cl_platform_id getIntelOpenCLPlatform() {
     if (result != CL_SUCCESS)
         return nullptr;
 
-    cl_platform_id platforms[numPlatforms];
-    result = clGetPlatformIDs(numPlatforms, platforms, nullptr);
+    std::vector<cl_platform_id> platforms(numPlatforms, 0);
+    result = clGetPlatformIDs(numPlatforms, platforms.data(), nullptr);
     if (result != CL_SUCCESS)
         return nullptr;
 
@@ -243,12 +243,12 @@ cl_platform_id getIntelOpenCLPlatform() {
         if (result != CL_SUCCESS)
             return nullptr;
 
-        char vendor[size + 1];
-        result = clGetPlatformInfo(platforms[i], CL_PLATFORM_VENDOR, size, vendor, nullptr);
+        std::vector<char> vendor(size + 1, 0);
+        result = clGetPlatformInfo(platforms[i], CL_PLATFORM_VENDOR, size, vendor.data(), nullptr);
         if (result != CL_SUCCESS)
             return nullptr;
 
-        if (std::string(vendor) == "Intel(R) Corporation") {
+        if (std::string(vendor.data()) == "Intel(R) Corporation") {
             return platforms[i];
         }
     }

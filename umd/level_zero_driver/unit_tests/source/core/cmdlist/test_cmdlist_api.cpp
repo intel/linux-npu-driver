@@ -524,7 +524,7 @@ struct CommandListEventApiTest : Test<CommandListFixture> {
         CommandListFixture::TearDown();
     }
 
-    const uint32_t evPoolCap = 5;
+    static constexpr uint32_t evPoolCap = 5;
     ze_event_pool_handle_t hEvPool = nullptr;
     ze_event_handle_t hEvent = nullptr;
 };
