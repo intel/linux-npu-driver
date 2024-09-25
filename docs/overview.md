@@ -191,7 +191,7 @@ rmmod intel_vpu; modprobe intel_vpu
 
 ## Building a driver together with the compiler
 
-The driver has a target in `compiler/vpux_compiler.cmake` to build
+The driver has a target in `compiler/npu_compiler.cmake` to build
 Compiler-in-Driver component from [NPU plugin
 repository](https://github.com/openvinotoolkit/npu_plugin.git).
 
@@ -199,10 +199,10 @@ OpenVINO runtime is required by compiler. About the dependencies for building Op
 please check the [OpenVINO build
 document](https://github.com/openvinotoolkit/openvino/blob/master/docs/dev/build.md).
 
-To build a compiler from the driver repository the `ENABLE_VPUX_COMPILER_BUILD` flag has to be set:
+To build a compiler from the driver repository the `ENABLE_NPU_COMPILER_BUILD` flag has to be set:
 ```
 cd linux-npu-driver
-cmake -B build -S . -DENABLE_VPUX_COMPILER_BUILD=ON
+cmake -B build -S . -DENABLE_NPU_COMPILER_BUILD=ON
 cmake --build build --parallel $(nproc)
 
 # set the LD_LIBRARY_PATH to lib to make driver visible for loader
