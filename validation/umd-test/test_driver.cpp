@@ -46,18 +46,23 @@ TEST_F(Driver, GetExtensionProperties) {
 
     bool has_graph_extension = false;
     bool has_mutable_cmdlist_extension = false;
+    bool has_cmd_queue_extension = false;
     for (auto &v : props) {
         TRACE("Driver Extension name: %s, version: %i.%i\n",
               v.name,
               ZE_MAJOR_VERSION(v.version),
               ZE_MINOR_VERSION(v.version));
-        if (std::string(v.name) == GRAPH_EXT_NAME && v.version == GRAPH_EXT_VERSION)
+        std::string extName(v.name);
+        if (extName.find(ZE_GRAPH_EXT_NAME) != std::string::npos && v.version == GRAPH_EXT_VERSION)
             has_graph_extension = true;
-        if (std::string(v.name) == ZE_MUTABLE_COMMAND_LIST_EXP_NAME &&
+        if (extName == ZE_MUTABLE_COMMAND_LIST_EXP_NAME &&
             v.version == ZE_MUTABLE_COMMAND_LIST_EXP_VERSION_1_0)
             has_mutable_cmdlist_extension = true;
+        if (extName == COMMAND_QUEUE_EXT_NAME && v.version == COMMAND_QUEUE_NPU_EXT_VERSION)
+            has_cmd_queue_extension = true;
     }
 
     EXPECT_TRUE(has_graph_extension);
     EXPECT_TRUE(has_mutable_cmdlist_extension);
+    EXPECT_TRUE(has_cmd_queue_extension);
 }

@@ -14,14 +14,14 @@
 
 #define CL_TARGET_OPENCL_VERSION 300
 #include "level_zero/ze_api.h"
-#include "umd_prime_buffers.h"
+#include "umd_dma_heap_system.hpp"
 
 #include <CL/cl.h>
 #include <CL/cl_ext.h>
 
 static cl_platform_id getIntelOpenCLPlatform();
 
-using BuffersImport = UmdTest;
+using ImportMemoryGPUUsingDmaHeap = UmdTest;
 
 //                                     buffer allocated
 //                                       on dma_heap
@@ -31,15 +31,13 @@ using BuffersImport = UmdTest;
 //                                    |   zeInputPtr   |
 //                                    +----------------+
 //
-TEST_F(BuffersImport, GPUclKernelToNPUzeCopy) {
+TEST_F(ImportMemoryGPUUsingDmaHeap, GPUclKernelToNPUzeCopy) {
     if (!isVPU37xx()) {
         SKIP_("BuffersImport test is supported on MTL platform only");
     }
 
-    PrimeBufferHelper primeBufferHelper;
-    if (!primeBufferHelper.hasDMABufferSupport()) {
-        SKIP_("Prime buffers support is not available. Probably need root privileges");
-    }
+    DmaHeapSystem dmaHeapSystem;
+    CHECK_DMA_HEAP_SUPPORT(dmaHeapSystem);
 
     // OCL init
     cl_platform_id platform = getIntelOpenCLPlatform();
@@ -65,7 +63,7 @@ TEST_F(BuffersImport, GPUclKernelToNPUzeCopy) {
     ASSERT_EQ(CL_SUCCESS, oclResult);
 
     // create input buffer
-    const size_t size = 20;
+    constexpr size_t size = 20;
     uint8_t inputBuffer[size];
     std::iota(inputBuffer, inputBuffer + size, 1);
 
@@ -76,12 +74,12 @@ TEST_F(BuffersImport, GPUclKernelToNPUzeCopy) {
                                         &oclResult);
     ASSERT_EQ(CL_SUCCESS, oclResult);
 
-    int bufferFd = -1;
-    ASSERT_TRUE(primeBufferHelper.createDMABuffer(size, bufferFd));
+    auto dmaBuffer = dmaHeapSystem.allocDmaHeapBuffer(size);
+    ASSERT_TRUE(dmaBuffer);
 
     cl_mem_properties memProps[] = {
         static_cast<cl_mem_properties>(CL_EXTERNAL_MEMORY_HANDLE_DMA_BUF_KHR),
-        static_cast<cl_mem_properties>(bufferFd),
+        static_cast<cl_mem_properties>(dmaBuffer->fd),
         0};
     cl_mem oclOutputMem = clCreateBufferWithProperties(oclContext,
                                                        memProps,
@@ -114,7 +112,7 @@ TEST_F(BuffersImport, GPUclKernelToNPUzeCopy) {
     ze_command_queue_desc_t commandQueueDesc{
         .stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
         .pNext = nullptr,
-        .ordinal = copyGrpOrdinal,
+        .ordinal = 0u,
         .index = 0,
         .flags = 0,
         .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
@@ -127,7 +125,7 @@ TEST_F(BuffersImport, GPUclKernelToNPUzeCopy) {
     ze_command_list_desc_t commandListDesc{
         .stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
         .pNext = nullptr,
-        .commandQueueGroupOrdinal = copyGrpOrdinal,
+        .commandQueueGroupOrdinal = 0u,
         .flags = 0,
     };
     ze_command_list_handle_t zeCommandList;
@@ -139,13 +137,13 @@ TEST_F(BuffersImport, GPUclKernelToNPUzeCopy) {
         .stype = ZE_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMPORT_FD,
         .pNext = nullptr,
         .flags = ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF,
-        .fd = static_cast<int>(bufferFd),
+        .fd = static_cast<int>(dmaBuffer->fd),
     };
     ze_device_mem_alloc_desc_t deviceMemAllocDescInput{
         .stype = ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC,
         .pNext = &memoryImportDesc,
         .flags = 0,
-        .ordinal = 0,
+        .ordinal = 0u,
     };
     void *zeInputPtr;
     ASSERT_EQ(zeMemAllocDevice(zeContext, &deviceMemAllocDescInput, size, 0, zeDevice, &zeInputPtr),
@@ -155,7 +153,7 @@ TEST_F(BuffersImport, GPUclKernelToNPUzeCopy) {
         .stype = ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC,
         .pNext = nullptr,
         .flags = 0,
-        .ordinal = 0,
+        .ordinal = 0u,
     };
     ze_host_mem_alloc_desc_t hostMemAllocDescOutput{
         .stype = ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC,
@@ -232,7 +230,7 @@ cl_platform_id getIntelOpenCLPlatform() {
     if (result != CL_SUCCESS)
         return nullptr;
 
-    std::vector<cl_platform_id> platforms(numPlatforms, 0);
+    std::vector<cl_platform_id> platforms(numPlatforms);
     result = clGetPlatformIDs(numPlatforms, platforms.data(), nullptr);
     if (result != CL_SUCCESS)
         return nullptr;

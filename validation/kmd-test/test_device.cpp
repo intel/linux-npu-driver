@@ -48,7 +48,7 @@ TEST_F(Device, GroupOwnership) {
     struct stat fileInfo;
     std::string expectedGroupName;
     if (isChromeOs()) {
-        expectedGroupName = "video";
+        expectedGroupName = "ml-core";
     } else {
         expectedGroupName = "render";
     }
@@ -110,21 +110,6 @@ TEST_F(Device, GetDeviceParams) {
     EXPECT_EQ(get_param(DRM_IVPU_PARAM_FW_API_VERSION, &value), 0);
 }
 
-TEST_F(Device, ResetComputeEngine) {
-    bool hws = is_hws_enabled();
-    SKIP_NO_DEBUGFS("reset_engine");
-
-    if (hws) {
-        SKIP_NO_DEBUGFS("resume_engine");
-    }
-
-    ASSERT_EQ(write_debugfs_file("reset_engine", ENGINE_COMPUTE), 0);
-
-    if (hws) {
-        ASSERT_EQ(write_debugfs_file("resume_engine", ENGINE_COMPUTE), 0);
-    }
-}
-
 TEST_F(Device, Heartbeat_ComputeEngine) {
     uint64_t hb;
 
@@ -135,15 +120,20 @@ TEST_F(Device, Heartbeat_ComputeEngine) {
 void Device::Heartbeat(int thread_id) {
     PerfCounter counter;
     uint64_t hb;
-    int engine = thread_id % 2;
+    int engine = ENGINE_COMPUTE;
+    int ret;
 
     // First get_param() can be slow as it may nee to wait for VPU boot
-    ASSERT_EQ(get_param(DRM_IVPU_PARAM_ENGINE_HEARTBEAT, &hb, engine), 0);
+    EXPECT_EQ(ret = get_param(DRM_IVPU_PARAM_ENGINE_HEARTBEAT, &hb, engine), 0);
+    if (ret)
+        return;
 
     counter.setTimeout(is_silicon() ? 100 : 10);
     counter.start();
     do {
-        ASSERT_EQ(get_param(DRM_IVPU_PARAM_ENGINE_HEARTBEAT, &hb, engine), 0);
+        EXPECT_EQ(ret = get_param(DRM_IVPU_PARAM_ENGINE_HEARTBEAT, &hb, engine), 0);
+        if (ret)
+            break;
         counter.countFrame();
     } while (!counter.isTimedOut());
     counter.stop();

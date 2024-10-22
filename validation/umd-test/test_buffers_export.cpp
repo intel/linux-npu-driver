@@ -6,15 +6,11 @@
  */
 
 #include "umd_test.h"
-#include "umd_prime_buffers.h"
 
-#include <vector>
-#include <memory>
-#include <thread>
+#include <sys/mman.h>
 
-class PrimeBuffers : public UmdTest, public ::testing::WithParamInterface<uint64_t> {
+class ExportMemory : public UmdTest, public ::testing::WithParamInterface<uint64_t> {
   public:
-    void TearDown() override { UmdTest::TearDown(); }
     /* Get allocation properties descriptor */
     ze_memory_allocation_properties_t pMemAllocProperties = {
         .stype = ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES,
@@ -34,10 +30,21 @@ class PrimeBuffers : public UmdTest, public ::testing::WithParamInterface<uint64
                                                       .flags = 0,
                                                       .ordinal = 0};
 
-    PrimeBufferHelper primeHelper;
+    /* Descriptor for create exportable memory */
+    ze_external_memory_export_desc_t externalExportDesc = {
+        .stype = ZE_STRUCTURE_TYPE_EXTERNAL_MEMORY_EXPORT_DESC,
+        .pNext = nullptr,
+        .flags = ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF};
+
+    /* Descriptor to retrieve Fd through get properties */
+    ze_external_memory_export_fd_t externalExportFdDesc = {
+        .stype = ZE_STRUCTURE_TYPE_EXTERNAL_MEMORY_EXPORT_FD,
+        .pNext = nullptr,
+        .flags = ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF,
+        .fd = -1};
 };
 
-TEST_F(PrimeBuffers, GetExternalMemoryProperties) {
+TEST_F(ExportMemory, GetExternalMemoryProperties) {
     ze_device_external_memory_properties_t prop = {};
     prop.stype = ZE_STRUCTURE_TYPE_DEVICE_EXTERNAL_MEMORY_PROPERTIES;
 
@@ -48,19 +55,19 @@ TEST_F(PrimeBuffers, GetExternalMemoryProperties) {
               ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF);
 }
 
-INSTANTIATE_TEST_SUITE_P(Sizes,
-                         PrimeBuffers,
+INSTANTIATE_TEST_SUITE_P(,
+                         ExportMemory,
                          ::testing::Values(2 * KB, 16 * MB, 255 * MB),
                          [](const testing::TestParamInfo<uint64_t> &cmd) {
                              return memSizeToStr(cmd.param);
                          });
 
-TEST_P(PrimeBuffers, exportDeviceMemory) {
+TEST_P(ExportMemory, AllocDeviceMemory) {
     ze_result_t ret;
     uint64_t size = GetParam();
 
     /* Pepare request for external allocation */
-    pDeviceMemAllocDesc.pNext = &primeHelper.externalExportDesc;
+    pDeviceMemAllocDesc.pNext = &externalExportDesc;
 
     auto scopedMem =
         zeScope::memAllocDevice(zeContext, pDeviceMemAllocDesc, size, 0, zeDevice, ret);
@@ -70,35 +77,30 @@ TEST_P(PrimeBuffers, exportDeviceMemory) {
     memcpy(scopedMem.get(), &pattern, sizeof(pattern));
 
     /* Prepare request for map allocation to fd */
-    pMemAllocProperties.pNext = &primeHelper.externalExportFdDesc;
+    pMemAllocProperties.pNext = &externalExportFdDesc;
     ASSERT_EQ(ZE_RESULT_SUCCESS,
               zeMemGetAllocProperties(zeContext, scopedMem.get(), &pMemAllocProperties, nullptr));
-    ASSERT_GE(primeHelper.externalExportFdDesc.fd, 0);
+    ASSERT_GE(externalExportFdDesc.fd, 0);
     EXPECT_EQ(pMemAllocProperties.type, ZE_MEMORY_TYPE_DEVICE);
     EXPECT_GT(pMemAllocProperties.id, 0u);
     EXPECT_EQ(pMemAllocProperties.pageSize, size);
-    EXPECT_EQ(lseek(primeHelper.externalExportFdDesc.fd, 0, SEEK_END), ALLIGN_TO_PAGE(size));
-    lseek(primeHelper.externalExportFdDesc.fd, 0, SEEK_CUR);
+    EXPECT_EQ(lseek(externalExportFdDesc.fd, 0, SEEK_END), ALLIGN_TO_PAGE(size));
+    lseek(externalExportFdDesc.fd, 0, SEEK_CUR);
 
     /* mmap memory and check pattern */
-    void *ptr = mmap(NULL,
-                     size,
-                     PROT_READ | PROT_WRITE,
-                     MAP_SHARED,
-                     primeHelper.externalExportFdDesc.fd,
-                     0);
+    void *ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, externalExportFdDesc.fd, 0);
     ASSERT_NE(ptr, MAP_FAILED) << "error " << errno;
     EXPECT_EQ(*static_cast<int32_t *>(ptr), pattern);
     EXPECT_EQ(munmap(ptr, size), 0);
-    EXPECT_EQ(close(primeHelper.externalExportFdDesc.fd), 0);
+    EXPECT_EQ(close(externalExportFdDesc.fd), 0);
 }
 
-TEST_P(PrimeBuffers, exportHostMemory) {
+TEST_P(ExportMemory, AllocHostMemory) {
     ze_result_t ret;
     uint64_t size = GetParam();
 
     /* Pepare request for external allocation */
-    pHostMemAllocDesc.pNext = &primeHelper.externalExportDesc;
+    pHostMemAllocDesc.pNext = &externalExportDesc;
 
     auto scopedMem = zeScope::memAllocHost(zeContext, pHostMemAllocDesc, size, 0, ret);
     ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
@@ -107,35 +109,30 @@ TEST_P(PrimeBuffers, exportHostMemory) {
     memcpy(scopedMem.get(), &pattern, sizeof(pattern));
 
     /* Prepare request for map allocation to fd */
-    pMemAllocProperties.pNext = &primeHelper.externalExportFdDesc;
+    pMemAllocProperties.pNext = &externalExportFdDesc;
     ASSERT_EQ(ZE_RESULT_SUCCESS,
               zeMemGetAllocProperties(zeContext, scopedMem.get(), &pMemAllocProperties, nullptr));
-    ASSERT_GE(primeHelper.externalExportFdDesc.fd, 0);
+    ASSERT_GE(externalExportFdDesc.fd, 0);
     EXPECT_EQ(pMemAllocProperties.type, ZE_MEMORY_TYPE_HOST);
     EXPECT_GT(pMemAllocProperties.id, 0u);
     EXPECT_EQ(pMemAllocProperties.pageSize, size);
-    EXPECT_EQ(lseek(primeHelper.externalExportFdDesc.fd, 0, SEEK_END), ALLIGN_TO_PAGE(size));
-    lseek(primeHelper.externalExportFdDesc.fd, 0, SEEK_CUR);
+    EXPECT_EQ(lseek(externalExportFdDesc.fd, 0, SEEK_END), ALLIGN_TO_PAGE(size));
+    lseek(externalExportFdDesc.fd, 0, SEEK_CUR);
 
     /* mmap memory and check pattern */
-    void *ptr = mmap(NULL,
-                     size,
-                     PROT_READ | PROT_WRITE,
-                     MAP_SHARED,
-                     primeHelper.externalExportFdDesc.fd,
-                     0);
+    void *ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, externalExportFdDesc.fd, 0);
     ASSERT_NE(ptr, MAP_FAILED) << "error " << errno;
     EXPECT_EQ(*static_cast<int32_t *>(ptr), pattern);
     EXPECT_EQ(munmap(ptr, size), 0);
-    EXPECT_EQ(close(primeHelper.externalExportFdDesc.fd), 0);
+    EXPECT_EQ(close(externalExportFdDesc.fd), 0);
 }
 
-TEST_P(PrimeBuffers, exportSharedMemory) {
+TEST_P(ExportMemory, AllocSharedMemory) {
     ze_result_t ret;
     uint64_t size = GetParam();
 
     /* Pepare request for external allocation */
-    pDeviceMemAllocDesc.pNext = &primeHelper.externalExportDesc;
+    pDeviceMemAllocDesc.pNext = &externalExportDesc;
 
     auto scopedMem = zeScope::memAllocShared(zeContext,
                                              pDeviceMemAllocDesc,
@@ -150,67 +147,20 @@ TEST_P(PrimeBuffers, exportSharedMemory) {
     memcpy(scopedMem.get(), &pattern, sizeof(pattern));
 
     /* Prepare request for map allocation to fd */
-    pMemAllocProperties.pNext = &primeHelper.externalExportFdDesc;
+    pMemAllocProperties.pNext = &externalExportFdDesc;
     ASSERT_EQ(ZE_RESULT_SUCCESS,
               zeMemGetAllocProperties(zeContext, scopedMem.get(), &pMemAllocProperties, nullptr));
-    ASSERT_GE(primeHelper.externalExportFdDesc.fd, 0);
+    ASSERT_GE(externalExportFdDesc.fd, 0);
     EXPECT_EQ(pMemAllocProperties.type, ZE_MEMORY_TYPE_SHARED);
     EXPECT_GT(pMemAllocProperties.id, 0u);
     EXPECT_EQ(pMemAllocProperties.pageSize, size);
-    EXPECT_EQ(lseek(primeHelper.externalExportFdDesc.fd, 0, SEEK_END), ALLIGN_TO_PAGE(size));
-    lseek(primeHelper.externalExportFdDesc.fd, 0, SEEK_CUR);
+    EXPECT_EQ(lseek(externalExportFdDesc.fd, 0, SEEK_END), ALLIGN_TO_PAGE(size));
+    lseek(externalExportFdDesc.fd, 0, SEEK_CUR);
 
     /* mmap memory and check pattern */
-    void *ptr = mmap(NULL,
-                     size,
-                     PROT_READ | PROT_WRITE,
-                     MAP_SHARED,
-                     primeHelper.externalExportFdDesc.fd,
-                     0);
+    void *ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, externalExportFdDesc.fd, 0);
     ASSERT_NE(ptr, MAP_FAILED) << "error " << errno;
     EXPECT_EQ(*static_cast<int32_t *>(ptr), pattern);
     EXPECT_EQ(munmap(ptr, size), 0);
-    EXPECT_EQ(close(primeHelper.externalExportFdDesc.fd), 0);
-}
-
-TEST_P(PrimeBuffers, importDeviceMemory) {
-    ze_result_t ret;
-    size_t dmaBufferSize = GetParam();
-    int32_t dmaBufferFd = -1;
-
-    if (!primeHelper.hasDMABufferSupport())
-        GTEST_SKIP() << "Missed support or insufficient permissions for"
-                     << " dma buffer allocation in the system. Skip test";
-
-    ASSERT_TRUE(primeHelper.createDMABuffer(dmaBufferSize, dmaBufferFd));
-
-    /* Prepare request to import dma buffer as device memory */
-    primeHelper.externalImportFromFdDesc.fd = dmaBufferFd;
-    pDeviceMemAllocDesc.pNext = &primeHelper.externalImportFromFdDesc;
-
-    auto scopedImportedMemory =
-        zeScope::memAllocDevice(zeContext, pDeviceMemAllocDesc, dmaBufferSize, 0, zeDevice, ret);
-    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
-    ASSERT_NE(scopedImportedMemory.get(), nullptr);
-
-    /* Check allocation properties */
-    pMemAllocProperties.pNext = nullptr;
-    ASSERT_EQ(ZE_RESULT_SUCCESS,
-              zeMemGetAllocProperties(zeContext,
-                                      scopedImportedMemory.get(),
-                                      &pMemAllocProperties,
-                                      nullptr));
-    ASSERT_EQ(pMemAllocProperties.type, ZE_MEMORY_TYPE_DEVICE);
-    ASSERT_GT(pMemAllocProperties.id, 0u);
-    ASSERT_EQ(pMemAllocProperties.pageSize, ALLIGN_TO_PAGE(dmaBufferSize));
-
-    /* mmap original dma buffer and write pattern to it */
-    void *dmaBufferPtr = primeHelper.mmapDmaBuffer(dmaBufferFd);
-    ASSERT_NE(dmaBufferPtr, MAP_FAILED) << "error " << errno;
-    const int32_t pattern = 0xDEADAABB;
-    memcpy(dmaBufferPtr, &pattern, sizeof(pattern));
-
-    /*check if pattern match on imported buffer*/
-    int32_t *importedPtr = static_cast<int32_t *>(scopedImportedMemory.get());
-    EXPECT_EQ(*importedPtr, pattern);
+    EXPECT_EQ(close(externalExportFdDesc.fd), 0);
 }

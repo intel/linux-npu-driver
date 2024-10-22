@@ -8,6 +8,7 @@
 #include "umd_test.h"
 
 #include <future>
+#include <level_zero/ze_api.h>
 
 class Device : public UmdTest {};
 
@@ -30,53 +31,104 @@ TEST_F(Device, GetProperties) {
 }
 
 TEST_F(Device, GetZesDeviceAndProperties) {
-    uint32_t zesDrvCount = 0u;
-    uint32_t zesDevCount = 0u;
+    ASSERT_EQ(zesInit(0), ZE_RESULT_SUCCESS);
 
-    ASSERT_EQ(zesDriverGet(&zesDrvCount, nullptr), ZE_RESULT_SUCCESS);
-    EXPECT_EQ(zesDrvCount, 1);
-    std::vector<zes_driver_handle_t> zesDrivers(zesDrvCount);
-    ASSERT_EQ(zeDriverGet(&zesDrvCount, zesDrivers.data()), ZE_RESULT_SUCCESS);
+    uint32_t driverCount = 0u;
+    ASSERT_EQ(zesDriverGet(&driverCount, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_GE(driverCount, 1);
 
-    for (const auto &driver : zesDrivers) {
-        ASSERT_EQ(zesDeviceGet(driver, &zesDevCount, nullptr), ZE_RESULT_SUCCESS);
-        EXPECT_EQ(zesDevCount, 1);
-        if (zesDevCount != 1)
-            continue;
+    std::vector<zes_driver_handle_t> zesDrivers(driverCount);
+    ASSERT_EQ(zesDriverGet(&driverCount, zesDrivers.data()), ZE_RESULT_SUCCESS);
 
-        zes_device_handle_t device;
-        ASSERT_EQ(zesDeviceGet(driver, &zesDevCount, &device), ZE_RESULT_SUCCESS);
-        zes_device_properties_t devProp = {};
-        devProp.stype = ZES_STRUCTURE_TYPE_DEVICE_PROPERTIES;
+    bool foundNpu = false;
+    for (size_t i = 0; i < zesDrivers.size(); i++) {
+        TRACE("Driver[%lu].Handle: %p\n", i, zesDrivers[i]);
 
-        ASSERT_EQ(zesDeviceGetProperties(device, &devProp), ZE_RESULT_SUCCESS);
+        uint32_t deviceCount = 0u;
+        ASSERT_EQ(zesDeviceGet(zesDrivers[i], &deviceCount, nullptr), ZE_RESULT_SUCCESS);
+        ASSERT_GE(deviceCount, 1);
 
-        EXPECT_STREQ(devProp.vendorName, "INTEL");
-        EXPECT_STREQ(devProp.brandName, "NPU");
-        std::string version(devProp.driverVersion);
-        EXPECT_NE(version.find("npu-linux-driver"), std::string::npos);
-        TRACE("BrandName: %s\n", devProp.brandName);
-        TRACE("ModelName: %s\n", devProp.modelName);
-        TRACE("VendorName: %s\n", devProp.vendorName);
-        TRACE("DriverVersion: %s\n", devProp.driverVersion);
+        std::vector<zes_device_handle_t> zesDevices(deviceCount);
+        ASSERT_EQ(zesDeviceGet(zesDrivers[i], &deviceCount, zesDevices.data()), ZE_RESULT_SUCCESS);
+
+        for (size_t j = 0; j < zesDevices.size(); j++) {
+            TRACE("Device[%lu].Handle: %p\n", j, zesDevices[j]);
+
+            zes_device_properties_t devProp = {};
+            devProp.stype = ZES_STRUCTURE_TYPE_DEVICE_PROPERTIES;
+
+            ASSERT_EQ(zesDeviceGetProperties(zesDevices[j], &devProp), ZE_RESULT_SUCCESS);
+
+            TRACE("Device[%lu].BrandName: %s\n", j, devProp.brandName);
+            TRACE("Device[%lu].ModelName: %s\n", j, devProp.modelName);
+            TRACE("Device[%lu].VendorName: %s\n", j, devProp.vendorName);
+            TRACE("Device[%lu].DriverVersion: %s\n", j, devProp.driverVersion);
+
+            if (std::string(devProp.vendorName) == "INTEL" &&
+                std::string(devProp.brandName) == "NPU") {
+                EXPECT_NE(std::string(devProp.driverVersion).find("npu-linux-driver"),
+                          std::string::npos);
+                foundNpu = true;
+            }
+        }
     }
+    EXPECT_TRUE(foundNpu) << "Could not find Intel NPU identifier in zesDeviceGetProperties()";
 }
 
-TEST_F(Device, GetZesProperties) {
-    zes_device_properties_t devProp = {};
+TEST_F(Device, GetZesEngineGetActivity) {
+    SKIP_NEEDS_SYSFS_FILE("npu_busy_time_us");
+    ASSERT_EQ(zesInit(0), ZE_RESULT_SUCCESS);
 
-    devProp.stype = ZES_STRUCTURE_TYPE_DEVICE_PROPERTIES;
-    ASSERT_EQ(zesDeviceGetProperties(static_cast<zes_device_handle_t>(zeDevice), &devProp),
-              ZE_RESULT_SUCCESS);
+    uint32_t zesDrvCount = 0u;
+    ASSERT_EQ(zesDriverGet(&zesDrvCount, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_GE(zesDrvCount, 1);
 
-    EXPECT_STREQ(devProp.vendorName, "INTEL");
-    EXPECT_STREQ(devProp.brandName, "NPU");
-    std::string version(devProp.driverVersion);
-    EXPECT_NE(version.find("npu-linux-driver"), std::string::npos);
-    TRACE("BrandName: %s\n", devProp.brandName);
-    TRACE("ModelName: %s\n", devProp.modelName);
-    TRACE("VendorName: %s\n", devProp.vendorName);
-    TRACE("DriverVersion: %s\n", devProp.driverVersion);
+    std::vector<zes_driver_handle_t> zesDrivers(zesDrvCount);
+    ASSERT_EQ(zesDriverGet(&zesDrvCount, zesDrivers.data()), ZE_RESULT_SUCCESS);
+
+    bool foundNpu = false;
+    for (const auto &driver : zesDrivers) {
+        uint32_t zesDevCount = 0u;
+        ASSERT_EQ(zesDeviceGet(driver, &zesDevCount, nullptr), ZE_RESULT_SUCCESS);
+        if (!zesDevCount)
+            continue;
+
+        std::vector<zes_device_handle_t> zesDevices(zesDevCount);
+        ASSERT_EQ(zesDeviceGet(driver, &zesDevCount, zesDevices.data()), ZE_RESULT_SUCCESS);
+        for (auto &device : zesDevices) {
+            zes_device_properties_t devProp = {};
+            devProp.stype = ZES_STRUCTURE_TYPE_DEVICE_PROPERTIES;
+
+            ASSERT_EQ(zesDeviceGetProperties(device, &devProp), ZE_RESULT_SUCCESS);
+
+            if (std::string(devProp.vendorName) == "INTEL" &&
+                std::string(devProp.brandName) == "NPU") {
+                foundNpu = true;
+                uint32_t count = 0;
+
+                ASSERT_EQ(zesDeviceEnumEngineGroups(device, &count, nullptr), ZE_RESULT_SUCCESS);
+                ASSERT_EQ(count, 1);
+                std::vector<zes_engine_handle_t> engineHandlers(count);
+                ASSERT_EQ(zesDeviceEnumEngineGroups(device, &count, engineHandlers.data()),
+                          ZE_RESULT_SUCCESS);
+
+                zes_engine_properties_t engineProperties = {};
+                engineProperties.stype = ZES_STRUCTURE_TYPE_ENGINE_PROPERTIES;
+                ASSERT_EQ(zesEngineGetProperties(engineHandlers[0], &engineProperties),
+                          ZE_RESULT_SUCCESS);
+
+                EXPECT_EQ(engineProperties.type, ZES_ENGINE_GROUP_COMPUTE_ALL);
+                EXPECT_FALSE(engineProperties.onSubdevice);
+
+                zes_engine_stats_t engineStats;
+                ASSERT_EQ(zesEngineGetActivity(engineHandlers[0], &engineStats), ZE_RESULT_SUCCESS);
+                EXPECT_GT(engineStats.timestamp, 0ULL);
+                TRACE("Device active time: %lu\n", engineStats.activeTime);
+                TRACE("Device timestamp: %lu\n", engineStats.timestamp);
+            }
+        }
+    }
+    EXPECT_TRUE(foundNpu) << "Could not find Intel NPU identifier in zesDeviceGetProperties()";
 }
 
 TEST_F(Device, GetPropertiesMutableCmdListDeviceIpVersion) {
@@ -110,11 +162,6 @@ TEST_F(Device, GetPropertiesMutableCmdListDeviceIpVersion) {
 }
 
 TEST_F(Device, GetGlobalTimestamps) {
-    SKIP_VPU40XX(
-        "Ubuntu linux-image-6.8.0-41-generic is missing a support for FW boot param "
-        "systime_time_us\n"
-        "Support for it has been added in Kernel patch 00b9151cd4a33040b7f5ae04aaf1650e885ff3e0");
-
     auto checkTimestamp = [&]() {
         using namespace std::chrono_literals;
         uint64_t hostTimestamp1 = 0, deviceTimestamp1 = 0;

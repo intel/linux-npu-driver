@@ -20,7 +20,7 @@ class BuffersExport : public UmdTest {
 
     void SetUp() override {
         UmdTest::SetUp();
-        Npu = {.dev = zeDevice, .ctx = zeContext, .ordinal = copyGrpOrdinal};
+        Npu = {.dev = zeDevice, .ctx = zeContext, .ordinal = 0u};
         Gpu = {.dev = zeDeviceGpu, .ctx = zeContextGpu, .ordinal = copyGrpOrdinalGpu};
     }
 

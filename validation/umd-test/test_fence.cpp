@@ -18,7 +18,7 @@ class Fence : public UmdTest {
 
         ze_command_queue_desc_t cmdQueueDesc{.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
                                              .pNext = nullptr,
-                                             .ordinal = computeGrpOrdinal,
+                                             .ordinal = 0u,
                                              .index = 0,
                                              .flags = 0,
                                              .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
@@ -215,7 +215,7 @@ TEST_F(FenceSync, CallFenceHostSynchronizeTwiceExpectSignaledState) {
 TEST_F(FenceSync, ExecuteAndSynchronizeMultipleCommandQueuesUsingMultipleFences) {
     ze_command_queue_desc_t copyCmdQueueDesc{.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
                                              .pNext = nullptr,
-                                             .ordinal = copyGrpOrdinal,
+                                             .ordinal = 0u,
                                              .index = 0,
                                              .flags = 0,
                                              .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
@@ -226,7 +226,7 @@ TEST_F(FenceSync, ExecuteAndSynchronizeMultipleCommandQueuesUsingMultipleFences)
 
     ze_command_list_desc_t copycmdListDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
                                               .pNext = nullptr,
-                                              .commandQueueGroupOrdinal = copyGrpOrdinal,
+                                              .commandQueueGroupOrdinal = 0u,
                                               .flags = 0};
     auto scopedList2 = zeScope::commandListCreate(zeContext, zeDevice, copycmdListDesc, ret);
     ASSERT_EQ(ret, ZE_RESULT_SUCCESS);

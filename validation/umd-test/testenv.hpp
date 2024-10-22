@@ -13,7 +13,6 @@
 
 #include <filesystem>
 #include <gtest/gtest.h>
-#include <level_zero/ze_api.h>
 #include <level_zero/zes_api.h>
 #include <yaml-cpp/yaml.h>
 
@@ -126,7 +125,7 @@ class Environment : public ::testing::Environment {
 
         ASSERT_EQ(
             zeDriverGetExtensionFunctionAddress(zeDriver,
-                                                GRAPH_EXT_NAME,
+                                                ZE_GRAPH_EXT_NAME,
                                                 reinterpret_cast<void **>(&zeGraphDDITableExt)),
             ZE_RESULT_SUCCESS);
 
@@ -136,9 +135,16 @@ class Environment : public ::testing::Environment {
                       reinterpret_cast<void **>(&zeGraphProfilingDDITableExt)),
                   ZE_RESULT_SUCCESS);
 
+        ASSERT_EQ(zeDriverGetExtensionFunctionAddress(
+                      zeDriver,
+                      ZE_COMMAND_QUEUE_NPU_EXT_NAME,
+                      reinterpret_cast<void **>(&zeCommandQueueDDITableExt)),
+                  ZE_RESULT_SUCCESS);
+
         ASSERT_NE(zeGraphDDITableExt, nullptr) << "Failed to find graph DDI table";
         ASSERT_NE(zeGraphProfilingDDITableExt, nullptr)
             << "Failed to find graph profiling DDI table";
+        ASSERT_NE(zeCommandQueueDDITableExt, nullptr) << "Failed to find command queue DDI table";
     }
 
     ze_driver_handle_t getDriver() { return zeDriver; }
@@ -147,6 +153,7 @@ class Environment : public ::testing::Environment {
     ze_graph_profiling_dditable_ext_t *getGraphProfilingDDITable() {
         return zeGraphProfilingDDITableExt;
     }
+    command_queue_dditable_t *getCommandQueueDDITable() { return zeCommandQueueDDITableExt; }
     uint64_t getMaxMemAllocSize() { return maxMemAllocSize; }
     uint16_t getPciDevId() { return pciDevId; }
     uint16_t getPlatformType() { return platformType; }
@@ -254,6 +261,8 @@ class Environment : public ::testing::Environment {
     ze_device_handle_t zeDevice = nullptr;
     graph_dditable_ext_t *zeGraphDDITableExt = nullptr;
     ze_graph_profiling_dditable_ext_t *zeGraphProfilingDDITableExt = nullptr;
+    /** @brief Pointer to the Level Zero API command queue extension DDI table */
+    command_queue_dditable_t *zeCommandQueueDDITableExt = nullptr;
     uint64_t maxMemAllocSize = 0;
     uint16_t pciDevId = 0;
     uint32_t platformType = 0;

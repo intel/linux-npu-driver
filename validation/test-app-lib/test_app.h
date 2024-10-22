@@ -55,6 +55,7 @@ struct Argument {
 using ArgumentMap = std::unordered_map<int, test_app::Argument>;
 
 void parse_args(ArgumentMap &extArgs, const char *extHelpMsg, int argc, char **argv);
+void append_positive_filter(const std::string &pattern);
 void append_negative_filter(const char *negative_pattern);
 int run();
 

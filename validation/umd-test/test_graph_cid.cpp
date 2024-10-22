@@ -6,130 +6,18 @@
  */
 
 #include "graph_utilities.hpp"
-#include "umd_prime_buffers.h"
+#include "umd_dma_heap_system.hpp"
 
 #include <chrono>
+#include <drm/drm.h>
 #include <future>
 #include <level_zero/ze_api.h>
 #include <stdexcept>
 
-class CompilerInDriverBase : public UmdTest {
-  protected:
-    void SetUp() override { UmdTest::SetUp(); }
-
-    zeScope::SharedPtr<ze_graph_handle_t> scopedGraphHandle = nullptr;
-    ze_graph_desc_2_t graphDesc = {};
-    std::vector<uint8_t> modelIR = {};
-    std::vector<char> buildFlags = {};
-};
-
-class CompilerInDriver : public CompilerInDriverBase {
-  public:
-    void SetUp() override {
-        CompilerInDriverBase::SetUp();
-        auto cfgNodes = Environment::getConfiguration("graph_execution");
-
-        if (cfgNodes.size() == 0)
-            SKIP_("Missing models for testing");
-
-        const YAML::Node node = cfgNodes.at(0);
-
-        /* Validate configuration */
-        ASSERT_GT(node["path"].as<std::string>().size(), 0);
-        ASSERT_GT(node["flags"].as<std::string>().size(), 0);
-
-        /* Setup */
-        buildFlags = getFlagsFromString(node["flags"].as<std::string>());
-        createGraphDescriptorForModel(globalConfig.modelDir + node["path"].as<std::string>(),
-                                      buildFlags,
-                                      modelIR,
-                                      graphDesc);
-    }
-};
-
-TEST_F(CompilerInDriver, CreatingGraphWithNullptrInputGraphExpectFailure) {
-    ze_graph_handle_t handle = nullptr;
-    graphDesc.pInput = nullptr;
-    EXPECT_EQ(zeGraphDDITableExt->pfnCreate2(zeContext, zeDevice, &graphDesc, &handle),
-              ZE_RESULT_ERROR_INVALID_NULL_POINTER);
-}
-
-TEST_F(CompilerInDriver, CreatingGraphWithZeroGraphSizeExpectFailure) {
-    ze_graph_handle_t handle = nullptr;
-    graphDesc.inputSize = 0u;
-    EXPECT_EQ(zeGraphDDITableExt->pfnCreate2(zeContext, zeDevice, &graphDesc, &handle),
-              ZE_RESULT_ERROR_INVALID_SIZE);
-}
-
-TEST_F(CompilerInDriver, CreatingGraphCorrectBlobFileAndDescExpectSuccess) {
-    ze_result_t ret = ZE_RESULT_SUCCESS;
-    scopedGraphHandle =
-        zeScope::graphCreate2(zeGraphDDITableExt, zeContext, zeDevice, graphDesc, ret);
-    EXPECT_EQ(ret, ZE_RESULT_SUCCESS);
-}
-
-class CompilerInDriverLayers : public CompilerInDriverBase,
-                               public ::testing::WithParamInterface<YAML::Node> {
+class CompilerInDriverLongT : public UmdTest {
   protected:
     void SetUp() override {
-        CompilerInDriverBase::SetUp();
-
-        const YAML::Node node = GetParam();
-
-        /* Validate configuration */
-        ASSERT_GT(node["path"].as<std::string>().size(), 0);
-        std::filesystem::path path = node["path"].as<std::string>();
-
-        if (path.extension() == ".blob") {
-            SKIP_("The test is not intended for use with a precompiled blob.");
-        }
-
-        ASSERT_GT(node["flags"].as<std::string>().size(), 0);
-
-        /* Setup */
-        buildFlags = getFlagsFromString(node["flags"].as<std::string>());
-        createGraphDescriptorForModel(globalConfig.modelDir + node["path"].as<std::string>(),
-                                      buildFlags,
-                                      modelIR,
-                                      graphDesc);
-    }
-};
-
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilerInDriverLayers);
-
-INSTANTIATE_TEST_SUITE_P(,
-                         CompilerInDriverLayers,
-                         ::testing::ValuesIn(Environment::getConfiguration("graph_execution")),
-                         [](const testing::TestParamInfo<YAML::Node> &p) {
-                             return generateTestNameFromNode(p.param);
-                         });
-
-TEST_P(CompilerInDriverLayers, QueryNetworkLayers) {
-    ze_graph_query_network_handle_t hQuery = nullptr;
-
-    ASSERT_EQ(zeGraphDDITableExt->pfnQueryNetworkCreate2(zeContext, zeDevice, &graphDesc, &hQuery),
-              ZE_RESULT_SUCCESS);
-
-    size_t size = 0;
-    EXPECT_EQ(zeGraphDDITableExt->pfnQueryNetworkGetSupportedLayers(hQuery, &size, nullptr),
-              ZE_RESULT_SUCCESS);
-    EXPECT_GT(size, 0);
-
-    std::vector<char> layers(size, '\0');
-    EXPECT_EQ(zeGraphDDITableExt->pfnQueryNetworkGetSupportedLayers(hQuery, &size, layers.data()),
-              ZE_RESULT_SUCCESS);
-
-    EXPECT_GT(layers.size(), 0);
-
-    TRACE("Supported layers: %s\n", layers.data());
-
-    ASSERT_EQ(zeGraphDDITableExt->pfnQueryNetworkDestroy(hQuery), ZE_RESULT_SUCCESS);
-}
-
-class CompilerInDriverLongT : public CompilerInDriverBase {
-  protected:
-    void SetUp() override {
-        CompilerInDriverBase::SetUp();
+        UmdTest::SetUp();
 
         ze_result_t ret = ZE_RESULT_SUCCESS;
         scopedQueue = zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDesc, ret);
@@ -386,12 +274,11 @@ TEST_P(CompilerInDriverLongBmp, CompileModelWithGraphInitAndExecuteThenCheckAccu
     graph->checkResults();
 }
 
-class CompilerInDriverBmpWithPrimeBuffers : public CompilerInDriverLongBmp {
+class CompilerInDriverBmpUsingDmaHeap : public CompilerInDriverLongBmp {
   public:
     void SetUp() override {
-        if (!primeHelper.hasDMABufferSupport())
-            GTEST_SKIP() << "Missed support or insufficient permissions for"
-                         << " dma buffer allocation in the system. Skip test";
+        CHECK_DMA_HEAP_SUPPORT(dmaHeapSystem);
+
         CompilerInDriverLongT::SetUp();
 
         const YAML::Node node = GetParam();
@@ -404,28 +291,34 @@ class CompilerInDriverBmpWithPrimeBuffers : public CompilerInDriverLongBmp {
         }
 
         /* Create list of DMA memory buffers outside driver and use it as network inputs */
+        ze_external_memory_import_fd_t externalImportFromFdDesc = {
+            .stype = ZE_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMPORT_FD,
+            .pNext = nullptr,
+            .flags = ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF,
+            .fd = -1};
 
         ze_device_mem_alloc_desc_t pDeviceMemAllocDesc = {
             .stype = ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC,
-            .pNext = &primeHelper.externalImportFromFdDesc,
+            .pNext = &externalImportFromFdDesc,
             .flags = 0,
             .ordinal = 0};
-        dmaBuffers.resize(graph->inputSize.size(), nullptr);
+
+        dmaBuffers.resize(graph->inputSize.size());
+
         uint32_t argIndex = 0;
         uint32_t bufferIndex = 0;
         for (auto &dmaBuffer : dmaBuffers) {
             size_t size = graph->inputSize[bufferIndex++];
             ze_result_t ret;
-            int32_t dmaBufferFd = -1;
-            ASSERT_TRUE(primeHelper.createDMABuffer(size, dmaBufferFd));
-            ASSERT_GE(dmaBufferFd, 0);
-            dmaBuffer = primeHelper.mmapDmaBuffer(dmaBufferFd);
+
+            dmaBuffer = dmaHeapSystem.allocDmaHeapBuffer(size);
+            ASSERT_TRUE(dmaBuffer);
+
             /* Import buffer as device memory */
-            primeHelper.externalImportFromFdDesc.fd = dmaBufferFd;
+            externalImportFromFdDesc.fd = dmaBuffer->fd;
             auto scopedImportedMemory =
                 zeScope::memAllocDevice(zeContext, pDeviceMemAllocDesc, size, 0, zeDevice, ret);
             ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
-            ASSERT_NE(scopedImportedMemory.get(), nullptr);
             /* Set as input imported buffer, alocated by device alloc from dma file descriptor
                it should consit image loaded above
              */
@@ -442,20 +335,20 @@ class CompilerInDriverBmpWithPrimeBuffers : public CompilerInDriverLongBmp {
         UmdTest::TearDown();
     }
 
-    std::vector<void *> dmaBuffers;
+    std::vector<std::unique_ptr<DmaHeapBuffer>> dmaBuffers;
     std::vector<std::shared_ptr<void>> importedGraphInput;
-    PrimeBufferHelper primeHelper;
+    DmaHeapSystem dmaHeapSystem;
 };
 
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilerInDriverBmpWithPrimeBuffers);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilerInDriverBmpUsingDmaHeap);
 
 INSTANTIATE_TEST_SUITE_P(
     ,
-    CompilerInDriverBmpWithPrimeBuffers,
+    CompilerInDriverBmpUsingDmaHeap,
     ::testing::ValuesIn(Environment::getConfiguration("image_classification_imagenet")),
     [](const testing::TestParamInfo<YAML::Node> &p) { return generateTestNameFromNode(p.param); });
 
-TEST_P(CompilerInDriverBmpWithPrimeBuffers, CompileInitExecuteUsingPrimeBufferInput) {
+TEST_P(CompilerInDriverBmpUsingDmaHeap, CompileInitExecuteUsingPrimeBufferInput) {
     ASSERT_EQ(
         zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
         ZE_RESULT_SUCCESS);
@@ -465,7 +358,10 @@ TEST_P(CompilerInDriverBmpWithPrimeBuffers, CompileInitExecuteUsingPrimeBufferIn
 
     ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
 
-    graph->copyInputData(dmaBuffers);
+    std::vector<void *> inputPointers;
+    for (auto &dmaBuffer : dmaBuffers)
+        inputPointers.emplace_back(dmaBuffer->ptr);
+    graph->copyInputData(inputPointers);
 
     ASSERT_EQ(zeGraphDDITableExt
                   ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),
@@ -477,20 +373,42 @@ TEST_P(CompilerInDriverBmpWithPrimeBuffers, CompileInitExecuteUsingPrimeBufferIn
     graph->checkResults();
 }
 
+#define BREAK_ON_FAIL(ret, stats)          \
+    if (ret != ZE_RESULT_SUCCESS) {        \
+        EXPECT_EQ(ret, ZE_RESULT_SUCCESS); \
+        stats.status = ret;                \
+        return stats;                      \
+    }
+
 class CompilerInDriverMultiInference : public CompilerInDriverLongT,
                                        public ::testing::WithParamInterface<YAML::Node> {
   public:
-    struct localInference {
+    struct LocalInference {
+        LocalInference(const YAML::Node &node)
+            : model(node){};
+        const YAML::Node model;
         std::string modelName;
         std::shared_ptr<Graph> graph;
 
-        uint32_t time;
-        uint32_t targetFps;
+        uint32_t time = 0;
+        uint32_t targetFps = 0;
+        double fpsDeviation = 0;
         ze_command_queue_priority_t priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL;
+        ze_command_queue_workload_type_t workloadType = ZE_WORKLOAD_TYPE_FORCE_UINT32;
         size_t delayInUs = 0;
     };
 
-    std::vector<localInference> testInferences = {};
+    struct InferenceStats {
+        ze_result_t status = ZE_RESULT_SUCCESS;
+        int totalFrames = 0;
+        int droppedFrames = 0;
+        double realFPS = 0;
+        double minExecTimePerFrame = DBL_MAX;
+        double avgExecTimePerFrame = 0;
+        double maxExecTimePerFrame = 0;
+    };
+
+    std::vector<LocalInference> testInferences = {};
 
     void SetUp() override {
         CompilerInDriverLongT::SetUp();
@@ -501,7 +419,7 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
             SKIP_("Missing models for testing");
 
         for (auto &model : modelsSet) {
-            localInference inference;
+            LocalInference inference(model);
 
             if (model["target_fps"].IsDefined())
                 inference.targetFps = model["target_fps"].as<uint32_t>();
@@ -518,6 +436,19 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
 
             if (model["delay_in_us"].IsDefined())
                 inference.delayInUs = model["delay_in_us"].as<size_t>();
+
+            if (model["workload_type"].IsDefined() &&
+                model["workload_type"].as<std::string>().size()) {
+                if (model["workload_type"].as<std::string>().compare("default") == 0)
+                    inference.workloadType = ZE_WORKLOAD_TYPE_DEFAULT;
+                else if (model["workload_type"].as<std::string>().compare("background") == 0)
+                    inference.workloadType = ZE_WORKLOAD_TYPE_BACKGROUND;
+                else
+                    FAIL() << "Unsupported workload type in configuration";
+            }
+
+            if (model["fps_deviation"].IsDefined())
+                inference.fpsDeviation = model["fps_deviation"].as<double>();
 
             std::shared_ptr<Graph> graph =
                 Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, model);
@@ -539,42 +470,12 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
         }
         throw std::runtime_error("Invalid priority, should be: high, low or normal");
     }
-};
 
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilerInDriverMultiInference);
-
-INSTANTIATE_TEST_SUITE_P(,
-                         CompilerInDriverMultiInference,
-                         ::testing::ValuesIn(Environment::getConfiguration("multi_inference")),
-                         [](const testing::TestParamInfo<YAML::Node> &p) {
-                             return p.param["name"].as<std::string>();
-                         });
-
-#define BREAK_ON_FAIL(ret, stats)          \
-    if (ret != ZE_RESULT_SUCCESS) {        \
-        EXPECT_EQ(ret, ZE_RESULT_SUCCESS); \
-        stats.status = ret;                \
-        return stats;                      \
-    }
-
-TEST_P(CompilerInDriverMultiInference, Pipeline) {
-    struct InferenceStats {
-        ze_result_t status;
-        int totalFrames = 0;
-        int droppedFrames = 0;
-        double realFPS = 0;
-        double minExecTimePerFrame;
-        double avgExecTimePerFrame;
-        double maxExecTimePerFrame;
-    };
-
-    auto runInference =
-        [&](const CompilerInDriverMultiInference::localInference &inference) -> InferenceStats {
+    InferenceStats runInference(const CompilerInDriverMultiInference::LocalInference &inference) {
         ze_result_t ret = ZE_RESULT_SUCCESS;
         InferenceStats stats = {};
-
-        stats.status = ZE_RESULT_SUCCESS;
-        stats.minExecTimePerFrame = DBL_MAX;
+        ze_command_queue_workload_type_t workloadType = inference.workloadType;
+        auto ddi = Environment::getInstance()->getCommandQueueDDITable();
 
         auto cmdQueueDescInference = cmdQueueDesc;
         cmdQueueDescInference.priority = inference.priority;
@@ -606,6 +507,19 @@ TEST_P(CompilerInDriverMultiInference, Pipeline) {
 
         ret = zeCommandQueueSynchronize(queue, graphSyncTimeout);
         BREAK_ON_FAIL(ret, stats);
+
+        /*For the case when config request workload type all inferences are started
+          as background, the requested workload will be set after first inference loop
+         */
+        if (workloadType != ZE_WORKLOAD_TYPE_FORCE_UINT32) {
+            ret = ddi->pfnSetWorkloadType(queue, ZE_WORKLOAD_TYPE_BACKGROUND);
+            BREAK_ON_FAIL(ret, stats);
+            ret = zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr);
+            BREAK_ON_FAIL(ret, stats);
+
+            ret = zeCommandQueueSynchronize(queue, graphSyncTimeout);
+            BREAK_ON_FAIL(ret, stats);
+        }
 
         ret = zeCommandListReset(list);
         BREAK_ON_FAIL(ret, stats);
@@ -642,7 +556,11 @@ TEST_P(CompilerInDriverMultiInference, Pipeline) {
                 queue,
                 std::chrono::nanoseconds(std::chrono::seconds(inference.time)).count());
             BREAK_ON_FAIL(ret, stats);
-
+            if (workloadType != ZE_WORKLOAD_TYPE_FORCE_UINT32) {
+                ret = ddi->pfnSetWorkloadType(queue, workloadType);
+                BREAK_ON_FAIL(ret, stats);
+                workloadType = ZE_WORKLOAD_TYPE_FORCE_UINT32;
+            }
             nextFrameStartPoint = frameBegin + frameTargetTimeUs;
 
             std::chrono::duration<double, std::milli> durationMs =
@@ -667,12 +585,30 @@ TEST_P(CompilerInDriverMultiInference, Pipeline) {
         stats.avgExecTimePerFrame /= stats.totalFrames;
 
         return stats;
-    }; // end of runInference
+    };
+};
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilerInDriverMultiInference);
+
+INSTANTIATE_TEST_SUITE_P(,
+                         CompilerInDriverMultiInference,
+                         ::testing::ValuesIn(Environment::getConfiguration("multi_inference")),
+                         [](const testing::TestParamInfo<YAML::Node> &p) {
+                             return p.param["name"].as<std::string>();
+                         });
+
+TEST_P(CompilerInDriverMultiInference, Pipeline) {
+    auto testInference =
+        [&](const CompilerInDriverMultiInference::LocalInference &inference) -> InferenceStats {
+        return runInference(inference);
+    };
 
     std::vector<std::future<InferenceStats>> results;
     for (size_t i = 0; i < testInferences.size(); i++)
-        results.push_back(std::async(std::launch::async, runInference, testInferences[i]));
+        results.push_back(std::async(std::launch::async, testInference, testInferences[i]));
 
+    std::pair<double, uint32_t> defaultFPSInferencesRate = {0, 0};
+    std::pair<double, uint32_t> backgroundFPSInferencesRate = {0, 0};
     for (size_t i = 0; i < results.size(); i++) {
         InferenceStats stats = results[i].get();
 
@@ -688,5 +624,33 @@ TEST_P(CompilerInDriverMultiInference, Pipeline) {
         PRINTF("MinFrameExecTime[ms]: %f \n", stats.minExecTimePerFrame);
         PRINTF("AvgFrameExecTime[ms]: %f \n", stats.avgExecTimePerFrame);
         PRINTF("MaxFrameExecTime[ms]: %f \n", stats.maxExecTimePerFrame);
+
+        /*If defined acceptance criteraia for fps rate*/
+        if (testInferences[i].fpsDeviation) {
+            const double minFPS =
+                testInferences[i].targetFps * (1 - testInferences[i].fpsDeviation);
+            EXPECT_GE(static_cast<double>(stats.realFPS), minFPS);
+        }
+
+        if (testInferences[i].workloadType == ZE_WORKLOAD_TYPE_DEFAULT) {
+            defaultFPSInferencesRate.first += stats.realFPS;
+            defaultFPSInferencesRate.second++;
+        }
+        if (testInferences[i].workloadType == ZE_WORKLOAD_TYPE_BACKGROUND) {
+            backgroundFPSInferencesRate.first += stats.realFPS;
+            backgroundFPSInferencesRate.second++;
+        }
+    }
+
+    /* For test with dynamic priority change when focus is set on dedicated inference there
+       is acceptance criteria that focused inference will be min 30% more effective
+     */
+    if (isHwsModeEnabled() && defaultFPSInferencesRate.second != 0 &&
+        backgroundFPSInferencesRate.second != 0) {
+        const double avgRateDefaultInferences =
+            defaultFPSInferencesRate.first / defaultFPSInferencesRate.second;
+        const double avgRateBackgroundInferences =
+            backgroundFPSInferencesRate.first / backgroundFPSInferencesRate.second;
+        EXPECT_GE(avgRateDefaultInferences, avgRateBackgroundInferences * 1.30);
     }
 }

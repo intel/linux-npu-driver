@@ -194,6 +194,14 @@ void parse_args(std::unordered_map<int, Argument> &extArgs,
     }
 }
 
+void append_positive_filter(const std::string &pattern) {
+    auto &filter = ::testing::GTEST_FLAG(filter);
+    if (filter == "*")
+        filter = pattern;
+    else
+        filter = pattern + ":" + filter;
+}
+
 void append_negative_filter(const char *negative_pattern) {
     std::string &filter = ::testing::GTEST_FLAG(filter);
 

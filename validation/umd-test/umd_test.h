@@ -8,6 +8,7 @@
 #pragma once
 
 #include "blob_params.hpp"
+#include "drm_helpers.h"
 #include "model_params.hpp"
 #include "test_app.h"
 #include "testenv.hpp"
@@ -16,6 +17,7 @@
 #include "ze_scope.hpp"
 
 #include <filesystem>
+#include <linux/kernel.h>
 #include <memory>
 #include <string>
 #include <thread>
@@ -27,6 +29,11 @@ void PrintTo(const ze_result_t &result, std::ostream *os);
 #define SKIP_(msg)                      \
     if (!test_app::run_skipped_tests) { \
         GTEST_SKIP_(msg);               \
+    }
+
+#define SKIP_VPU37XX(msg) \
+    if (isVPU37xx()) {    \
+        SKIP_(msg);       \
     }
 
 #define SKIP_VPU40XX(msg) \
@@ -49,8 +56,20 @@ void PrintTo(const ze_result_t &result, std::ostream *os);
         SKIP_("Needs root privileges")  \
     }
 
+#define SKIP_CHROMEOS()                                    \
+    if (std::filesystem::exists("/etc/chrome_dev.conf")) { \
+        SKIP_("Test is not supported in ChromeOS")         \
+    }
+
+#define SKIP_NEEDS_SYSFS_FILE(x)                                          \
+    if (!isFileAvailableInSysFs(x)) {                                     \
+        SKIP_("Test is not supported because " x " is missing in SysFs"); \
+    }
+
 #define KB (1024llu)
 #define MB (1024llu * 1024)
+
+#define ALLIGN_TO_PAGE(x) __ALIGN_KERNEL((x), (UmdTest::PAGE_SIZE))
 
 inline std::string memSizeToStr(uint64_t size) {
     std::string str;
@@ -85,6 +104,25 @@ inline std::string generateTestNameFromNode(const YAML::Node &node) {
     return testName;
 }
 
+inline std::string getDeviceSysFsDirectory() {
+    drm_device_desc desc = drm::open_intel_vpu();
+    close(desc.fd);
+    std::string path = "/sys/dev/char/" + std::to_string(desc.major_id) + ":" +
+                       std::to_string(desc.minor_id) + "/device";
+    return path;
+}
+
+inline bool isFileAvailableInSysFs(const std::string &filename) {
+    std::filesystem::path deviceSysFs = getDeviceSysFsDirectory();
+    if (deviceSysFs.empty()) {
+        TRACE("WARNING: No SysFs available in system\n");
+        return false;
+    }
+
+    std::error_code ec;
+    return std::filesystem::exists(deviceSysFs / filename, ec);
+}
+
 class UmdTest : public ::testing::Test {
   public:
     /**
@@ -97,9 +135,6 @@ class UmdTest : public ::testing::Test {
     static int saveFile(const std::string &filePath, void *dataIn, size_t inputSize);
 
     static constexpr int PAGE_SIZE = 4096;
-
-    uint32_t computeGrpOrdinal = std::numeric_limits<uint32_t>::max();
-    uint32_t copyGrpOrdinal = std::numeric_limits<uint32_t>::max();
 
     uint32_t computeGrpOrdinalGpu = std::numeric_limits<uint32_t>::max();
     uint32_t copyGrpOrdinalGpu = std::numeric_limits<uint32_t>::max();
@@ -117,11 +152,6 @@ class UmdTest : public ::testing::Test {
     std::shared_ptr<void> AllocSharedMemory(size_t size, ze_host_mem_alloc_flags_t flagsHost = 0);
     std::shared_ptr<void> AllocDeviceMemory(size_t size);
     std::shared_ptr<void> AllocHostMemory(size_t size, ze_host_mem_alloc_flags_t flagsHost = 0);
-    std::vector<char> getFlagsFromString(std::string flags);
-    void createGraphDescriptorForModel(const std::string &modelPath,
-                                       const std::vector<char> &modelBuildFlags,
-                                       std::vector<uint8_t> &testModelIR,
-                                       ze_graph_desc_2_t &graphDesc);
 
     bool isSilicon();
     bool isHwsModeEnabled();
@@ -139,8 +169,9 @@ class UmdTest : public ::testing::Test {
     ze_device_handle_t zeDeviceGpu = nullptr;
     ze_context_handle_t zeContextGpu = nullptr;
 
+    void CommandQueueGroupSetUpNpu(ze_device_handle_t dev);
     void
-    CommandQueueGroupSetUp(ze_device_handle_t dev, uint32_t &compOrdinal, uint32_t &copyOrdinal);
+    CommandQueueGroupSetUpGpu(ze_device_handle_t dev, uint32_t &compOrdinal, uint32_t &copyOrdinal);
 
     uint16_t pciDevId = 0u;
     uint32_t platformType = 0u;

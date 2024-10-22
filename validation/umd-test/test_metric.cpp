@@ -211,7 +211,7 @@ class MetricQuery : public Metric, public ::testing::WithParamInterface<metricTe
         }
     }
 
-    void MetricInitialize(uint8_t groupIndex, uint8_t queryIndex, uint32_t ordinal) {
+    void MetricInitialize(uint8_t groupIndex, uint8_t queryIndex) {
         ASSERT_EQ(
             zetContextActivateMetricGroups(zeContext, zeDevice, 1u, &metricGroups[groupIndex]),
             ZE_RESULT_SUCCESS);
@@ -226,18 +226,15 @@ class MetricQuery : public Metric, public ::testing::WithParamInterface<metricTe
 
         ze_command_queue_desc_t cmdQueueDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
                                                 .pNext = nullptr,
-                                                .ordinal = 0,
+                                                .ordinal = 0u,
                                                 .index = 0,
                                                 .flags = 0,
                                                 .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
                                                 .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
         ze_command_list_desc_t cmdListDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
                                               .pNext = nullptr,
-                                              .commandQueueGroupOrdinal = 0,
+                                              .commandQueueGroupOrdinal = 0u,
                                               .flags = 0};
-
-        cmdQueueDesc.ordinal = ordinal;
-        cmdListDesc.commandQueueGroupOrdinal = ordinal;
 
         scopedQueue = zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDesc, ret);
         ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
@@ -263,7 +260,7 @@ class MetricQuery : public Metric, public ::testing::WithParamInterface<metricTe
 };
 
 TEST_F(MetricQuery, RunMetricQueryOnEmptyCommandList) {
-    MetricInitialize(0u, 0u, computeGrpOrdinal);
+    MetricInitialize(0u, 0u);
 
     EXPECT_EQ(zetCommandListAppendMetricQueryBegin(list, query), ZE_RESULT_SUCCESS);
 
@@ -277,7 +274,7 @@ TEST_F(MetricQuery, RunMetricQueryOnEmptyCommandList) {
 
 TEST_F(MetricQuery, MetricGroupCalculateEmptyMetricQuery) {
     size_t groupIndex = 1;
-    MetricInitialize(groupIndex, 0, computeGrpOrdinal);
+    MetricInitialize(groupIndex, 0);
 
     size_t queryDataSize = 0u;
     EXPECT_EQ(zetMetricQueryGetData(query, &queryDataSize, nullptr), ZE_RESULT_SUCCESS);
@@ -348,7 +345,7 @@ TEST_P(MetricQuery, GetDataValueCheck) {
 
     uint32_t groupIndex = findMetricGroupIndex(metricGroupName);
 
-    MetricInitialize(groupIndex, queryIndex, computeGrpOrdinal);
+    MetricInitialize(groupIndex, queryIndex);
 
     ASSERT_EQ(zetCommandListAppendMetricQueryBegin(list, query), ZE_RESULT_SUCCESS);
     ASSERT_EQ(
@@ -414,7 +411,7 @@ TEST_P(MetricQuery, GetDataValueCheck) {
     }
 }
 
-class MetricQueryCopyEngine : public MetricQuery {
+class MetricQueryMemoryCopy : public MetricQuery {
   public:
     void SetUp() override { Metric::SetUp(); }
 
@@ -444,34 +441,21 @@ class MetricQueryCopyEngine : public MetricQuery {
     }
 };
 
-TEST_F(MetricQueryCopyEngine, RunMetricQueryOnEmptyCommandList) {
-    MetricInitialize(0u, 0u, copyGrpOrdinal);
+std::vector<uint32_t> queryIndexes = {0};
 
-    EXPECT_EQ(zetCommandListAppendMetricQueryBegin(list, query), ZE_RESULT_SUCCESS);
-
-    EXPECT_EQ(zetCommandListAppendMetricQueryEnd(list, query, nullptr, 0u, nullptr),
-              ZE_RESULT_SUCCESS);
-    EXPECT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
-
-    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandQueueSynchronize(queue, syncTimeout), ZE_RESULT_SUCCESS);
-}
-
-std::vector<uint32_t> queryIndexesCopyEngine = {0};
-
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MetricQueryCopyEngine);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MetricQueryMemoryCopy);
 
 INSTANTIATE_TEST_SUITE_P(
     ,
-    MetricQueryCopyEngine,
-    ::testing::ValuesIn(MetricQueryCopyEngine::createCasesForMetricsTest(queryIndexesCopyEngine)),
+    MetricQueryMemoryCopy,
+    ::testing::ValuesIn(MetricQueryMemoryCopy::createCasesForMetricsTest(queryIndexes)),
     [](const testing::TestParamInfo<metricTestCase_t> &p) {
         auto metricGroupName = std::get<1>(p.param);
         auto queryIndex = std::get<2>(p.param);
         return metricGroupName + "_OnIndex" + std::to_string(queryIndex);
     });
 
-TEST_P(MetricQueryCopyEngine, GetDataValue) {
+TEST_P(MetricQueryMemoryCopy, GetDataValue) {
     auto &[node, metricGroupName, queryIndex] = GetParam();
     const size_t allocSize = 2048 * 1024;
 
@@ -480,7 +464,7 @@ TEST_P(MetricQueryCopyEngine, GetDataValue) {
     dstMem = AllocSharedMemory(allocSize);
 
     uint32_t groupIndex = findMetricGroupIndex(metricGroupName);
-    MetricInitialize(groupIndex, queryIndex, copyGrpOrdinal);
+    MetricInitialize(groupIndex, queryIndex);
 
     ASSERT_EQ(zetCommandListAppendMetricQueryBegin(list, query), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandListAppendMemoryCopy(list,

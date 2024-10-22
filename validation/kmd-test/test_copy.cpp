@@ -355,7 +355,3 @@ void Copy::CopyDuringCtxCreation(int engine) {
 TEST_F(Copy, CopyDuringCtxCreationComputeEngine) {
     CopyDuringCtxCreation(ENGINE_COMPUTE);
 }
-
-TEST_F(Copy, CopyDuringCtxCreationCopyEngine) {
-    CopyDuringCtxCreation(ENGINE_COPY);
-}

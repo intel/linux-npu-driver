@@ -7,26 +7,27 @@
 
 #pragma once
 
+#include <stdint.h>
+
+#include "api/vpu_jsm_job_cmd_api.h"
+#include "drm/ivpu_accel.h"
+#include "drm_helpers.h"
+#include "file_helper.h"
+#include "linux/dma-heap.h"
+#include "perf_counter.h"
+#include "test_app.h"
+
 #include <algorithm>
+#include <fcntl.h>
+#include <filesystem>
+#include <fstream>
 #include <libudev.h>
 #include <linux/kernel.h>
 #include <linux/magic.h>
-#include <stdint.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
-#include <sys/vfs.h>
 #include <sys/utsname.h>
-#include <fcntl.h>
-#include <fstream>
-#include <filesystem>
-
-#include "drm_helpers.h"
-#include "file_helper.h"
-#include "api/vpu_jsm_job_cmd_api.h"
-#include "test_app.h"
-#include "perf_counter.h"
-#include "drm/ivpu_accel.h"
-#include "linux/dma-heap.h"
+#include <sys/vfs.h>
 
 #define SKIP_(msg)                    \
     if (!test_app::run_skipped_tests) \
@@ -79,10 +80,6 @@
 #define SKIP_NO_DMA_HEAP()        \
     if (!dma_heap_is_available()) \
     SKIP_("DMA heaps are not available")
-
-#define SKIP_PATCHSET()       \
-    if (api_version_lt(1, 3)) \
-    SKIP_("Not supported by the upstream driver")
 
 #define EXPECT_BYTE_ARR_EQ(arr, size, value) EXPECT_PRED3(byte_array_eq, arr, size, value)
 
@@ -505,8 +502,8 @@ struct CmdBuffer : MemoryBuffer {
                       MemoryBuffer &dst_buf,
                       uint32_t dst_offset,
                       size_t length,
-                      uint16_t copy_cmd);
-    int submit(int engine, int priority = 0, uint32_t timeout_ms = 0);
+                      uint16_t copy_cmd = VPU_CMD_COPY_LOCAL_TO_LOCAL);
+    int submit(int engine = ENGINE_COMPUTE, int priority = 0, uint32_t timeout_ms = 0);
     void prepare_bb_hdr(void);
     void prepare_params(int engine, int priority, drm_ivpu_submit *params);
     int wait(uint32_t timeout_ms = JOB_SYNC_TIMEOUT_MS);
@@ -546,7 +543,8 @@ struct DmaBuffer {
 
     size_t size() { return _size; }
     size_t buffer_fd() { return _dmabuf_fd; }
-    void *buffer_ptr() { return _buf_ptr; }
+    void *buffer_ptr(int offset = 0) { return ((uint8_t *)_buf_ptr + offset); }
+    uint64_t *buffer_ptr64(int offset = 0) { return (uint64_t *)buffer_ptr(offset); }
 };
 
 bool byte_array_eq(uint8_t *arr, size_t size, uint8_t value);

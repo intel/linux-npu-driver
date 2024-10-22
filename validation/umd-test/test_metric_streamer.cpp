@@ -28,9 +28,8 @@ class MetricStreamer : public UmdTest, public ::testing::WithParamInterface<metr
         if (zetMetricGroupGet(zeDevice, &count, nullptr) == ZE_RESULT_ERROR_UNSUPPORTED_FEATURE)
             SKIP_("Metrics are not supported");
 
-        uint32_t ordinal = useCopyOrdinal ? copyGrpOrdinal : computeGrpOrdinal;
-        ASSERT_EQ(createCommandQueue(ordinal, &queue), ZE_RESULT_SUCCESS);
-        ASSERT_EQ(createCommandList(ordinal, &list), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(createCommandQueue(&queue), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(createCommandList(&list), ZE_RESULT_SUCCESS);
 
         auto [node, groupName, execTime] = GetParam();
         getMetricGroupByName(groupName);
@@ -79,11 +78,11 @@ class MetricStreamer : public UmdTest, public ::testing::WithParamInterface<metr
         }
     }
 
-    ze_result_t createCommandQueue(uint32_t ordinal, ze_command_queue_handle_t *handle) {
+    ze_result_t createCommandQueue(ze_command_queue_handle_t *handle) {
         ze_result_t ret = ZE_RESULT_SUCCESS;
         ze_command_queue_desc_t desc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
                                         .pNext = nullptr,
-                                        .ordinal = ordinal,
+                                        .ordinal = 0u,
                                         .index = 0,
                                         .flags = 0,
                                         .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
@@ -94,11 +93,11 @@ class MetricStreamer : public UmdTest, public ::testing::WithParamInterface<metr
         return ret;
     }
 
-    ze_result_t createCommandList(uint32_t ordinal, ze_command_list_handle_t *handle) {
+    ze_result_t createCommandList(ze_command_list_handle_t *handle) {
         ze_result_t ret = ZE_RESULT_SUCCESS;
         ze_command_list_desc_t desc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
                                        .pNext = nullptr,
-                                       .commandQueueGroupOrdinal = ordinal,
+                                       .commandQueueGroupOrdinal = 0u,
                                        .flags = 0};
         auto scopedList = zeScope::commandListCreate(zeContext, zeDevice, desc, ret);
         lists.push_back(std::move(scopedList));
@@ -217,7 +216,6 @@ class MetricStreamer : public UmdTest, public ::testing::WithParamInterface<metr
   public:
     ze_command_queue_handle_t queue = nullptr;
     ze_command_list_handle_t list = nullptr;
-    bool useCopyOrdinal = false;
 
     zet_metric_streamer_handle_t hMetricStreamer = nullptr;
     zet_metric_group_handle_t hMetricGroup = nullptr;
@@ -434,14 +432,8 @@ TEST_P(MetricStreamer, RunInferenceExpectReportNotificationFromEventHostSynchron
     }
 }
 
-class MetricStreamerCopyEngine : public MetricStreamer {
+class MetricStreamerMemoryCopy : public MetricStreamer {
   public:
-    MetricStreamerCopyEngine() { useCopyOrdinal = true; }
-
-    /* Generates test cases for copy engine, it ignores network and returns
-     * combinations of metric groups and inference execution time of copy job
-     * required to gather metrics.
-     */
     static std::vector<metricTestCase_t>
     createCasesForMetricsTest(std::vector<uint32_t> &executionTime) {
         std::vector<metricTestCase_t> combinations;
@@ -463,21 +455,21 @@ class MetricStreamerCopyEngine : public MetricStreamer {
     }
 };
 
-std::vector<uint32_t> execTimeCopyEngineMs = {20, 100};
+std::vector<uint32_t> execTimeMs = {20, 100};
 
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MetricStreamerCopyEngine);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MetricStreamerMemoryCopy);
 
 INSTANTIATE_TEST_SUITE_P(
     ,
-    MetricStreamerCopyEngine,
-    ::testing::ValuesIn(MetricStreamerCopyEngine::createCasesForMetricsTest(execTimeCopyEngineMs)),
+    MetricStreamerMemoryCopy,
+    ::testing::ValuesIn(MetricStreamerMemoryCopy::createCasesForMetricsTest(execTimeMs)),
     [](const testing::TestParamInfo<metricTestCase_t> &p) {
         std::string groupName = std::get<1>(p.param);
         uint32_t execTime = std::get<2>(p.param);
         return groupName + "_" + std::to_string(execTime) + "ms";
     });
 
-TEST_P(MetricStreamerCopyEngine, RunCopyExpectAnyReport) {
+TEST_P(MetricStreamerMemoryCopy, RunCopyExpectAnyReport) {
     auto [node, metricGroupName, execTime] = GetParam();
 
     openMetricStreamer();
