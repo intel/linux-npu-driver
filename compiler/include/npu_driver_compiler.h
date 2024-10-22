@@ -22,8 +22,8 @@
 extern "C" {
 #endif
 
-#define VCL_COMPILER_VERSION_MAJOR 5
-#define VCL_COMPILER_VERSION_MINOR 8
+#define VCL_COMPILER_VERSION_MAJOR 6
+#define VCL_COMPILER_VERSION_MINOR 1
 #define VCL_PROFILING_VERSION_MAJOR 2
 #define VCL_PROFILING_VERSION_MINOR 0
 
@@ -69,7 +69,7 @@ typedef struct __vcl_log_handle_t* vcl_log_handle_t;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// @brief Defines type of requested data.
-/// Must be in sync with \b _ze_graph_profiling_type_t
+/// Must be in sync with _ze_graph_profiling_type_t
 typedef enum __vcl_profiling_request_type_t {
     VCL_PROFILING_LAYER_LEVEL = 0x1,
     VCL_PROFILING_TASK_LEVEL = 0x2,
@@ -120,10 +120,9 @@ typedef struct __vcl_profiling_properties_t {
 typedef enum __vcl_platform_t {
     VCL_PLATFORM_UNKNOWN = -1,
 
-    VCL_PLATFORM_VPU3700,  ///< VPU3700
-    VCL_PLATFORM_VPU3720,  ///< NPU3720
-    VCL_PLATFORM_VPU4000,  ///< NPU4000
-
+    VCL_PLATFORM_VPU3700 = 0,  ///< VPU3700
+    VCL_PLATFORM_VPU3720 = 1,  ///< VPU3720
+    VCL_PLATFORM_VPU4000 = 2,  ///< VPU4000
 } vcl_platform_t;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -165,6 +164,23 @@ typedef struct __vcl_executable_desc_t {
 } vcl_executable_desc_t;
 
 ///////////////////////////////////////////////////////////////////////////////
+/// @brief Defines query description to be passed during query network creation
+///
+///        Format of modelIRData (defined in L0 adaptor):
+///        1. API version : vcl_version_info_t
+///        2. Num of data elements (now only xml + weights = 2) : uint32_t
+///        3. Size of data 1 (xml) : uint64_t
+///        4. Data 1 : $2 bytes
+///        5. Size of data 2 (weights) : uint64_t
+///        6. Data 2 : $4 bytes
+typedef struct __vcl_query_desc_t {
+    const uint8_t* modelIRData;
+    uint64_t modelIRSize;  ///< Size of modelIRData
+    const char* options;   ///< Compiler config options
+    uint64_t optionsSize;  ///< Size of options
+} vcl_query_desc_t;
+
+///////////////////////////////////////////////////////////////////////////////
 /// @brief Defines input that is required to create profiling handler
 typedef struct __vcl_profiling_input_t {
     const uint8_t* blobData;  ///< Pointer to the buffer with the blob
@@ -196,8 +212,8 @@ VCL_APIEXPORT vcl_result_t VCL_APICALL vclCompilerGetProperties(vcl_compiler_han
 
 ///////////////////////////////////////////////////////////////////////////////
 /// @brief Create an querynetwork object and return the handle
-VCL_APIEXPORT vcl_result_t VCL_APICALL vclQueryNetworkCreate(vcl_compiler_handle_t compiler, uint8_t* modelIR,
-                                                             uint64_t modelIRSize, vcl_query_handle_t* query);
+VCL_APIEXPORT vcl_result_t VCL_APICALL vclQueryNetworkCreate(vcl_compiler_handle_t compiler, vcl_query_desc_t desc,
+                                                             vcl_query_handle_t* query);
 
 ///////////////////////////////////////////////////////////////////////////////
 /// @brief Retrieve result of query network
@@ -213,6 +229,16 @@ VCL_APIEXPORT vcl_result_t VCL_APICALL vclQueryNetworkDestroy(vcl_query_handle_t
 /// Parse modelIRData in the executable descriptor to blob and store it in the executable.
 VCL_APIEXPORT vcl_result_t VCL_APICALL vclExecutableCreate(vcl_compiler_handle_t compiler, vcl_executable_desc_t desc,
                                                            vcl_executable_handle_t* executable);
+
+typedef struct __vcl_allocator_t {
+    uint8_t* (*allocate)(uint64_t);
+    void (*deallocate)(uint8_t*);
+} vcl_allocator_t;
+
+VCL_APIEXPORT vcl_result_t VCL_APICALL vclAllocatedExecutableCreate(vcl_compiler_handle_t compiler,
+                                                                    vcl_executable_desc_t desc,
+                                                                    vcl_allocator_t const* allocator,
+                                                                    uint8_t** blobBuffer, uint64_t* blobSize);
 
 ///////////////////////////////////////////////////////////////////////////////
 /// @brief Destroys the executable and releases the cached blob.
