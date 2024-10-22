@@ -8,6 +8,7 @@
 
 #include "vpu_nce_hw_37xx.h"
 #include "vpu_dma_hw_37xx.h"
+#include "vpu_pwrmgr_api.h"
 
 /*
  * When a change is made to vpu_nnrt_api_37xx.h that breaks backwards compatibility
@@ -28,7 +29,7 @@
  */
 #define VPU_NNRT_37XX_API_VER_MAJOR 7
 #define VPU_NNRT_37XX_API_VER_MINOR 0
-#define VPU_NNRT_37XX_API_VER_PATCH 3
+#define VPU_NNRT_37XX_API_VER_PATCH 4
 #define VPU_NNRT_37XX_API_VER ((VPU_NNRT_37XX_API_VER_MAJOR << 16) | VPU_NNRT_37XX_API_VER_MINOR)
 
 /* Index in the API version table, same for all HW generations */
@@ -76,9 +77,6 @@
 #endif
 
 namespace nn_public {
-
-constexpr uint32_t VPU_SCALABILITY_NUM_OF_FREQ = 5;
-constexpr uint32_t VPU_SCALABILITY_VALUES_PER_FREQ = 5;
 
 #pragma pack(push, 1)
 
@@ -337,27 +335,11 @@ static_assert(offsetof(VpuMappedInference, barrier_configs) % 8 == 0, "Alignment
 static_assert(offsetof(VpuMappedInference, shv_rt_configs) % 4 == 0, "Alignment error");
 static_assert(offsetof(VpuMappedInference, reserved1_) % 8 == 0, "Alignment error");
 
-struct VPU_ALIGNED_STRUCT(8) VpuPerformanceMetrics {
-    uint32_t freq_base; ///< Base of frequency values used in tables (in MHz).
-    uint32_t freq_step; ///< Step of frequency for each entry in tables (in MHz).
-    uint32_t bw_base;   ///< Base of bandwidth values used in tables (in MB/s).
-    uint32_t bw_step;   ///< Step of bandwidth values used in tables (in MB/s).
-
-    /// Inner arrays are for different bandwidth values.
-    /// Outer arrays are for different frequency values.
-    uint64_t ticks[VPU_SCALABILITY_NUM_OF_FREQ][VPU_SCALABILITY_VALUES_PER_FREQ];    ///< Table of infr. execution time
-    float scalability[VPU_SCALABILITY_NUM_OF_FREQ][VPU_SCALABILITY_VALUES_PER_FREQ]; ///< Table of infr. scalability
-
-    float activity_factor; ///< Compiler estimated activity factor for the inference.
-};
-
-static_assert(sizeof(VpuPerformanceMetrics) == 320, "VpuPerformanceMetrics size != 320");
-
 struct VPU_ALIGNED_STRUCT(8) VpuHostParsedInference {
     uint64_t reserved;
     VpuResourceRequirements resource_requirements_;
     uint8_t pad_[4];
-    VpuPerformanceMetrics performance_metrics_;
+    struct VpuPerformanceMetrics performance_metrics_;
     VpuTaskReference<VpuMappedInference> mapped_;
 };
 

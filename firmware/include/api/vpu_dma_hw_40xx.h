@@ -62,10 +62,11 @@ typedef enum {
 
 // Number of dimensions for the dynamic task transfer
 typedef enum {
-    DMA_DYN_NUM_DIM_DISABLED = 0, // 1D dynamic task transfer
-    DMA_DYN_NUM_DIM_2D,           // 2D dynamic task transfer
-    DMA_DYN_NUM_DIM_3D,           // 3D dynamic task transfer
-    DMA_DYN_NUM_DIM_MAX
+    DMA_DYN_DIM_DISABLED = 0, // No dynamic task dimensionality
+    DMA_DYN_DIM_2D,           // Enable DESCRIPTOR.*_DIM_SIZE[1]/DESCRIPTOR.*_LIST_SIZE to be dynamic
+    DMA_DYN_DIM_3D,           // Enable DESCRIPTOR.*_DIM_SIZE[2] to be dynamic
+    DMA_DYN_DIM_2D_3D,        // Enable both 2D and 3D dynamic task dimensionality
+    DMA_DYN_DIM_MAX
 } DmaDynamicDimensions;
 
 // Burst Length Encoding
@@ -177,6 +178,12 @@ typedef enum {
     DMA_MODE_REAL_TIME, // Real Time mode
     DMA_MODE_MAX,
 } DmaJobMode;
+
+typedef enum {
+    DMA_CTRG_0,
+    DMA_CTRG_1,
+    DMA_CTRG_MAX,
+} DmaCtrgEnum;
 
 #pragma pack(push, 1)
 
@@ -387,7 +394,9 @@ typedef struct ALIGN_DMA(DMA_L2CACHE_ALIGNMENT) {
     uint16_t task_dyn_id;          // Dynamic task phase ID
     uint16_t rsvd8;                // Reserved
     uint32_t task_dyn_addr;        // Dynamic Task address
-    uint64_t pad[2];               // Padding to make all descriptors 32-Byte aligned
+    uint32_t ptr_wr_addr;          // Address used to write the Task Descriptor pointer
+    uint32_t rsvd9;                // Reserved
+    uint64_t pad[1];               // Padding to make all descriptors 32-Byte aligned
 } DmaDescriptor;
 
 static_assert(sizeof(DmaDescriptor) == 192, "DmaDescriptor size != 192");

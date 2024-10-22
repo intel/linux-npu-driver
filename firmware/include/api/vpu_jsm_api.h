@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (c) 2020-2023, Intel Corporation.
+ * Copyright (c) 2020-2024, Intel Corporation.
  */
 
 /**
@@ -22,7 +22,7 @@
 /*
  * Minor version changes when API backward compatibility is preserved.
  */
-#define VPU_JSM_API_VER_MINOR 23
+#define VPU_JSM_API_VER_MINOR 25
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
@@ -74,6 +74,7 @@
 #define VPU_JSM_STATUS_MVNCI_INTERNAL_ERROR 0xCU
 /* Job status returned when the job was preempted mid-inference */
 #define VPU_JSM_STATUS_PREEMPTED_MID_INFERENCE 0xDU
+#define VPU_JSM_STATUS_MVNCI_CONTEXT_VIOLATION_HW 0xEU
 
 /*
  * Host <-> VPU IPC channels.
@@ -88,21 +89,23 @@
  */
 enum {
     /*
-     * Null sumbmission mask.
-     * When set, batch buffer's commands are not processed but returned as successful immediately, except fences and
-     * timestamps. Used for testing and profiling purposes.
+     * Null submission mask.
+     * When set, batch buffer's commands are not processed but returned as
+     * successful immediately, except fences and timestamps.
      * When cleared, batch buffer's commands are processed normally.
+     * Used for testing and profiling purposes.
      */
     VPU_JOB_FLAGS_NULL_SUBMISSION_MASK = (1 << 0U),
     /*
      * Inline command mask.
      * When set, the object in job queue is an inline command (see struct vpu_inline_cmd below).
-     * When cleared, the object in job queue is an engine job (see struct vpu_job below).
+     * When cleared, the object in job queue is a job (see struct vpu_job below).
      */
     VPU_JOB_FLAGS_INLINE_CMD_MASK = (1 << 1U),
     /*
      * VPU private data mask.
-     * Reserved for the VPU to store private data about the job (or inline command) while being processed.
+     * Reserved for the VPU to store private data about the job (or inline command)
+     * while being processed.
      */
     VPU_JOB_FLAGS_PRIVATE_DATA_MASK = 0xFFFF0000U
 };
@@ -113,19 +116,21 @@ enum {
 enum {
     /*
      * No job done notification mask.
-     * When set, indicates that no job done notification should be sent for any job from this queue.
-     * When cleared, indicates that job done notification should be sent for every job completed from this queue.
+     * When set, indicates that no job done notification should be sent for any
+     * job from this queue. When cleared, indicates that job done notification
+     * should be sent for every job completed from this queue.
      */
     VPU_JOB_QUEUE_FLAGS_NO_JOB_DONE_MASK = (1 << 0U),
     /*
      * Native fence usage mask.
-     * When set, indicates that job queue uses native fences (as inline commands in job queue). Such queues may also use
-     * legacy fences (as commands in batch buffers).
+     * When set, indicates that job queue uses native fences (as inline commands
+     * in job queue). Such queues may also use legacy fences (as commands in batch buffers).
      * When cleared, indicates the job queue only uses legacy fences.
-     * NOTE: For queues using native fences, VPU expects that all jobs in the queue are immediately followed by an
-     * inline command object. This object is expected to be a fence signal command in most cases, but can also be a NOP
-     * in case the host does not need per-job fence signalling. Other inline commands objects can be inserted between
-     * "job and inline command" pairs.
+     * NOTE: For queues using native fences, VPU expects that all jobs in the queue
+     * are immediately followed by an inline command object. This object is expected
+     * to be a fence signal command in most cases, but can also be a NOP in case the host
+     * does not need per-job fence signalling. Other inline commands objects can be
+     * inserted between "job and inline command" pairs.
      */
     VPU_JOB_QUEUE_FLAGS_USE_NATIVE_FENCE_MASK = (1 << 1U),
 
@@ -166,7 +171,7 @@ enum {
 /*
  * vpu_jsm_engine_reset_context flag definitions
  */
-#define VPU_ENGINE_RESET_CONTEXT_FLAG_COLLATERAL_DAMAGE_MASK (1 << 0)
+#define VPU_ENGINE_RESET_CONTEXT_FLAG_COLLATERAL_DAMAGE_MASK (1 << 0U)
 #define VPU_ENGINE_RESET_CONTEXT_HANG_PRIMARY_CAUSE 0
 #define VPU_ENGINE_RESET_CONTEXT_COLLATERAL_DAMAGE 1
 
@@ -187,18 +192,19 @@ enum {
 /*
  * Fence wait.
  * VPU waits for the fence current value to reach monitored value.
- * Fence wait operations are executed upon job dispatching. While waiting for the fence to be satisfied, VPU blocks
- * fetching of the next objects in the queue. Jobs present in the queue prior to the fence wait object may be processed
+ * Fence wait operations are executed upon job dispatching. While waiting for
+ * the fence to be satisfied, VPU blocks fetching of the next objects in the queue.
+ * Jobs present in the queue prior to the fence wait object may be processed
  * concurrently.
  */
 #define VPU_INLINE_CMD_TYPE_FENCE_WAIT 0x1
 /*
  * Fence signal.
- * VPU sets the fence current value to the provided value. If new current value is equal to or higher than monitored
- * value, VPU sends fence signalled notification to the host.
- * Fence signal operations are executed upon completion of all the jobs present in the queue prior to them, and in-order
- * relative to each other in the queue. But jobs in-between them may be processed concurrently and may complete
- * out-of-order.
+ * VPU sets the fence current value to the provided value. If new current value
+ * is equal to or higher than monitored value, VPU sends fence signalled notification
+ * to the host. Fence signal operations are executed upon completion of all the jobs
+ * present in the queue prior to them, and in-order relative to each other in the queue.
+ * But jobs in-between them may be processed concurrently and may complete out-of-order.
  */
 #define VPU_INLINE_CMD_TYPE_FENCE_SIGNAL 0x2
 
@@ -218,35 +224,37 @@ enum vpu_job_scheduling_priority_band {
  * Jobs defines the actual workloads to be executed by a given engine.
  */
 struct vpu_job {
-    volatile uint64_t batch_buf_addr; /**< Address of VPU commands batch buffer */
-    volatile uint32_t job_id;         /**< Job ID */
-    volatile uint32_t flags;          /**< Flags bit field, see VPU_JOB_FLAGS_* above */
-    union {
-        struct {
-            /**
-             * Doorbell ring timestamp taken by KMD from SoC's global system clock, in microseconds.
-             * NPU can convert this value to its own fixed clock's timebase, to match other profiling timestamps.
-             */
-            volatile uint64_t doorbell_timestamp;
-            volatile uint64_t host_tracking_id; /**< Extra id for job tracking, used only in the firmware perf traces */
-        };
-        struct {
-            volatile uint64_t root_page_table_addr;           /**< Address of root page table to use for this job */
-            volatile uint64_t root_page_table_update_counter; /**< Page tables update events counter */
-        };
-    };
-    volatile uint64_t primary_preempt_buf_addr;   /**< Address of the primary preemption buffer to use for this job */
-    volatile uint32_t primary_preempt_buf_size;   /**< Size of the primary preemption buffer to use for this job */
-    volatile uint32_t secondary_preempt_buf_size; /**< Size of secondary preemption buffer to use for this job */
-    volatile uint64_t secondary_preempt_buf_addr; /**< Address of secondary preemption buffer to use for this job */
+    /**< Address of VPU commands batch buffer */
+    volatile uint64_t batch_buf_addr;
+    /**< Job ID */
+    volatile uint32_t job_id;
+    /**< Flags bit field, see VPU_JOB_FLAGS_* above */
+    volatile uint32_t flags;
+    /**
+     * Doorbell ring timestamp taken by KMD from SoC's global system clock, in
+     * microseconds. NPU can convert this value to its own fixed clock's timebase,
+     * to match other profiling timestamps.
+     */
+    volatile uint64_t doorbell_timestamp;
+    /**< Extra id for job tracking, used only in the firmware perf traces */
+    volatile uint64_t host_tracking_id;
+    /**< Address of the primary preemption buffer to use for this job */
+    volatile uint64_t primary_preempt_buf_addr;
+    /**< Size of the primary preemption buffer to use for this job */
+    volatile uint32_t primary_preempt_buf_size;
+    /**< Size of secondary preemption buffer to use for this job */
+    volatile uint32_t secondary_preempt_buf_size;
+    /**< Address of secondary preemption buffer to use for this job */
+    volatile uint64_t secondary_preempt_buf_addr;
     uint64_t reserved_0;
 };
 typedef struct vpu_job vpu_job_t;
 
 /*
  * Inline command format.
- * Inline commands are the commands executed at scheduler level (typically, synchronization directives).
- * Inline command and job objects must be of the same size and have flags field at same offset.
+ * Inline commands are the commands executed at scheduler level (typically,
+ * synchronization directives). Inline command and job objects must be of
+ * the same size and have flags field at same offset.
  */
 struct vpu_inline_cmd {
     uint64_t reserved_0;
@@ -269,8 +277,8 @@ struct vpu_inline_cmd {
             /* User VA of the log buffer in which to add log entry on completion. */
             volatile uint64_t log_buffer_va;
         } fence;
-        /* Other commands do not have a payload. Payload definition for future inline commands can be inserted here. */
-        /* Ensure total size of vpu_inline_cmd structure is 64B, like vpu_job structure. */
+        /* Other commands do not have a payload. */
+        /* Payload definition for future inline commands can be inserted here. */
         uint64_t reserved_1[6];
     } payload;
 };
@@ -336,7 +344,7 @@ enum vpu_trace_entity_type {
 struct vpu_hws_log_buffer_header {
     /* Written by VPU after adding a log entry. Initialised by host to 0. */
     uint32_t first_free_entry_index;
-    /* Incremented by VPU every time the VPU overwrites the 0th entry; initialised by host to 0. */
+    /* Incremented by VPU every time the VPU writes the 0th entry; initialised by host to 0. */
     uint32_t wraparound_count;
     /*
      * This is the number of buffers that can be stored in the log buffer provided by the host.
@@ -407,7 +415,10 @@ struct vpu_hws_native_fence_log_entry {
     /* Operation type, see enum vpu_hws_native_fence_log_op. */
     uint64_t op_type;
     uint64_t reserved_0;
-    /* VPU_HWS_NATIVE_FENCE_LOG_OP_WAIT_UNBLOCKED only: Timestamp at which fence wait was started (in NPU SysTime). */
+    /*
+     * VPU_HWS_NATIVE_FENCE_LOG_OP_WAIT_UNBLOCKED only: Timestamp at which fence
+     * wait was started (in NPU SysTime).
+     */
     uint64_t fence_wait_start_ts;
     uint64_t reserved_1;
     /* Timestamp at which fence operation was completed (in NPU SysTime). */
@@ -526,7 +537,7 @@ enum vpu_ipc_msg_type {
 
     /* IPC Host -> Device, General commands */
     VPU_IPC_MSG_GENERAL_CMD = 0x1200,
-    VPU_IPC_MSG_BLOB_DEINIT = VPU_IPC_MSG_GENERAL_CMD,
+    VPU_IPC_MSG_BLOB_DEINIT_DEPRECATED = VPU_IPC_MSG_GENERAL_CMD,
     /**
      * Control dyndbg behavior by executing a dyndbg command; equivalent to
      * Linux command: `echo '<dyndbg_cmd>' > <debugfs>/dynamic_debug/control`.
@@ -634,7 +645,7 @@ enum vpu_ipc_msg_type {
     /** Response to VPU_IPC_MSG_DYNDBG_CONTROL. */
     VPU_IPC_MSG_DYNDBG_CONTROL_RSP = 0x2301,
     /**
-     * Acknowledgement of completion of the save procedure initiated by
+     * Acknowledgment of completion of the save procedure initiated by
      * VPU_IPC_MSG_PWR_D0I3_ENTER
      */
     VPU_IPC_MSG_PWR_D0I3_ENTER_DONE = 0x2302,
@@ -818,12 +829,6 @@ struct vpu_jsm_metric_streamer_update {
 };
 typedef struct vpu_jsm_metric_streamer_update vpu_jsm_metric_streamer_update_t;
 
-struct vpu_ipc_msg_payload_blob_deinit {
-    /* 64-bit unique ID for the blob to be de-initialized. */
-    uint64_t blob_id;
-};
-typedef struct vpu_ipc_msg_payload_blob_deinit vpu_ipc_msg_payload_blob_deinit_t;
-
 struct vpu_ipc_msg_payload_job_done {
     /* Engine to which the job was submitted. */
     uint32_t engine_idx;
@@ -939,12 +944,6 @@ struct vpu_ipc_msg_payload_get_power_level_count_done {
     uint8_t power_limit[16];
 };
 typedef struct vpu_ipc_msg_payload_get_power_level_count_done vpu_ipc_msg_payload_get_power_level_count_done_t;
-
-struct vpu_ipc_msg_payload_blob_deinit_done {
-    /* 64-bit unique ID for the blob de-initialized. */
-    uint64_t blob_id;
-};
-typedef struct vpu_ipc_msg_payload_blob_deinit_done vpu_ipc_msg_payload_blob_deinit_done_t;
 
 /* HWS priority band setup request / response */
 struct vpu_ipc_msg_payload_hws_priority_band_setup {
@@ -1113,9 +1112,7 @@ struct vpu_ipc_msg_payload_hws_set_scheduling_log {
      */
     uint64_t notify_index;
     /*
-     * Enable extra events to be output to log for debug of scheduling algorithm.
-     * Interpreted by VPU as a boolean to enable or disable, expected values are
-     * 0 and 1.
+     * Field is now deprecated, will be removed when KMD is updated to support removal
      */
     uint32_t enable_extra_events;
     /* Zero Padding */
@@ -1491,7 +1488,6 @@ union vpu_ipc_msg_payload {
     struct vpu_jsm_metric_streamer_start metric_streamer_start;
     struct vpu_jsm_metric_streamer_stop metric_streamer_stop;
     struct vpu_jsm_metric_streamer_update metric_streamer_update;
-    struct vpu_ipc_msg_payload_blob_deinit blob_deinit;
     struct vpu_ipc_msg_payload_ssid_release ssid_release;
     struct vpu_jsm_hws_register_db hws_register_db;
     struct vpu_ipc_msg_payload_job_done job_done;
@@ -1503,7 +1499,6 @@ union vpu_ipc_msg_payload {
     struct vpu_ipc_msg_payload_query_engine_hb_done query_engine_hb_done;
     struct vpu_ipc_msg_payload_get_power_level_count_done get_power_level_count_done;
     struct vpu_jsm_metric_streamer_done metric_streamer_done;
-    struct vpu_ipc_msg_payload_blob_deinit_done blob_deinit_done;
     struct vpu_ipc_msg_payload_trace_config trace_config;
     struct vpu_ipc_msg_payload_trace_capability_rsp trace_capability;
     struct vpu_ipc_msg_payload_trace_get_name trace_get_name;
