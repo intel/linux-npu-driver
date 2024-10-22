@@ -27,18 +27,16 @@ struct FenceTest : public Test<CommandQueueFixture> {
     void SetUp() override {
         CommandQueueFixture::SetUp();
 
-        ze_command_queue_handle_t hCommandQueue = createCommandQueue(0);
+        hCommandQueue = createCommandQueue();
         ASSERT_NE(hCommandQueue, nullptr);
-        cmdQue = CommandQueue::fromHandle(hCommandQueue);
+        cmdQue = L0::CommandQueue::fromHandle(hCommandQueue);
 
-        hCmdList = createCommandList(0);
+        hCmdList = createCommandList();
         ASSERT_NE(nullptr, hCmdList);
-        cmdList = CommandList::fromHandle(hCmdList);
+        cmdList = L0::CommandList::fromHandle(hCmdList);
 
-        ze_fence_desc_t fenceDesc{.stype = ZE_STRUCTURE_TYPE_FENCE_DESC,
-                                  .pNext = nullptr,
-                                  .flags = 0};
-        ASSERT_EQ(ZE_RESULT_SUCCESS, zeFenceCreate(hCommandQueue, &fenceDesc, &hFence));
+        ASSERT_EQ(ZE_RESULT_SUCCESS,
+                  L0::CommandQueue::fromHandle(hCommandQueue)->createFence(&fenceDesc, &hFence));
         ASSERT_NE(nullptr, hFence);
         fence = static_cast<Fence *>(hFence);
     }
@@ -56,14 +54,24 @@ struct FenceTest : public Test<CommandQueueFixture> {
         CommandQueueFixture::TearDown();
     }
 
-    CommandQueue *cmdQue = nullptr;
+    ze_fence_desc_t fenceDesc{.stype = ZE_STRUCTURE_TYPE_FENCE_DESC, .pNext = nullptr, .flags = 0};
+    ze_command_queue_handle_t hCommandQueue = nullptr;
+    L0::CommandQueue *cmdQue = nullptr;
     ze_command_list_handle_t hCmdList = nullptr;
-    CommandList *cmdList = nullptr;
+    L0::CommandList *cmdList = nullptr;
     ze_fence_handle_t hFence = nullptr;
-    Fence *fence = nullptr;
+    L0::Fence *fence = nullptr;
 
     const size_t memAllocSize = 64;
 };
+
+TEST_F(FenceTest, createErrors) {
+    ze_fence_handle_t hFence = nullptr;
+    ASSERT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER,
+              L0::CommandQueue::fromHandle(hCommandQueue)->createFence(nullptr, &hFence));
+    ASSERT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER,
+              L0::CommandQueue::fromHandle(hCommandQueue)->createFence(&fenceDesc, nullptr));
+}
 
 TEST_F(FenceTest, synchornizeAndQueryStatusShouldReturnSameStatus) {
     EXPECT_EQ(fence->synchronize(0), fence->queryStatus());

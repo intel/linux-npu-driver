@@ -11,7 +11,7 @@
 #include "level_zero/ze_api.h"
 #include "level_zero/ze_graph_ext.h"
 #include "level_zero/ze_graph_profiling_ext.h"
-#include "level_zero_driver/api/tools/ze_tools_loader.h"
+#include "level_zero_driver/api/zet_misc.hpp"
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
 #include "level_zero_driver/core/source/context/context.hpp"
 #include "level_zero_driver/core/source/device/device.hpp"
@@ -21,44 +21,9 @@
 #include "level_zero_driver/include/l0_exception.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
-#include <dlfcn.h>
 #include <memory>
 
 namespace L0 {
-
-static ze_result_t translateHandle(zel_handle_type_t type, void *handler, void **pHandler) {
-    void *loaderHandle = getLoaderHandle();
-    if (loaderHandle == nullptr) {
-        LOG_E("Failed to open libze_loader.so.1 library");
-        return ZE_RESULT_ERROR_UNKNOWN;
-    }
-
-    static void *functionPointer = dlsym(loaderHandle, "zelLoaderTranslateHandle");
-    if (functionPointer == nullptr) {
-        LOG_E("Failed to get 'zelLoaderTranslateHandle' from libze_loader.so.1, reason: %s",
-              dlerror());
-        return ZE_RESULT_ERROR_UNKNOWN;
-    }
-
-    static auto *pLoaderTranslateHandler =
-        reinterpret_cast<decltype(zelLoaderTranslateHandle) *>(functionPointer);
-
-    auto result = pLoaderTranslateHandler(type, handler, pHandler);
-    if (result != ZE_RESULT_SUCCESS)
-        LOG_E("Failed to translate handler of type %i", type);
-
-    return result;
-}
-
-template <class T>
-static inline ze_result_t translateHandle(zel_handle_type_t type, T handler, T *pHandler) {
-    return translateHandle(type, handler, reinterpret_cast<void **>(pHandler));
-}
-
-template <class T>
-static inline ze_result_t translateHandle(zel_handle_type_t type, T &handler) {
-    return translateHandle(type, handler, &handler);
-}
 
 ze_result_t ZE_APICALL zeGraphCreate(ze_context_handle_t hContext,
                                      ze_device_handle_t hDevice,
@@ -95,6 +60,19 @@ ze_result_t ZE_APICALL zeGraphGetProperties(ze_graph_handle_t hGraph,
     }
 
     L0_HANDLE_EXCEPTION_AND_RETURN(L0::Graph::fromHandle(hGraph)->getProperties(pGraphProperties));
+}
+
+ze_result_t ZE_APICALL zeGraphGetProperties2(ze_graph_handle_t hGraph,
+                                             ze_graph_properties_2_t *pGraphProperties) {
+    if (hGraph == nullptr) {
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+    }
+
+    if (pGraphProperties == nullptr) {
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::Graph::fromHandle(hGraph)->getProperties2(pGraphProperties));
 }
 
 ze_result_t ZE_APICALL
@@ -168,6 +146,14 @@ ze_result_t ZE_APICALL zeAppendGraphInitialize(ze_command_list_handle_t hCommand
         appendGraphInitialize(hCommandList, hGraph, hSignalEvent, numWaitEvents, phWaitEvents));
 }
 
+ze_result_t ZE_APICALL zeGraphInitialize(ze_graph_handle_t hGraph) {
+    if (hGraph == nullptr) {
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+    }
+
+    L0_HANDLE_EXCEPTION_AND_RETURN(L0::Graph::fromHandle(hGraph)->parserInitialize());
+}
+
 static ze_result_t appendGraphExecute(ze_command_list_handle_t hCommandList,
                                       ze_graph_handle_t hGraph,
                                       ze_graph_profiling_query_handle_t hProfilingQuery,
@@ -235,6 +221,25 @@ ze_result_t ZE_APICALL zeGraphGetNativeBinary(ze_graph_handle_t hGraph,
 
     L0_HANDLE_EXCEPTION_AND_RETURN(
         L0::Graph::fromHandle(hGraph)->getNativeBinary(pSize, pGraphNativeBinary));
+}
+
+ze_result_t ZE_APICALL zeGraphGetNativeBinary2(ze_graph_handle_t hGraph,
+                                               size_t *pSize,
+                                               const uint8_t **pGraphNativeBinary) {
+    if (hGraph == nullptr) {
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+    }
+
+    if (pSize == nullptr) {
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    if (pGraphNativeBinary == nullptr) {
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    L0_HANDLE_EXCEPTION_AND_RETURN(
+        L0::Graph::fromHandle(hGraph)->getNativeBinary2(pSize, pGraphNativeBinary));
 }
 
 ze_result_t ZE_APICALL
@@ -502,193 +507,3 @@ zeGraphProfilingLogGetString(ze_graph_profiling_query_handle_t hProfilingQuery,
 }
 
 } // namespace L0
-
-extern "C" {
-ZE_APIEXPORT ze_result_t ZE_APICALL zeGraphCreate(ze_context_handle_t hContext,
-                                                  ze_device_handle_t hDevice,
-                                                  const ze_graph_desc_t *pDesc,
-                                                  ze_graph_handle_t *phGraph) {
-    return L0::zeGraphCreate(hContext, hDevice, pDesc, phGraph);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL zeGraphDestroy(ze_graph_handle_t hGraph) {
-    return L0::zeGraphDestroy(hGraph);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL zeGraphGetProperties(ze_graph_handle_t hGraph,
-                                                         ze_graph_properties_t *pGraphProperties) {
-    return L0::zeGraphGetProperties(hGraph, pGraphProperties);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeGraphGetArgumentProperties(ze_graph_handle_t hGraph,
-                             uint32_t argIndex,
-                             ze_graph_argument_properties_t *pGraphArgumentProperties) {
-    return L0::zeGraphGetArgumentProperties(hGraph, argIndex, pGraphArgumentProperties);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL zeGraphSetArgumentValue(ze_graph_handle_t hGraph,
-                                                            uint32_t argIndex,
-                                                            const void *pArgValue) {
-    return L0::zeGraphSetArgumentValue(hGraph, argIndex, pArgValue);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL zeAppendGraphInitialize(ze_command_list_handle_t hCommandList,
-                                                            ze_graph_handle_t hGraph,
-                                                            ze_event_handle_t hSignalEvent,
-                                                            uint32_t numWaitEvents,
-                                                            ze_event_handle_t *phWaitEvents) {
-    return L0::zeAppendGraphInitialize(hCommandList,
-                                       hGraph,
-                                       hSignalEvent,
-                                       numWaitEvents,
-                                       phWaitEvents);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeAppendGraphExecute(ze_command_list_handle_t hCommandList,
-                     ze_graph_handle_t hGraph,
-                     ze_graph_profiling_query_handle_t hProfilingQuery,
-                     ze_event_handle_t hSignalEvent,
-                     uint32_t numWaitEvents,
-                     ze_event_handle_t *phWaitEvents) {
-    return L0::zeAppendGraphExecute(hCommandList,
-                                    hGraph,
-                                    hProfilingQuery,
-                                    hSignalEvent,
-                                    numWaitEvents,
-                                    phWaitEvents);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL zeGraphGetNativeBinary(ze_graph_handle_t hGraph,
-                                                           size_t *pSize,
-                                                           uint8_t *pGraphNativeBinary) {
-    return L0::zeGraphGetNativeBinary(hGraph, pSize, pGraphNativeBinary);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeDeviceGetGraphProperties(ze_device_handle_t hDevice,
-                           ze_device_graph_properties_t *pDeviceGraphProperties) {
-    return L0::zeDeviceGetGraphProperties(hDevice, pDeviceGraphProperties);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeDeviceGetGraphProperties2(ze_device_handle_t hDevice,
-                            ze_device_graph_properties_2_t *pDeviceGraphProperties2) {
-    return L0::zeDeviceGetGraphProperties2(hDevice, pDeviceGraphProperties2);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeGraphGetArgumentMetadata(ze_graph_handle_t hGraph,
-                           uint32_t argIndex,
-                           ze_graph_argument_metadata_t *pGraphArgumentMetadata) {
-    return L0::zeGraphGetArgumentMetadata(hGraph, argIndex, pGraphArgumentMetadata);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeGraphGetArgumentProperties2(ze_graph_handle_t hGraph,
-                              uint32_t argIndex,
-                              ze_graph_argument_properties_2_t *pGraphArgumentProperties) {
-    return L0::zeGraphGetArgumentProperties2(hGraph, argIndex, pGraphArgumentProperties);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeGraphGetArgumentProperties3(ze_graph_handle_t hGraph,
-                              uint32_t argIndex,
-                              ze_graph_argument_properties_3_t *pGraphArgumentProperties) {
-    return L0::zeGraphGetArgumentProperties3(hGraph, argIndex, pGraphArgumentProperties);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeGraphQueryNetworkCreate(ze_context_handle_t hContext,
-                          ze_device_handle_t hDevice,
-                          const ze_graph_desc_t *desc,
-                          ze_graph_query_network_handle_t *phGraphQueryNetwork) {
-    return L0::zeGraphQueryNetworkCreate(hContext, hDevice, desc, phGraphQueryNetwork);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeGraphQueryNetworkDestroy(ze_graph_query_network_handle_t hGraphQueryNetwork) {
-    return L0::zeGraphQueryNetworkDestroy(hGraphQueryNetwork);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeGraphQueryNetworkGetSupportedLayers(ze_graph_query_network_handle_t hGraphQueryNetwork,
-                                      size_t *pSize,
-                                      char *pSupportedLayers) {
-    return L0::zeGraphQueryNetworkGetSupportedLayers(hGraphQueryNetwork, pSize, pSupportedLayers);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL zeGraphBuildLogGetString(ze_graph_handle_t hGraph,
-                                                             uint32_t *pSize,
-                                                             char *pBuildLog) {
-    return L0::zeGraphBuildLogGetString(hGraph, pSize, pBuildLog);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL zeGraphCreate2(ze_context_handle_t hContext,
-                                                   ze_device_handle_t hDevice,
-                                                   const ze_graph_desc_2_t *desc,
-                                                   ze_graph_handle_t *phGraph) {
-    return L0::zeGraphCreate2(hContext, hDevice, desc, phGraph);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeGraphQueryNetworkCreate2(ze_context_handle_t hContext,
-                           ze_device_handle_t hDevice,
-                           const ze_graph_desc_2_t *desc,
-                           ze_graph_query_network_handle_t *phGraphQueryNetwork) {
-    return L0::zeGraphQueryNetworkCreate2(hContext, hDevice, desc, phGraphQueryNetwork);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL zeGraphQueryContextMemory(ze_context_handle_t hContext,
-                                                              ze_graph_memory_query_type_t type,
-                                                              ze_graph_memory_query_t *query) {
-    return L0::zeGraphQueryContextMemory(hContext, type, query);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeGraphProfilingPoolCreate(ze_graph_handle_t hGraph,
-                           uint32_t count,
-                           ze_graph_profiling_pool_handle_t *phProfilingPool) {
-    return L0::zeGraphProfilingPoolCreate(hGraph, count, phProfilingPool);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeGraphProfilingPoolDestroy(ze_graph_profiling_pool_handle_t hProfilingPool) {
-    return L0::zeGraphProfilingPoolDestroy(hProfilingPool);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeGraphProfilingQueryCreate(ze_graph_profiling_pool_handle_t hProfilingPool,
-                            uint32_t index,
-                            ze_graph_profiling_query_handle_t *phProfilingQuery) {
-    return L0::zeGraphProfilingQueryCreate(hProfilingPool, index, phProfilingQuery);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeGraphProfilingQueryDestroy(ze_graph_profiling_query_handle_t hProfilingQuery) {
-    return L0::zeGraphProfilingQueryDestroy(hProfilingQuery);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeGraphProfilingQueryGetData(ze_graph_profiling_query_handle_t hProfilingQuery,
-                             ze_graph_profiling_type_t type,
-                             uint32_t *pSize,
-                             uint8_t *pData) {
-    return L0::zeGraphProfilingQueryGetData(hProfilingQuery, type, pSize, pData);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL zeDeviceGetProfilingDataProperties(
-    ze_device_handle_t hDevice,
-    ze_device_profiling_data_properties_t *pDeviceProfilingDataProperties) {
-    return L0::zeDeviceGetProfilingDataProperties(hDevice, pDeviceProfilingDataProperties);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeGraphProfilingLogGetString(ze_graph_profiling_query_handle_t hProfilingQuery,
-                             uint32_t *pSize,
-                             char *pProfilingLog) {
-    return L0::zeGraphProfilingLogGetString(hProfilingQuery, pSize, pProfilingLog);
-}
-
-} // extern "C"

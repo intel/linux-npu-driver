@@ -16,6 +16,7 @@
 
 #include <level_zero/ze_api.h>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -32,6 +33,8 @@ class VPUInferenceExecute;
 
 namespace L0 {
 
+class BlobContainer;
+
 class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser> {
   public:
     ElfParser(VPU::VPUDeviceContext *ctx,
@@ -39,9 +42,10 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
               std::unique_ptr<elf::AccessManager> access,
               std::shared_ptr<elf::HostParsedInference> loader);
 
-    static bool checkMagic(const struct BlobInfo *blob);
-    static std::unique_ptr<ElfParser>
-    getElfParser(VPU::VPUDeviceContext *ctx, const struct BlobInfo *blob, std::string &logBuffer);
+    static bool checkMagic(const std::unique_ptr<BlobContainer> &blob);
+    static std::unique_ptr<ElfParser> getElfParser(VPU::VPUDeviceContext *ctx,
+                                                   const std::unique_ptr<BlobContainer> &blob,
+                                                   std::string &logBuffer);
     static elf::VersionsProvider getElfVer(int arch);
 
     bool getArgumentProperties(std::vector<ze_graph_argument_properties_3_t> &props) const;
@@ -51,12 +55,13 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
     std::shared_ptr<VPU::VPUInferenceExecute>
     createInferenceExecuteCommand(const std::vector<std::pair<const void *, uint32_t>> &inputPtrs,
                                   const std::vector<std::pair<const void *, uint32_t>> &outputPtrs,
-                                  const std::pair<void *, uint32_t> &profilingPtr,
-                                  std::shared_ptr<elf::HostParsedInference> &execHpi);
+                                  const std::pair<void *, uint32_t> &profilingPtr);
 
     ze_result_t parse(std::vector<ze_graph_argument_properties_3_t> &argumentProperties,
                       std::vector<ze_graph_argument_metadata_t> &argumentMetadata,
                       uint32_t &profilingOutputSize) override;
+
+    ze_result_t initialize() override;
 
     std::shared_ptr<VPU::VPUCommand> allocateInitCommand(VPU::VPUDeviceContext *ctx) override;
 
@@ -64,8 +69,7 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
     allocateExecuteCommand(VPU::VPUDeviceContext *ctx,
                            const std::vector<std::pair<const void *, uint32_t>> &inputArgs,
                            const std::vector<std::pair<const void *, uint32_t>> &outputArgs,
-                           const std::pair<void *, uint32_t> &profilingPtr,
-                           std::shared_ptr<elf::HostParsedInference> &execHpi) override;
+                           const std::pair<void *, uint32_t> &profilingPtr) override;
 
     bool applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &hpi,
                            const std::vector<std::pair<const void *, uint32_t>> &inputs,
@@ -79,6 +83,8 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
     std::unique_ptr<elf::AccessManager> accessManager;
     std::shared_ptr<elf::HostParsedInference> hpi;
     bool needCopy = false;
+    bool needLoad = true;
+    std::mutex loadMutex;
 };
 
 template <class T>

@@ -7,16 +7,19 @@
 
 #include "level_zero_driver/ext/source/graph/compiler.hpp"
 
+#include <stddef.h>
+
 #include "compiler_common.hpp"
 #include "level_zero/ze_api.h"
+#include "level_zero_driver/ext/source/graph/blob_container.hpp"
 #include "npu_driver_compiler.h"
 #include "umd_common.hpp"
 #include "vcl_symbols.hpp"
-#include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
+#include <memory>
 #include <string.h>
-#include <string_view>
+#include <utility>
 
 namespace L0 {
 
@@ -82,70 +85,88 @@ static void copyCompilerLog(vcl_log_handle_t logHandle, std::string &buffer) {
     LOG(GRAPH, "Saved compiler message to log buffer, message: %s", buffer.c_str());
 }
 
-static void
-addOptionToBuildFlags(std::string_view key, std::string_view value, std::string &buildFlags) {
-    if (buildFlags.find("--config") == std::string::npos) {
-        buildFlags += " --config";
-    }
-
-    buildFlags += " " + std::string(key) + "=\"" + std::string(value) + "\"";
-}
-
 static bool getCompilerExecutable(VPU::VPUDeviceContext *ctx,
-                                  vcl_compiler_handle_t &comp,
-                                  vcl_executable_handle_t *exec,
+                                  vcl_compiler_handle_t &compiler,
                                   ze_graph_desc_2_t &desc,
-                                  vcl_log_handle_t *logHandle,
-                                  std::string &logBuffer) {
+                                  std::unique_ptr<BlobContainer> &blob) {
     if (!Vcl::sym().ok())
         return false;
 
-    std::string buildFlags = "";
-
-    if (desc.pBuildFlags != nullptr && desc.pBuildFlags[0] != '\0') {
-        buildFlags = std::string(desc.pBuildFlags);
-        LOG(GRAPH, "Compiler options: %s", buildFlags.c_str());
-    } else {
-        logBuffer = "Invalid pBuildFlags pointer!";
-        LOG_E("Invalid pBuildFlags pointer");
-        return false;
-    }
-
-    // Stepping and max_tiles are not supported in versions < 5.3
-    if (compilerProperties.version.major >= 5 && compilerProperties.version.minor >= 3) {
-        if (buildFlags.find("STEPPING") == std::string::npos) {
-            uint32_t deviceRevision = ctx->getDeviceRevision();
-            addOptionToBuildFlags("NPU_STEPPING", std::to_string(deviceRevision), buildFlags);
-        }
-
-        if (buildFlags.find("MAX_TILES") == std::string::npos) {
-            uint32_t numSlices = ctx->getNumSlices();
-            addOptionToBuildFlags("NPU_MAX_TILES", std::to_string(numSlices), buildFlags);
-        }
-    }
-
-    if (desc.flags & ZE_GRAPH_FLAG_ENABLE_PROFILING) {
-        addOptionToBuildFlags("PERF_COUNT", "YES", buildFlags);
-    }
-
+    vcl_executable_handle_t executable = nullptr;
     vcl_executable_desc_t exeDesc = {desc.pInput,
                                      desc.inputSize,
-                                     buildFlags.c_str(),
-                                     buildFlags.size()};
-    vcl_result_t ret = Vcl::sym().executableCreate(comp, exeDesc, exec);
+                                     desc.pBuildFlags,
+                                     strlen(desc.pBuildFlags)};
+    LOG(GRAPH, "Compiler options: %s", exeDesc.options);
+    vcl_result_t ret = Vcl::sym().executableCreate(compiler, exeDesc, &executable);
     if (ret != VCL_RESULT_SUCCESS) {
-        copyCompilerLog(*logHandle, logBuffer);
         LOG_E("Failed to create compiler executable! Result:%x", ret);
         return false;
     }
 
+    size_t blobSize = 0;
+    ret = Vcl::sym().executableGetSerializableBlob(executable, NULL, &blobSize);
+    if (ret != VCL_RESULT_SUCCESS || blobSize == 0) {
+        LOG_E("Failed to get blob size! Result:%x", ret);
+        Vcl::sym().executableDestroy(executable);
+        return false;
+    }
+
+    auto blobPtr = std::make_unique<uint8_t[]>(blobSize);
+    ret = Vcl::sym().executableGetSerializableBlob(executable, blobPtr.get(), &blobSize);
+    if (ret != VCL_RESULT_SUCCESS) {
+        LOG_E("Failed to get blob! Result:%x", ret);
+        Vcl::sym().executableDestroy(executable);
+        return false;
+    }
+
+    blob = std::make_unique<BlobAllocContainer>(std::move(blobPtr), blobSize);
+    Vcl::sym().executableDestroy(executable);
+    return true;
+}
+
+static uint8_t *vclAllocate(uint64_t size) {
+    return new uint8_t[size];
+}
+
+static void vclDeallocate(uint8_t *ptr) {
+    delete[] ptr;
+}
+
+static bool getCompilerExecutableAllocation(VPU::VPUDeviceContext *ctx,
+                                            vcl_compiler_handle_t &compiler,
+                                            ze_graph_desc_2_t &desc,
+                                            std::unique_ptr<BlobContainer> &blob) {
+    if (!Vcl::sym().ok())
+        return false;
+
+    vcl_executable_desc_t exeDesc = {desc.pInput,
+                                     desc.inputSize,
+                                     desc.pBuildFlags,
+                                     strlen(desc.pBuildFlags)};
+    LOG(GRAPH, "Compiler options: %s", exeDesc.options);
+
+    vcl_allocator_t allocator = {.allocate = &vclAllocate, .deallocate = &vclDeallocate};
+
+    uint8_t *graphBuffer = nullptr;
+    size_t graphSize = 0;
+    vcl_result_t ret = Vcl::sym().allocatedExecutableCreate(compiler,
+                                                            exeDesc,
+                                                            &allocator,
+                                                            &graphBuffer,
+                                                            &graphSize);
+    if (ret != VCL_RESULT_SUCCESS) {
+        LOG_E("Failed to create compiler executable! Result:%x", ret);
+        return false;
+    }
+
+    blob = std::make_unique<BlobAllocContainer>(std::unique_ptr<uint8_t[]>(graphBuffer), graphSize);
     return true;
 }
 
 bool Compiler::getCompiledBlob(VPU::VPUDeviceContext *ctx,
-                               size_t &graphSize,
-                               std::vector<uint8_t> &graphBlob,
                                ze_graph_desc_2_t &desc,
+                               std::unique_ptr<BlobContainer> &blob,
                                std::string &logBuffer) {
     if (!Vcl::sym().ok())
         return false;
@@ -180,35 +201,22 @@ bool Compiler::getCompiledBlob(VPU::VPUDeviceContext *ctx,
         return false;
     }
 
-    vcl_executable_handle_t executable;
-    if (!getCompilerExecutable(ctx, compiler, &executable, desc, &logHandle, logBuffer)) {
+    if ((getCompilerVersionMajor() == 6 && getCompilerVersionMinor() >= 1) ||
+        getCompilerVersionMajor() > 6) {
+        if (!getCompilerExecutableAllocation(ctx, compiler, desc, blob)) {
+            copyCompilerLog(logHandle, logBuffer);
+            LOG_E("Failed to get compiler executable");
+            Vcl::sym().compilerDestroy(compiler);
+            return false;
+        }
+    } else if (!getCompilerExecutable(ctx, compiler, desc, blob)) {
+        copyCompilerLog(logHandle, logBuffer);
         LOG_E("Failed to get compiler executable");
         Vcl::sym().compilerDestroy(compiler);
         return false;
     }
 
-    ret = Vcl::sym().executableGetSerializableBlob(executable, NULL, &graphSize);
-    if (ret != VCL_RESULT_SUCCESS || graphSize == 0) {
-        copyCompilerLog(logHandle, logBuffer);
-        LOG_E("Failed to get blob size! Result:%x", ret);
-        Vcl::sym().executableDestroy(executable);
-        Vcl::sym().compilerDestroy(compiler);
-        return false;
-    }
-
-    graphBlob.resize(graphSize);
-    ret = Vcl::sym().executableGetSerializableBlob(executable, graphBlob.data(), &graphSize);
-    if (ret != VCL_RESULT_SUCCESS) {
-        copyCompilerLog(logHandle, logBuffer);
-        LOG_E("Failed to get blob! Result:%x", ret);
-        Vcl::sym().executableDestroy(executable);
-        Vcl::sym().compilerDestroy(compiler);
-        return false;
-    }
-
-    Vcl::sym().executableDestroy(executable);
     Vcl::sym().compilerDestroy(compiler);
-
     return true;
 }
 
@@ -247,7 +255,7 @@ std::string Compiler::getCompilerVersionString() {
 }
 
 ze_result_t Compiler::getDecodedProfilingBuffer(ze_graph_profiling_type_t profilingType,
-                                                const struct BlobInfo *blob,
+                                                const BlobContainer &blob,
                                                 const uint8_t *profData,
                                                 uint64_t profSize,
                                                 uint32_t *pSize,
@@ -257,8 +265,8 @@ ze_result_t Compiler::getDecodedProfilingBuffer(ze_graph_profiling_type_t profil
         return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
 
     vcl_profiling_handle_t profHandle = NULL;
-    vcl_profiling_input_t profilingApiInput = {.blobData = blob->ptr,
-                                               .blobSize = blob->size,
+    vcl_profiling_input_t profilingApiInput = {.blobData = blob.ptr,
+                                               .blobSize = blob.size,
                                                .profData = profData,
                                                .profSize = profSize};
     vcl_log_handle_t logHandle = NULL;

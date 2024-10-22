@@ -5,6 +5,9 @@
  *
  */
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
 #include "level_zero_driver/core/source/context/context.hpp"
 #include "level_zero_driver/core/source/device/device.hpp"
@@ -13,7 +16,9 @@
 #include "level_zero_driver/tools/source/metrics/metric_query.hpp"
 #include "level_zero_driver/tools/source/metrics/metric_streamer.hpp"
 
+#include <level_zero/ze_api.h>
 #include <level_zero/zet_api.h>
+#include <level_zero/zet_ddi.h>
 
 namespace L0 {
 ze_result_t zetMetricGroupGet(zet_device_handle_t hDevice,
@@ -203,143 +208,204 @@ ze_result_t zetMetricQueryGetData(zet_metric_query_handle_t hMetricQuery,
 } // namespace L0
 
 extern "C" {
-ZE_DLLEXPORT ze_result_t ZE_APICALL zetMetricGroupGet(zet_device_handle_t hDevice,
-                                                      uint32_t *pCount,
-                                                      zet_metric_group_handle_t *phMetricGroups) {
-    return L0::zetMetricGroupGet(hDevice, pCount, phMetricGroups);
+///////////////////////////////////////////////////////////////////////////////
+/// @brief Exported function for filling application's Context table
+///        with current process' addresses
+///
+/// @returns
+///     - ::ZE_RESULT_SUCCESS
+///     - ::ZE_RESULT_ERROR_INVALID_NULL_POINTER
+///     - ::ZE_RESULT_ERROR_UNSUPPORTED_VERSION
+ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetContextProcAddrTable(
+    ze_api_version_t version,         ///< [in] API version requested
+    zet_context_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
+) {
+    if (nullptr == pDdiTable)
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+
+    ze_result_t result = ZE_RESULT_SUCCESS;
+
+    pDdiTable->pfnActivateMetricGroups = L0::zetContextActivateMetricGroups;
+
+    return result;
 }
 
-ZE_DLLEXPORT ze_result_t ZE_APICALL
-zetMetricGroupGetProperties(zet_metric_group_handle_t hMetricGroup,
-                            zet_metric_group_properties_t *pProperties) {
-    return L0::zetMetricGroupGetProperties(hMetricGroup, pProperties);
+///////////////////////////////////////////////////////////////////////////////
+/// @brief Exported function for filling application's CommandList table
+///        with current process' addresses
+///
+/// @returns
+///     - ::ZE_RESULT_SUCCESS
+///     - ::ZE_RESULT_ERROR_INVALID_NULL_POINTER
+///     - ::ZE_RESULT_ERROR_UNSUPPORTED_VERSION
+ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetCommandListProcAddrTable(
+    ze_api_version_t version,              ///< [in] API version requested
+    zet_command_list_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
+) {
+    if (nullptr == pDdiTable)
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+
+    ze_result_t result = ZE_RESULT_SUCCESS;
+
+    pDdiTable->pfnAppendMetricStreamerMarker = L0::zetCommandListAppendMetricStreamerMarker;
+
+    pDdiTable->pfnAppendMetricQueryBegin = L0::zetCommandListAppendMetricQueryBegin;
+
+    pDdiTable->pfnAppendMetricQueryEnd = L0::zetCommandListAppendMetricQueryEnd;
+
+    pDdiTable->pfnAppendMetricMemoryBarrier = L0::zetCommandListAppendMetricMemoryBarrier;
+
+    return result;
 }
 
-ZE_DLLEXPORT ze_result_t ZE_APICALL zetMetricGet(zet_metric_group_handle_t hMetricGroup,
-                                                 uint32_t *pCount,
-                                                 zet_metric_handle_t *phMetrics) {
-    return L0::zetMetricGet(hMetricGroup, pCount, phMetrics);
+///////////////////////////////////////////////////////////////////////////////
+/// @brief Exported function for filling application's Metric table
+///        with current process' addresses
+///
+/// @returns
+///     - ::ZE_RESULT_SUCCESS
+///     - ::ZE_RESULT_ERROR_INVALID_NULL_POINTER
+///     - ::ZE_RESULT_ERROR_UNSUPPORTED_VERSION
+ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetMetricProcAddrTable(
+    ze_api_version_t version,        ///< [in] API version requested
+    zet_metric_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
+) {
+    if (nullptr == pDdiTable)
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+
+    ze_result_t result = ZE_RESULT_SUCCESS;
+
+    pDdiTable->pfnGet = L0::zetMetricGet;
+
+    pDdiTable->pfnGetProperties = L0::zetMetricGetProperties;
+
+    return result;
 }
 
-ZE_DLLEXPORT ze_result_t ZE_APICALL zetMetricGetProperties(zet_metric_handle_t hMetric,
-                                                           zet_metric_properties_t *pProperties) {
-    return L0::zetMetricGetProperties(hMetric, pProperties);
+///////////////////////////////////////////////////////////////////////////////
+/// @brief Exported function for filling application's MetricGroup table
+///        with current process' addresses
+///
+/// @returns
+///     - ::ZE_RESULT_SUCCESS
+///     - ::ZE_RESULT_ERROR_INVALID_NULL_POINTER
+///     - ::ZE_RESULT_ERROR_UNSUPPORTED_VERSION
+ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetMetricGroupProcAddrTable(
+    ze_api_version_t version,              ///< [in] API version requested
+    zet_metric_group_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
+) {
+    if (nullptr == pDdiTable)
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+
+    ze_result_t result = ZE_RESULT_SUCCESS;
+
+    pDdiTable->pfnGet = L0::zetMetricGroupGet;
+
+    pDdiTable->pfnGetProperties = L0::zetMetricGroupGetProperties;
+
+    pDdiTable->pfnCalculateMetricValues = L0::zetMetricGroupCalculateMetricValues;
+
+    return result;
 }
 
-ZE_DLLEXPORT ze_result_t ZE_APICALL
-zetMetricGroupCalculateMetricValues(zet_metric_group_handle_t hMetricGroup,
-                                    zet_metric_group_calculation_type_t type,
-                                    size_t rawDataSize,
-                                    const uint8_t *pRawData,
-                                    uint32_t *pMetricValueCount,
-                                    zet_typed_value_t *pMetricValues) {
-    return L0::zetMetricGroupCalculateMetricValues(hMetricGroup,
-                                                   type,
-                                                   rawDataSize,
-                                                   pRawData,
-                                                   pMetricValueCount,
-                                                   pMetricValues);
+///////////////////////////////////////////////////////////////////////////////
+/// @brief Exported function for filling application's MetricQuery table
+///        with current process' addresses
+///
+/// @returns
+///     - ::ZE_RESULT_SUCCESS
+///     - ::ZE_RESULT_ERROR_INVALID_NULL_POINTER
+///     - ::ZE_RESULT_ERROR_UNSUPPORTED_VERSION
+ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetMetricQueryProcAddrTable(
+    ze_api_version_t version,              ///< [in] API version requested
+    zet_metric_query_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
+) {
+    if (nullptr == pDdiTable)
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+
+    ze_result_t result = ZE_RESULT_SUCCESS;
+
+    pDdiTable->pfnCreate = L0::zetMetricQueryCreate;
+
+    pDdiTable->pfnDestroy = L0::zetMetricQueryDestroy;
+
+    pDdiTable->pfnReset = L0::zetMetricQueryReset;
+
+    pDdiTable->pfnGetData = L0::zetMetricQueryGetData;
+
+    return result;
 }
 
-ZE_DLLEXPORT ze_result_t ZE_APICALL
-zetContextActivateMetricGroups(zet_context_handle_t hContext,
-                               zet_device_handle_t hDevice,
-                               uint32_t count,
-                               zet_metric_group_handle_t *phMetricGroups) {
-    return L0::zetContextActivateMetricGroups(hContext, hDevice, count, phMetricGroups);
+///////////////////////////////////////////////////////////////////////////////
+/// @brief Exported function for filling application's MetricQueryPool table
+///        with current process' addresses
+///
+/// @returns
+///     - ::ZE_RESULT_SUCCESS
+///     - ::ZE_RESULT_ERROR_INVALID_NULL_POINTER
+///     - ::ZE_RESULT_ERROR_UNSUPPORTED_VERSION
+ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetMetricQueryPoolProcAddrTable(
+    ze_api_version_t version, ///< [in] API version requested
+    zet_metric_query_pool_dditable_t
+        *pDdiTable ///< [in,out] pointer to table of DDI function pointers
+) {
+    if (nullptr == pDdiTable)
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+
+    ze_result_t result = ZE_RESULT_SUCCESS;
+
+    pDdiTable->pfnCreate = L0::zetMetricQueryPoolCreate;
+
+    pDdiTable->pfnDestroy = L0::zetMetricQueryPoolDestroy;
+
+    return result;
 }
 
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zetMetricStreamerOpen(zet_context_handle_t hContext,
-                      zet_device_handle_t hDevice,
-                      zet_metric_group_handle_t hMetricGroup,
-                      zet_metric_streamer_desc_t *pDesc,
-                      ze_event_handle_t hNotificationEvent,
-                      zet_metric_streamer_handle_t *phMetricStreamer) {
-    return L0::zetMetricStreamerOpen(hContext,
-                                     hDevice,
-                                     hMetricGroup,
-                                     pDesc,
-                                     hNotificationEvent,
-                                     phMetricStreamer);
-}
+///////////////////////////////////////////////////////////////////////////////
+/// @brief Exported function for filling application's MetricStreamer table
+///        with current process' addresses
+///
+/// @returns
+///     - ::ZE_RESULT_SUCCESS
+///     - ::ZE_RESULT_ERROR_INVALID_NULL_POINTER
+///     - ::ZE_RESULT_ERROR_UNSUPPORTED_VERSION
+ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetMetricStreamerProcAddrTable(
+    ze_api_version_t version, ///< [in] API version requested
+    zet_metric_streamer_dditable_t
+        *pDdiTable ///< [in,out] pointer to table of DDI function pointers
+) {
+    if (nullptr == pDdiTable)
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
 
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zetCommandListAppendMetricStreamerMarker(ze_command_list_handle_t hCommandList,
-                                         zet_metric_streamer_handle_t hMetricStreamer,
-                                         uint32_t value) {
-    return L0::zetCommandListAppendMetricStreamerMarker(hCommandList, hMetricStreamer, value);
-}
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zetMetricStreamerClose(zet_metric_streamer_handle_t hMetricStreamer) {
-    return L0::zetMetricStreamerClose(hMetricStreamer);
-}
+    ze_result_t result = ZE_RESULT_SUCCESS;
 
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zetMetricStreamerReadData(zet_metric_streamer_handle_t hMetricStreamer,
-                          uint32_t maxReportCount,
-                          size_t *pRawDataSize,
-                          uint8_t *pRawData) {
-    return L0::zetMetricStreamerReadData(hMetricStreamer, maxReportCount, pRawDataSize, pRawData);
-}
+    pDdiTable->pfnOpen = L0::zetMetricStreamerOpen;
 
-ZE_DLLEXPORT ze_result_t ZE_APICALL
-zetMetricQueryPoolCreate(zet_context_handle_t hContext,
-                         zet_device_handle_t hDevice,
-                         zet_metric_group_handle_t hMetricGroup,
-                         const zet_metric_query_pool_desc_t *desc,
-                         zet_metric_query_pool_handle_t *phMetricQueryPool) {
-    return L0::zetMetricQueryPoolCreate(hContext, hDevice, hMetricGroup, desc, phMetricQueryPool);
-}
+    pDdiTable->pfnClose = L0::zetMetricStreamerClose;
 
-ZE_DLLEXPORT ze_result_t ZE_APICALL
-zetMetricQueryPoolDestroy(zet_metric_query_pool_handle_t hMetricQueryPool) {
-    return L0::zetMetricQueryPoolDestroy(hMetricQueryPool);
-}
+    pDdiTable->pfnReadData = L0::zetMetricStreamerReadData;
 
-ZE_DLLEXPORT ze_result_t ZE_APICALL
-zetMetricQueryCreate(zet_metric_query_pool_handle_t hMetricQueryPool,
-                     uint32_t index,
-                     zet_metric_query_handle_t *phMetricQuery) {
-    return L0::zetMetricQueryCreate(hMetricQueryPool, index, phMetricQuery);
+    return result;
 }
-
-ZE_DLLEXPORT ze_result_t ZE_APICALL zetMetricQueryDestroy(zet_metric_query_handle_t hMetricQuery) {
-    return L0::zetMetricQueryDestroy(hMetricQuery);
 }
-
-ZE_DLLEXPORT ze_result_t ZE_APICALL zetMetricQueryReset(zet_metric_query_handle_t hMetricQuery) {
-    return L0::zetMetricQueryReset(hMetricQuery);
-}
-
-ZE_DLLEXPORT ze_result_t ZE_APICALL
-zetCommandListAppendMetricQueryBegin(zet_command_list_handle_t hCommandList,
-                                     zet_metric_query_handle_t hMetricQuery) {
-    return L0::zetCommandListAppendMetricQueryBegin(hCommandList, hMetricQuery);
-}
-
-ZE_DLLEXPORT ze_result_t ZE_APICALL
-zetCommandListAppendMetricQueryEnd(zet_command_list_handle_t hCommandList,
-                                   zet_metric_query_handle_t hMetricQuery,
-                                   ze_event_handle_t hSignalEvent,
-                                   uint32_t numWaitEvents,
-                                   ze_event_handle_t *phWaitEvents) {
-    return L0::zetCommandListAppendMetricQueryEnd(hCommandList,
-                                                  hMetricQuery,
-                                                  hSignalEvent,
-                                                  numWaitEvents,
-                                                  phWaitEvents);
-}
-
-ZE_DLLEXPORT ze_result_t ZE_APICALL
-zetCommandListAppendMetricMemoryBarrier(zet_command_list_handle_t hCommandList) {
-    return L0::zetCommandListAppendMetricMemoryBarrier(hCommandList);
-}
-
-ZE_DLLEXPORT ze_result_t ZE_APICALL zetMetricQueryGetData(zet_metric_query_handle_t hMetricQuery,
-                                                          size_t *pRawDataSize,
-                                                          uint8_t *pRawData) {
-    return L0::zetMetricQueryGetData(hMetricQuery, pRawDataSize, pRawData);
-}
-} // extern "C"

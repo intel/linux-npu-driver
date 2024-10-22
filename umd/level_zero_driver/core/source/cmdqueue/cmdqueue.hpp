@@ -14,17 +14,14 @@
 #include "level_zero_driver/core/source/fence/fence.hpp" // IWYU pragma: keep
 #include "level_zero_driver/include/l0_handler.hpp"
 
+#include <atomic>
 #include <chrono> // IWYU pragma: keep
 #include <level_zero/ze_api.h>
+#include <level_zero/ze_command_queue_npu_ext.h>
 #include <memory>
 #include <shared_mutex>
 #include <unordered_map>
 #include <vector>
-
-namespace L0 {
-struct Context;
-struct Device;
-} // namespace L0
 
 namespace VPU {
 class VPUJob;
@@ -33,12 +30,11 @@ class VPUJob;
 struct _ze_command_queue_handle_t {};
 
 namespace L0 {
+struct Context;
+struct Device;
 
 struct CommandQueue : _ze_command_queue_handle_t, IContextObject {
-    CommandQueue(Context *context,
-                 Device *device,
-                 bool isCopyOnly,
-                 ze_command_queue_priority_t priority);
+    CommandQueue(Context *context, Device *device, ze_command_queue_priority_t queuePriority);
     ~CommandQueue() = default;
 
     static ze_result_t create(ze_context_handle_t hContext,
@@ -61,13 +57,13 @@ struct CommandQueue : _ze_command_queue_handle_t, IContextObject {
     void destroyFence(Fence *pFence);
     ze_result_t waitForJobs(std::chrono::steady_clock::time_point timeout,
                             const std::vector<std::shared_ptr<VPU::VPUJob>> &jobs);
-    bool isCopyOnly() { return isCopyOnlyCommandQueue; }
+    ze_result_t setWorkloadType(ze_command_queue_workload_type_t workloadType);
 
   protected:
     Context *pContext = nullptr;
     Device *device = nullptr;
-    bool isCopyOnlyCommandQueue = false;
-    ze_command_queue_priority_t priority;
+    std::atomic<ze_command_queue_priority_t> priority;
+    ze_command_queue_priority_t defaultPriority;
     std::vector<std::shared_ptr<VPU::VPUJob>> trackedJobs;
 
     std::shared_mutex fenceMutex;

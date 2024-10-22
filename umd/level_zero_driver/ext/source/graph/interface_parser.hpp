@@ -23,13 +23,13 @@ class IParser {
     virtual ze_result_t parse(std::vector<ze_graph_argument_properties_3_t> &props,
                               std::vector<ze_graph_argument_metadata_t> &args,
                               uint32_t &size) = 0;
+    virtual ze_result_t initialize() = 0;
     virtual std::shared_ptr<VPU::VPUCommand> allocateInitCommand(VPU::VPUDeviceContext *ctx) = 0;
     virtual std::shared_ptr<VPU::VPUCommand>
     allocateExecuteCommand(VPU::VPUDeviceContext *ctx,
                            const std::vector<std::pair<const void *, uint32_t>> &inputArgs,
                            const std::vector<std::pair<const void *, uint32_t>> &outputArgs,
-                           const std::pair<void *, uint32_t> &profilingPtr,
-                           std::shared_ptr<elf::HostParsedInference> &execHpi) = 0;
+                           const std::pair<void *, uint32_t> &profilingPtr) = 0;
 };
 
 } // namespace L0

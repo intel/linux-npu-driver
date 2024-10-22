@@ -27,7 +27,7 @@ static thread_local std::string lastErrorMsg = {};
 GraphProfilingPool::GraphProfilingPool(VPU::VPUDeviceContext *ctx,
                                        const uint32_t size,
                                        const uint32_t count,
-                                       const struct BlobInfo *blob,
+                                       const BlobContainer *blob,
                                        std::function<void(GraphProfilingPool *)> destroyCb)
     : ctx(ctx)
     , querySize(size)
@@ -47,7 +47,7 @@ GraphProfilingPool::~GraphProfilingPool() {
     }
 }
 
-GraphProfilingQuery::GraphProfilingQuery(const struct BlobInfo *blob,
+GraphProfilingQuery::GraphProfilingQuery(const BlobContainer *blob,
                                          const uint32_t size,
                                          void *pData,
                                          std::function<void()> &&destroyCb)
@@ -95,7 +95,7 @@ ze_result_t GraphProfilingQuery::getData(ze_graph_profiling_type_t profilingType
     if (profilingType == ZE_GRAPH_PROFILING_LAYER_LEVEL ||
         profilingType == ZE_GRAPH_PROFILING_TASK_LEVEL) {
         return Compiler::getDecodedProfilingBuffer(profilingType,
-                                                   blob,
+                                                   *blob,
                                                    static_cast<uint8_t *>(data),
                                                    size,
                                                    pSize,

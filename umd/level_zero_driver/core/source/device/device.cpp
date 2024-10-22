@@ -28,12 +28,15 @@
 
 #include <bitset>
 #include <chrono> // IWYU pragma: keep
+#include <errno.h>
 #include <level_zero/ze_graph_ext.h>
 #include <level_zero/ze_intel_npu_uuid.h>
 #include <limits>
+#include <linux/sysinfo.h>
 #include <optional>
 #include <string.h>
 #include <string>
+#include <sys/sysinfo.h>
 #include <utility>
 
 namespace L0 {
@@ -122,7 +125,15 @@ ze_result_t Device::getProperties(ze_device_properties_t *pDeviceProperties) {
     pDeviceProperties->deviceId = hwInfo.deviceId;
     pDeviceProperties->subdeviceId = hwInfo.deviceRevision;
     pDeviceProperties->coreClockRate = hwInfo.coreClockRate;
-    pDeviceProperties->maxMemAllocSize = hwInfo.maxMemAllocSize;
+
+    struct sysinfo info = {};
+    if (sysinfo(&info) < 0) {
+        pDeviceProperties->maxMemAllocSize = 0;
+        LOG_W("Failed to get total ram using sysinfo, errno: %i, str: %s", errno, strerror(errno));
+    } else {
+        pDeviceProperties->maxMemAllocSize = info.totalram * info.mem_unit;
+    }
+
     pDeviceProperties->maxHardwareContexts = hwInfo.maxHardwareContexts;
     pDeviceProperties->maxCommandQueuePriority = hwInfo.maxCommandQueuePriority;
     pDeviceProperties->numThreadsPerEU = hwInfo.numThreadsPerEU;
@@ -194,6 +205,36 @@ ze_result_t Device::getProperties(zes_device_properties_t *pDeviceProperties) {
     return ZE_RESULT_SUCCESS;
 }
 
+ze_result_t Device::engineGetProperties(zes_engine_properties_t *pEngineProperties) {
+    if (pEngineProperties == nullptr) {
+        LOG_E("Invalid pEngineProperties pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    pEngineProperties->type = ZES_ENGINE_GROUP_COMPUTE_ALL;
+    pEngineProperties->onSubdevice = false;
+    pEngineProperties->subdeviceId = 0;
+
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t Device::engineGetActivity(zes_engine_stats_t *pStats) {
+    if (pStats == nullptr) {
+        LOG_E("Invalid pStats pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    if (!getVPUDevice()->getActiveTime(pStats->activeTime)) {
+        return ZE_RESULT_ERROR_UNINITIALIZED;
+    }
+
+    auto timestampUs = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now().time_since_epoch());
+    pStats->timestamp = static_cast<uint64_t>(timestampUs.count());
+
+    return ZE_RESULT_SUCCESS;
+}
+
 ze_result_t Device::getSubDevices(uint32_t *pCount, ze_device_handle_t *phSubdevices) {
     if (nullptr == pCount) {
         LOG_E("Invalid pCount pointer");
@@ -232,12 +273,10 @@ ze_result_t Device::getMemoryProperties(uint32_t *pCount,
     if (nullptr == pMemProperties) {
         LOG(DEVICE, "Input memory properties pointer is NULL");
     } else {
-        const auto &hwInfo = vpuDevice->getHwInfo();
-
         pMemProperties->flags = 0u;
-        pMemProperties->maxClockRate = hwInfo.coreClockRate;
-        pMemProperties->maxBusWidth = 32u;
-        pMemProperties->totalSize = hwInfo.maxMemAllocSize;
+        pMemProperties->maxClockRate = 0;
+        pMemProperties->maxBusWidth = 0;
+        pMemProperties->totalSize = 0;
         strncpy(pMemProperties->name, getDeviceMemoryName(), ZE_MAX_DEVICE_NAME - 1);
         pMemProperties->name[ZE_MAX_DEVICE_NAME - 1] = '\0';
     }
@@ -341,13 +380,7 @@ ze_result_t Device::getCommandQueueGroupProperties(
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    auto vpuDevice = getVPUDevice();
-    if (vpuDevice == nullptr) {
-        LOG_E("Failed to get VPUDevice instance");
-        return ZE_RESULT_ERROR_DEVICE_LOST;
-    }
-
-    uint32_t count = safe_cast<uint32_t>(vpuDevice->getNumberOfEngineGroups());
+    uint32_t count = 1u;
     // Set engine group counts.
     if (*pCount == 0) {
         *pCount = count;
@@ -358,43 +391,21 @@ ze_result_t Device::getCommandQueueGroupProperties(
         *pCount = count;
 
     if (pCommandQueueGroupProperties != nullptr) {
-        // Set queue group properties.
-        for (uint32_t i = 0; i < *pCount; i++) {
-            auto egProp = &(pCommandQueueGroupProperties[i]);
-
-            // Set flags.
-            egProp->flags = getCommandQeueueGroupFlags(i);
-
-            // Number of engines in the group.
-            egProp->numQueues = 1u;
-
-            // Maximum memory fill patern size.
-            egProp->maxMemoryFillPatternSize = vpuDevice->getEngineMaxMemoryFillSize();
-        }
+        auto egProp = &(pCommandQueueGroupProperties[0]);
+        egProp->flags = getCommandQeueueGroupFlags(0);
+        egProp->numQueues = 1u;
+        egProp->maxMemoryFillPatternSize = sizeof(uint32_t);
     }
 
     return ZE_RESULT_SUCCESS;
 }
 
 ze_command_queue_group_property_flags_t Device::getCommandQeueueGroupFlags(uint32_t ordinal) {
-    auto type = vpuDevice->getEngineType(ordinal);
-    if (type == VPU::EngineType::INVALID) {
-        LOG_W("Invalid ordinal");
-        return 0;
-    }
-
     ze_command_queue_group_property_flags_t flags = 0;
-    if (vpuDevice->engineSupportCompute(type)) {
+
+    if (ordinal == 0u) {
         flags |= ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE;
-    }
-    if (vpuDevice->engineSupportCopy(type)) {
         flags |= ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY;
-    }
-    if (vpuDevice->engineSupportCooperativeKernel(type)) {
-        flags |= ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COOPERATIVE_KERNELS;
-    }
-    if (vpuDevice->engineSupportMetrics(type)) {
-        flags |= ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_METRICS;
     }
 
     return flags;

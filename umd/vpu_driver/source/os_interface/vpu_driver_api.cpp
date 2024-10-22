@@ -369,4 +369,9 @@ std::string VPUDriverApi::getDeviceLink() {
     return {devLink};
 }
 
+std::string VPUDriverApi::getSysDeviceAbsolutePath() {
+    std::string path("/sys/dev/char/");
+    return path + getDeviceLink() + "/../../";
+}
+
 } // namespace VPU

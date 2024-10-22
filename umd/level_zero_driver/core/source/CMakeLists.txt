@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 #
 
-target_sources(${TARGET_NAME_L0} PRIVATE
+target_sources(${TARGET_NAME_L0_DRV} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/cmdlist/cmdlist.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/cmdlist/cmdlist.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/cmdlist/immediate_cmdlist.cpp

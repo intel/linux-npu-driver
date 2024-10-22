@@ -30,8 +30,9 @@
 
 namespace L0 {
 
-static VPU::VPUCommandBuffer::Priority toDriverPriority(ze_command_queue_priority_t p) {
-    switch (p) {
+static VPU::VPUCommandBuffer::Priority
+toDriverPriority(std::atomic<ze_command_queue_priority_t> &p) {
+    switch (p.load()) {
     case ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_LOW:
         return VPU::VPUCommandBuffer::Priority::IDLE;
     case ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH:
@@ -44,12 +45,11 @@ static VPU::VPUCommandBuffer::Priority toDriverPriority(ze_command_queue_priorit
 
 CommandQueue::CommandQueue(Context *context,
                            Device *device,
-                           bool isCopyOnly,
-                           ze_command_queue_priority_t priority)
+                           ze_command_queue_priority_t queuePriority)
     : pContext(context)
     , device(device)
-    , isCopyOnlyCommandQueue(isCopyOnly)
-    , priority(priority) {}
+    , priority(queuePriority)
+    , defaultPriority(queuePriority) {}
 
 ze_result_t CommandQueue::create(ze_context_handle_t hContext,
                                  ze_device_handle_t hDevice,
@@ -79,9 +79,7 @@ ze_result_t CommandQueue::create(ze_context_handle_t hContext,
         L0_THROW_WHEN(flags == 0, "Invalid group ordinal", ZE_RESULT_ERROR_INVALID_ARGUMENT);
 
         Context *pContext = Context::fromHandle(hContext);
-        bool isCopyOnly = flags == ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY;
-        auto commandQueue =
-            std::make_unique<CommandQueue>(pContext, pDevice, isCopyOnly, desc->priority);
+        auto commandQueue = std::make_unique<CommandQueue>(pContext, pDevice, desc->priority);
 
         *phCommandQueue = commandQueue.get();
         pContext->appendObject(std::move(commandQueue));
@@ -152,11 +150,6 @@ ze_result_t CommandQueue::executeCommandLists(uint32_t nCommandLists,
 
     for (auto i = 0u; i < nCommandLists; i++) {
         auto cmdList = CommandList::fromHandle(phCommandLists[i]);
-
-        if (isCopyOnlyCommandQueue && !cmdList->isCopyOnly()) {
-            LOG_E("Invalid command list type");
-            return ZE_RESULT_ERROR_INVALID_COMMAND_LIST_TYPE;
-        }
 
         if (!cmdList->isCmdListClosed()) {
             LOG_E("Command List didn't close");
@@ -248,4 +241,17 @@ ze_result_t CommandQueue::waitForJobs(std::chrono::steady_clock::time_point absT
     return Device::jobStatusToResult(jobs);
 }
 
+ze_result_t CommandQueue::setWorkloadType(ze_command_queue_workload_type_t workloadType) {
+    switch (workloadType) {
+    case ZE_WORKLOAD_TYPE_DEFAULT:
+        priority = defaultPriority;
+        break;
+    case ZE_WORKLOAD_TYPE_BACKGROUND:
+        priority = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_LOW;
+        break;
+    default:
+        return ZE_RESULT_ERROR_INVALID_ENUMERATION;
+    }
+    return ZE_RESULT_SUCCESS;
+}
 } // namespace L0

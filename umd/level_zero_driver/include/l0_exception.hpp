@@ -28,12 +28,13 @@ namespace L0 {
         return ZE_RESULT_ERROR_UNKNOWN;                 \
     }
 
-class DriverError : std::exception {
+class DriverError : public std::exception {
   public:
     DriverError(ze_result_t r)
         : r(r) {}
 
     ze_result_t result() const { return r; }
+    const char *what() const noexcept override { return "Driver error occurred"; }
 
   private:
     ze_result_t r;

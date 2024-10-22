@@ -7,7 +7,6 @@
 
 #include "level_zero_driver/core/source/driver/driver.hpp"
 
-#include "level_zero_driver/api/tools/ze_tools_loader.h"
 #include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/core/source/driver/driver_handle.hpp"
 #include "level_zero_driver/ext/source/graph/compiler.hpp"
@@ -74,7 +73,6 @@ ze_result_t Driver::getInitStatus() {
 
 void Driver::displayComponentVersions() {
     LOG(MISC, "Driver version: %s", vpu_drv_version_str);
-    LOG(MISC, "L0 Loader version: %s", getLoaderVersion().c_str());
     LOG(MISC, "CiD version: %s", Compiler::getCompilerVersionString().c_str());
     if (pGlobalDriverHandle) {
         for (auto &device : pGlobalDriverHandle->devices) {

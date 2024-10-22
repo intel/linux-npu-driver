@@ -5,132 +5,10 @@
  *
  */
 
-#include "zes_device.hpp"
-#include "zes_driver.hpp"
-
 #include <level_zero/ze_api.h>
 #include <level_zero/zes_ddi.h>
 
-#if defined(__cplusplus)
 extern "C" {
-#endif
-ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetGlobalProcAddrTable(
-    ze_api_version_t version,        ///< [in] API version requested
-    zes_global_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
-) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
-
-    pDdiTable->pfnInit = L0::zesInit;
-
-    return ZE_RESULT_SUCCESS;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// @brief Exported function for filling application's Device table
-///        with current process' addresses
-///
-/// @returns
-///     - ::ZE_RESULT_SUCCESS
-///     - ::ZE_RESULT_ERROR_INVALID_NULL_POINTER
-///     - ::ZE_RESULT_ERROR_UNSUPPORTED_VERSION
-ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetDeviceProcAddrTable(
-    ze_api_version_t version,        ///< [in] API version requested
-    zes_device_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
-) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
-
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
-
-    ze_result_t result = ZE_RESULT_SUCCESS;
-
-    pDdiTable->pfnGetProperties = L0::zesDeviceGetProperties;
-
-    pDdiTable->pfnGetState = nullptr;
-
-    pDdiTable->pfnReset = nullptr;
-
-    pDdiTable->pfnProcessesGetState = nullptr;
-
-    pDdiTable->pfnPciGetProperties = nullptr;
-
-    pDdiTable->pfnPciGetState = nullptr;
-
-    pDdiTable->pfnPciGetBars = nullptr;
-
-    pDdiTable->pfnPciGetStats = nullptr;
-
-    pDdiTable->pfnEnumDiagnosticTestSuites = nullptr;
-
-    pDdiTable->pfnEnumEngineGroups = nullptr;
-
-    pDdiTable->pfnEventRegister = nullptr;
-
-    pDdiTable->pfnEnumFabricPorts = nullptr;
-
-    pDdiTable->pfnEnumFans = nullptr;
-
-    pDdiTable->pfnEnumFirmwares = nullptr;
-
-    pDdiTable->pfnEnumFrequencyDomains = nullptr;
-
-    pDdiTable->pfnEnumLeds = nullptr;
-
-    pDdiTable->pfnEnumMemoryModules = nullptr;
-
-    pDdiTable->pfnEnumPerformanceFactorDomains = nullptr;
-
-    pDdiTable->pfnEnumPowerDomains = nullptr;
-
-    pDdiTable->pfnEnumPsus = nullptr;
-
-    pDdiTable->pfnEnumRasErrorSets = nullptr;
-
-    pDdiTable->pfnEnumSchedulers = nullptr;
-
-    pDdiTable->pfnEnumStandbyDomains = nullptr;
-
-    pDdiTable->pfnEnumTemperatureSensors = nullptr;
-
-    pDdiTable->pfnGet = L0::zesDeviceGet;
-
-    return result;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// @brief Exported function for filling application's Driver table
-///        with current process' addresses
-///
-/// @returns
-///     - ::ZE_RESULT_SUCCESS
-///     - ::ZE_RESULT_ERROR_INVALID_NULL_POINTER
-///     - ::ZE_RESULT_ERROR_UNSUPPORTED_VERSION
-ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetDriverProcAddrTable(
-    ze_api_version_t version,        ///< [in] API version requested
-    zes_driver_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
-) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
-
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
-
-    ze_result_t result = ZE_RESULT_SUCCESS;
-
-    pDdiTable->pfnGet = L0::zesDriverGet;
-
-    pDdiTable->pfnEventListen = nullptr;
-
-    pDdiTable->pfnEventListenEx = nullptr;
-
-    return result;
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 /// @brief Exported function for filling application's Diagnostics table
 ///        with current process' addresses
@@ -156,33 +34,6 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetDiagnosticsProcAddrTable(
     pDdiTable->pfnGetTests = nullptr;
 
     pDdiTable->pfnRunTests = nullptr;
-
-    return result;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// @brief Exported function for filling application's Engine table
-///        with current process' addresses
-///
-/// @returns
-///     - ::ZE_RESULT_SUCCESS
-///     - ::ZE_RESULT_ERROR_INVALID_NULL_POINTER
-///     - ::ZE_RESULT_ERROR_UNSUPPORTED_VERSION
-ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetEngineProcAddrTable(
-    ze_api_version_t version,        ///< [in] API version requested
-    zes_engine_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
-) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
-
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
-
-    ze_result_t result = ZE_RESULT_SUCCESS;
-
-    pDdiTable->pfnGetProperties = nullptr;
-
-    pDdiTable->pfnGetActivity = nullptr;
 
     return result;
 }
@@ -622,6 +473,4 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetTemperatureProcAddrTable(
 
     return result;
 }
-#if defined(__cplusplus)
 }
-#endif

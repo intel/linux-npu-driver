@@ -12,26 +12,27 @@
 #include "level_zero_driver/core/source/context/context.hpp"
 #include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/core/source/driver/driver.hpp"
+#include "level_zero_driver/ext/source/graph/blob_container.hpp"
 #include "level_zero_driver/ext/source/graph/compiler.hpp"
 #include "level_zero_driver/ext/source/graph/disk_cache.hpp"
 #include "level_zero_driver/ext/source/graph/elf_parser.hpp"
+#include "level_zero_driver/ext/source/graph/interface_parser.hpp"
 #include "level_zero_driver/ext/source/graph/profiling_data.hpp"
 #include "level_zero_driver/include/l0_exception.hpp"
 #include "npu_driver_compiler.h"
 #include "umd_common.hpp"
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_device.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 #include "vpux_elf/utils/version.hpp"
 #include "vpux_hpi.hpp"
 
 #include <algorithm>
+#include <memory>
 #include <string.h>
 #include <string>
-
-namespace VPU {
-class VPUDeviceContext;
-} // namespace VPU
+#include <string_view>
 
 namespace L0 {
 
@@ -40,7 +41,8 @@ static thread_local std::string lastErrorMsg = {};
 Graph::Graph(Context *pCtx, const ze_graph_desc_2_t *pDesc)
     : pContext(pCtx)
     , ctx(pCtx->getDeviceContext())
-    , desc(*pDesc) {
+    , desc(*pDesc)
+    , buildFlags(desc.pBuildFlags != nullptr ? desc.pBuildFlags : "") {
     initialize();
 }
 
@@ -89,18 +91,25 @@ ze_result_t Graph::getNativeBinary(size_t *pSize, uint8_t *pGraphNativeBinary) {
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    if (blob.size == 0) {
+    if (blob == nullptr || blob->size == 0) {
         LOG_E("Native binary does not exist for Graph");
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 
-    if (*pSize == 0 || *pSize > blob.size) {
-        *pSize = blob.size;
+    if (*pSize == 0 || *pSize > blob->size) {
+        *pSize = blob->size;
     }
 
     if (pGraphNativeBinary != nullptr) {
-        memcpy(pGraphNativeBinary, blob.ptr, *pSize);
+        memcpy(pGraphNativeBinary, blob->ptr, *pSize);
     }
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t Graph::getNativeBinary2(size_t *pSize, const uint8_t **pGraphNativeBinary) {
+    *pSize = blob->size;
+    *pGraphNativeBinary = blob->ptr;
+
     return ZE_RESULT_SUCCESS;
 }
 
@@ -125,6 +134,13 @@ ze_result_t Graph::getProperties(ze_graph_properties_t *pGraphProperties) {
     }
 
     pGraphProperties->numGraphArgs = safe_cast<uint32_t>(argumentProperties.size());
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t Graph::getProperties2(ze_graph_properties_2_t *pGraphProperties) {
+    pGraphProperties->numGraphArgs = safe_cast<uint32_t>(argumentProperties.size());
+    pGraphProperties->initStageRequired = ZE_GRAPH_STAGE_INITIALIZE;
+
     return ZE_RESULT_SUCCESS;
 }
 
@@ -227,7 +243,7 @@ ze_result_t Graph::createProfilingPool(uint32_t count,
             std::make_unique<GraphProfilingPool>(ctx,
                                                  profilingOutputSize,
                                                  count,
-                                                 &blob,
+                                                 blob.get(),
                                                  [this](auto *x) { profilingPools.erase(x); });
         auto [it, success] = profilingPools.emplace(profilingPool.get(), std::move(profilingPool));
         L0_THROW_WHEN(!success,
@@ -337,6 +353,35 @@ static uint32_t getArgumentSize(const ze_graph_argument_properties_3_t &prop) {
     return safe_cast<uint32_t>(size);
 }
 
+static void
+addOptionToBuildFlags(std::string_view key, std::string_view value, std::string &buildFlags) {
+    if (buildFlags.find("--config") == std::string::npos) {
+        buildFlags += " --config";
+    }
+
+    buildFlags += " " + std::string(key) + "=\"" + std::string(value) + "\"";
+}
+
+void Graph::addDeviceConfigToBuildFlags() {
+    // Stepping and max_tiles are not supported in versions < 5.3
+    if (Compiler::getCompilerVersionMajor() > 5 ||
+        (Compiler::getCompilerVersionMajor() == 5 && Compiler::getCompilerVersionMinor() >= 3)) {
+        if (buildFlags.find("STEPPING") == std::string::npos) {
+            uint32_t deviceRevision = ctx->getDeviceRevision();
+            addOptionToBuildFlags("NPU_STEPPING", std::to_string(deviceRevision), buildFlags);
+        }
+
+        if (buildFlags.find("MAX_TILES") == std::string::npos) {
+            uint32_t numSlices = ctx->getNumSlices();
+            addOptionToBuildFlags("NPU_MAX_TILES", std::to_string(numSlices), buildFlags);
+        }
+    }
+
+    if (desc.flags & ZE_GRAPH_FLAG_ENABLE_PROFILING) {
+        addOptionToBuildFlags("PERF_COUNT", "YES", buildFlags);
+    }
+}
+
 void Graph::initialize() {
     L0_THROW_WHEN(desc.pInput == nullptr,
                   "Invalid input pointer",
@@ -346,33 +391,39 @@ void Graph::initialize() {
     DiskCache &cache = Driver::getInstance()->getDiskCache();
     DiskCache::Key key;
 
+    LOG(GRAPH,
+        "ze_graph_desc_2_t = format: %#x, pInput: %p, inputSize: %lu, flags: %#x, pBuildFlags: %s",
+        desc.format,
+        desc.pInput,
+        desc.inputSize,
+        desc.flags,
+        desc.pBuildFlags);
+
     switch (desc.format) {
     case ZE_GRAPH_FORMAT_NATIVE:
-        LOG(GRAPH, "Format: ZE_GRAPH_FORMAT_NATIVE");
-        blob.ptr = (uint8_t *)desc.pInput;
-        blob.size = desc.inputSize;
+        blob = std::make_unique<BlobContainer>(const_cast<uint8_t *>(desc.pInput), desc.inputSize);
         break;
     case ZE_GRAPH_FORMAT_NGRAPH_LITE:
-        LOG(GRAPH, "Format: ZE_GRAPH_FORMAT_NGRAPH_LITE");
+        addDeviceConfigToBuildFlags();
 
         if (!(desc.flags & ZE_GRAPH_FLAG_DISABLE_CACHING)) {
             key = cache.computeKey(desc);
-            blobCached = cache.getBlob(key);
+            blob = cache.getBlob(key);
         }
 
-        if (blobCached.empty()) {
-            if (!Compiler::getCompiledBlob(ctx, desc.inputSize, blobCached, desc, lastErrorMsg)) {
+        if (blob == nullptr) {
+            desc.pBuildFlags = buildFlags.c_str();
+
+            if (!Compiler::getCompiledBlob(ctx, desc, blob, lastErrorMsg)) {
                 LOG_E("Failed to get compiled blob!");
                 throw DriverError(ZE_RESULT_ERROR_UNKNOWN);
             }
 
             if (!(desc.flags & ZE_GRAPH_FLAG_DISABLE_CACHING)) {
-                cache.setBlob(key, blobCached);
+                cache.setBlob(key, blob);
             }
         }
 
-        blob.ptr = blobCached.data();
-        blob.size = blobCached.size();
         break;
     default:
         LOG_E("Graph desc (ze_graph_desc_2_t) format invalid.");
@@ -380,9 +431,9 @@ void Graph::initialize() {
         throw DriverError(ZE_RESULT_ERROR_INVALID_ARGUMENT);
     }
 
-    if (ElfParser::checkMagic(&blob)) {
+    if (ElfParser::checkMagic(blob)) {
         LOG(GRAPH, "Detected Elf format");
-        parser = ElfParser::getElfParser(ctx, &blob, lastErrorMsg);
+        parser = ElfParser::getElfParser(ctx, blob, lastErrorMsg);
     } else {
         LOG_E("Failed to recognize blob format");
         lastErrorMsg = "Failed to recognize native binary format";
@@ -406,18 +457,20 @@ void Graph::initialize() {
     }
 }
 
+ze_result_t Graph::parserInitialize() {
+    return parser->initialize();
+}
+
 std::shared_ptr<VPU::VPUCommand> Graph::allocateGraphInitCommand(VPU::VPUDeviceContext *ctx) {
     return parser->allocateInitCommand(ctx);
 }
 
-std::unique_ptr<InferenceExecutor> Graph::getGraphExecutor(VPU::VPUDeviceContext *ctx,
-                                                           void *profilingQueryPtr) {
-    return std::make_unique<InferenceExecutor>(
-        parser,
-        ctx,
-        inputArgs,
-        outputArgs,
-        std::make_pair(profilingQueryPtr, profilingOutputSize));
+std::shared_ptr<VPU::VPUCommand> Graph::allocateGraphExecuteCommand(VPU::VPUDeviceContext *ctx,
+                                                                    void *profilingQueryPtr) {
+    return parser->allocateExecuteCommand(ctx,
+                                          inputArgs,
+                                          outputArgs,
+                                          std::make_pair(profilingQueryPtr, profilingOutputSize));
 }
 
 ze_result_t Graph::getLogString(uint32_t *pSize, char *pBuildLog) {

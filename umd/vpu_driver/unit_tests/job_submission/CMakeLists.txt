@@ -7,7 +7,6 @@
 target_sources(
   ${TARGET_NAME}
   PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/command_buffer_test.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/engine_group_test.cpp
           ${CMAKE_CURRENT_SOURCE_DIR}/job_test.cpp
           ${CMAKE_CURRENT_SOURCE_DIR}/vpu_command_test.cpp)
 

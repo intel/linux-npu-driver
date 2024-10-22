@@ -7,8 +7,11 @@
 
 #include "disk_cache.hpp"
 
+#include <stdint.h>
+
 #include "compiler.hpp"
 #include "hash_function.hpp"
+#include "level_zero_driver/ext/source/graph/blob_container.hpp"
 #include "npu_driver_compiler.h"
 #include "vpu_driver/source/os_interface/os_interface.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
@@ -106,7 +109,7 @@ DiskCache::Key DiskCache::computeKey(const ze_graph_desc_2_t &desc) {
     return hash.final();
 }
 
-DiskCache::Blob DiskCache::getBlob(const Key &key) {
+std::unique_ptr<BlobContainer> DiskCache::getBlob(const Key &key) {
     if (cachePath.empty())
         return {};
 
@@ -114,19 +117,15 @@ DiskCache::Blob DiskCache::getBlob(const Key &key) {
     std::filesystem::path dataPath = cachePath / filename;
 
     auto file = osInfc.osiOpenWithSharedLock(dataPath, false);
-    if (!file) {
+    if (!file || file->size() == 0 || file->mmap() == nullptr) {
         LOG(CACHE, "Cache missed using %s key", filename.c_str());
-        return {};
-    }
-
-    std::vector<uint8_t> data(file->size(), 0);
-    if (!file->read(data.data(), data.size())) {
-        LOG(CACHE, "Cache missed using %s key", filename.c_str());
-        return {};
+        return nullptr;
     }
 
     LOG(CACHE, "Cache hit using %s key", filename.c_str());
-    return data;
+    return std::make_unique<BlobFileContainer>(static_cast<uint8_t *>(file->mmap()),
+                                               file->size(),
+                                               std::move(file));
 }
 
 static size_t
@@ -145,7 +144,7 @@ removeLeastUsedFiles(VPU::OsInterface &osInfc, std::filesystem::path &cachePath,
             continue;
 
         auto fileSize = file->size();
-        if (!file->remove())
+        if (!osInfc.osiFileRemove(filePath))
             continue;
 
         LOG(CACHE,
@@ -161,13 +160,13 @@ removeLeastUsedFiles(VPU::OsInterface &osInfc, std::filesystem::path &cachePath,
     return removedSize;
 }
 
-void DiskCache::setBlob(const Key &key, const Blob &val) {
-    if (cachePath.empty())
+void DiskCache::setBlob(const Key &key, const std::unique_ptr<BlobContainer> &blob) {
+    if (blob == nullptr || cachePath.empty())
         return;
 
     size_t cacheSize = getCacheSize(osInfc, cachePath);
-    if (cacheSize + val.size() > maxSize) {
-        cacheSize -= removeLeastUsedFiles(osInfc, cachePath, cacheSize + val.size() - maxSize);
+    if (cacheSize + blob->size > maxSize) {
+        cacheSize -= removeLeastUsedFiles(osInfc, cachePath, cacheSize + blob->size - maxSize);
     }
 
     std::filesystem::path dstPath = cachePath / key;
@@ -175,16 +174,16 @@ void DiskCache::setBlob(const Key &key, const Blob &val) {
     if (!file)
         return;
 
-    if (!file->write(val.data(), val.size())) {
-        file->remove();
+    if (!file->write(blob->ptr, blob->size)) {
+        osInfc.osiFileRemove(dstPath);
         return;
     }
 
-    cacheSize += val.size();
+    cacheSize += blob->size;
     LOG(CACHE,
         "Cache set %s key, data size: %lu, cache size: %lu",
         key.c_str(),
-        val.size(),
+        blob->size,
         cacheSize);
 }
 

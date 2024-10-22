@@ -5,16 +5,19 @@
  *
  */
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "level_zero/ze_graph_ext.h"
+#include "level_zero_driver/ext/source/graph/blob_container.hpp"
 #include "level_zero_driver/ext/source/graph/disk_cache.hpp"
 #include "vpu_driver/unit_tests/mocks/gmock_os_interface_imp.hpp"
 
-#include <level_zero/ze_graph_ext.h>
 #include <memory>
 #include <string>
+#include <utility>
 
 namespace L0 {
 
@@ -30,7 +33,7 @@ TEST_F(DiskCacheNegTest, UninitializedCachedExpectNoReturn) {
 
     ze_graph_desc_2_t desc = {};
     EXPECT_EQ(diskCache.computeKey(desc), "");
-    EXPECT_EQ(diskCache.getBlob(""), DiskCache::Blob());
+    EXPECT_EQ(diskCache.getBlob(""), nullptr);
     diskCache.setBlob("", {});
 }
 
@@ -72,7 +75,36 @@ TEST_F(DiskCacheTest, ComputeKeys) {
 TEST_F(DiskCacheTest, MissCache) {
     ze_graph_desc_2_t desc = {};
     auto key = cache->computeKey(desc);
-    EXPECT_EQ(cache->getBlob(key).size(), 0);
+    EXPECT_EQ(cache->getBlob(key), nullptr);
+}
+
+TEST_F(DiskCacheTest, MissCacheInvalidFileSize) {
+    auto osFile = std::make_unique<VPU::GMockOsFileImp>();
+    EXPECT_CALL(*osFile, size).WillOnce(::testing::Return(0));
+
+    EXPECT_CALL(osInfc, osiOpenWithSharedLock).WillOnce(::testing::Return(std::move(osFile)));
+
+    ze_graph_desc_2_t desc = {};
+    auto key = cache->computeKey(desc);
+    EXPECT_EQ(cache->getBlob(key), nullptr);
+}
+
+TEST_F(DiskCacheTest, HitCache) {
+    constexpr size_t fileSize = 64;
+
+    auto osFile = std::make_unique<VPU::GMockOsFileImp>();
+    auto mmapPtr = std::make_unique<uint8_t[]>(fileSize);
+    EXPECT_CALL(*osFile, size).WillRepeatedly(::testing::Return(fileSize));
+    EXPECT_CALL(*osFile, mmap).WillRepeatedly(::testing::Return(mmapPtr.get()));
+
+    EXPECT_CALL(osInfc, osiOpenWithSharedLock).WillOnce(::testing::Return(std::move(osFile)));
+
+    ze_graph_desc_2_t desc = {};
+    auto key = cache->computeKey(desc);
+    auto blob = cache->getBlob(key);
+    EXPECT_NE(blob, nullptr);
+    EXPECT_EQ(blob->ptr, mmapPtr.get());
+    EXPECT_EQ(blob->size, fileSize);
 }
 
 } // namespace L0

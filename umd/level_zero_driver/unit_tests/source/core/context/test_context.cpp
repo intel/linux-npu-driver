@@ -24,14 +24,6 @@ struct ContextTest : public Test<DeviceFixture> {
     ze_context_desc_t desc = {};
 };
 
-TEST_F(ContextTest, contextReturnsFailureWhenInvalidParamsPassed) {
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE, zeContextCreate(nullptr, &desc, &hContext));
-
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE, zeContextDestroy(nullptr));
-
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE, zeContextGetStatus(nullptr));
-}
-
 TEST_F(ContextTest, contextGetStatusReturned) {
     ze_result_t res = driverHandle->createContext(&desc, &hContext);
     ASSERT_EQ(ZE_RESULT_SUCCESS, res);

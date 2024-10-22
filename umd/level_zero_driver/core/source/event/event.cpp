@@ -54,6 +54,9 @@ void Event::trackMetricData(int64_t timeoutNs) {
 
     do {
         size_t dataSize = 0;
+        if (*eventState >= VPU::VPUEventCommand::STATE_HOST_SIGNAL) {
+            break;
+        }
         if (MetricStreamer::getData(pDevCtx->getDriverApi(), msGroupMask, dataSize, nullptr) ==
             ZE_RESULT_SUCCESS) {
             if (dataSize >= msExpectedDataSize) {

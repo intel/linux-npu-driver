@@ -8,13 +8,13 @@
 #pragma once
 
 #include <stddef.h>
-#include <stdint.h>
 
 #include "level_zero/ze_graph_ext.h"
+#include "level_zero_driver/ext/source/graph/blob_container.hpp"
 
 #include <filesystem>
+#include <memory>
 #include <string>
-#include <vector>
 
 namespace VPU {
 class OsInterface;
@@ -27,11 +27,10 @@ class DiskCache {
     DiskCache(VPU::OsInterface &osInfc);
 
     using Key = std::string;
-    using Blob = std::vector<uint8_t>;
 
     Key computeKey(const ze_graph_desc_2_t &desc);
-    Blob getBlob(const Key &key);
-    void setBlob(const Key &key, const Blob &val);
+    std::unique_ptr<BlobContainer> getBlob(const Key &key);
+    void setBlob(const Key &key, const std::unique_ptr<BlobContainer> &blob);
 
   private:
     VPU::OsInterface &osInfc;

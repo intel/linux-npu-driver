@@ -22,7 +22,7 @@
 
 namespace L0 {
 ImmediateCommandList::ImmediateCommandList(Context *pCtx, CommandQueue *pCmdQueue)
-    : CommandList(pCtx, pCmdQueue->isCopyOnly(), false)
+    : CommandList(pCtx, false)
     , pCommandQueue(pCmdQueue) {}
 
 ze_result_t ImmediateCommandList::create(ze_context_handle_t hContext,
