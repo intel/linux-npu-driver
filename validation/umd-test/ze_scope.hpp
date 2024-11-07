@@ -7,12 +7,9 @@
 
 #pragma once
 
-#include <level_zero/ze_api.h>
-#include <level_zero/zet_api.h>
-#include <level_zero/ze_graph_ext.h>
-#include <level_zero/ze_graph_profiling_ext.h>
-
 #include "umd_extensions.h"
+
+#include <level_zero/zet_api.h>
 
 #ifdef VPU_GTEST_APP
 #include <gtest/gtest.h>

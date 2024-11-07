@@ -13,20 +13,13 @@
 
 #include <string.h>
 
-bool loadBlobDataFromNode(std::string blobPath,
+bool loadBlobDataFromNode(const std::string &blobPath,
                           std::vector<std::string> inputFiles,
                           std::vector<std::string> outputFiles,
-                          std::vector<char> &npuBlob,
                           std::vector<std::vector<char>> &inputBin,
                           std::vector<std::vector<char>> &outputBin) {
     std::filesystem::path blobFile(blobPath);
     std::filesystem::path dataDir = blobFile.parent_path();
-
-    TRACE("Blob: %s\n", blobFile.c_str());
-    if (DataHandle::loadFile(blobFile, npuBlob) != 0) {
-        PRINTF("Failed to load blob from %s\n", blobFile.c_str());
-        return false;
-    }
 
     inputBin.resize(inputFiles.size());
     for (size_t i = 0; i < inputBin.size(); i++) {
@@ -51,7 +44,7 @@ bool loadBlobDataFromNode(std::string blobPath,
     return true;
 }
 
-bool loadBlobFromPath(std::string blobPath, std::vector<char> &npuBlob) {
+bool loadBlobFromPath(const std::string &blobPath, std::vector<char> &npuBlob) {
     std::filesystem::path blobFile(blobPath);
 
     TRACE("Blob: %s\n", blobFile.c_str());

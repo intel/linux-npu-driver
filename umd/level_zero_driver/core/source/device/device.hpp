@@ -43,6 +43,8 @@ struct Device : _ze_device_handle_t {
                                  ze_device_p2p_properties_t *pP2PProperties);
     ze_result_t getProperties(ze_device_properties_t *pDeviceProperties);
     ze_result_t getProperties(zes_device_properties_t *pDeviceProperties);
+    ze_result_t engineGetProperties(zes_engine_properties_t *pEngineProperties);
+    ze_result_t engineGetActivity(zes_engine_stats_t *pStats);
     ze_result_t getSubDevices(uint32_t *pCount, ze_device_handle_t *phSubdevices);
     ze_result_t getMemoryProperties(uint32_t *pCount,
                                     ze_device_memory_properties_t *pMemProperties);

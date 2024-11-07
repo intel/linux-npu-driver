@@ -41,42 +41,33 @@ struct CommandListTest : public Test<CommandQueueFixture> {
     ze_command_list_handle_t hCommandList1 = nullptr;
 };
 
-TEST_F(CommandListTest, whenCreatingCommandListFromNullContextAndDeviceThenFailureIsReturned) {
+TEST_F(CommandListTest, createErrors) {
     ze_command_list_desc_t desc = {};
-    desc.commandQueueGroupOrdinal = getComputeQueueOrdinal();
 
-    ze_result_t result = zeCommandListCreate(nullptr, device, &desc, &hCommandList0);
+    auto result = L0::CommandList::create(context, nullptr, &desc, &hCommandList0);
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE, result);
 
-    result = zeCommandListCreate(context, nullptr, &desc, &hCommandList0);
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE, result);
+    result = L0::CommandList::create(context, device, nullptr, &hCommandList0);
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, result);
+
+    result = L0::CommandList::create(context, device, &desc, nullptr);
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, result);
 }
 
 TEST_F(CommandListTest, commandListErrorsOnInvalidParamsShouldBeProperlyHandled) {
     ze_command_list_desc_t desc = {};
-    desc.commandQueueGroupOrdinal = getComputeQueueOrdinal();
 
-    ze_result_t result = zeCommandListCreate(context, device, &desc, &hCommandList0);
+    ze_result_t result = L0::CommandList::create(context, device, &desc, &hCommandList0);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
-    result = zeCommandListClose(nullptr);
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE, result);
-
-    result = zeCommandListReset(nullptr);
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE, result);
-
-    result = zeCommandListDestroy(nullptr);
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE, result);
-
-    result = zeCommandListDestroy(hCommandList0);
+    result = L0::CommandList::fromHandle(hCommandList0)->destroy();
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 }
 
 TEST_F(CommandListTest, whenCreatingCommandListFromContextThenSuccessIsReturned) {
     ze_command_list_desc_t desc = {};
-    desc.commandQueueGroupOrdinal = getComputeQueueOrdinal();
 
-    ze_result_t result = zeCommandListCreate(context, device, &desc, &hCommandList0);
+    ze_result_t result = L0::CommandList::create(context, device, &desc, &hCommandList0);
     EXPECT_EQ(ZE_RESULT_SUCCESS, result);
 
     L0::CommandList *commandList = L0::CommandList::fromHandle(hCommandList0);
@@ -86,9 +77,8 @@ TEST_F(CommandListTest, whenCreatingCommandListFromContextThenSuccessIsReturned)
 
 TEST_F(CommandListTest, commandListIsIteratable) {
     ze_command_list_desc_t desc = {};
-    desc.commandQueueGroupOrdinal = getComputeQueueOrdinal();
 
-    ze_result_t result = zeCommandListCreate(context, device, &desc, &hCommandList0);
+    ze_result_t result = L0::CommandList::create(context, device, &desc, &hCommandList0);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
     auto cmdList = L0::CommandList::fromHandle(hCommandList0);
@@ -136,9 +126,8 @@ TEST_F(CommandListTest, commandListIsIteratable) {
 
 TEST_F(CommandListTest, whenCalledCommandListResetCommandListVectorIsClearedSuccessfully) {
     ze_command_list_desc_t desc = {};
-    desc.commandQueueGroupOrdinal = getComputeQueueOrdinal();
 
-    ze_result_t result = zeCommandListCreate(context, device, &desc, &hCommandList0);
+    ze_result_t result = L0::CommandList::create(context, device, &desc, &hCommandList0);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
     auto cmdList = L0::CommandList::fromHandle(hCommandList0);
@@ -182,9 +171,8 @@ TEST_F(CommandListTest, whenCalledCommandListResetCommandListVectorIsClearedSucc
 
 TEST_F(CommandListTest, expectCommandListIsDestroyOnContextDestroy) {
     ze_command_list_desc_t desc = {};
-    desc.commandQueueGroupOrdinal = getComputeQueueOrdinal();
 
-    ze_result_t result = zeCommandListCreate(context, device, &desc, &hCommandList0);
+    ze_result_t result = L0::CommandList::create(context, device, &desc, &hCommandList0);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 }
 
@@ -198,20 +186,12 @@ struct CommandListCommitSizeTest : public CommandListTest {
 
         // Command list.
         ze_command_list_desc_t desc = {};
-        desc.commandQueueGroupOrdinal = getComputeQueueOrdinal();
 
-        ze_result_t result = zeCommandListCreate(context, device, &desc, &hNNCmdlist);
+        ze_result_t result = L0::CommandList::create(context, device, &desc, &hNNCmdlist);
         ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
         nnCmdlist = L0::CommandList::fromHandle(hNNCmdlist);
         ASSERT_NE(nullptr, nnCmdlist);
-
-        desc.commandQueueGroupOrdinal = getCopyOnlyQueueOrdinal();
-        result = zeCommandListCreate(context, device, &desc, &hCPCmdlist);
-        ASSERT_EQ(ZE_RESULT_SUCCESS, result);
-
-        cpCmdlist = L0::CommandList::fromHandle(hCPCmdlist);
-        ASSERT_NE(nullptr, cpCmdlist);
 
         // Events
         ze_event_pool_desc_t evPoolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC,
@@ -220,9 +200,9 @@ struct CommandListCommitSizeTest : public CommandListTest {
                                            ZE_EVENT_POOL_FLAG_HOST_VISIBLE};
         evPoolDesc.count = 3;
         ASSERT_EQ(ZE_RESULT_SUCCESS,
-                  zeEventPoolCreate(context, &evPoolDesc, 1, &hDevice, &hEvPool));
+                  L0::EventPool::create(context, &evPoolDesc, 1, &hDevice, &hEvPool));
         ASSERT_NE(nullptr, hEvPool);
-        evPool = EventPool::fromHandle(hEvPool);
+        evPool = L0::EventPool::fromHandle(hEvPool);
         ASSERT_NE(nullptr, evPool);
 
         ze_event_desc_t evDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC,
@@ -264,7 +244,6 @@ struct CommandListCommitSizeTest : public CommandListTest {
         ASSERT_EQ(ZE_RESULT_SUCCESS, L0::Event::fromHandle(hEvent2)->destroy());
         evPool->destroy();
         nnCmdlist->destroy();
-        cpCmdlist->destroy();
 
         ASSERT_TRUE(ctx->freeMemAlloc(shareMem1));
         ASSERT_TRUE(ctx->freeMemAlloc(shareMem2));
@@ -277,11 +256,9 @@ struct CommandListCommitSizeTest : public CommandListTest {
     size_t allocSize = 1024;
     ze_device_handle_t hDevice = nullptr;
     ze_command_list_handle_t hNNCmdlist = nullptr;
-    ze_command_list_handle_t hCPCmdlist = nullptr;
     ze_event_pool_handle_t hEvPool = nullptr;
-    CommandList *nnCmdlist = nullptr;
-    CommandList *cpCmdlist = nullptr;
-    EventPool *evPool = nullptr;
+    L0::CommandList *nnCmdlist = nullptr;
+    L0::EventPool *evPool = nullptr;
     ze_event_handle_t hEvent0 = nullptr;
     ze_event_handle_t hEvent1 = nullptr;
     ze_event_handle_t hEvent2 = nullptr;
@@ -397,116 +374,6 @@ TEST_F(CommandListCommitSizeTest, l2lCopyAndL2SCopyCommandsWithEvents) {
     ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
     /* Only Compute should be used */
     EXPECT_EQ(2u, nnCmdlist->getJob()->getCommandBuffers().size());
-}
-
-TEST_F(CommandListCommitSizeTest, testingVariousFollowingConditionsForDifferentCommandListTypes) {
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendEventReset(hEvent0));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendSignalEvent(hEvent0));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendBarrier(nullptr, 0, nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS,
-              nnCmdlist->appendMemoryCopy(shareMem2, shareMem1, allocSize, nullptr, 0, nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
-
-    // NN list.
-    // reset ev | signal ev | barrier | [L2L]
-    EXPECT_EQ(4u, nnCmdlist->getCommands().size());
-    EXPECT_EQ(2u, nnCmdlist->getJob()->getCommandBuffers().size());
-
-    ASSERT_EQ(ZE_RESULT_SUCCESS, cpCmdlist->appendBarrier(nullptr, 0, nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS,
-              cpCmdlist->appendMemoryCopy(shareMem2, hostMem1, allocSize, nullptr, 0, nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, cpCmdlist->appendWaitOnEvents(1, &hEvent1));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, cpCmdlist->close());
-
-    // CP list.
-    // barrier | [S2L] | wait ev
-    EXPECT_EQ(3u, cpCmdlist->getCommands().size());
-    EXPECT_EQ(1u, cpCmdlist->getJob()->getCommandBuffers().size());
-
-    // Reset
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->reset());
-    ASSERT_EQ(ZE_RESULT_SUCCESS, cpCmdlist->reset());
-    ASSERT_EQ(0u, nnCmdlist->getCommands().size());
-    ASSERT_EQ(0u, cpCmdlist->getCommands().size());
-
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendBarrier(nullptr, 0, nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS,
-              nnCmdlist->appendWriteGlobalTimestamp(static_cast<uint64_t *>(hostMem2),
-                                                    nullptr,
-                                                    0,
-                                                    nullptr)); // To Copy Engine, cmdlist#1
-    ASSERT_EQ(ZE_RESULT_SUCCESS,
-              nnCmdlist->appendMemoryCopy(shareMem2,
-                                          hostMem1,
-                                          allocSize,
-                                          nullptr,
-                                          0,
-                                          nullptr)); // To Copy Engine, cmdlist#1
-    ASSERT_EQ(ZE_RESULT_SUCCESS,
-              nnCmdlist->appendMemoryCopy(shareMem2,
-                                          shareMem1,
-                                          allocSize,
-                                          nullptr,
-                                          0,
-                                          nullptr)); // To Compute Engine, cmdlist#2
-    ASSERT_EQ(ZE_RESULT_SUCCESS,
-              nnCmdlist->appendBarrier(nullptr, 0, nullptr)); // To Compute Engine, cmdlist#2
-    ASSERT_EQ(ZE_RESULT_SUCCESS,
-              nnCmdlist->appendWriteGlobalTimestamp(static_cast<uint64_t *>(hostMem2),
-                                                    nullptr,
-                                                    0,
-                                                    nullptr)); // To Copy Engine, cmdlist#3
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
-
-    /* Timestamp is split by UMD to two commands aligned TS and copy */
-    EXPECT_EQ(8u, nnCmdlist->getCommands().size());
-    EXPECT_EQ(1u, nnCmdlist->getJob()->getCommandBuffers().size());
-
-    // Reset
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->reset());
-    ASSERT_EQ(0u, nnCmdlist->getCommands().size());
-    EXPECT_EQ(0u, nnCmdlist->getJob()->getCommandBuffers().size());
-
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendBarrier(nullptr, 0, nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS,
-              nnCmdlist->appendWriteGlobalTimestamp(static_cast<uint64_t *>(hostMem2),
-                                                    nullptr,
-                                                    0,
-                                                    nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendBarrier(nullptr, 0, nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS,
-              nnCmdlist->appendWriteGlobalTimestamp(static_cast<uint64_t *>(hostMem2),
-                                                    nullptr,
-                                                    0,
-                                                    nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendSignalEvent(hEvent0));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendWaitOnEvents(1, &hEvent2));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->appendEventReset(hEvent0));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, nnCmdlist->close());
-
-    /* Timestamp is split by UMD to two commands aligned TS and copy */
-    EXPECT_EQ(9u, nnCmdlist->getCommands().size());
-    EXPECT_EQ(2u, nnCmdlist->getJob()->getCommandBuffers().size());
-
-    ASSERT_EQ(ZE_RESULT_SUCCESS, cpCmdlist->appendBarrier(nullptr, 0, nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS,
-              cpCmdlist->appendWriteGlobalTimestamp(static_cast<uint64_t *>(hostMem2),
-                                                    nullptr,
-                                                    0,
-                                                    nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, cpCmdlist->appendBarrier(nullptr, 0, nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS,
-              cpCmdlist->appendWriteGlobalTimestamp(static_cast<uint64_t *>(hostMem2),
-                                                    nullptr,
-                                                    0,
-                                                    nullptr));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, cpCmdlist->appendSignalEvent(hEvent0));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, cpCmdlist->appendWaitOnEvents(1, &hEvent2));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, cpCmdlist->appendEventReset(hEvent0));
-    ASSERT_EQ(ZE_RESULT_SUCCESS, cpCmdlist->close());
-
-    EXPECT_EQ(9u, cpCmdlist->getCommands().size());
-    EXPECT_EQ(2u, cpCmdlist->getJob()->getCommandBuffers().size());
 }
 
 } // namespace ult

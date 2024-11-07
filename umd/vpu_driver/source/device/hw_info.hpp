@@ -33,7 +33,6 @@ struct VPUHwInfo {
     uint32_t deviceRevision = 0u;
     uint32_t subdeviceId = 0u;
     uint32_t coreClockRate = 0u;
-    uint64_t maxMemAllocSize = 0x100000000;
     uint32_t maxHardwareContexts = 1;
     uint32_t maxCommandQueuePriority = 2;
     uint32_t numThreadsPerEU = 1;

@@ -9,6 +9,7 @@
 #include "vpu_nce_hw_40xx.h"
 #include "vpu_dma_hw_40xx.h"
 #include "vpu_media_hw.h"
+#include "vpu_pwrmgr_api.h"
 
 /*
  * When a change is made to vpu_nnrt_api_40xx.h that breaks backwards compatibility
@@ -29,7 +30,7 @@
  */
 #define VPU_NNRT_40XX_API_VER_MAJOR 11
 #define VPU_NNRT_40XX_API_VER_MINOR 4
-#define VPU_NNRT_40XX_API_VER_PATCH 6
+#define VPU_NNRT_40XX_API_VER_PATCH 10
 #define VPU_NNRT_40XX_API_VER ((VPU_NNRT_40XX_API_VER_MAJOR << 16) | VPU_NNRT_40XX_API_VER_MINOR)
 
 /* Index in the API version table, same for all HW generations */
@@ -79,9 +80,6 @@
 namespace nn_public {
 
 #pragma pack(push, 1)
-
-constexpr uint32_t VPU_SCALABILITY_NUM_OF_FREQ = 5;
-constexpr uint32_t VPU_SCALABILITY_VALUES_PER_FREQ = 5;
 
 template <typename T>
 struct VPU_ALIGNED_STRUCT(8) VpuPtr {
@@ -152,9 +150,7 @@ struct VPU_ALIGNED_STRUCT(8) VpuTaskBarrierDependency {
     uint64_t wait_mask_lo_;
     uint64_t post_mask_hi_;
     uint64_t post_mask_lo_;
-    uint8_t group_;
-    uint8_t mask_;
-    uint8_t pad_[6];
+    uint8_t reserved_[8];
 };
 
 static_assert(sizeof(VpuTaskBarrierDependency) == 40, "VpuTaskBarrierDependency size != 40");
@@ -173,29 +169,22 @@ struct VPU_ALIGNED_STRUCT(32) VpuDPUInvariant {
     VpuDPUInvariantRegisters registers_;
     VpuTaskBarrierDependency barriers_;
     VpuTaskSchedulingBarrierConfig barriers_sched_;
-    uint32_t output_sparsity_offset_;
-    int32_t hwp_cmx_base_offset_;
+    uint8_t reserved_[8];
     uint16_t variant_count_;
     uint8_t cluster_;
-    uint8_t is_cont_conv_;
-    VpuHWPStatMode dpu_prof_mode;
-    uint8_t pad_[3];
+    uint8_t pad_[5];
 };
 
 static_assert(sizeof(VpuDPUInvariant) == 352, "VpuDPUInvariant size != 352");
 static_assert(offsetof(VpuDPUInvariant, barriers_) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuDPUInvariant, barriers_sched_) % 4 == 0, "Alignment error");
-static_assert(offsetof(VpuDPUInvariant, output_sparsity_offset_) % 4 == 0, "Alignment error");
+static_assert(offsetof(VpuDPUInvariant, variant_count_) % 2 == 0, "Alignment error");
 
 struct VPU_ALIGNED_STRUCT(32) VpuDPUVariant {
     VpuDPUVariantRegisters registers_;
     VpuPtr<VpuDPUInvariant> invariant_;
     uint32_t invariant_index_;
-    uint32_t output_sparsity_offset_;
-    uint32_t weight_table_offset_;
-    int32_t wload_id_;
-    uint8_t cluster_;
-    uint8_t pad_[7];
+    uint8_t pad_[20];
 };
 
 static_assert(sizeof(VpuDPUVariant) == 224, "VpuDPUVariant size != 224");
@@ -204,8 +193,7 @@ static_assert(offsetof(VpuDPUVariant, invariant_index_) % 4 == 0, "Alignment err
 
 struct VPU_ALIGNED_STRUCT(4) VpuResourceRequirements {
     uint32_t nn_slice_length_;
-    uint32_t ddr_scratch_length_;
-    uint8_t reserved[2]; // Reserved due to deprecated member.
+    uint8_t reserved_[6];
     uint8_t nn_slice_count_;
     uint8_t nn_barriers_;
 };
@@ -216,8 +204,8 @@ struct VPU_ALIGNED_STRUCT(8) VpuNNShaveRuntimeConfigs {
     uint64_t reserved;
     uint64_t runtime_entry; // when useScheduleEmbeddedRt = true this is a windowed address
     uint64_t act_rt_window_base;
-    uint32_t stack_frames[VPU_AS_TOTAL]; // UNUSED - to be removed
-    uint32_t stack_size;                 // UNUSED - to be removed
+    uint32_t stack_frames[VPU_AS_TOTAL];
+    uint32_t stack_size;
     uint32_t code_window_buffer_size;
     uint32_t perf_metrics_mask;
     uint32_t runtime_version;
@@ -244,7 +232,7 @@ struct VPU_ALIGNED_STRUCT(8) VpuActKernelRange {
     VpuPtr<actKernelEntryFunction> kernel_entry;
     VpuPtr<void> text_window_base;
     uint32_t code_size;
-    uint32_t data_sec_size;
+    uint8_t reserved_[4];
     uint32_t kernel_invo_count;
     uint8_t pad1_[4];
 };
@@ -259,9 +247,7 @@ struct VPU_ALIGNED_STRUCT(32) VpuActKernelInvocation {
     VpuPtr<void> perf_packet_out;
     VpuTaskBarrierDependency barriers;
     VpuTaskSchedulingBarrierConfig barriers_sched;
-    // The schedule compiler can infer an index if it's needed pre/post inference
-    // Update: we can/will use the index to virtualize a WI FIFO state in a preemption payload
-    uint32_t invo_index;
+    uint8_t reserved_[4];
     uint32_t invo_tile;
     uint32_t kernel_range_index;
     uint32_t next_aki_wl_addr;
@@ -270,7 +256,7 @@ struct VPU_ALIGNED_STRUCT(32) VpuActKernelInvocation {
 static_assert(sizeof(VpuActKernelInvocation) == 96, "VpuActKernelInvocation size != 96");
 static_assert(offsetof(VpuActKernelInvocation, barriers) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuActKernelInvocation, barriers_sched) % 4 == 0, "Alignment error");
-static_assert(offsetof(VpuActKernelInvocation, invo_index) % 4 == 0, "Alignment error");
+static_assert(offsetof(VpuActKernelInvocation, invo_tile) % 4 == 0, "Alignment error");
 
 struct VPU_ALIGNED_STRUCT(16) VpuMediaTask {
     union VPU_ALIGNED_STRUCT(16) {
@@ -342,30 +328,11 @@ static_assert(offsetof(VpuMappedInference, shv_rt_configs) % 8 == 0, "Alignment 
 static_assert(offsetof(VpuMappedInference, hwp_workpoint_cfg_addr) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuMappedInference, managed_inference) % 8 == 0, "Alignment error");
 
-struct VPU_ALIGNED_STRUCT(8) VpuPerformanceMetrics {
-    uint32_t freq_base; ///< Base of frequency values used in tables (in MHz).
-    uint32_t freq_step; ///< Step of frequency for each entry in tables (in MHz).
-    uint32_t bw_base;   ///< Base of bandwidth values used in tables (in MB/s).
-    uint32_t bw_step;   ///< Step of bandwidth values used in tables (in MB/s).
-
-    /// Inner arrays are for different bandwidth values.
-    /// Outer arrays are for different frequency values.
-    uint64_t ticks[VPU_SCALABILITY_NUM_OF_FREQ][VPU_SCALABILITY_VALUES_PER_FREQ];    ///< Table of infr. execution time
-    float scalability[VPU_SCALABILITY_NUM_OF_FREQ][VPU_SCALABILITY_VALUES_PER_FREQ]; ///< Table of infr. scalability
-
-    float activity_factor; ///< Compiler estimated activity factor for the inference.
-};
-
-static_assert(sizeof(VpuPerformanceMetrics) == 320, "VpuPerformanceMetrics size != 320");
-static_assert(offsetof(VpuPerformanceMetrics, ticks) % 8 == 0, "Alignment error");
-static_assert(offsetof(VpuPerformanceMetrics, scalability) % 4 == 0, "Alignment error");
-static_assert(offsetof(VpuPerformanceMetrics, activity_factor) % 4 == 0, "Alignment error");
-
 struct VPU_ALIGNED_STRUCT(32) VpuHostParsedInference {
     uint64_t reserved_;
     VpuResourceRequirements resource_requirements_;
     uint8_t pad_[4];
-    VpuPerformanceMetrics performance_metrics_;
+    struct VpuPerformanceMetrics performance_metrics_;
     VpuTaskReference<VpuMappedInference> mapped_;
 };
 

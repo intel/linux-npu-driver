@@ -76,6 +76,22 @@ size_t OsInterfaceImp::osiGetSystemPageSize() {
     return safe_cast<size_t>(sysconf(_SC_PAGESIZE));
 }
 
+std::string OsInterfaceImp::osiReadFile(const std::filesystem::path &path, size_t maxReadSize) {
+    std::string out(maxReadSize + 1, 0);
+    int fd = ::open(path.c_str(), O_CLOEXEC, S_IRUSR | S_IRGRP);
+    if (fd == -1) {
+        LOG_E("Failed to open %s, errno: %u (%s)", path.c_str(), errno, strerror(errno));
+        return "";
+    }
+    off_t off = ::read(fd, out.data(), maxReadSize);
+    ::close(fd);
+    if (off == -1) {
+        LOG_E("Failed to read, errno: %u (%s)", errno, strerror(errno));
+        return "";
+    }
+    return out;
+}
+
 void *OsInterfaceImp::osiMmap(void *addr, size_t size, int prot, int flags, int fd, off_t offset) {
     return mmap(addr, size, prot, flags, fd, offset);
 }
@@ -97,10 +113,19 @@ bool OsInterfaceImp::osiCreateDirectories(const std::filesystem::path &path) {
     return true;
 }
 
+bool OsInterfaceImp::osiFileRemove(const std::filesystem::path &path) {
+    std::error_code ec;
+    if (!std::filesystem::remove(path, ec)) {
+        LOG_E("Failed to remove file, ec: %i (%s)", ec.value(), ec.message().c_str());
+        return false;
+    }
+    return true;
+}
+
 class OsFileImp : public OsFile {
   public:
     OsFileImp(const std::filesystem::path &path, bool writeAccess)
-        : path(path) {
+        : writeAccess(writeAccess) {
         int flags = O_RDONLY;
         if (writeAccess) {
             flags = O_CREAT | O_RDWR;
@@ -108,20 +133,30 @@ class OsFileImp : public OsFile {
 
         fd = ::open(path.c_str(), flags | O_CLOEXEC, S_IRUSR | S_IRGRP);
         if (fd == -1) {
-            LOG(FSYS, "Failed to open file, errno: %u (%s)", errno, strerror(errno));
+            LOG(FSYS,
+                "Failed to open file %s, errno: %u (%s)",
+                path.c_str(),
+                errno,
+                strerror(errno));
             return;
         }
 
         struct stat fstatInfo = {};
         if (fstat(fd, &fstatInfo) != 0 || !S_ISREG(fstatInfo.st_mode)) {
-            LOG_E("Invalid file");
+            LOG_E("Invalid file %s", path.c_str());
             close(fd);
             fd = -1;
             return;
         }
+
+        fileSize = safe_cast<size_t>(fstatInfo.st_size);
+        LOG(FSYS, "OsFileImp - path: %p, fd: %i, fileSize: %lu", path.c_str(), fd, fileSize);
     }
 
     ~OsFileImp() override {
+        if (mmapPtr != MAP_FAILED)
+            ::munmap(mmapPtr, fileSize);
+
         if (isOpen())
             ::close(fd);
     }
@@ -150,31 +185,6 @@ class OsFileImp : public OsFile {
         return false;
     }
 
-    bool read(void *out, size_t size) override {
-        if (out == nullptr || size == 0) {
-            LOG_E("Invalid pointer or size");
-            return false;
-        }
-
-        if (!setOffsetAtZero())
-            return false;
-
-        size_t at = 0;
-        while (at < size) {
-            off_t off = ::read(fd, static_cast<uint8_t *>(out) + at, size - at);
-            if (off == -1 || off == 0) {
-                LOG_E("Failed to read, errno: %u (%s)", errno, strerror(errno));
-                return false;
-            }
-
-            at += static_cast<size_t>(off);
-        }
-
-        if (at != size)
-            return false;
-        return true;
-    }
-
     bool write(const void *in, size_t size) override {
         if (in == nullptr || size == 0) {
             LOG_E("Invalid pointer or size");
@@ -195,22 +205,34 @@ class OsFileImp : public OsFile {
             at += static_cast<size_t>(off);
         }
 
+        fileSize = at;
         if (at != size)
             return false;
         return true;
     }
 
-    bool remove() override {
-        std::error_code ec;
-        std::filesystem::remove(path, ec);
-        if (ec) {
-            LOG_E("Failed to remove file, ec: %i (%s)", ec.value(), ec.message().c_str());
-            return false;
+    void *mmap() override {
+        if (writeAccess) {
+            LOG(FSYS, "File %d cannot be mapped in write access", fd);
+            return nullptr;
         }
-        return true;
+
+        if (mmapPtr != MAP_FAILED) {
+            LOG(FSYS, "File %d already mapped, mmapPtr: %p", fd, mmapPtr);
+            return mmapPtr;
+        }
+
+        mmapPtr = ::mmap(NULL, fileSize, PROT_READ, MAP_SHARED, fd, 0);
+        if (mmapPtr == MAP_FAILED) {
+            LOG_E("Failed to map the file, errno: %u (%s)", errno, strerror(errno));
+            return nullptr;
+        }
+
+        LOG(FSYS, "File %d is mapped, mmapPtr: %p", fd, mmapPtr);
+        return mmapPtr;
     }
 
-    size_t size() override { return std::filesystem::file_size(path); }
+    size_t size() override { return fileSize; }
 
   private:
     bool setOffsetAtZero() {
@@ -223,8 +245,10 @@ class OsFileImp : public OsFile {
         return true;
     }
 
-    std::filesystem::path path;
+    bool writeAccess;
     int fd;
+    void *mmapPtr = MAP_FAILED;
+    size_t fileSize = 0;
 };
 
 std::unique_ptr<OsFile> OsInterfaceImp::osiOpenWithExclusiveLock(const std::filesystem::path &path,

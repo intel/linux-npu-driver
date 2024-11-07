@@ -14,29 +14,25 @@ struct EventSync : public UmdTest {
     void SetUp() override {
         UmdTest::SetUp();
 
-        ASSERT_EQ(
-            createCommandQueue(computeGrpOrdinal, ZE_COMMAND_QUEUE_PRIORITY_NORMAL, &cmdQueue),
-            ZE_RESULT_SUCCESS);
-        ASSERT_EQ(createCommandQueue(computeGrpOrdinal,
-                                     ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH,
-                                     &cmdQueuePrior),
+        ASSERT_EQ(createCommandQueue(ZE_COMMAND_QUEUE_PRIORITY_NORMAL, &cmdQueue),
+                  ZE_RESULT_SUCCESS);
+        ASSERT_EQ(createCommandQueue(ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH, &cmdQueuePrior),
                   ZE_RESULT_SUCCESS);
 
-        ASSERT_EQ(createCommandList(computeGrpOrdinal, &cmdList), ZE_RESULT_SUCCESS);
-        ASSERT_EQ(createCommandList(computeGrpOrdinal, &cmdListPrior), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(createCommandList(&cmdList), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(createCommandList(&cmdListPrior), ZE_RESULT_SUCCESS);
 
         ASSERT_EQ(createEventPool(3, &eventPool), ZE_RESULT_SUCCESS);
     }
 
     void TearDown() override { UmdTest::TearDown(); }
 
-    ze_result_t createCommandQueue(uint32_t ordinal,
-                                   ze_command_queue_priority_t priority,
+    ze_result_t createCommandQueue(ze_command_queue_priority_t priority,
                                    ze_command_queue_handle_t *handle) {
         ze_result_t ret = ZE_RESULT_SUCCESS;
         ze_command_queue_desc_t desc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
                                         .pNext = nullptr,
-                                        .ordinal = ordinal,
+                                        .ordinal = 0u,
                                         .index = 0,
                                         .flags = 0,
                                         .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
@@ -47,11 +43,11 @@ struct EventSync : public UmdTest {
         return ret;
     }
 
-    ze_result_t createCommandList(uint32_t ordinal, ze_command_list_handle_t *handle) {
+    ze_result_t createCommandList(ze_command_list_handle_t *handle) {
         ze_result_t ret = ZE_RESULT_SUCCESS;
         ze_command_list_desc_t desc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
                                        .pNext = nullptr,
-                                       .commandQueueGroupOrdinal = ordinal,
+                                       .commandQueueGroupOrdinal = 0u,
                                        .flags = 0};
         auto scopedList = zeScope::commandListCreate(zeContext, zeDevice, desc, ret);
         scopedLists.push_back(std::move(scopedList));
@@ -268,11 +264,11 @@ TEST_F(EventSync, QueueExecuteManyCommandListsThatWaitForEachOther) {
     memset(srcDevicePtr, testPattern, allocSize);
 
     ze_command_list_handle_t cmdList0 = nullptr;
-    ASSERT_EQ(createCommandList(computeGrpOrdinal, &cmdList0), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(createCommandList(&cmdList0), ZE_RESULT_SUCCESS);
     ze_command_list_handle_t cmdList1 = nullptr;
-    ASSERT_EQ(createCommandList(computeGrpOrdinal, &cmdList1), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(createCommandList(&cmdList1), ZE_RESULT_SUCCESS);
     ze_command_list_handle_t cmdList2 = nullptr;
-    ASSERT_EQ(createCommandList(computeGrpOrdinal, &cmdList2), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(createCommandList(&cmdList2), ZE_RESULT_SUCCESS);
 
     ASSERT_EQ(zeCommandListAppendWaitOnEvents(cmdList0, 1, &event0), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandListAppendMemoryCopy(cmdList0,

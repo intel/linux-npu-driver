@@ -14,12 +14,12 @@
 #include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
 #include "level_zero_driver/core/source/context/context.hpp"
 #include "level_zero_driver/core/source/device/device.hpp"
+#include "level_zero_driver/core/source/driver/driver.hpp"
 #include "level_zero_driver/core/source/driver/driver_handle.hpp"
 #include "level_zero_driver/ext/source/graph/disk_cache.hpp"
 #include "level_zero_driver/unit_tests/mocks/mock_driver.hpp"
 #include "vpu_driver/source/device/vpu_device.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
-#include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
 
@@ -34,7 +34,7 @@ namespace ult {
 struct DeviceFixture {
     virtual void SetUp() {
         driver.setMetrics(enableMetrics);
-        ASSERT_EQ(ZE_RESULT_SUCCESS, zeInit(0));
+        ASSERT_EQ(ZE_RESULT_SUCCESS, L0::init(0));
 
         driver.diskCache = std::make_unique<DiskCache>(osInfc);
 
@@ -130,61 +130,24 @@ struct CommandQueueFixture : ContextFixture {
         ContextFixture::TearDown();
     }
 
-    template <typename F>
-    uint32_t getQueueOrdinal(F f) {
-        // Assume cmdQueGrpProps has all properties.
-        LOG(UTEST, "Number of queue groups: %u", queGrpCnt);
-        for (uint32_t i = 0; i < queGrpCnt; i++) {
-            if (f(cmdQueGrpProps[i].flags)) {
-                LOG(UTEST, "Engine group ordinal: %u (flags: %#x)", i, cmdQueGrpProps[i].flags);
-                return i;
-            }
-        }
-        LOG(UTEST, "Failed to get matching queue group");
-        return 0xffffffff;
-    }
-
-    uint32_t getComputeQueueOrdinal() {
-        return getQueueOrdinal([](uint32_t flag) {
-            if ((flag & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE) &&
-                (flag & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY)) {
-                return true;
-            }
-            return false;
-        });
-    }
-
-    uint32_t getCopyOnlyQueueOrdinal() {
-        return getQueueOrdinal([](uint32_t flag) {
-            if ((flag & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE) == 0 &&
-                (flag & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY)) {
-                return true;
-            }
-            return false;
-        });
-    }
-
-    ze_command_list_handle_t createCommandList(uint32_t ordinal) {
+    ze_command_list_handle_t createCommandList() {
         ze_command_list_handle_t hCommandList = nullptr;
         ze_command_list_desc_t desc = {};
-        desc.commandQueueGroupOrdinal = ordinal;
 
-        ze_result_t result = CommandList::create(context, device, &desc, &hCommandList);
+        ze_result_t result = L0::CommandList::create(context, device, &desc, &hCommandList);
         EXPECT_EQ(ZE_RESULT_SUCCESS, result);
         return hCommandList;
     }
 
-    ze_command_queue_handle_t createCommandQueue(uint32_t ordinal) {
+    ze_command_queue_handle_t createCommandQueue() {
         ze_command_queue_handle_t hCommandQueue = nullptr;
         ze_command_queue_desc_t desc = {};
-        desc.ordinal = ordinal;
 
-        ze_result_t result = CommandQueue::create(context, device, &desc, &hCommandQueue);
+        ze_result_t result = L0::CommandQueue::create(context, device, &desc, &hCommandQueue);
         EXPECT_EQ(ZE_RESULT_SUCCESS, result);
         return hCommandQueue;
     }
 
-    // 1 NN, 1 Copy queue groups.
     uint32_t queGrpCnt = 0u;
     ze_command_queue_group_properties_t *cmdQueGrpProps = nullptr;
 };

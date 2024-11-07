@@ -207,6 +207,10 @@ size_t NullOsInterfaceImp::osiGetSystemPageSize() {
     return 4096;
 }
 
+std::string NullOsInterfaceImp::osiReadFile(const std::filesystem::path &path, size_t maxReadSize) {
+    return std::string("");
+}
+
 void *
 NullOsInterfaceImp::osiMmap(void *addr, size_t size, int prot, int flags, int fd, off_t offset) {
     void *ptr;
@@ -240,4 +244,7 @@ void NullOsInterfaceImp::osiScanDir(const std::filesystem::path &path,
     return;
 }
 
+bool NullOsInterfaceImp::osiFileRemove(const std::filesystem::path &path) {
+    return true;
+}
 } // namespace VPU

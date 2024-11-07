@@ -137,7 +137,7 @@ class MutableCmdList : public UmdTest {
 
         ze_command_queue_desc_t cmdQueueDesc{.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
                                              .pNext = nullptr,
-                                             .ordinal = computeGrpOrdinal,
+                                             .ordinal = 0u,
                                              .index = 0,
                                              .flags = 0,
                                              .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
@@ -159,7 +159,7 @@ class MutableCmdList : public UmdTest {
         ze_command_list_desc_t commandListDesc{
             .stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
             .pNext = &mutableCmdListDesc,
-            .commandQueueGroupOrdinal = computeGrpOrdinal,
+            .commandQueueGroupOrdinal = 0u,
             .flags = 0,
         };
         ze_command_list_handle_t commandList;
@@ -748,7 +748,7 @@ TEST_F(MutableCmdList, GetNextCommandIdNotMutableCmdList) {
     ze_command_list_desc_t commandListDesc{
         .stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
         .pNext = nullptr,
-        .commandQueueGroupOrdinal = computeGrpOrdinal,
+        .commandQueueGroupOrdinal = 0u,
         .flags = 0,
     };
     ze_command_list_handle_t commandList;
@@ -777,7 +777,7 @@ TEST_F(MutableCmdList, GetNextCommandIdClosedCmdList) {
     ze_command_list_desc_t commandListDesc{
         .stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
         .pNext = &mutableCmdListDesc,
-        .commandQueueGroupOrdinal = computeGrpOrdinal,
+        .commandQueueGroupOrdinal = 0u,
         .flags = 0,
     };
     ze_command_list_handle_t commandList;

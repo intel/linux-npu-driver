@@ -10,7 +10,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "level_zero_driver/ext/source/graph/graph.hpp"
 #include "level_zero_driver/include/l0_handler.hpp"
 #include "vpu_driver/source/command/vpu_event_command.hpp"
 #include "vpu_driver/source/command/vpu_job.hpp"
@@ -36,10 +35,8 @@ struct _ze_command_list_handle_t {};
 namespace L0 {
 
 struct CommandList : _ze_command_list_handle_t, IContextObject {
-    CommandList(Context *pContext, bool isCopyOnly, bool isMutable);
+    CommandList(Context *pContext, bool isMutable);
     virtual ~CommandList();
-
-    bool isCopyOnly() const { return isCopyOnlyCmdList; };
 
     static ze_result_t create(ze_context_handle_t hContext,
                               ze_device_handle_t hDevice,
@@ -119,12 +116,10 @@ struct CommandList : _ze_command_list_handle_t, IContextObject {
                                         Args... args);
 
     Context *pContext = nullptr;
-    bool isCopyOnlyCmdList = false;
     bool isMutable = false;
     VPU::VPUDeviceContext *ctx = nullptr;
     std::shared_ptr<VPU::VPUJob> vpuJob = nullptr;
     std::vector<VPU::VPUBufferObject *> tracedInternalBos;
-    std::vector<std::unique_ptr<InferenceExecutor>> tracedInferences;
     std::unordered_map<uint64_t, uint64_t> commandIdMap;
 };
 } // namespace L0

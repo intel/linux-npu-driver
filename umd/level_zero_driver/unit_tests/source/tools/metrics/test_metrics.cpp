@@ -101,8 +101,9 @@ struct MetricGroupShared : public ContextFixture {
         uint32_t metricCount = 0;
 
         for (uint8_t i = 0; i < metricGroupCount; i++) {
-            ASSERT_EQ(MetricGroup::fromHandle(metricGroups[i])->getProperties(&groupProperties[i]),
-                      ZE_RESULT_SUCCESS);
+            ASSERT_EQ(
+                L0::MetricGroup::fromHandle(metricGroups[i])->getProperties(&groupProperties[i]),
+                ZE_RESULT_SUCCESS);
             if (memcmp(groupProperties[i].name,
                        metricGroupName.c_str(),
                        metricGroupName.length()) == 0) {
@@ -121,7 +122,7 @@ struct MetricGroupShared : public ContextFixture {
 
         std::vector<zet_metric_handle_t> metrics(metricCount);
 
-        ASSERT_EQ(MetricGroup::fromHandle(metricGroups[safe_cast<size_t>(metricGroupIndex)])
+        ASSERT_EQ(L0::MetricGroup::fromHandle(metricGroups[safe_cast<size_t>(metricGroupIndex)])
                       ->getMetric(&metricCount, metrics.data()),
                   ZE_RESULT_SUCCESS);
         ASSERT_EQ(metricCount, metrics.size());
@@ -129,7 +130,7 @@ struct MetricGroupShared : public ContextFixture {
         std::vector<zet_metric_properties_t> properties(metricCount);
 
         for (uint8_t i = 0; i < metricCount; i++) {
-            EXPECT_EQ(Metric::fromHandle(metrics[i])->getProperties(&properties[i]),
+            EXPECT_EQ(L0::Metric::fromHandle(metrics[i])->getProperties(&properties[i]),
                       ZE_RESULT_SUCCESS);
 
             EXPECT_EQ(memcmp(properties[i].name, metricNames[i].c_str(), metricNames[i].length()),
@@ -156,23 +157,23 @@ struct MetricGroupTest : public Test<MetricGroupShared> {
 };
 
 TEST_F(MetricGroupTest, metricGroupGetPropertiesReturnsFailureWithIncorrectInput) {
-    EXPECT_EQ(MetricGroup::fromHandle(metricGroups[0])->getProperties(nullptr),
+    EXPECT_EQ(L0::MetricGroup::fromHandle(metricGroups[0])->getProperties(nullptr),
               ZE_RESULT_ERROR_INVALID_NULL_POINTER);
 }
 
 TEST_F(MetricGroupTest, metricGettingReturnsExpectedResults) {
     // Retrieve metrics for metric group #1
-    EXPECT_EQ(MetricGroup::fromHandle(metricGroups[0])->getMetric(nullptr, nullptr),
+    EXPECT_EQ(L0::MetricGroup::fromHandle(metricGroups[0])->getMetric(nullptr, nullptr),
               ZE_RESULT_ERROR_INVALID_NULL_POINTER);
 
     uint32_t count = 0;
-    EXPECT_EQ(MetricGroup::fromHandle(metricGroups[0])->getMetric(&count, nullptr),
+    EXPECT_EQ(L0::MetricGroup::fromHandle(metricGroups[0])->getMetric(&count, nullptr),
               ZE_RESULT_SUCCESS);
     EXPECT_GT(count, 0u);
 
     std::vector<zet_metric_handle_t> metrics(count);
     EXPECT_EQ(*metrics.data(), nullptr);
-    EXPECT_EQ(MetricGroup::fromHandle(metricGroups[0])->getMetric(&count, metrics.data()),
+    EXPECT_EQ(L0::MetricGroup::fromHandle(metricGroups[0])->getMetric(&count, metrics.data()),
               ZE_RESULT_SUCCESS);
     EXPECT_NE(*metrics.data(), nullptr);
 }
@@ -245,7 +246,7 @@ TEST_F(MetricGroupTest, activateMetricGroupsReturnsProperExpectedActivatedGroups
 }
 
 TEST_F(MetricGroupTest, multipleContextActivateMetricGroupsIsolationTest) {
-    Context *context1 = nullptr;
+    L0::Context *context1 = nullptr;
     // Creating context1
     {
         ze_context_desc_t desc = {};
@@ -255,7 +256,7 @@ TEST_F(MetricGroupTest, multipleContextActivateMetricGroupsIsolationTest) {
         ASSERT_NE(nullptr, context1);
     }
 
-    Context *context2 = nullptr;
+    L0::Context *context2 = nullptr;
     // Creating context2
     {
         ze_context_desc_t desc = {};
@@ -291,7 +292,7 @@ TEST_F(MetricGroupTest, multipleContextActivateMetricGroupsIsolationTest) {
 }
 
 TEST_F(MetricGroupTest, multipleContextActivateSpecificMetricGroupsHasUniqueControl) {
-    Context *context1 = nullptr;
+    L0::Context *context1 = nullptr;
     // Creating context1
     {
         ze_context_desc_t desc = {};
@@ -301,7 +302,7 @@ TEST_F(MetricGroupTest, multipleContextActivateSpecificMetricGroupsHasUniqueCont
         ASSERT_NE(nullptr, context1);
     }
 
-    Context *context2 = nullptr;
+    L0::Context *context2 = nullptr;
     // Creating context2
     {
         ze_context_desc_t desc = {};
@@ -311,7 +312,7 @@ TEST_F(MetricGroupTest, multipleContextActivateSpecificMetricGroupsHasUniqueCont
         ASSERT_NE(nullptr, context2);
     }
 
-    Context *context3 = nullptr;
+    L0::Context *context3 = nullptr;
     // Creating context3
     {
         ze_context_desc_t desc = {};
@@ -370,7 +371,7 @@ TEST_F(MetricGroupTest, multipleContextActivateSpecificMetricGroupsHasUniqueCont
 }
 
 TEST_F(MetricGroupTest, contextCreateQueryPoolReturnsFailureWithoutProperInitializedParams) {
-    auto deviceNew = std::make_unique<Device>(nullptr, nullptr);
+    auto deviceNew = std::make_unique<L0::Device>(nullptr, nullptr);
     ASSERT_NE(deviceNew, nullptr);
 
     ASSERT_NE(context, nullptr);
@@ -434,7 +435,7 @@ TEST_F(MetricGroupTest, contextCreateQueryPoolReturnsExpectedResultsWhenMetricGr
                                              &hMetricQueryPool),
               ZE_RESULT_SUCCESS);
 
-    EXPECT_EQ(MetricQueryPool::fromHandle(hMetricQueryPool)->destroy(), ZE_RESULT_SUCCESS);
+    EXPECT_EQ(L0::MetricQueryPool::fromHandle(hMetricQueryPool)->destroy(), ZE_RESULT_SUCCESS);
 }
 
 TEST_F(MetricGroupTest, createQueryReturnsFailureWithIncorrectParams) {
@@ -448,23 +449,26 @@ TEST_F(MetricGroupTest, createQueryReturnsFailureWithIncorrectParams) {
                                              &hMetricQueryPool),
               ZE_RESULT_SUCCESS);
 
-    EXPECT_EQ(zetMetricQueryCreate(hMetricQueryPool, 2u, nullptr),
+    EXPECT_EQ(L0::MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(2u, nullptr),
               ZE_RESULT_ERROR_INVALID_NULL_POINTER);
 
     zet_metric_query_handle_t hMetricQuery;
-    EXPECT_EQ(MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(1u, &hMetricQuery),
-              ZE_RESULT_ERROR_INVALID_ARGUMENT);
-    EXPECT_EQ(MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(2u, &hMetricQuery),
-              ZE_RESULT_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(
+        L0::MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(1u, &hMetricQuery),
+        ZE_RESULT_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(
+        L0::MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(2u, &hMetricQuery),
+        ZE_RESULT_ERROR_INVALID_ARGUMENT);
 
     // Deactivate metric groups
     ASSERT_EQ(context->activateMetricGroups(device->toHandle(), 0, nullptr), ZE_RESULT_SUCCESS);
 
     // Expect failure as metric group should be activated
-    EXPECT_EQ(MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(0u, &hMetricQuery),
-              ZE_RESULT_ERROR_DEPENDENCY_UNAVAILABLE);
+    EXPECT_EQ(
+        L0::MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(0u, &hMetricQuery),
+        ZE_RESULT_ERROR_DEPENDENCY_UNAVAILABLE);
 
-    ASSERT_EQ(MetricQueryPool::fromHandle(hMetricQueryPool)->destroy(), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(L0::MetricQueryPool::fromHandle(hMetricQueryPool)->destroy(), ZE_RESULT_SUCCESS);
 }
 
 TEST_F(MetricGroupTest, createQueryReturnsExpectedResults) {
@@ -480,30 +484,34 @@ TEST_F(MetricGroupTest, createQueryReturnsExpectedResults) {
               ZE_RESULT_SUCCESS);
 
     zet_metric_query_handle_t hMetricQuery;
-    EXPECT_EQ(MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(0u, &hMetricQuery),
-              ZE_RESULT_SUCCESS);
+    EXPECT_EQ(
+        L0::MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(0u, &hMetricQuery),
+        ZE_RESULT_SUCCESS);
 
     zet_metric_query_handle_t hMetricQuery2;
-    EXPECT_EQ(MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(1u, &hMetricQuery2),
-              ZE_RESULT_SUCCESS);
+    EXPECT_EQ(
+        L0::MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(1u, &hMetricQuery2),
+        ZE_RESULT_SUCCESS);
 
     // Creating another query object at the same index should fail.
-    EXPECT_EQ(MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(0u, &hMetricQuery),
-              ZE_RESULT_ERROR_HANDLE_OBJECT_IN_USE);
+    EXPECT_EQ(
+        L0::MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(0u, &hMetricQuery),
+        ZE_RESULT_ERROR_HANDLE_OBJECT_IN_USE);
 
     // Attempting to delete pool without first deleting queries, expect failure
-    EXPECT_EQ(MetricQueryPool::fromHandle(hMetricQueryPool)->destroy(),
+    EXPECT_EQ(L0::MetricQueryPool::fromHandle(hMetricQueryPool)->destroy(),
               ZE_RESULT_ERROR_HANDLE_OBJECT_IN_USE);
 
-    EXPECT_EQ(MetricQuery::fromHandle(hMetricQuery)->destroy(), ZE_RESULT_SUCCESS);
-    EXPECT_EQ(MetricQuery::fromHandle(hMetricQuery2)->destroy(), ZE_RESULT_SUCCESS);
+    EXPECT_EQ(L0::MetricQuery::fromHandle(hMetricQuery)->destroy(), ZE_RESULT_SUCCESS);
+    EXPECT_EQ(L0::MetricQuery::fromHandle(hMetricQuery2)->destroy(), ZE_RESULT_SUCCESS);
 
     // Recycling same index for new query once previous query is deleted
-    EXPECT_EQ(MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(0u, &hMetricQuery),
-              ZE_RESULT_SUCCESS);
+    EXPECT_EQ(
+        L0::MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(0u, &hMetricQuery),
+        ZE_RESULT_SUCCESS);
 
-    ASSERT_EQ(MetricQuery::fromHandle(hMetricQuery)->destroy(), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(MetricQueryPool::fromHandle(hMetricQueryPool)->destroy(), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(L0::MetricQuery::fromHandle(hMetricQuery)->destroy(), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(L0::MetricQueryPool::fromHandle(hMetricQueryPool)->destroy(), ZE_RESULT_SUCCESS);
 }
 
 TEST_F(MetricGroupTest, queryGetGroupMaskAndDataAddressReturnsExpectedResults) {
@@ -519,17 +527,18 @@ TEST_F(MetricGroupTest, queryGetGroupMaskAndDataAddressReturnsExpectedResults) {
               ZE_RESULT_SUCCESS);
 
     zet_metric_query_handle_t hMetricQuery;
-    EXPECT_EQ(MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(0u, &hMetricQuery),
-              ZE_RESULT_SUCCESS);
+    EXPECT_EQ(
+        L0::MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(0u, &hMetricQuery),
+        ZE_RESULT_SUCCESS);
 
     ASSERT_NE(hMetricQuery, nullptr);
-    auto metricQuery = MetricQuery::fromHandle(hMetricQuery);
+    auto metricQuery = L0::MetricQuery::fromHandle(hMetricQuery);
 
     EXPECT_EQ(metricQuery->getMetricGroupMask(), 0b1000);
     EXPECT_EQ(reinterpret_cast<uint64_t *>(metricQuery->getMetricAddrPtr())[0], 0u);
     EXPECT_NE(reinterpret_cast<uint64_t *>(metricQuery->getMetricAddrPtr())[3], 0u);
-    ASSERT_EQ(MetricQuery::fromHandle(hMetricQuery)->destroy(), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(MetricQueryPool::fromHandle(hMetricQueryPool)->destroy(), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(L0::MetricQuery::fromHandle(hMetricQuery)->destroy(), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(L0::MetricQueryPool::fromHandle(hMetricQueryPool)->destroy(), ZE_RESULT_SUCCESS);
 }
 
 TEST_F(MetricGroupTest, queryGetDataAndResetReturnsExpectedResults) {
@@ -545,11 +554,12 @@ TEST_F(MetricGroupTest, queryGetDataAndResetReturnsExpectedResults) {
               ZE_RESULT_SUCCESS);
 
     zet_metric_query_handle_t hMetricQuery;
-    ASSERT_EQ(MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(0u, &hMetricQuery),
-              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(
+        L0::MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(0u, &hMetricQuery),
+        ZE_RESULT_SUCCESS);
 
     ASSERT_NE(hMetricQuery, nullptr);
-    auto metricQuery = MetricQuery::fromHandle(hMetricQuery);
+    auto metricQuery = L0::MetricQuery::fromHandle(hMetricQuery);
 
     // Retrieve size and values of query data
     size_t rawDataSize = 0u;
@@ -588,8 +598,8 @@ TEST_F(MetricGroupTest, queryGetDataAndResetReturnsExpectedResults) {
         EXPECT_EQ(rawData[i], 0u);
     }
 
-    ASSERT_EQ(MetricQuery::fromHandle(hMetricQuery)->destroy(), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(MetricQueryPool::fromHandle(hMetricQueryPool)->destroy(), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(L0::MetricQuery::fromHandle(hMetricQuery)->destroy(), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(L0::MetricQueryPool::fromHandle(hMetricQueryPool)->destroy(), ZE_RESULT_SUCCESS);
 }
 
 struct MetricGroupCalculateTest : public Test<MetricGroupShared> {
@@ -607,11 +617,11 @@ struct MetricGroupCalculateTest : public Test<MetricGroupShared> {
                   ZE_RESULT_SUCCESS);
 
         ASSERT_EQ(
-            MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(0u, &hMetricQuery),
+            L0::MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(0u, &hMetricQuery),
             ZE_RESULT_SUCCESS);
 
         ASSERT_NE(hMetricQuery, nullptr);
-        auto metricQuery = MetricQuery::fromHandle(hMetricQuery);
+        auto metricQuery = L0::MetricQuery::fromHandle(hMetricQuery);
 
         // Retrieve size and values of query data
         EXPECT_EQ(metricQuery->getData(&rawDataSize, nullptr), ZE_RESULT_SUCCESS);
@@ -628,8 +638,8 @@ struct MetricGroupCalculateTest : public Test<MetricGroupShared> {
     }
 
     void TearDown() override {
-        ASSERT_EQ(MetricQuery::fromHandle(hMetricQuery)->destroy(), ZE_RESULT_SUCCESS);
-        ASSERT_EQ(MetricQueryPool::fromHandle(hMetricQueryPool)->destroy(), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(L0::MetricQuery::fromHandle(hMetricQuery)->destroy(), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(L0::MetricQueryPool::fromHandle(hMetricQueryPool)->destroy(), ZE_RESULT_SUCCESS);
 
         MetricGroupShared::TearDown();
     }
@@ -643,7 +653,7 @@ struct MetricGroupCalculateTest : public Test<MetricGroupShared> {
 TEST_F(MetricGroupCalculateTest, calculateMetricValuesReturnsFailureWithIncorrectInput) {
     uint32_t metricValueCount = 0;
     // Expect error when rawData is nullptr
-    EXPECT_EQ(MetricGroup::fromHandle(metricGroups[0])
+    EXPECT_EQ(L0::MetricGroup::fromHandle(metricGroups[0])
                   ->calculateMetricValues(ZET_METRIC_GROUP_CALCULATION_TYPE_METRIC_VALUES,
                                           rawDataSize,
                                           nullptr,
@@ -652,7 +662,7 @@ TEST_F(MetricGroupCalculateTest, calculateMetricValuesReturnsFailureWithIncorrec
               ZE_RESULT_ERROR_INVALID_NULL_POINTER);
 
     // Expect error when pMetricValueCount is nullptr
-    EXPECT_EQ(MetricGroup::fromHandle(metricGroups[0])
+    EXPECT_EQ(L0::MetricGroup::fromHandle(metricGroups[0])
                   ->calculateMetricValues(ZET_METRIC_GROUP_CALCULATION_TYPE_METRIC_VALUES,
                                           rawDataSize,
                                           reinterpret_cast<uint8_t *>(rawData.data()),
@@ -661,7 +671,7 @@ TEST_F(MetricGroupCalculateTest, calculateMetricValuesReturnsFailureWithIncorrec
               ZE_RESULT_ERROR_INVALID_NULL_POINTER);
 
     // Expect error when metric group calculation type exceeding max
-    EXPECT_EQ(MetricGroup::fromHandle(metricGroups[0])
+    EXPECT_EQ(L0::MetricGroup::fromHandle(metricGroups[0])
                   ->calculateMetricValues(ZET_METRIC_GROUP_CALCULATION_TYPE_FORCE_UINT32,
                                           rawDataSize,
                                           reinterpret_cast<uint8_t *>(rawData.data()),
@@ -673,7 +683,7 @@ TEST_F(MetricGroupCalculateTest, calculateMetricValuesReturnsFailureWithIncorrec
     // size)
     metricValueCount = 1;
     std::vector<zet_typed_value_t> metricValues(metricValueCount);
-    EXPECT_EQ(MetricGroup::fromHandle(metricGroups[0])
+    EXPECT_EQ(L0::MetricGroup::fromHandle(metricGroups[0])
                   ->calculateMetricValues(ZET_METRIC_GROUP_CALCULATION_TYPE_MAX_METRIC_VALUES,
                                           rawDataSize,
                                           reinterpret_cast<uint8_t *>(rawData.data()),
@@ -684,7 +694,7 @@ TEST_F(MetricGroupCalculateTest, calculateMetricValuesReturnsFailureWithIncorrec
 
 TEST_F(MetricGroupCalculateTest, calculateMetricValuesReturnsExpectedResults) {
     uint32_t metricValueCount = 0;
-    EXPECT_EQ(MetricGroup::fromHandle(metricGroups[0])
+    EXPECT_EQ(L0::MetricGroup::fromHandle(metricGroups[0])
                   ->calculateMetricValues(ZET_METRIC_GROUP_CALCULATION_TYPE_METRIC_VALUES,
                                           rawDataSize,
                                           reinterpret_cast<uint8_t *>(rawData.data()),
@@ -694,7 +704,7 @@ TEST_F(MetricGroupCalculateTest, calculateMetricValuesReturnsExpectedResults) {
     EXPECT_GT(metricValueCount, 0);
 
     std::vector<zet_typed_value_t> metricValues(metricValueCount);
-    EXPECT_EQ(MetricGroup::fromHandle(metricGroups[0])
+    EXPECT_EQ(L0::MetricGroup::fromHandle(metricGroups[0])
                   ->calculateMetricValues(ZET_METRIC_GROUP_CALCULATION_TYPE_METRIC_VALUES,
                                           rawDataSize,
                                           reinterpret_cast<uint8_t *>(rawData.data()),
@@ -728,7 +738,7 @@ TEST_F(MultiDeviceMetricTest, activatingMetricGroupsNotAssociatedWithDeviceRetur
         ASSERT_EQ(driverHandle->getDevice(&count, phDevices.data()), ZE_RESULT_SUCCESS);
     }
 
-    Context *context = nullptr;
+    L0::Context *context = nullptr;
     // Creating context
     {
         ze_context_desc_t desc;
@@ -738,7 +748,7 @@ TEST_F(MultiDeviceMetricTest, activatingMetricGroupsNotAssociatedWithDeviceRetur
         ASSERT_NE(nullptr, context);
     }
 
-    auto device1 = Device::fromHandle(phDevices[0]);
+    auto device1 = L0::Device::fromHandle(phDevices[0]);
     auto metricContext = device1->getMetricContext();
     auto mockMetricContext = reinterpret_cast<MockMetricContext *>(metricContext.get());
 
@@ -746,7 +756,7 @@ TEST_F(MultiDeviceMetricTest, activatingMetricGroupsNotAssociatedWithDeviceRetur
     uint32_t metricGroupCount = 0u;
     // Retreiving metric groups for second device
     {
-        auto device2 = Device::fromHandle(phDevices[1]);
+        auto device2 = L0::Device::fromHandle(phDevices[1]);
 
         ASSERT_EQ(device2->metricGroupGet(&metricGroupCount, nullptr), ZE_RESULT_SUCCESS);
         ASSERT_GT(metricGroupCount, 0u);

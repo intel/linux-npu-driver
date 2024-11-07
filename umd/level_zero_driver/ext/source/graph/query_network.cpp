@@ -18,6 +18,8 @@
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
+#include <string.h>
+
 namespace L0 {
 
 ze_result_t QueryNetwork::create(ze_context_handle_t hContext,
@@ -66,10 +68,12 @@ ze_result_t QueryNetwork::create(ze_context_handle_t hContext,
     }
 
     vcl_query_handle_t query = nullptr;
-    ret = Vcl::sym().queryNetworkCreate(compiler,
-                                        const_cast<uint8_t *>(desc->pInput),
-                                        desc->inputSize,
-                                        &query);
+    vcl_query_desc_t queryDesc = {};
+    queryDesc.modelIRData = desc->pInput;
+    queryDesc.modelIRSize = desc->inputSize;
+    queryDesc.options = desc->pBuildFlags;
+    queryDesc.optionsSize = strlen(desc->pBuildFlags);
+    ret = Vcl::sym().queryNetworkCreate(compiler, queryDesc, &query);
     if (ret != VCL_RESULT_SUCCESS) {
         LOG_E("Failed to create query network! Result:%x", ret);
         return ZE_RESULT_ERROR_UNKNOWN;

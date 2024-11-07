@@ -21,6 +21,8 @@ add_executable(${PROJECT_NAME}
     model_params.cpp
     main.cpp
     umd_test.cpp
+    test_buffers_export.cpp
+    test_buffers_import.cpp
     test_buffers_export_gpu.cpp
     test_commands.cpp
     test_context.cpp
@@ -35,12 +37,12 @@ add_executable(${PROJECT_NAME}
     test_graph_cid.cpp
     test_graph_commands.cpp
     test_graph_inference.cpp
+    test_graph_query.cpp
     test_immediate_cmdlist.cpp
     test_inference_performance.cpp
     test_memory.cpp
     test_metric.cpp
     test_metric_streamer.cpp
-    test_prime_buffers.cpp
     test_priority.cpp
 )
 

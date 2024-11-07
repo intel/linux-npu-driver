@@ -9,8 +9,6 @@
 
 #include "gtest/gtest.h"
 #include "level_zero_driver/core/source/context/context.hpp"
-#include "level_zero_driver/core/source/device/device.hpp"
-#include "level_zero_driver/core/source/driver/driver_handle.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
@@ -41,10 +39,6 @@ TEST_F(ContextMemoryTest,
     void *ptr = nullptr;
     ze_result_t result = ZE_RESULT_SUCCESS;
 
-    ze_host_mem_alloc_desc_t hDesc = {};
-    result = zeMemAllocHost(nullptr, &hDesc, size, alignment, &ptr);
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE, result);
-
     result = context->allocMemory(size,
                                   alignment,
                                   &ptr,
@@ -62,18 +56,6 @@ TEST_F(ContextMemoryTest,
                                   VPU::VPUBufferObject::Location::Host,
                                   VPU::VPUBufferObject::Type::CachedShave);
     EXPECT_EQ(ZE_RESULT_ERROR_UNSUPPORTED_ALIGNMENT, result);
-
-    // Testing flags
-    alignment = 1u;
-
-    ze_device_mem_alloc_desc_t dDesc = {};
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE,
-              zeMemAllocDevice(nullptr,
-                               &dDesc,
-                               size,
-                               alignment,
-                               driverHandle->getPrimaryDevice()->toHandle(),
-                               &ptr));
 }
 
 class ContextMemoryTestRange : public ContextMemoryTest {};

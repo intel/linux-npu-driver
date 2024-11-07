@@ -13,7 +13,13 @@
 
 namespace VPU {
 
-// A GMock OS interface implementation.
+class GMockOsFileImp : public OsFile {
+  public:
+    MOCK_METHOD(bool, write, (const void *, size_t), (override));
+    MOCK_METHOD(void *, mmap, (), (override));
+    MOCK_METHOD(size_t, size, (), (override));
+};
+
 class GMockOsInterfaceImp : public OsInterface {
   public:
     MOCK_METHOD(int, osiOpen, (const char *, int, mode_t), (override));
@@ -23,6 +29,7 @@ class GMockOsInterfaceImp : public OsInterface {
     MOCK_METHOD(size_t, osiGetSystemPageSize, (), (override));
     MOCK_METHOD(void *, osiMmap, (void *, size_t, int, int, int, off_t), (override));
     MOCK_METHOD(int, osiMunmap, (void *, size_t), (override));
+    MOCK_METHOD(std::string, osiReadFile, (const std::filesystem::path &, size_t), (override));
     MOCK_METHOD(bool, osiCreateDirectories, (const std::filesystem::path &), (override));
     MOCK_METHOD(std::unique_ptr<OsFile>,
                 osiOpenWithExclusiveLock,
@@ -36,6 +43,7 @@ class GMockOsInterfaceImp : public OsInterface {
                 osiScanDir,
                 (const std::filesystem::path &, std::function<void(const char *, struct stat &)>),
                 (override));
+    MOCK_METHOD(bool, osiFileRemove, (const std::filesystem::path &), (override));
 };
 
 } // namespace VPU

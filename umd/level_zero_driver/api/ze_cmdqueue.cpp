@@ -5,12 +5,15 @@
  *
  */
 
-#pragma once
+#include <stdint.h>
 
 #include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
 #include "level_zero_driver/core/source/context/context.hpp"
+#include "level_zero_driver/core/source/fence/fence.hpp"
 #include "level_zero_driver/include/l0_exception.hpp"
+
 #include <level_zero/ze_api.h>
+#include <level_zero/ze_ddi.h>
 
 namespace L0 {
 ze_result_t zeCommandQueueCreate(ze_context_handle_t hContext,
@@ -51,30 +54,17 @@ ze_result_t zeCommandQueueSynchronize(ze_command_queue_handle_t hCommandQueue, u
 
 extern "C" {
 ZE_APIEXPORT ze_result_t ZE_APICALL
-zeCommandQueueCreate(ze_context_handle_t hContext,
-                     ze_device_handle_t hDevice,
-                     const ze_command_queue_desc_t *desc,
-                     ze_command_queue_handle_t *phCommandQueue) {
-    return L0::zeCommandQueueCreate(hContext, hDevice, desc, phCommandQueue);
-}
+zeGetCommandQueueProcAddrTable(ze_api_version_t version, ze_command_queue_dditable_t *pDdiTable) {
+    if (nullptr == pDdiTable)
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
 
-ZE_APIEXPORT ze_result_t ZE_APICALL zeCommandQueueDestroy(ze_command_queue_handle_t hCommandQueue) {
-    return L0::zeCommandQueueDestroy(hCommandQueue);
-}
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeCommandQueueExecuteCommandLists(ze_command_queue_handle_t hCommandQueue,
-                                  uint32_t numCommandLists,
-                                  ze_command_list_handle_t *phCommandLists,
-                                  ze_fence_handle_t hFence) {
-    return L0::zeCommandQueueExecuteCommandLists(hCommandQueue,
-                                                 numCommandLists,
-                                                 phCommandLists,
-                                                 hFence);
+    pDdiTable->pfnCreate = L0::zeCommandQueueCreate;
+    pDdiTable->pfnDestroy = L0::zeCommandQueueDestroy;
+    pDdiTable->pfnExecuteCommandLists = L0::zeCommandQueueExecuteCommandLists;
+    pDdiTable->pfnSynchronize = L0::zeCommandQueueSynchronize;
+    return ZE_RESULT_SUCCESS;
 }
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeCommandQueueSynchronize(ze_command_queue_handle_t hCommandQueue, uint64_t timeout) {
-    return L0::zeCommandQueueSynchronize(hCommandQueue, timeout);
 }
-} // extern "C"

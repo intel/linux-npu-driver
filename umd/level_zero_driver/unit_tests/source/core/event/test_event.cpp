@@ -37,31 +37,34 @@ TEST_F(EventPoolTest, givenCallCreateEventPoolReturnsSuccess) {
     ASSERT_NE(nullptr, context);
 
     EXPECT_EQ(ZE_RESULT_SUCCESS,
-              zeEventPoolCreate(context, &eventPoolDesc, 0, nullptr, &hEventPool));
+              L0::EventPool::create(context, &eventPoolDesc, 0, nullptr, &hEventPool));
     EXPECT_NE(nullptr, hEventPool);
 
     // Deallocate the event pool.
-    EXPECT_EQ(ZE_RESULT_SUCCESS, zeEventPoolDestroy(hEventPool));
+    EXPECT_EQ(ZE_RESULT_SUCCESS, L0::EventPool::fromHandle(hEventPool)->destroy());
 }
 
-TEST_F(EventPoolTest, eventPoolCreateHandleErrors) {
+TEST_F(EventPoolTest, createAndDestroyErrors) {
     ASSERT_NE(nullptr, context);
 
     // ZE_RESULT_ERROR_INVALID_NULL_POINTER if desc == nullptr or phEventPool.
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER,
-              zeEventPoolCreate(context, nullptr, 0, nullptr, &hEventPool));
+              L0::EventPool::create(context, nullptr, 0, nullptr, &hEventPool));
+
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER,
-              zeEventPoolCreate(context, &eventPoolDesc, 0, nullptr, nullptr));
+              L0::EventPool::create(context, &eventPoolDesc, 0, nullptr, nullptr));
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_SIZE,
+              L0::EventPool::create(context, &eventPoolDesc, 1, nullptr, &hEventPool));
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER,
-              zeEventPoolCreate(context, nullptr, 0, nullptr, nullptr));
+              L0::EventPool::create(context, nullptr, 0, nullptr, nullptr));
 
     eventPoolDesc.count = 0;
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_SIZE,
-              zeEventPoolCreate(context, &eventPoolDesc, 0, nullptr, &hEventPool));
+              L0::EventPool::create(context, &eventPoolDesc, 0, nullptr, &hEventPool));
     eventPoolDesc.count = 1;
 
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_SIZE,
-              zeEventPoolCreate(context, &eventPoolDesc, 1, nullptr, &hEventPool));
+              L0::EventPool::create(context, &eventPoolDesc, 1, nullptr, &hEventPool));
 }
 
 TEST_F(EventPoolTest, eventPoolCreateRetunsSuccessForManyEvents) {
@@ -69,10 +72,10 @@ TEST_F(EventPoolTest, eventPoolCreateRetunsSuccessForManyEvents) {
     const uint32_t nEvents = 10;
     eventPoolDesc.count = nEvents;
     EXPECT_EQ(ZE_RESULT_SUCCESS,
-              zeEventPoolCreate(context, &eventPoolDesc, 0, nullptr, &hEventPool));
+              L0::EventPool::create(context, &eventPoolDesc, 0, nullptr, &hEventPool));
 
     // Deallocate the event pool.
-    EXPECT_EQ(ZE_RESULT_SUCCESS, zeEventPoolDestroy(hEventPool));
+    EXPECT_EQ(ZE_RESULT_SUCCESS, L0::EventPool::fromHandle(hEventPool)->destroy());
 }
 
 struct EventTest : public EventPoolTest {
@@ -82,19 +85,19 @@ struct EventTest : public EventPoolTest {
         eventPoolDesc.count = 1;
 
         ASSERT_EQ(ZE_RESULT_SUCCESS,
-                  zeEventPoolCreate(context, &eventPoolDesc, 0, nullptr, &hEventPool));
+                  L0::EventPool::create(context, &eventPoolDesc, 0, nullptr, &hEventPool));
 
-        pEvPool = EventPool::fromHandle(hEventPool);
+        pEvPool = L0::EventPool::fromHandle(hEventPool);
         ASSERT_EQ(ZE_RESULT_SUCCESS, pEvPool->createEvent(&eventDesc, &hEvent));
     }
 
     void TearDown() override {
         if (hEvent != nullptr) {
-            ASSERT_EQ(ZE_RESULT_SUCCESS, zeEventDestroy(hEvent));
+            ASSERT_EQ(ZE_RESULT_SUCCESS, L0::Event::fromHandle(hEvent)->destroy());
         }
 
         if (hEventPool != nullptr) {
-            ASSERT_EQ(ZE_RESULT_SUCCESS, zeEventPoolDestroy(hEventPool));
+            ASSERT_EQ(ZE_RESULT_SUCCESS, L0::EventPool::fromHandle(hEventPool)->destroy());
             hEventPool = nullptr;
         }
 
@@ -110,12 +113,14 @@ struct EventTest : public EventPoolTest {
     EventPool *pEvPool = nullptr;
 };
 
-TEST_F(EventTest, eventStatusChangesAndQuery) {
-    // Report errors on wrong handles.
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE, zeEventQueryStatus(nullptr));
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE, zeEventHostSignal(nullptr));
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE, zeEventHostReset(nullptr));
+TEST_F(EventTest, createAndDestroyErrors) {
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER,
+              L0::EventPool::fromHandle(pEvPool)->createEvent(nullptr, &hEvent));
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER,
+              L0::EventPool::fromHandle(pEvPool)->createEvent(&eventDesc, nullptr));
+}
 
+TEST_F(EventTest, eventStatusChangesAndQuery) {
     // Initially the status query returns NOT_READY.
     auto event = Event::fromHandle(hEvent);
     ASSERT_NE(nullptr, event);
@@ -158,7 +163,7 @@ struct MultipleEventTest : public EventPoolTest {
 
     void TearDown() override {
         if (hEventPool != nullptr) {
-            ASSERT_EQ(ZE_RESULT_SUCCESS, zeEventPoolDestroy(hEventPool));
+            ASSERT_EQ(ZE_RESULT_SUCCESS, L0::EventPool::fromHandle(hEventPool)->destroy());
             hEventPool = nullptr;
         }
 
@@ -168,7 +173,7 @@ struct MultipleEventTest : public EventPoolTest {
     void prepareEventPool(uint32_t numEvents) {
         eventPoolDesc.count = numEvents;
         ASSERT_EQ(ZE_RESULT_SUCCESS,
-                  zeEventPoolCreate(context, &eventPoolDesc, 0, nullptr, &hEventPool));
+                  L0::EventPool::create(context, &eventPoolDesc, 0, nullptr, &hEventPool));
     }
 
     ze_event_desc_t eventDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC,
@@ -176,7 +181,7 @@ struct MultipleEventTest : public EventPoolTest {
                                  0,
                                  0,
                                  ZE_EVENT_SCOPE_FLAG_HOST};
-    EventPool *pEvPool = nullptr;
+    L0::EventPool *pEvPool = nullptr;
     ze_event_handle_t hTestEvent0 = nullptr;
     ze_event_handle_t hTestEvent1 = nullptr;
     ze_event_handle_t hTestEvent2 = nullptr;
@@ -209,9 +214,9 @@ TEST_F(MultipleEventTest, eventPoolAllocatesMultipleEvents) {
     EXPECT_NE(hTestEvent0, hTestEvent1);
 
     // Events should hold properly offsetted pointers.
-    auto ev0 = Event::fromHandle(hTestEvent0);
-    auto ev1 = Event::fromHandle(hTestEvent1);
-    auto ev2 = Event::fromHandle(hTestEvent2);
+    auto ev0 = L0::Event::fromHandle(hTestEvent0);
+    auto ev1 = L0::Event::fromHandle(hTestEvent1);
+    auto ev2 = L0::Event::fromHandle(hTestEvent2);
     ASSERT_NE(nullptr, ev0);
     ASSERT_NE(nullptr, ev1);
     ASSERT_NE(nullptr, ev2);
@@ -228,16 +233,16 @@ TEST_F(MultipleEventTest, eventPoolAllocatesMultipleEvents) {
                   reinterpret_cast<size_t>(static_cast<const uint8_t *>(evPtr1)));
 
     // Deallocate
-    EXPECT_EQ(ZE_RESULT_SUCCESS, zeEventDestroy(hTestEvent0));
-    EXPECT_EQ(ZE_RESULT_SUCCESS, zeEventDestroy(hTestEvent1));
-    EXPECT_EQ(ZE_RESULT_SUCCESS, zeEventDestroy(hTestEvent2));
+    EXPECT_EQ(ZE_RESULT_SUCCESS, L0::Event::fromHandle(hTestEvent0)->destroy());
+    EXPECT_EQ(ZE_RESULT_SUCCESS, L0::Event::fromHandle(hTestEvent1)->destroy());
+    EXPECT_EQ(ZE_RESULT_SUCCESS, L0::Event::fromHandle(hTestEvent2)->destroy());
 }
 
 TEST_F(MultipleEventTest, eventPoolReAllocatesMultipleEvents) {
     // Maximum 2 allocation capability event pool.
     const uint32_t nMaxEvents = 2;
     prepareEventPool(nMaxEvents);
-    auto evPool = EventPool::fromHandle(hEventPool);
+    auto evPool = L0::EventPool::fromHandle(hEventPool);
     ASSERT_NE(nullptr, evPool);
 
     // Index 0 in event pool.
@@ -249,7 +254,7 @@ TEST_F(MultipleEventTest, eventPoolReAllocatesMultipleEvents) {
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_ARGUMENT, evPool->createEvent(&eventDesc, &hTestEvent0));
 
     // Destory & re-allocate.
-    EXPECT_EQ(ZE_RESULT_SUCCESS, zeEventDestroy(hTestEvent0));
+    EXPECT_EQ(ZE_RESULT_SUCCESS, L0::Event::fromHandle(hTestEvent0)->destroy());
     EXPECT_EQ(ZE_RESULT_SUCCESS, evPool->createEvent(&eventDesc, &hTestEvent0));
     EXPECT_NE(nullptr, hTestEvent0);
 
@@ -262,20 +267,20 @@ TEST_F(MultipleEventTest, eventPoolReAllocatesMultipleEvents) {
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_ARGUMENT, evPool->createEvent(&eventDesc, &hTestEvent1));
 
     // Destory & re-allocate.
-    EXPECT_EQ(ZE_RESULT_SUCCESS, zeEventDestroy(hTestEvent1));
+    EXPECT_EQ(ZE_RESULT_SUCCESS, L0::Event::fromHandle(hTestEvent1)->destroy());
     EXPECT_EQ(ZE_RESULT_SUCCESS, evPool->createEvent(&eventDesc, &hTestEvent1));
     EXPECT_NE(nullptr, hTestEvent1);
 
     // Resource deallocation.
-    EXPECT_EQ(ZE_RESULT_SUCCESS, zeEventDestroy(hTestEvent0));
-    EXPECT_EQ(ZE_RESULT_SUCCESS, zeEventDestroy(hTestEvent1));
+    EXPECT_EQ(ZE_RESULT_SUCCESS, L0::Event::fromHandle(hTestEvent0)->destroy());
+    EXPECT_EQ(ZE_RESULT_SUCCESS, L0::Event::fromHandle(hTestEvent1)->destroy());
 }
 
 TEST_F(MultipleEventTest, eventPoolHandleAllocationErrors) {
     // Maximum 2 allocation capability event pool.
     const uint32_t nMaxEvents = 2;
     prepareEventPool(nMaxEvents);
-    auto evPool = EventPool::fromHandle(hEventPool);
+    auto evPool = L0::EventPool::fromHandle(hEventPool);
 
     // Index 0 in event pool.
     eventDesc.index = 0;
@@ -293,17 +298,17 @@ TEST_F(MultipleEventTest, eventPoolHandleAllocationErrors) {
     EXPECT_EQ(nullptr, hTestEvent1);
 
     // Deallocating index 0 will free the space.
-    EXPECT_EQ(ZE_RESULT_SUCCESS, zeEventDestroy(hTestEvent0));
+    EXPECT_EQ(ZE_RESULT_SUCCESS, L0::Event::fromHandle(hTestEvent0)->destroy());
     eventDesc.index = 0;
     EXPECT_EQ(ZE_RESULT_SUCCESS, evPool->createEvent(&eventDesc, &hTestEvent0));
-    EXPECT_EQ(ZE_RESULT_SUCCESS, zeEventDestroy(hTestEvent0));
+    EXPECT_EQ(ZE_RESULT_SUCCESS, L0::Event::fromHandle(hTestEvent0)->destroy());
 }
 
 TEST_F(MultipleEventTest, memoryPinningHappensOnlyOnceOnMultipleEventCreations) {
     // A maximum 5 allocation capability event pool.
     const uint32_t nMaxEvents = 5;
     prepareEventPool(nMaxEvents);
-    auto evPool = EventPool::fromHandle(hEventPool);
+    auto evPool = L0::EventPool::fromHandle(hEventPool);
 
     // Allocate events.
     std::vector<ze_event_handle_t> evHandles;
@@ -320,7 +325,7 @@ TEST_F(MultipleEventTest, memoryPinningHappensOnlyOnceOnMultipleEventCreations) 
 
     // Deallocate.
     for (auto &hTestEvent0 : evHandles) {
-        ASSERT_EQ(ZE_RESULT_SUCCESS, zeEventDestroy(hTestEvent0));
+        ASSERT_EQ(ZE_RESULT_SUCCESS, L0::Event::fromHandle(hTestEvent0)->destroy());
     }
 }
 

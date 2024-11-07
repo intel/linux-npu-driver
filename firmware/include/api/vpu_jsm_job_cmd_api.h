@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (c) 2021-2023, Intel Corporation.
+ * Copyright (c) 2021-2024, Intel Corporation.
  */
 
 /**
@@ -20,7 +20,7 @@
  * Minor version changes when API backward compatibility is preserved.
  * Resets to 0 if Major version is incremented.
  */
-#define VPU_JSM_JOB_CMD_API_VER_MINOR 5
+#define VPU_JSM_JOB_CMD_API_VER_MINOR 6
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
@@ -73,11 +73,11 @@ enum vpu_cmd_type {
     VPU_CMD_BARRIER = 0x0103,
     VPU_CMD_METRIC_QUERY_BEGIN = 0x0104,
     VPU_CMD_METRIC_QUERY_END = 0x0105,
+    VPU_CMD_MEMORY_FILL = 0x0202,
 
     /** Implemented by Copy Engine */
     VPU_CMD_COPY_SYSTEM_TO_LOCAL = 0x0200,
     VPU_CMD_COPY_LOCAL_TO_SYSTEM = 0x0201,
-    VPU_CMD_MEMORY_FILL = 0x0202,
     VPU_CMD_COPY_SYSTEM_TO_SYSTEM = 0x0203,
 
     /** Implemented by Compute Engine */
@@ -85,8 +85,8 @@ enum vpu_cmd_type {
     VPU_CMD_JIT_MAPPED_INFERENCE_EXECUTE = 0x0301,
     VPU_CMD_COPY_LOCAL_TO_LOCAL = 0x0302,
     VPU_CMD_CLEAR_BUFFER = 0x0303,
-    VPU_CMD_OV_BLOB_INITIALIZE = 0x0304,
-    VPU_CMD_OV_BLOB_EXECUTE = 0x0305,
+    VPU_CMD_OV_BLOB_INITIALIZE_DEPRECATED = 0x0304,
+    VPU_CMD_OV_BLOB_EXECUTE_DEPRECATED = 0x0305,
     VPU_CMD_INFERENCE_EXECUTE = 0x0306,
     VPU_CMD_DXIL_COPY = 0x0307
 };
@@ -161,32 +161,6 @@ typedef struct vpu_cmd_resource_descriptor_table {
 } vpu_cmd_resource_descriptor_table_t;
 
 /**
- * @brief Copy command descriptor on VPU 30xx
- *
- * @see VPU_CMD_COPY_SYSTEM_TO_LOCAL
- * @see VPU_CMD_COPY_LOCAL_TO_SYSTEM
- * @see VPU_CMD_COPY_SYSTEM_TO_SYSTEM
- * @see VPU_CMD_COPY_LOCAL_TO_LOCAL
- */
-typedef struct vpu_cmd_copy_descriptor_30xx {
-    /**
-     * COPY_SYSTEM_TO_LOCAL: Host DDR,
-     * COPY_LOCAL_TO_SYSTEM/COPY_LOCAL_TO_LOCAL: VPU DDR - 16 byte aligned
-     */
-    uint64_t src_address;
-    /**
-     * COPY_SYSTEM_TO_LOCAL/COPY_LOCAL_TO_LOCAL: VPU DDR,
-     * COPY_SYSTEM_TO_LOCAL: Host DDR - 16 byte aligned
-     */
-    uint64_t dst_address;
-    /** Copy Size in bytes - multiple of 16 bytes */
-    uint32_t size;
-    /** Padding for 64-byte alignment */
-    uint32_t reserved_0[11];
-} vpu_cmd_copy_descriptor_30xx_t;
-typedef vpu_cmd_copy_descriptor_30xx_t vpu_cmd_copy_descriptor_kmb_t;
-
-/**
  * @brief Copy command descriptor on VPU 37xx
  * Note VPU 37xx does not have a LOCAL memory
  *
@@ -212,7 +186,6 @@ typedef struct vpu_cmd_copy_descriptor_37xx {
     uint32_t size;          /**< Copy Size in bytes - max 16 MB */
     uint32_t reserved_1[7]; /**< Unused */
 } vpu_cmd_copy_descriptor_37xx_t;
-typedef vpu_cmd_copy_descriptor_37xx_t vpu_cmd_copy_descriptor_mtl_t;
 
 /**
  * @brief Copy command descriptor on VPU 40xx or later
@@ -229,7 +202,6 @@ typedef struct vpu_cmd_copy_descriptor_40xx {
     uint64_t dst_address;    /**< Destination address */
     uint64_t reserved_3[17]; /**< Unused */
 } vpu_cmd_copy_descriptor_40xx_t;
-typedef vpu_cmd_copy_descriptor_40xx_t vpu_cmd_copy_descriptor_lnl_t;
 
 /**
  * @brief Command buffer header
@@ -287,7 +259,6 @@ typedef struct vpu_cmd_copy_buffer {
      * @brief Offset in the descriptor heap where the array of copy descriptors start
      * @see vpu_cmd_copy_descriptor_37xx_t
      * @see vpu_cmd_copy_descriptor_40xx_t
-     * @see vpu_cmd_copy_descriptor_30xx_t
      * @see vpu_cmd_buffer_header_t.descriptor_heap_base_address
      * NOTE: Resulting address (heap base plus offset) must be aligned on a 64B boundary
      * to allow proper handling of VPU cache operations.
@@ -338,48 +309,6 @@ typedef struct vpu_cmd_dxil {
     uint32_t reserved_2;       /**< Reserved */
 } vpu_cmd_dxil_t;
 
-/**
- * @brief Parse inference from a blob
- * @see VPU_CMD_OV_BLOB_INITIALIZE
- */
-typedef struct vpu_cmd_ov_blob_initialize {
-    vpu_cmd_header_t header;
-    /** Size of the kernel ASM */
-    uint32_t kernel_size;
-    /**
-     * Offset from KernelHeapBaseAddress to kernel blob
-     * NOTE: Resulting address (heap base plus offset) must be aligned on a 64B boundary
-     * to allow proper handling of VPU cache operations.
-     */
-    uint64_t kernel_offset;
-    /** Size in bytes of the Init descriptor table - scratch */
-    uint32_t desc_table_size;
-    /** Reserved */
-    uint32_t reserved_0;
-    /** Offset from the base of the descriptor heap */
-    uint64_t desc_table_offset;
-    /** Unique Blob Id */
-    uint64_t blob_id;
-} vpu_cmd_ov_blob_initialize_t;
-
-/**
- * @brief Run inference on a previously initialized blob.
- * @see VPU_CMD_OV_BLOB_EXECUTE
- */
-typedef struct vpu_cmd_ov_blob_execute {
-    vpu_cmd_header_t header;
-    /** Size in bytes of Exec descriptor table - input, output */
-    uint32_t desc_table_size;
-    /**
-     * Offset from the base of the descriptor heap
-     * NOTE: Resulting address (heap base plus offset) must be aligned on a 64B boundary
-     * to allow proper handling of VPU cache operations.
-     */
-    uint64_t desc_table_offset;
-    /** Unique Blob id */
-    uint64_t blob_id;
-} vpu_cmd_ov_blob_execute_t;
-
 typedef struct vpu_cmd_inference_entry {
     /** Virtual address and size of the host mapped inference */
     vpu_cmd_resource_descriptor_t host_mapped_inference;
@@ -424,9 +353,9 @@ typedef struct vpu_cmd_timestamp {
     uint32_t type;
     /**
      * Timestamp address
-     * NOTE: (MTL) - Address must be aligned on a 64B boundary to allow proper handling of
+     * NOTE: (VPU 37xx) - Address must be aligned on a 64B boundary to allow proper handling of
      * VPU cache operations.
-     * (LNL) - Address must be aligned on a 8B boundary as RISC-V facilitates cache-bypass,
+     * (VPU 40xx) - Address must be aligned on a 8B boundary as RISC-V facilitates cache-bypass,
      * memory access.
      */
     uint64_t timestamp_address;

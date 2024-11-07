@@ -5,26 +5,29 @@
  *
  */
 
-#pragma once
+#include <stddef.h>
 
-#include "level_zero_driver/core/source/driver/driver_handle.hpp"
+#include "level_zero_driver/core/source/context/context.hpp"
+#include "level_zero_driver/core/source/device/device.hpp"
 #include "level_zero_driver/include/l0_exception.hpp"
+#include "umd_common.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
+
 #include <level_zero/ze_api.h>
+#include <level_zero/ze_ddi.h>
 
 namespace L0 {
 
 static VPU::VPUBufferObject::Type flagToBufferObjectType(ze_host_mem_alloc_flags_t flag) {
-    // TODO: Fallback to shave range to fix incorrect address in Dma tasks for kernels (EISW-108894)
     switch (flag) {
     case ZE_HOST_MEM_ALLOC_FLAG_BIAS_CACHED:
-        return VPU::VPUBufferObject::Type::CachedShave;
+        return VPU::VPUBufferObject::Type::CachedDma;
     case ZE_HOST_MEM_ALLOC_FLAG_BIAS_UNCACHED:
-        return VPU::VPUBufferObject::Type::UncachedShave;
+        return VPU::VPUBufferObject::Type::UncachedDma;
     case ZE_HOST_MEM_ALLOC_FLAG_BIAS_WRITE_COMBINED:
-        return VPU::VPUBufferObject::Type::WriteCombineShave;
+        return VPU::VPUBufferObject::Type::WriteCombineDma;
     };
-    return VPU::VPUBufferObject::Type::CachedShave;
+    return VPU::VPUBufferObject::Type::CachedDma;
 }
 
 ze_result_t zeMemAllocShared(ze_context_handle_t hContext,
@@ -118,7 +121,7 @@ ze_result_t zeMemAllocDevice(ze_context_handle_t hContext,
                 alignment,
                 pptr,
                 VPU::VPUBufferObject::Location::ExternalDevice,
-                VPU::VPUBufferObject::Type::WriteCombineShave));
+                VPU::VPUBufferObject::Type::WriteCombineDma));
         }
         return ZE_RESULT_ERROR_INVALID_ENUMERATION;
     }
@@ -139,7 +142,7 @@ ze_result_t zeMemAllocDevice(ze_context_handle_t hContext,
             alignment,
             pptr,
             VPU::VPUBufferObject::Location::Device,
-            VPU::VPUBufferObject::Type::WriteCombineShave));
+            VPU::VPUBufferObject::Type::WriteCombineDma));
     }
 }
 
@@ -245,68 +248,23 @@ ze_result_t zeMemCloseIpcHandle(ze_context_handle_t hContext, const void *ptr) {
 } // namespace L0
 
 extern "C" {
-ZE_APIEXPORT ze_result_t ZE_APICALL zeMemAllocShared(ze_context_handle_t hContext,
-                                                     const ze_device_mem_alloc_desc_t *deviceDesc,
-                                                     const ze_host_mem_alloc_desc_t *hostDesc,
-                                                     size_t size,
-                                                     size_t alignment,
-                                                     ze_device_handle_t hDevice,
-                                                     void **pptr) {
-    return L0::zeMemAllocShared(hContext, deviceDesc, hostDesc, size, alignment, hDevice, pptr);
-}
+ZE_DLLEXPORT ze_result_t ZE_APICALL zeGetMemProcAddrTable(ze_api_version_t version,
+                                                          ze_mem_dditable_t *pDdiTable) {
+    if (nullptr == pDdiTable)
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
 
-ZE_APIEXPORT ze_result_t ZE_APICALL zeMemAllocDevice(ze_context_handle_t hContext,
-                                                     const ze_device_mem_alloc_desc_t *deviceDesc,
-                                                     size_t size,
-                                                     size_t alignment,
-                                                     ze_device_handle_t hDevice,
-                                                     void **pptr) {
-    return L0::zeMemAllocDevice(hContext, deviceDesc, size, alignment, hDevice, pptr);
-}
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
+        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
 
-ZE_APIEXPORT ze_result_t ZE_APICALL zeMemAllocHost(ze_context_handle_t hContext,
-                                                   const ze_host_mem_alloc_desc_t *hostDesc,
-                                                   size_t size,
-                                                   size_t alignment,
-                                                   void **pptr) {
-    return L0::zeMemAllocHost(hContext, hostDesc, size, alignment, pptr);
+    pDdiTable->pfnAllocShared = L0::zeMemAllocShared;
+    pDdiTable->pfnAllocDevice = L0::zeMemAllocDevice;
+    pDdiTable->pfnAllocHost = L0::zeMemAllocHost;
+    pDdiTable->pfnFree = L0::zeMemFree;
+    pDdiTable->pfnGetAllocProperties = L0::zeMemGetAllocProperties;
+    pDdiTable->pfnGetAddressRange = L0::zeMemGetAddressRange;
+    pDdiTable->pfnGetIpcHandle = L0::zeMemGetIpcHandle;
+    pDdiTable->pfnOpenIpcHandle = L0::zeMemOpenIpcHandle;
+    pDdiTable->pfnCloseIpcHandle = L0::zeMemCloseIpcHandle;
+    return ZE_RESULT_SUCCESS;
 }
-
-ZE_APIEXPORT ze_result_t ZE_APICALL zeMemFree(ze_context_handle_t hContext, void *ptr) {
-    return L0::zeMemFree(hContext, ptr);
 }
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
-zeMemGetAllocProperties(ze_context_handle_t hContext,
-                        const void *ptr,
-                        ze_memory_allocation_properties_t *pMemAllocProperties,
-                        ze_device_handle_t *phDevice) {
-    return L0::zeMemGetAllocProperties(hContext, ptr, pMemAllocProperties, phDevice);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL zeMemGetAddressRange(ze_context_handle_t hContext,
-                                                         const void *ptr,
-                                                         void **pBase,
-                                                         size_t *pSize) {
-    return L0::zeMemGetAddressRange(hContext, ptr, pBase, pSize);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL zeMemGetIpcHandle(ze_context_handle_t hContext,
-                                                      const void *ptr,
-                                                      ze_ipc_mem_handle_t *pIpcHandle) {
-    return L0::zeMemGetIpcHandle(hContext, ptr, pIpcHandle);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL zeMemOpenIpcHandle(ze_context_handle_t hContext,
-                                                       ze_device_handle_t hDevice,
-                                                       ze_ipc_mem_handle_t handle,
-                                                       ze_ipc_memory_flags_t flags,
-                                                       void **pptr) {
-    return L0::zeMemOpenIpcHandle(hContext, hDevice, handle, flags, pptr);
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL zeMemCloseIpcHandle(ze_context_handle_t hContext,
-                                                        const void *ptr) {
-    return L0::zeMemCloseIpcHandle(hContext, ptr);
-}
-} // extern "C"

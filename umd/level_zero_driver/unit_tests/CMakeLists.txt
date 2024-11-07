@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2022 Intel Corporation
+# Copyright (C) 2022-2024 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 #
@@ -10,12 +10,12 @@ if(SKIP_UNIT_TESTS)
   return()
 endif()
 
-set(TARGET_NAME ${TARGET_NAME_L0}_tests)
+set(TARGET_NAME ze_intel_vpu_tests)
 
 add_executable(${TARGET_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
 target_link_libraries(
   ${TARGET_NAME}
-  ${TARGET_NAME_L0}
+  level_zero_driver
   fw_vpu_api_headers
   gmock
   gtest

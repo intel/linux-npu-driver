@@ -46,6 +46,7 @@ class VPUDriverApi final {
     bool checkPrimeBuffersCapability() const;
     size_t getPageSize() const;
     std::string getDeviceLink();
+    std::string getSysDeviceAbsolutePath();
 
     int wait(void *args) const;
     int closeBuffer(uint32_t handle) const;

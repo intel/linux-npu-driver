@@ -31,9 +31,6 @@ struct DriverHandle : _ze_driver_handle_t {
     ze_result_t getProperties(ze_driver_properties_t *properties);
     ze_result_t getApiVersion(ze_api_version_t *version);
     ze_result_t getIPCProperties(ze_driver_ipc_properties_t *pIPCProperties);
-    ze_result_t getExtensionProperties(uint32_t *pCount,
-                                       ze_driver_extension_properties_t *pExtensionProperties);
-    ze_result_t getExtensionFunctionAddress(const char *name, void **ppFunctionAddress);
 
     ze_result_t getMemAllocProperties(const void *ptr,
                                       ze_memory_allocation_properties_t *pMemAllocProperties,

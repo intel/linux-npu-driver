@@ -10,19 +10,20 @@
 #include "api/vpu_jsm_api.h"
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/os_interface/os_interface.hpp"
 #include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <cerrno>
 #include <charconv>
 #include <exception>
+#include <filesystem>
 #include <sys/types.h>
 #include <system_error>
 #include <uapi/drm/ivpu_accel.h>
 #include <utility>
 
 namespace VPU {
-class OsInterface;
 VPUDevice::VPUDevice(std::string devPath, OsInterface &osInfc)
     : devPath(std::move(devPath))
     , osInfc(osInfc) {}
@@ -276,38 +277,6 @@ bool VPUDevice::isConnected() {
     }
 }
 
-size_t VPUDevice::getNumberOfEngineGroups(void) const {
-    return engineGroups.size();
-}
-
-size_t VPUDevice::getEngineMaxMemoryFillSize() {
-    return sizeof(uint32_t);
-}
-
-EngineType VPUDevice::getEngineType(uint32_t engGrpIdx) {
-    if (engGrpIdx >= getNumberOfEngineGroups()) {
-        LOG_E("Engine group with index %u does not exist", engGrpIdx);
-        return EngineType::INVALID;
-    }
-
-    return engineGroups[engGrpIdx];
-}
-
-EngineType VPUDevice::getEngineTypeFromOrdinal(uint32_t engGrpOrdinal, bool &isCopyOnly) {
-    EngineType engType = getEngineType(engGrpOrdinal);
-    if (engType == EngineType::INVALID)
-        return engType;
-
-    isCopyOnly = (engineSupportCopy(engType) && !engineSupportCompute(engType) &&
-                  !engineSupportCooperativeKernel(engType) && !engineSupportMetrics(engType));
-
-    return engType;
-}
-
-bool VPUDevice::engineSupportCompute(EngineType engineType) const {
-    return engineType == EngineType::COMPUTE;
-}
-
 std::unique_ptr<VPUDeviceContext> VPUDevice::createDeviceContext() {
     auto drvApi = VPUDriverApi::openDriverApi(devPath, osInfc);
     if (drvApi == nullptr) {
@@ -360,4 +329,25 @@ int VPUDevice::getBDF(uint32_t *domain, uint32_t *bus, uint32_t *dev, uint32_t *
     return 0;
 }
 
+bool VPUDevice::getActiveTime(uint64_t &activeTimeUs) {
+    auto drvApi = VPUDriverApi::openDriverApi(devPath, osInfc);
+    if (drvApi == nullptr) {
+        LOG_E("Failed to open openDriverApi");
+        return false;
+    }
+    std::string devSysPath = drvApi->getSysDeviceAbsolutePath();
+
+    auto activeTime = osInfc.osiReadFile(devSysPath + "npu_busy_time_us");
+    if (activeTime.empty())
+        return false;
+
+    auto [ptr, ec] =
+        std::from_chars(activeTime.data(), activeTime.data() + activeTime.size(), activeTimeUs);
+    if (ec != std::errc()) {
+        auto err = std::make_error_condition(ec);
+        LOG_E("Failed to read active driver time: %s", err.message().c_str());
+        return false;
+    }
+    return true;
+}
 } // namespace VPU

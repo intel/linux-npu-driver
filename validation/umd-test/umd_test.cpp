@@ -19,9 +19,25 @@ void PrintTo(const ze_result_t &result, std::ostream *os) {
     *os << ze_result_to_str(result) << " (0x" << std::hex << result << ")" << std::dec;
 }
 
-void UmdTest::CommandQueueGroupSetUp(ze_device_handle_t dev,
-                                     uint32_t &compOrdinal,
-                                     uint32_t &copyOrdinal) {
+void UmdTest::CommandQueueGroupSetUpNpu(ze_device_handle_t dev) {
+    uint32_t cmdGrpCount = 0;
+    ASSERT_EQ(zeDeviceGetCommandQueueGroupProperties(dev, &cmdGrpCount, nullptr),
+              ZE_RESULT_SUCCESS);
+
+    EXPECT_EQ(cmdGrpCount, 1u);
+    ze_command_queue_group_properties_t cmdGroupProps = {};
+
+    cmdGroupProps.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_GROUP_PROPERTIES;
+
+    ASSERT_EQ(zeDeviceGetCommandQueueGroupProperties(dev, &cmdGrpCount, &cmdGroupProps),
+              ZE_RESULT_SUCCESS);
+
+    EXPECT_TRUE(cmdGroupProps.flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE);
+}
+
+void UmdTest::CommandQueueGroupSetUpGpu(ze_device_handle_t dev,
+                                        uint32_t &compOrdinal,
+                                        uint32_t &copyOrdinal) {
     uint32_t cmdGrpCount = 0;
     ASSERT_EQ(zeDeviceGetCommandQueueGroupProperties(dev, &cmdGrpCount, nullptr),
               ZE_RESULT_SUCCESS);
@@ -66,7 +82,7 @@ void UmdTest::SetUp() {
     scopedContext = zeScope::contextCreate(zeDriver, contextDesc, ret);
     ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
     zeContext = scopedContext.get();
-    CommandQueueGroupSetUp(zeDevice, computeGrpOrdinal, copyGrpOrdinal);
+    CommandQueueGroupSetUpNpu(zeDevice);
 
     if (test_vars::test_with_gpu) {
         zeDriverGpu = testEnv->getDriverGpu();
@@ -74,7 +90,7 @@ void UmdTest::SetUp() {
         scopedContextGpu = zeScope::contextCreate(zeDriverGpu, contextDesc, ret);
         ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
         zeContextGpu = scopedContextGpu.get();
-        CommandQueueGroupSetUp(zeDeviceGpu, computeGrpOrdinalGpu, copyGrpOrdinalGpu);
+        CommandQueueGroupSetUpGpu(zeDeviceGpu, computeGrpOrdinalGpu, copyGrpOrdinalGpu);
     }
 
     if (!isSilicon()) {
@@ -128,71 +144,22 @@ std::shared_ptr<void> UmdTest::AllocHostMemory(size_t size, ze_host_mem_alloc_fl
     return zeMemory::allocHost(zeContext, size, flagsHost);
 }
 
-std::vector<char> UmdTest::getFlagsFromString(std::string flags) {
-    std::vector<char> buildFlags;
-
-    for (auto c : flags)
-        buildFlags.push_back(c);
-    buildFlags.push_back('\0');
-    return buildFlags;
-}
-
-void UmdTest::createGraphDescriptorForModel(const std::string &modelPath,
-                                            const std::vector<char> &modelBuildFlags,
-                                            std::vector<uint8_t> &testModelIR,
-                                            ze_graph_desc_2_t &graphDesc) {
-    std::vector<char> testModelXml, testModelBin;
-    ze_device_graph_properties_t pDeviceGraphProperties;
-
-    ASSERT_TRUE(getModelFromPath(modelPath, testModelXml, testModelBin));
-
-    ASSERT_EQ(zeGraphDDITableExt->pfnDeviceGetGraphProperties(zeDevice, &pDeviceGraphProperties),
-              ZE_RESULT_SUCCESS);
-
-    ze_graph_compiler_version_info_t version = {
-        .major = pDeviceGraphProperties.compilerVersion.major,
-        .minor = pDeviceGraphProperties.compilerVersion.minor};
-
-    uint64_t xml_len = testModelXml.size();
-    uint64_t bin_len = testModelBin.size();
-    uint32_t numInputs = 2;
-    uint64_t modelSize =
-        sizeof(version) + sizeof(numInputs) + sizeof(xml_len) + xml_len + sizeof(bin_len) + bin_len;
-
-    testModelIR.resize(modelSize);
-
-    uint64_t offset = 0;
-    memcpy(&testModelIR[0], &version, sizeof(version));
-    offset += sizeof(version);
-
-    memcpy(&testModelIR[offset], &numInputs, sizeof(numInputs));
-    offset += sizeof(numInputs);
-
-    memcpy(&testModelIR[offset], &xml_len, sizeof(xml_len));
-    offset += sizeof(xml_len);
-
-    memcpy(&testModelIR[offset], testModelXml.data(), xml_len);
-    offset += xml_len;
-
-    memcpy(&testModelIR[offset], &bin_len, sizeof(bin_len));
-    offset += sizeof(bin_len);
-
-    memcpy(&testModelIR[offset], testModelBin.data(), bin_len);
-
-    graphDesc.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES;
-    graphDesc.pNext = nullptr;
-    graphDesc.format = ZE_GRAPH_FORMAT_NGRAPH_LITE;
-    graphDesc.inputSize = testModelIR.size();
-    graphDesc.pInput = testModelIR.data();
-    graphDesc.pBuildFlags = modelBuildFlags.data();
-    graphDesc.flags = ZE_GRAPH_FLAG_NONE;
-}
-
 bool UmdTest::isHwsModeEnabled() {
-    std::vector<char> out;
-    if (DataHandle::loadFile("/sys/module/intel_vpu/parameters/sched_mode", out) != 0)
+    std::string deviceSysFs = getDeviceSysFsDirectory();
+    if (deviceSysFs.empty())
         return false;
-    return out.size() > 0 && out[0] == '1';
+
+    std::vector<char> schedMode;
+    if (DataHandle::loadFile(deviceSysFs + "/sched_mode", schedMode) != 0)
+        return false;
+
+    if (schedMode.size() < std::string("HW").size())
+        return false;
+
+    const std::string modeAsString(schedMode.begin(), schedMode.begin() + std::string("HW").size());
+    if (modeAsString.compare("HW") == 0)
+        return true;
+    return false;
 }
 
 TEST(Umd, ZeDevTypeStr) {

@@ -98,6 +98,9 @@ class OpenVinoBasic : public UmdTest, public ::testing::WithParamInterface<YAML:
 };
 
 TEST_F(OpenVinoBasic, CheckDevice) {
+    if (!isVPU37xx())
+        SKIP_("Test for MTL (37xx) platform only.");
+
     try {
         ov::Version version = ov::get_openvino_version();
         TRACE("OpenVINO name:      %s\n", version.description);

@@ -379,7 +379,7 @@ bool KmdTest::resume() {
     int ret;
 
     /* Always send HB so to update autosuspend timeout */
-    ret = get_param(DRM_IVPU_PARAM_ENGINE_HEARTBEAT, &hb, ENGINE_COPY);
+    ret = get_param(DRM_IVPU_PARAM_ENGINE_HEARTBEAT, &hb, ENGINE_COMPUTE);
     if (ret) {
         ADD_FAILURE() << "Failed to send IOCTL Heartbeat: " << ret << "\n";
         return false;
@@ -941,6 +941,7 @@ void CmdBuffer::add_copy_cmd(MemoryBuffer &desc_buf,
                              size_t length,
                              uint16_t copy_cmd) {
     auto cmd = add_cmd<vpu_cmd_copy_buffer_t>(copy_cmd);
+
     ASSERT_TRUE(cmd);
     cmd->desc_start_offset = desc_buf.vpu_addr() + desc_start_offset;
     cmd->desc_count = 1;

@@ -238,6 +238,10 @@ int MockOsInterfaceImp::osiMunmap(void *addr, size_t size) {
     return 0;
 }
 
+std::string MockOsInterfaceImp::osiReadFile(const std::filesystem::path &path, size_t maxReadSize) {
+    return std::string("");
+}
+
 bool MockOsInterfaceImp::osiCreateDirectories(const std::filesystem::path &path) {
     return true;
 }
@@ -254,6 +258,10 @@ std::unique_ptr<OsFile> MockOsInterfaceImp::osiOpenWithSharedLock(const std::fil
 
 void MockOsInterfaceImp::osiScanDir(const std::filesystem::path &path,
                                     std::function<void(const char *name, struct stat &stat)> f) {}
+
+bool MockOsInterfaceImp::osiFileRemove(const std::filesystem::path &path) {
+    return false;
+}
 
 size_t MockOsInterfaceImp::osiGetSystemPageSize() {
     return 4u * 1024u;

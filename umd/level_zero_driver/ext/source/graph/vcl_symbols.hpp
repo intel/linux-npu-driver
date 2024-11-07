@@ -74,6 +74,9 @@ class Vcl {
         getDecodedProfilingBuffer =
             getSymbolAddr<decltype(getDecodedProfilingBuffer)>("vclGetDecodedProfilingBuffer");
         logHandleGetString = getSymbolAddr<decltype(logHandleGetString)>("vclLogHandleGetString");
+
+        allocatedExecutableCreate =
+            getSymbolAddr<decltype(allocatedExecutableCreate)>("vclAllocatedExecutableCreate");
     }
 
     static void closeHandle(void *handle) noexcept { dlclose(handle); }
@@ -93,6 +96,7 @@ class Vcl {
     decltype(vclProfilingGetProperties) *profilingGetProperties = &missingSymbol;
     decltype(vclGetDecodedProfilingBuffer) *getDecodedProfilingBuffer = &missingSymbol;
     decltype(vclLogHandleGetString) *logHandleGetString = &missingSymbol;
+    decltype(vclAllocatedExecutableCreate) *allocatedExecutableCreate = &missingSymbol;
 
   private:
     using VclHandle = std::unique_ptr<void, decltype(&closeHandle)>;

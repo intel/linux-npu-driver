@@ -36,6 +36,7 @@ set(VPU_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Enable extra warning and -ftrapv that abort program on signed arithmetic overflow
 add_compile_options(-Winvalid-pch -Wconversion -Wuninitialized -ftrapv)
+add_compile_options(-fvisibility=hidden -fvisibility-inlines-hidden)
 
 # Project-wide include paths
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/vpu_driver/include")
@@ -44,4 +45,7 @@ include_directories(SYSTEM ${VPU_KMD_INCLUDE_DIR})
 
 add_subdirectory_unique(vpu_driver/source)
 add_subdirectory_unique(vpu_driver/unit_tests)
+
 add_subdirectory_unique(level_zero_driver)
+add_subdirectory_unique(level_zero_driver/api)
+add_subdirectory_unique(level_zero_driver/unit_tests)

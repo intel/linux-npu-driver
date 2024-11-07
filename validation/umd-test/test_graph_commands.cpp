@@ -5,7 +5,6 @@
  *
  */
 
-#include "drm_helpers.h"
 #include "graph_utilities.hpp"
 
 #include <fcntl.h>
@@ -84,85 +83,6 @@ class CommandGraph : public CommandGraphBase {
         graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
     }
 };
-
-TEST_F(CommandGraph, AppendGraphInitWithNullGraphHandle) {
-    ASSERT_EQ(zeGraphDDITableExt->pfnAppendGraphInitialize(list, nullptr, nullptr, 0, nullptr),
-              ZE_RESULT_ERROR_UNINITIALIZED);
-}
-
-TEST_F(CommandGraph, AppendGraphInitExecuteWithoutSettingArgumentForInputOutput) {
-    ASSERT_EQ(
-        zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
-        ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeGraphDDITableExt
-                  ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),
-              ZE_RESULT_ERROR_UNINITIALIZED);
-}
-
-TEST_F(CommandGraph, SettingNullArgumentForInputOutput) {
-    ze_graph_properties_t graphProps = {};
-    graphProps.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
-    ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties(graph->handle, &graphProps), ZE_RESULT_SUCCESS)
-        << "Failed to get Graph properties";
-
-    for (size_t index = 0; index < graphProps.numGraphArgs; index++) {
-        ASSERT_EQ(graph->setArgumentValue(index, nullptr), ZE_RESULT_ERROR_INVALID_NULL_POINTER);
-    }
-}
-
-TEST_F(CommandGraph, SetArgumentIndexGreaterThanExpectedArgumentIndexLimit) {
-    ze_graph_properties_t graphProps = {};
-    graphProps.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
-    ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties(graph->handle, &graphProps), ZE_RESULT_SUCCESS)
-        << "Failed to get Graph properties";
-
-    graph->allocateInputArguments(MemType::SHARED_MEMORY);
-    ASSERT_EQ(graph->setArgumentValue(graphProps.numGraphArgs, graph->inArgs.at(0)),
-              ZE_RESULT_ERROR_INVALID_ARGUMENT);
-}
-
-TEST_F(CommandGraph, GetArgumentPropertiesReturnsExpectedProperties) {
-    ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties(graph->handle, 0, nullptr),
-              ZE_RESULT_ERROR_INVALID_NULL_POINTER);
-
-    ze_graph_properties_t graphProps = {};
-    graphProps.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
-
-    ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties(graph->handle, &graphProps), ZE_RESULT_SUCCESS)
-        << "Failed to get Graph properties";
-
-    ze_graph_argument_properties_t pGraphArgumentProperties = {};
-    graphProps.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES;
-
-    for (uint32_t index = 0; index < graphProps.numGraphArgs; index++) {
-        ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties(graph->handle,
-                                                               index,
-                                                               &pGraphArgumentProperties),
-                  ZE_RESULT_SUCCESS);
-        if (index == 0) {
-            ASSERT_EQ(pGraphArgumentProperties.type, ZE_GRAPH_ARGUMENT_TYPE_INPUT);
-        } else if (index == graphProps.numGraphArgs - 1) {
-            ASSERT_EQ(pGraphArgumentProperties.type, ZE_GRAPH_ARGUMENT_TYPE_OUTPUT);
-        } else if (pGraphArgumentProperties.type != ZE_GRAPH_ARGUMENT_TYPE_INPUT &&
-                   pGraphArgumentProperties.type != ZE_GRAPH_ARGUMENT_TYPE_OUTPUT) {
-            FAIL() << "Invalid graph argument type";
-        }
-
-        for (int i = 0; i < ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE; i++)
-            ASSERT_GT(pGraphArgumentProperties.dims[i], 0u);
-        ASSERT_GE(pGraphArgumentProperties.networkLayout, ZE_GRAPH_ARGUMENT_LAYOUT_ANY);
-        ASSERT_NE(pGraphArgumentProperties.networkPrecision, ZE_GRAPH_ARGUMENT_PRECISION_UNKNOWN);
-        ASSERT_NE(pGraphArgumentProperties.networkPrecision, ZE_GRAPH_ARGUMENT_PRECISION_BIN);
-        ASSERT_GE(pGraphArgumentProperties.deviceLayout, ZE_GRAPH_ARGUMENT_LAYOUT_ANY);
-        ASSERT_NE(pGraphArgumentProperties.devicePrecision, ZE_GRAPH_ARGUMENT_PRECISION_UNKNOWN);
-        ASSERT_NE(pGraphArgumentProperties.devicePrecision, ZE_GRAPH_ARGUMENT_PRECISION_BIN);
-    }
-
-    ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties(graph->handle,
-                                                           graphProps.numGraphArgs,
-                                                           &pGraphArgumentProperties),
-              ZE_RESULT_ERROR_INVALID_ARGUMENT);
-}
 
 class CommandGraphLong : public CommandGraphBase, public ::testing::WithParamInterface<YAML::Node> {
   protected:
@@ -337,6 +257,21 @@ TEST_P(CommandGraphLong, RunGraphExecuteThreeTimes) {
         graph->checkResults();
         graph->clearOutput();
     }
+}
+
+TEST_P(CommandGraphLong, RunInferenceWithGraphInitialize) {
+    ASSERT_EQ(zeGraphDDITableExt->pfnGraphInitialize(graph->handle), ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeGraphDDITableExt
+                  ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+
+    graph->checkResults();
+    graph->clearOutput();
 }
 
 TEST_P(CommandGraphLong, SingleListGraphExecutionWithBarrierTest) {
@@ -540,11 +475,7 @@ TEST_P(CommandGraphLong, GraphInitAndExecWith200msDelay) {
 }
 
 static void resetDevice() {
-    drm_device_desc desc = drm::open_intel_vpu();
-    close(desc.fd);
-
-    std::string path = "/sys/dev/char/" + std::to_string(desc.major_id) + ":" +
-                       std::to_string(desc.minor_id) + "/device/reset";
+    std::string path = getDeviceSysFsDirectory() + "/reset";
     int fd = open(path.c_str(), O_WRONLY);
     ASSERT_NE(fd, -1);
 
@@ -590,6 +521,70 @@ TEST_P(CommandGraphLong, InferenceDeviceResetInference) {
     result = zeCommandQueueSynchronize(queue, syncTimeout);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
+    graph->checkResults();
+}
+
+TEST_P(CommandGraphLong, ReleaseNativeBinaryAfterAppendGraphInitializeRunInference) {
+    // Convert model to native format
+    auto nativeGraphBuffer = graph->getNativeBinaryAsNewBuffer();
+    ASSERT_NE(nativeGraphBuffer, nullptr) << "Unable to get native binary from Graph";
+
+    // Swap the graph with native format type
+    graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, nativeGraphBuffer);
+    ASSERT_NE(graph, nullptr) << "Unable to create new Graph object from native binary";
+
+    graph->allocateArguments(MemType::SHARED_MEMORY);
+    graph->copyInputData();
+
+    ASSERT_EQ(
+        zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
+        ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+
+    // Release the blob container
+    nativeGraphBuffer.reset();
+
+    ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeGraphDDITableExt
+                  ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+
+    // TODO: New graph does not have information about ref input/output. It is forced to random
+    graph->checkResults();
+}
+
+TEST_P(CommandGraphLong, ReleaseNativeBinaryAfterGraphInitializeRunInference) {
+    // Convert model to native format
+    auto nativeGraphBuffer = graph->getNativeBinaryAsNewBuffer();
+    ASSERT_NE(nativeGraphBuffer, nullptr) << "Unable to get native binary from Graph";
+
+    // Swap the graph with native format type
+    graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, nativeGraphBuffer);
+    ASSERT_NE(graph, nullptr) << "Unable to create new Graph object from native binary";
+
+    graph->allocateArguments(MemType::SHARED_MEMORY);
+    graph->copyInputData();
+
+    ASSERT_EQ(zeGraphDDITableExt->pfnGraphInitialize(graph->handle), ZE_RESULT_SUCCESS);
+
+    // Release the blob container
+    nativeGraphBuffer.reset();
+
+    ASSERT_EQ(zeGraphDDITableExt
+                  ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+
+    // TODO: New graph does not have information about ref input/output. It is forced to random
     graph->checkResults();
 }
 
@@ -758,7 +753,7 @@ TEST_P(CommandGraphLong, MutableCmdList) {
     ze_command_list_desc_t commandListDesc{
         .stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
         .pNext = &mutableListDesc,
-        .commandQueueGroupOrdinal = computeGrpOrdinal,
+        .commandQueueGroupOrdinal = 0u,
         .flags = 0,
     };
     ze_command_list_handle_t mutableList;

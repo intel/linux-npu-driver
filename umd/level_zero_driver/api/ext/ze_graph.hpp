@@ -26,6 +26,9 @@ ze_result_t ZE_APICALL zeGraphDestroy(ze_graph_handle_t hGraph);
 ze_result_t ZE_APICALL zeGraphGetProperties(ze_graph_handle_t hGraph,
                                             ze_graph_properties_t *pGraphProperties);
 
+ze_result_t ZE_APICALL zeGraphGetProperties2(ze_graph_handle_t hGraph,
+                                             ze_graph_properties_2_t *pGraphProperties);
+
 ze_result_t ZE_APICALL
 zeGraphGetArgumentProperties(ze_graph_handle_t hGraph,
                              uint32_t argIndex,
@@ -41,6 +44,8 @@ ze_result_t ZE_APICALL zeAppendGraphInitialize(ze_command_list_handle_t hCommand
                                                uint32_t numWaitEvents,
                                                ze_event_handle_t *phWaitEvents);
 
+ze_result_t ZE_APICALL zeGraphInitialize(ze_graph_handle_t hGraph);
+
 ze_result_t ZE_APICALL zeAppendGraphExecute(ze_command_list_handle_t hCommandList,
                                             ze_graph_handle_t hGraph,
                                             ze_graph_profiling_query_handle_t hProfilingQuery,
@@ -51,6 +56,10 @@ ze_result_t ZE_APICALL zeAppendGraphExecute(ze_command_list_handle_t hCommandLis
 ze_result_t ZE_APICALL zeGraphGetNativeBinary(ze_graph_handle_t hGraph,
                                               size_t *pSize,
                                               uint8_t *pGraphNativeBinary);
+
+ze_result_t ZE_APICALL zeGraphGetNativeBinary2(ze_graph_handle_t hGraph,
+                                               size_t *pSize,
+                                               const uint8_t **pGraphNativeBinary);
 
 ze_result_t ZE_APICALL
 zeDeviceGetGraphProperties(ze_device_handle_t hDevice,

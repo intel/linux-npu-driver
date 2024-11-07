@@ -64,13 +64,16 @@ class MockOsInterfaceImp : public OsInterface {
     void *osiMmap(void *addr, size_t size, int prot, int flags, int fd, off_t offset) override;
     int osiMunmap(void *addr, size_t size) override;
 
+    std::string osiReadFile(const std::filesystem::path &path, size_t maxReadSize = 255) override;
     bool osiCreateDirectories(const std::filesystem::path &path) override;
+
     std::unique_ptr<OsFile> osiOpenWithExclusiveLock(const std::filesystem::path &path,
                                                      bool writeAccess) override;
     std::unique_ptr<OsFile> osiOpenWithSharedLock(const std::filesystem::path &path,
                                                   bool writeAccess) override;
     void osiScanDir(const std::filesystem::path &path,
                     std::function<void(const char *name, struct stat &stat)> f) override;
+    bool osiFileRemove(const std::filesystem::path &path) override;
 
     void mockFailNextAlloc(); // Fails next call to osiMmap
     void mockFailNextJobWait();

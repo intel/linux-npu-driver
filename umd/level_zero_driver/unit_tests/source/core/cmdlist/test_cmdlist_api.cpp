@@ -8,11 +8,14 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "api/vpu_jsm_job_cmd_api.h"
 #include "gtest/gtest.h"
 #include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
 #include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
 #include "level_zero_driver/core/source/context/context.hpp"
 #include "level_zero_driver/core/source/device/device.hpp"
+#include "level_zero_driver/core/source/event/event.hpp"
+#include "level_zero_driver/core/source/event/eventpool.hpp"
 #include "level_zero_driver/ext/source/graph/graph.hpp"
 #include "level_zero_driver/tools/source/metrics/metric.hpp"
 #include "level_zero_driver/tools/source/metrics/metric_query.hpp"
@@ -24,7 +27,6 @@
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
 
-#include <api/vpu_jsm_job_cmd_api.h>
 #include <array>
 #include <filesystem>
 #include <level_zero/ze_api.h>
@@ -43,10 +45,10 @@ struct CommandListFixture : CommandQueueFixture {
         CommandQueueFixture::SetUp();
 
         ze_command_list_desc_t cmdListDesc = {};
-        cmdListDesc.commandQueueGroupOrdinal = getComputeQueueOrdinal();
+        cmdListDesc.commandQueueGroupOrdinal = 0u;
         ze_command_list_handle_t hCommandList = nullptr;
 
-        ze_result_t result = zeCommandListCreate(context, device, &cmdListDesc, &hCommandList);
+        ze_result_t result = L0::CommandList::create(context, device, &cmdListDesc, &hCommandList);
         EXPECT_EQ(ZE_RESULT_SUCCESS, result);
         commandList = L0::CommandList::fromHandle(hCommandList);
 
@@ -67,26 +69,31 @@ struct CommandListFixture : CommandQueueFixture {
                                               .count = 5};
         auto hDevice = device->toHandle();
         ASSERT_EQ(ZE_RESULT_SUCCESS,
-                  zeEventPoolCreate(context, &eventPoolDesc, 1, &hDevice, &eventPool));
+                  L0::EventPool::create(context, &eventPoolDesc, 1, &hDevice, &eventPool));
 
         ze_event_desc_t eventDesc = {.stype = ZE_STRUCTURE_TYPE_EVENT_DESC,
                                      .pNext = nullptr,
                                      .index = 0,
                                      .signal = ZE_EVENT_POOL_FLAG_HOST_VISIBLE,
                                      .wait = ZE_EVENT_POOL_FLAG_HOST_VISIBLE};
-        ASSERT_EQ(ZE_RESULT_SUCCESS, zeEventCreate(eventPool, &eventDesc, &event0));
+        ASSERT_EQ(ZE_RESULT_SUCCESS,
+                  L0::EventPool::fromHandle(eventPool)->createEvent(&eventDesc, &event0));
         ASSERT_NE(nullptr, event0);
         eventDesc.index = 1;
-        ASSERT_EQ(ZE_RESULT_SUCCESS, zeEventCreate(eventPool, &eventDesc, &event1));
+        ASSERT_EQ(ZE_RESULT_SUCCESS,
+                  L0::EventPool::fromHandle(eventPool)->createEvent(&eventDesc, &event1));
         ASSERT_NE(nullptr, event1);
         eventDesc.index = 2;
-        ASSERT_EQ(ZE_RESULT_SUCCESS, zeEventCreate(eventPool, &eventDesc, &event2));
+        ASSERT_EQ(ZE_RESULT_SUCCESS,
+                  L0::EventPool::fromHandle(eventPool)->createEvent(&eventDesc, &event2));
         ASSERT_NE(nullptr, event2);
         eventDesc.index = 3;
-        ASSERT_EQ(ZE_RESULT_SUCCESS, zeEventCreate(eventPool, &eventDesc, &event3));
+        ASSERT_EQ(ZE_RESULT_SUCCESS,
+                  L0::EventPool::fromHandle(eventPool)->createEvent(&eventDesc, &event3));
         ASSERT_NE(nullptr, event3);
         eventDesc.index = 4;
-        ASSERT_EQ(ZE_RESULT_SUCCESS, zeEventCreate(eventPool, &eventDesc, &event4));
+        ASSERT_EQ(ZE_RESULT_SUCCESS,
+                  L0::EventPool::fromHandle(eventPool)->createEvent(&eventDesc, &event4));
         ASSERT_NE(nullptr, event4);
     }
 
@@ -95,12 +102,12 @@ struct CommandListFixture : CommandQueueFixture {
         EXPECT_EQ(ZE_RESULT_SUCCESS, result);
 
         // Events / event pool.
-        ASSERT_EQ(ZE_RESULT_SUCCESS, zeEventDestroy(event0));
-        ASSERT_EQ(ZE_RESULT_SUCCESS, zeEventDestroy(event1));
-        ASSERT_EQ(ZE_RESULT_SUCCESS, zeEventDestroy(event2));
-        ASSERT_EQ(ZE_RESULT_SUCCESS, zeEventDestroy(event3));
-        ASSERT_EQ(ZE_RESULT_SUCCESS, zeEventDestroy(event4));
-        ASSERT_EQ(ZE_RESULT_SUCCESS, zeEventPoolDestroy(eventPool));
+        ASSERT_EQ(ZE_RESULT_SUCCESS, L0::Event::fromHandle(event0)->destroy());
+        ASSERT_EQ(ZE_RESULT_SUCCESS, L0::Event::fromHandle(event1)->destroy());
+        ASSERT_EQ(ZE_RESULT_SUCCESS, L0::Event::fromHandle(event2)->destroy());
+        ASSERT_EQ(ZE_RESULT_SUCCESS, L0::Event::fromHandle(event3)->destroy());
+        ASSERT_EQ(ZE_RESULT_SUCCESS, L0::Event::fromHandle(event4)->destroy());
+        ASSERT_EQ(ZE_RESULT_SUCCESS, L0::EventPool::fromHandle(eventPool)->destroy());
 
         // Memory free'ing
         EXPECT_TRUE(ctx->freeMemAlloc(ptrAlloc));
@@ -183,7 +190,7 @@ struct CommandListMetricFixture : CommandListFixture {
         ASSERT_NE(hMetricQueryPool, nullptr);
 
         ASSERT_EQ(
-            MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(0u, &hMetricQuery),
+            L0::MetricQueryPool::fromHandle(hMetricQueryPool)->createMetricQuery(0u, &hMetricQuery),
             ZE_RESULT_SUCCESS);
         ASSERT_NE(hMetricQuery, nullptr);
     }
@@ -191,11 +198,11 @@ struct CommandListMetricFixture : CommandListFixture {
     void TearDown() override {
         if (context != nullptr && device != nullptr) {
             if (hMetricQuery) {
-                ASSERT_EQ(MetricQuery::fromHandle(hMetricQuery)->destroy(), ZE_RESULT_SUCCESS);
+                ASSERT_EQ(L0::MetricQuery::fromHandle(hMetricQuery)->destroy(), ZE_RESULT_SUCCESS);
             }
 
             if (hMetricQueryPool) {
-                ASSERT_EQ(MetricQueryPool::fromHandle(hMetricQueryPool)->destroy(),
+                ASSERT_EQ(L0::MetricQueryPool::fromHandle(hMetricQueryPool)->destroy(),
                           ZE_RESULT_SUCCESS);
             }
 
@@ -230,13 +237,12 @@ TEST_F(CommandListApiTest, whenCalledCloseSuccessIsReturned) {
 }
 
 TEST_F(CommandListApiTest, whenCalledAppendWriteGlobalTimestampWithInvalidParamsFailureIsReturned) {
-    auto result = zeCommandListAppendWriteGlobalTimestamp(nullptr, ptrAlloc, nullptr, 0, nullptr);
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE, result);
-
-    result = zeCommandListAppendWriteGlobalTimestamp(commandList, nullptr, nullptr, 0, nullptr);
+    auto result = L0::CommandList::fromHandle(commandList)
+                      ->appendWriteGlobalTimestamp(nullptr, nullptr, 0, nullptr);
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, result);
 
-    result = zeCommandListAppendWriteGlobalTimestamp(commandList, ptrAlloc, nullptr, 1, nullptr);
+    result = L0::CommandList::fromHandle(commandList)
+                 ->appendWriteGlobalTimestamp(ptrAlloc, nullptr, 1, nullptr);
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_SIZE, result);
 }
 
@@ -302,9 +308,6 @@ TEST_F(CommandListApiTest, eventSyncObjectsAttachedWithTSCommand) {
 }
 
 TEST_F(CommandListApiTest, whenCalledAppendMemoryCopyWithCorrectProgramSequenceSuccessIsReturned) {
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE,
-              zeCommandListAppendMemoryCopy(nullptr, nullptr, nullptr, 0u, nullptr, 0u, nullptr));
-
     // Testing that appendMemoryCopy will fail due to unallocated srcptr
     void *srcPtr = nullptr;
     ze_result_t result =
@@ -447,7 +450,7 @@ TEST_F(CommandListGraphApiTest,
 
 TEST_F(CommandListGraphApiTest,
        resetCommandListAfterGraphInitThenAppendingGraphExecAndExecuteReturnsSuccess) {
-    ze_command_queue_handle_t hCommandQueue = createCommandQueue(0);
+    ze_command_queue_handle_t hCommandQueue = createCommandQueue();
     ASSERT_NE(hCommandQueue, nullptr);
 
     auto commandQueue = L0::CommandQueue::fromHandle(hCommandQueue);
@@ -499,7 +502,7 @@ struct CommandListEventApiTest : Test<CommandListFixture> {
         ze_device_handle_t hDevice = device->toHandle();
 
         ASSERT_EQ(ZE_RESULT_SUCCESS,
-                  zeEventPoolCreate(hContext, &evPoolDesc, 1, &(hDevice), &hEvPool));
+                  L0::EventPool::create(hContext, &evPoolDesc, 1, &(hDevice), &hEvPool));
         ASSERT_NE(nullptr, hEvPool);
 
         // Event.
@@ -509,16 +512,17 @@ struct CommandListEventApiTest : Test<CommandListFixture> {
         evDesc.signal = ZE_EVENT_SCOPE_FLAG_HOST;
         evDesc.wait = ZE_EVENT_SCOPE_FLAG_HOST;
 
-        ASSERT_EQ(ZE_RESULT_SUCCESS, zeEventCreate(hEvPool, &evDesc, &hEvent));
+        ASSERT_EQ(ZE_RESULT_SUCCESS,
+                  L0::EventPool::fromHandle(hEvPool)->createEvent(&evDesc, &hEvent));
         ASSERT_NE(nullptr, hEvent);
     }
 
     void TearDown() override {
         if (hEvent != nullptr) {
-            ASSERT_EQ(ZE_RESULT_SUCCESS, zeEventDestroy(hEvent));
+            ASSERT_EQ(ZE_RESULT_SUCCESS, L0::Event::fromHandle(hEvent)->destroy());
         }
         if (hEvPool != nullptr) {
-            ASSERT_EQ(ZE_RESULT_SUCCESS, zeEventPoolDestroy(hEvPool));
+            ASSERT_EQ(ZE_RESULT_SUCCESS, L0::EventPool::fromHandle(hEvPool)->destroy());
         }
 
         CommandListFixture::TearDown();
@@ -530,34 +534,33 @@ struct CommandListEventApiTest : Test<CommandListFixture> {
 };
 
 TEST_F(CommandListEventApiTest, givenCallAppendSignalEventSuccessIsReturned) {
-    EXPECT_EQ(ZE_RESULT_SUCCESS, zeCommandListAppendSignalEvent(commandList->toHandle(), hEvent));
-    EXPECT_EQ(ZE_RESULT_SUCCESS, zeCommandListClose(commandList->toHandle()));
+    EXPECT_EQ(ZE_RESULT_SUCCESS,
+              L0::CommandList::fromHandle(commandList->toHandle())
+                  ->CommandList::appendSignalEvent(hEvent));
+    EXPECT_EQ(ZE_RESULT_SUCCESS, L0::CommandList::fromHandle(commandList->toHandle())->close());
 
     EXPECT_EQ(1u, commandList->getCommands().size());
     EXPECT_EQ(VPU_CMD_FENCE_SIGNAL, commandList->getCommands()[0]->getCommandType());
 }
 
 TEST_F(CommandListEventApiTest, givenCallAppendSignalEventWithInvalidParamsReturnFiailure) {
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE, zeCommandListAppendSignalEvent(nullptr, hEvent));
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE,
-              zeCommandListAppendSignalEvent(commandList->toHandle(), nullptr));
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE,
-              zeCommandListAppendSignalEvent(nullptr, nullptr));
+              L0::CommandList::fromHandle(commandList->toHandle())
+                  ->CommandList::appendSignalEvent(nullptr));
 }
 
 TEST_F(CommandListEventApiTest, givenCallAppendResetEventSuccessIsReturned) {
-    EXPECT_EQ(ZE_RESULT_SUCCESS, zeCommandListAppendEventReset(commandList->toHandle(), hEvent));
-    EXPECT_EQ(ZE_RESULT_SUCCESS, zeCommandListClose(commandList->toHandle()));
+    EXPECT_EQ(ZE_RESULT_SUCCESS,
+              L0::CommandList::fromHandle(commandList->toHandle())->appendEventReset(hEvent));
+    EXPECT_EQ(ZE_RESULT_SUCCESS, L0::CommandList::fromHandle(commandList->toHandle())->close());
 
     EXPECT_EQ(1u, commandList->getCommands().size());
     EXPECT_EQ(VPU_CMD_FENCE_SIGNAL, commandList->getCommands()[0]->getCommandType());
 }
 
 TEST_F(CommandListEventApiTest, givenCallAppendResetEventWithInvalidParamsReturnFiailure) {
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE, zeCommandListAppendEventReset(nullptr, hEvent));
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE,
-              zeCommandListAppendEventReset(commandList->toHandle(), nullptr));
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE, zeCommandListAppendEventReset(nullptr, nullptr));
+              L0::CommandList::fromHandle(commandList->toHandle())->appendEventReset(nullptr));
 }
 
 TEST_F(CommandListEventApiTest, givenCallAppendWaitEventSuccessIsReturned) {
@@ -571,27 +574,26 @@ TEST_F(CommandListEventApiTest, givenCallAppendWaitEventSuccessIsReturned) {
     phEvent[0] = hEvent;
     for (uint32_t i = 1; i < evPoolCap; ++i) {
         evDesc.index = i;
-        ASSERT_EQ(ZE_RESULT_SUCCESS, zeEventCreate(hEvPool, &evDesc, &phEvent[i]));
+        ASSERT_EQ(ZE_RESULT_SUCCESS,
+                  L0::EventPool::fromHandle(hEvPool)->createEvent(&evDesc, &phEvent[i]));
     }
     EXPECT_EQ(ZE_RESULT_SUCCESS,
-              zeCommandListAppendWaitOnEvents(commandList->toHandle(), evPoolCap, phEvent));
-    EXPECT_EQ(ZE_RESULT_SUCCESS, zeCommandListClose(commandList->toHandle()));
+              L0::CommandList::fromHandle(commandList->toHandle())
+                  ->CommandList::appendWaitOnEvents(evPoolCap, phEvent));
+    EXPECT_EQ(ZE_RESULT_SUCCESS, L0::CommandList::fromHandle(commandList->toHandle())->close());
 
     EXPECT_EQ(evPoolCap, commandList->getCommands().size());
     for (const auto &cmd : commandList->getCommands())
         EXPECT_EQ(VPU_CMD_FENCE_WAIT, cmd->getCommandType());
 
     for (uint32_t i = 1; i < evPoolCap; ++i)
-        ASSERT_EQ(ZE_RESULT_SUCCESS, zeEventDestroy(phEvent[i]));
+        ASSERT_EQ(ZE_RESULT_SUCCESS, L0::Event::fromHandle(phEvent[i])->destroy());
 }
 
 TEST_F(CommandListEventApiTest, givenCallAppendWaitEventWithInvalidParamsReturnFiailure) {
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE,
-              zeCommandListAppendWaitOnEvents(nullptr, 1, &hEvent));
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER,
-              zeCommandListAppendWaitOnEvents(commandList->toHandle(), 1, nullptr));
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_HANDLE,
-              zeCommandListAppendWaitOnEvents(nullptr, 1, nullptr));
+              L0::CommandList::fromHandle(commandList->toHandle())
+                  ->CommandList::appendWaitOnEvents(1, nullptr));
 }
 
 } // namespace ult

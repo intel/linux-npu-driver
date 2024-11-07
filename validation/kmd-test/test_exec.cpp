@@ -118,20 +118,17 @@ void Exec::JobSubmitWithoutWait(int engine) {
     ASSERT_EQ(cmd_buf.create(), 0);
 
     cmd_buf.add_fence_wait_cmd(cmd_buf, 1024);
-    ASSERT_EQ(cmd_buf.submit(engine), 0);
+    ASSERT_EQ(cmd_buf.submit(engine, DRM_IVPU_JOB_PRIORITY_NORMAL), 0);
 
     cmd_buf.start(2048);
     cmd_buf.add_fence_signal_cmd(cmd_buf, 2048 + 1024);
-    ASSERT_EQ(cmd_buf.submit(engine), EBUSY);
+    ASSERT_EQ(cmd_buf.submit(engine, DRM_IVPU_JOB_PRIORITY_IDLE), EBUSY);
 
     CmdBuffer signal_buf(context, 4096);
     ASSERT_EQ(signal_buf.create(), 0);
     signal_buf.add_fence_signal_cmd(cmd_buf, 1024);
 
-    if (engine == ENGINE_COPY)
-        ASSERT_EQ(signal_buf.submit(ENGINE_COMPUTE), 0);
-    else
-        ASSERT_EQ(signal_buf.submit(ENGINE_COPY), 0);
+    ASSERT_EQ(signal_buf.submit(engine, DRM_IVPU_JOB_PRIORITY_REALTIME), 0);
 
     ASSERT_EQ(signal_buf.wait(), 0);
     ASSERT_EQ(cmd_buf.wait(), 0);
