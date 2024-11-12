@@ -19,6 +19,7 @@ function(read_os_release ENTRY VAR_OUTPUT)
   file(STRINGS ${OS_RELEASE_PATH} OUTPUT REGEX ^${ENTRY}=.* )
   if (NOT OUTPUT)
     message(WARNING "Could not find '${ENTRY}=.*' pattern in ${OS_RELEASE_PATH}")
+    return()
   endif()
 
   string(REGEX REPLACE "${ENTRY}=" "" OUTPUT ${OUTPUT})
