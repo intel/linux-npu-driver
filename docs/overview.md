@@ -180,13 +180,12 @@ git lfs pull
 cmake -B build -S .
 cmake --build build --parallel $(nproc)
 
-# set the LD_LIBRARY_PATH to lib to make driver visible for loader
-export LD_LIBRARY_PATH=$PWD/build/lib:$LD_LIBRARY_PATH
-# or install the driver in the system
-cmake --install build --prefix /usr
+# install the driver in the system
+sudo cmake --install build --prefix /usr
 
-# if possible reload the intel_vpu module to load new firmware
-rmmod intel_vpu; modprobe intel_vpu
+# reload the intel_vpu module to load new firmware
+sudo rmmod intel_vpu
+sudo modprobe intel_vpu
 ```
 
 ## Building a driver together with the compiler
@@ -205,13 +204,12 @@ cd linux-npu-driver
 cmake -B build -S . -DENABLE_NPU_COMPILER_BUILD=ON
 cmake --build build --parallel $(nproc)
 
-# set the LD_LIBRARY_PATH to lib to make driver visible for loader
-export LD_LIBRARY_PATH=$PWD/build/lib:$LD_LIBRARY_PATH
-# or install the driver in the system
-cmake --install build --prefix /usr
+# install the driver in the system
+sudo cmake --install build --prefix /usr
 
-# if possible reload the intel_vpu module to load new firmware
-rmmod intel_vpu; modprobe intel_vpu
+# reload the intel_vpu module to load new firmware
+sudo rmmod intel_vpu
+sudo modprobe intel_vpu
 ```
 
 The compiler binary `libnpu_driver_compiler.so` can be found in `build/lib/`.
