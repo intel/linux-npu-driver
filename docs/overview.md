@@ -176,7 +176,7 @@ Commands to build the driver:
 ```
 cd linux-npu-driver
 git submodule update --init --recursive
-git lfs pull
+
 cmake -B build -S .
 cmake --build build --parallel $(nproc)
 
@@ -201,6 +201,8 @@ document](https://github.com/openvinotoolkit/openvino/blob/master/docs/dev/build
 To build a compiler from the driver repository the `ENABLE_NPU_COMPILER_BUILD` flag has to be set:
 ```
 cd linux-npu-driver
+git submodule update --init --recursive
+
 cmake -B build -S . -DENABLE_NPU_COMPILER_BUILD=ON
 cmake --build build --parallel $(nproc)
 
