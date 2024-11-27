@@ -100,6 +100,8 @@
 #define ENGINE_COMPUTE DRM_IVPU_ENGINE_COMPUTE
 #define ENGINE_COPY DRM_IVPU_ENGINE_COPY
 
+#define HAS_COPY_ENGINE 0
+
 typedef struct copy_descriptor {
     union {
         vpu_cmd_copy_descriptor_37xx_t vpu37xx;
