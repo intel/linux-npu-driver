@@ -940,8 +940,11 @@ void CmdBuffer::add_copy_cmd(MemoryBuffer &desc_buf,
                              uint32_t dst_offset,
                              size_t length,
                              uint16_t copy_cmd) {
+#if HAS_COPY_ENGINE
     auto cmd = add_cmd<vpu_cmd_copy_buffer_t>(copy_cmd);
-
+#else
+    auto cmd = add_cmd<vpu_cmd_copy_buffer_t>(VPU_CMD_COPY_LOCAL_TO_LOCAL);
+#endif
     ASSERT_TRUE(cmd);
     cmd->desc_start_offset = desc_buf.vpu_addr() + desc_start_offset;
     cmd->desc_count = 1;
@@ -974,6 +977,9 @@ void CmdBuffer::prepare_bb_hdr(void) {
 
 void CmdBuffer::prepare_params(int engine, int priority, drm_ivpu_submit *params) {
     params->engine = engine;
+    // Force compute engine if Copy Engine not supported
+    if (!HAS_COPY_ENGINE)
+        params->engine = ENGINE_COMPUTE;
     params->buffer_count = referenced_handles.size();
     params->buffers_ptr = (__u64)referenced_handles.data();
     params->commands_offset = _start;

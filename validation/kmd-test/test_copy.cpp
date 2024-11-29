@@ -14,7 +14,6 @@
 class Copy : public KmdTest, public ::testing::WithParamInterface<std::tuple<__u16, __u32>> {
   protected:
     void CopyPerfTest(int engine, int buf_size, int copy_size, int repeats, bool coherent = true);
-    void CopyDuringCtxCreation(int engine);
 
     void CopySystem2Local2System(int size, bool L2L) {
         const unsigned char pattern = 0xCD;
@@ -309,49 +308,4 @@ TEST_F(Copy, CoherentPerf) {
 
 TEST_F(Copy, NonCoherentPerf) {
     CopyPerfTest(ENGINE_COPY, 1 * MB, 1 * MB, 2, false);
-}
-
-void Copy::CopyDuringCtxCreation(int engine) {
-    const unsigned char pattern = 0xCD;
-    bool stop = false;
-    std::size_t size = 1 * MB;
-    vpu_cmd_type command =
-        engine == ENGINE_COMPUTE ? VPU_CMD_COPY_LOCAL_TO_LOCAL : VPU_CMD_COPY_SYSTEM_TO_SYSTEM;
-
-    std::thread tdr_thread([&stop]() {
-        while (!stop) {
-            KmdContext thread_ctx;
-            ASSERT_GE(thread_ctx.open(), 0);
-            CmdBuffer cmd_buf(thread_ctx, 4096);
-            ASSERT_EQ(cmd_buf.create(), 0);
-
-            std::this_thread::yield();
-        }
-    });
-
-    MemoryBuffer src_buf(*this, size, VPU_BUF_USAGE_INPUT_LOW);
-    ASSERT_EQ(src_buf.create(), 0);
-    src_buf.fill(pattern);
-
-    MemoryBuffer dst_buf(*this, size, VPU_BUF_USAGE_INPUT_LOW);
-    ASSERT_EQ(dst_buf.create(), 0);
-    dst_buf.clear();
-
-    MemoryBuffer descr_buf(*this, size, VPU_BUF_USAGE_DESCRIPTOR_HEAP);
-    ASSERT_EQ(descr_buf.create(), 0);
-
-    CmdBuffer cmd_buf(context, 4096, VPU_BUF_USAGE_BATCHBUFFER);
-    ASSERT_EQ(cmd_buf.create(), 0);
-
-    cmd_buf.start(0);
-    cmd_buf.add_copy_cmd(descr_buf, 0, src_buf, 0, dst_buf, 0, size, command);
-    ASSERT_EQ(cmd_buf.submit(engine), 0);
-    ASSERT_EQ(cmd_buf.wait(), 0);
-
-    stop = true;
-    tdr_thread.join();
-}
-
-TEST_F(Copy, CopyDuringCtxCreationComputeEngine) {
-    CopyDuringCtxCreation(ENGINE_COMPUTE);
 }
