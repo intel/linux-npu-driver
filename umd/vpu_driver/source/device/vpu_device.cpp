@@ -58,8 +58,9 @@ bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
     if (drvApi->checkDeviceCapability(DRM_IVPU_CAP_DMA_MEMORY_RANGE))
         hwInfo.dmaMemoryRangeCapability = true;
 
-    jsmApiVersion = drvApi->getFWComponentVersion(hwInfo.fwJsmCmdApiVerIndex);
     mappedInferenceVersion = drvApi->getFWComponentVersion(hwInfo.fwMappedInferenceIndex);
+    jsmApiVersion = drvApi->getFWComponentVersion(hwInfo.fwJsmCmdApiVerIndex);
+
     return true;
 }
 

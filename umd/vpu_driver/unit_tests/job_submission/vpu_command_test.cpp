@@ -158,7 +158,7 @@ struct VPUEventCommandTest : public VPUCommandTest {
         eventBuffer = ctx->createInternalBufferObject(4096, VPUBufferObject::Type::CachedFw);
         ASSERT_TRUE(eventBuffer);
 
-        cmdBufferHeader.fence_heap_base_address = ctx->getVPULowBaseAddress();
+        cmdBufferHeader.fence_heap_base_address = 0;
         eventHeapPtr = reinterpret_cast<decltype(eventHeapPtr)>(eventBuffer->getBasePointer());
     }
 
@@ -188,8 +188,9 @@ TEST_F(VPUEventCommandTest, eventWaitCommandsShouldReturnExpectedProperties) {
         reinterpret_cast<const vpu_cmd_fence_t *>(waitCmd->getCommitStream());
     EXPECT_EQ(VPU_CMD_FENCE_WAIT, actual->header.type);
     EXPECT_EQ(sizeof(vpu_cmd_fence_t), actual->header.size);
-    EXPECT_EQ(0u, actual->offset);
+    EXPECT_NE(0u, actual->offset);
     EXPECT_EQ(VPUEventCommand::STATE_WAIT, actual->value);
+    uint64_t offset1 = actual->offset;
 
     // 64bits offsetted event wait command.
     VPUEventCommand::KMDEventDataType *offsetEventHeapPtr = eventHeapPtr + 1;
@@ -200,7 +201,7 @@ TEST_F(VPUEventCommandTest, eventWaitCommandsShouldReturnExpectedProperties) {
     actual = reinterpret_cast<const vpu_cmd_fence_t *>(waitCmd2->getCommitStream());
     EXPECT_EQ(VPU_CMD_FENCE_WAIT, actual->header.type);
     EXPECT_EQ(sizeof(vpu_cmd_fence_t), actual->header.size);
-    EXPECT_EQ(8u, actual->offset);
+    EXPECT_EQ(actual->offset, offset1 + 8ULL);
     EXPECT_EQ(VPUEventCommand::STATE_WAIT, actual->value);
 }
 
@@ -216,7 +217,7 @@ TEST_F(VPUEventCommandTest, eventSignalCommandsShouldReturnExpectedProperties) {
     // Compare command stream return value in byte wise.
     vpu_cmd_fence_t expKMDSignalCmd = {};
     expKMDSignalCmd.header = {VPU_CMD_FENCE_SIGNAL, sizeof(vpu_cmd_fence_t)};
-    expKMDSignalCmd.offset = 0;
+    expKMDSignalCmd.offset = reinterpret_cast<uint64_t>(ctx->getBufferVPUAddress(eventHeapPtr));
     expKMDSignalCmd.value = VPUEventCommand::STATE_DEVICE_SIGNAL;
 
     EXPECT_EQ(memcmp(&expKMDSignalCmd, signalCmd->getCommitStream(), sizeof(vpu_cmd_fence_t)), 0);
@@ -227,7 +228,8 @@ TEST_F(VPUEventCommandTest, eventSignalCommandsShouldReturnExpectedProperties) {
     ASSERT_NE(signalCmd2, nullptr);
     EXPECT_EQ(sizeof(vpu_cmd_fence_t), signalCmd2->getCommitSize());
 
-    expKMDSignalCmd.offset = 8;
+    expKMDSignalCmd.offset =
+        reinterpret_cast<uint64_t>(ctx->getBufferVPUAddress(eventHeapPtr)) + 8ULL;
     EXPECT_EQ(memcmp(&expKMDSignalCmd, signalCmd2->getCommitStream(), sizeof(vpu_cmd_fence_t)), 0);
 }
 
@@ -242,7 +244,7 @@ TEST_F(VPUEventCommandTest, eventResetCommandsShouldReturnExpectedProperties) {
     // Compare command stream return value in byte wise.
     vpu_cmd_fence_t expKMDResetCmd = {};
     expKMDResetCmd.header = {VPU_CMD_FENCE_SIGNAL, sizeof(vpu_cmd_fence_t)};
-    expKMDResetCmd.offset = 0;
+    expKMDResetCmd.offset = reinterpret_cast<uint64_t>(ctx->getBufferVPUAddress(eventHeapPtr));
     expKMDResetCmd.value = VPUEventCommand::State::STATE_DEVICE_RESET;
 
     EXPECT_EQ(sizeof(vpu_cmd_fence_t), resetCmd->getCommitSize());
