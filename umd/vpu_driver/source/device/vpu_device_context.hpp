@@ -113,11 +113,6 @@ class VPUDeviceContext {
         return static_cast<uint32_t>(std::bitset<32>(hwInfo->tileConfig).count());
     }
 
-    /**
-     * Return the lowest VPU address from VPU low range that is accessible by firmware device
-     */
-    uint64_t getVPULowBaseAddress() const { return hwInfo->baseLowAddress; }
-
     uint32_t getExtraDmaDescriptorSize() const { return hwInfo->extraDmaDescriptorSize; }
 
     uint64_t getFwMappedInferenceVersion() const { return hwInfo->fwMappedInferenceVersion; }

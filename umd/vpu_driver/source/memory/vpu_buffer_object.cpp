@@ -32,7 +32,10 @@ VPUBufferObject::VPUBufferObject(const VPUDriverApi &drvApi,
     , basePtr(static_cast<uint8_t *>(basePtr))
     , allocSize(allocSize)
     , vpuAddr(vpuAddr)
-    , handle(handle) {}
+    , handle(handle) {
+    static uint64_t counter = 0;
+    id = ++counter;
+}
 
 VPUBufferObject::~VPUBufferObject() {
     if (drvApi.unmap(basePtr, allocSize) != 0) {

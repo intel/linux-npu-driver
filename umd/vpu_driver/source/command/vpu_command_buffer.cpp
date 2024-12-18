@@ -154,17 +154,9 @@ bool VPUCommandBuffer::initHeader(size_t cmdSize) {
     bb->cmd_offset = offsetof(CommandHeader, commandList);
     bb->cmd_buffer_size = safe_cast<uint32_t>(bb->cmd_offset + cmdSize);
     bb->context_save_area_address = buffer->getVPUAddr() + offsetof(CommandHeader, contextSaveArea);
-
-    uint64_t baseAddress = ctx->getVPULowBaseAddress();
-    if (baseAddress == 0) {
-        LOG_E("Invalid base address for VPU");
-        return false;
-    }
-
-    bb->kernel_heap_base_address = baseAddress;
-    bb->descriptor_heap_base_address = baseAddress;
-    bb->fence_heap_base_address = baseAddress;
-
+    bb->kernel_heap_base_address = 0;
+    bb->descriptor_heap_base_address = 0;
+    bb->fence_heap_base_address = 0;
     return true;
 }
 
@@ -225,7 +217,7 @@ bool VPUCommandBuffer::setSyncFenceAddr(VPUCommand *cmd) {
     }
 
     auto *fenceSignalHeader = reinterpret_cast<const vpu_cmd_fence_t *>(cmd->getCommitStream());
-    syncFenceVpuAddr = ctx->getVPULowBaseAddress() + fenceSignalHeader->offset;
+    syncFenceVpuAddr = fenceSignalHeader->offset;
     return true;
 }
 

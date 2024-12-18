@@ -36,8 +36,7 @@ bool VPUCommand::copyDescriptor(VPUDeviceContext *ctx, void **desc) {
               descriptor->data.end(),
               *reinterpret_cast<uint8_t **>(desc));
 
-    *descriptor->commandOffset =
-        safe_cast<uint32_t>(ctx->getBufferVPUAddress(*desc) - ctx->getVPULowBaseAddress());
+    *descriptor->commandOffset = safe_cast<uint64_t>(ctx->getBufferVPUAddress(*desc));
     *reinterpret_cast<uint8_t **>(desc) += getFwDataCacheAlign(descriptor->data.size());
 
     return true;

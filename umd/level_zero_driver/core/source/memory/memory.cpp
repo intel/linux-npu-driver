@@ -128,7 +128,7 @@ ze_result_t Context::getMemAllocProperties(const void *ptr,
         pMemAllocProperties->type = ZE_MEMORY_TYPE_UNKNOWN;
     }
 
-    pMemAllocProperties->id = bo->getHandle();
+    pMemAllocProperties->id = bo->getId();
     pMemAllocProperties->pageSize = bo->getAllocSize();
 
     if (pMemAllocProperties->pNext &&

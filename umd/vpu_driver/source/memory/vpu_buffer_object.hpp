@@ -144,6 +144,7 @@ class VPUBufferObject {
      *
      */
     bool exportToFd(int32_t &fd);
+    uint64_t getId() const { return id; }
 
   private:
     const VPUDriverApi &drvApi;
@@ -154,6 +155,7 @@ class VPUBufferObject {
 
     uint64_t vpuAddr;
     uint32_t handle;
+    uint64_t id;
 };
 
 } // namespace VPU

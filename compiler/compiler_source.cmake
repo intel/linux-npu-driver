@@ -18,8 +18,8 @@ include(ExternalProject)
 
 # OpenVINO + NPU Plugin package options
 set(OPENVINO_REVISION 0ebff040fd22daa37612a82fdf930ffce4ebb099)
-set(VPUX_PLUGIN_REVISION 4f89b7c000d98bb8f4bf5bb058967bbd02834caa)
-set(VPUX_PLUGIN_RELEASE npu_ud_2024_44_rc1)
+set(VPUX_PLUGIN_REVISION 150e2025aaba8bcc0f0e3853a526ee2e1e2e32a7)
+set(VPUX_PLUGIN_RELEASE npu_ud_2024_44_rc2)
 set(OPENCV_REVISION 78195bc3dfe20b96e721ae8b32d0aa3491755e78)
 
 # Directories
@@ -46,7 +46,7 @@ ExternalProject_Add(
 ExternalProject_Add(
   npu_plugin_source
   GIT_REPOSITORY
-    https://github.com/openvinotoolkit/npu_plugin.git
+    https://github.com/openvinotoolkit/npu_compiler.git
   GIT_TAG ${VPUX_PLUGIN_REVISION}
   PREFIX ${NPU_PLUGIN_PREFIX_DIR}
   SOURCE_DIR ${NPU_PLUGIN_SOURCE_DIR}

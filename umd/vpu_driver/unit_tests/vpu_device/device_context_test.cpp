@@ -28,10 +28,8 @@ struct DeviceContextTest : public ::testing::Test {
     void SetUp() override {
         // Make sure no other tracking buffers exist in MM.
         ASSERT_EQ(ctx->getBuffersCount(), 0u);
-
-        auto baseAddress = ctx->getVPULowBaseAddress();
-        cmdBufferHeader.kernel_heap_base_address = baseAddress;
-        cmdBufferHeader.descriptor_heap_base_address = baseAddress;
+        cmdBufferHeader.kernel_heap_base_address = 0;
+        cmdBufferHeader.descriptor_heap_base_address = 0;
     }
 
     void TearDown() override {
@@ -88,10 +86,6 @@ struct DeviceContextTest : public ::testing::Test {
 
     const uint32_t allocSize = 4 * 1024;
 };
-
-TEST_F(DeviceContextTest, getVPULowBaseAddressExpectSuccess) {
-    EXPECT_NE(0u, ctx->getVPULowBaseAddress());
-}
 
 TEST_F(DeviceContextTest, createAndFreeDeviceMemoryExpectSuccess) {
     auto ptr = ctx->createDeviceMemAlloc(allocSize);

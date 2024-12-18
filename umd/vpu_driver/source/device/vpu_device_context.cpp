@@ -137,13 +137,13 @@ VPUBufferObject *VPUDeviceContext::findBuffer(const void *ptr) const {
     const std::lock_guard<std::mutex> lock(mtx);
     auto it = trackedBuffers.lower_bound(ptr);
     if (it == trackedBuffers.end()) {
-        LOG_E("Failed to find pointer %p in device context!", ptr);
+        LOG(DEVICE, "Failed to find pointer %p in device context!", ptr);
         return nullptr;
     }
 
     auto &bo = it->second;
     if (!bo->isInRange(ptr)) {
-        LOG_E("Pointer is not within the range");
+        LOG(DEVICE, "Pointer is not within the range");
         return nullptr;
     }
 
