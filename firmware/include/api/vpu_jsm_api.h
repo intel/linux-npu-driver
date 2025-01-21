@@ -22,7 +22,7 @@
 /*
  * Minor version changes when API backward compatibility is preserved.
  */
-#define VPU_JSM_API_VER_MINOR 25
+#define VPU_JSM_API_VER_MINOR 27
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
@@ -126,11 +126,13 @@ enum {
      * When set, indicates that job queue uses native fences (as inline commands
      * in job queue). Such queues may also use legacy fences (as commands in batch buffers).
      * When cleared, indicates the job queue only uses legacy fences.
-     * NOTE: For queues using native fences, VPU expects that all jobs in the queue
-     * are immediately followed by an inline command object. This object is expected
-     * to be a fence signal command in most cases, but can also be a NOP in case the host
-     * does not need per-job fence signalling. Other inline commands objects can be
-     * inserted between "job and inline command" pairs.
+     * NOTES:
+     *   1. For queues using native fences, VPU expects that all jobs in the queue
+     *      are immediately followed by an inline command object. This object is expected
+     *      to be a fence signal command in most cases, but can also be a NOP in case the host
+     *      does not need per-job fence signalling. Other inline commands objects can be
+     *      inserted between "job and inline command" pairs.
+     *  2. Native fence queues are only supported on VPU 40xx onwards.
      */
     VPU_JOB_QUEUE_FLAGS_USE_NATIVE_FENCE_MASK = (1 << 1U),
 
@@ -276,6 +278,8 @@ struct vpu_inline_cmd {
             volatile uint64_t value;
             /* User VA of the log buffer in which to add log entry on completion. */
             volatile uint64_t log_buffer_va;
+            /* NPU private data. */
+            volatile uint64_t npu_private_data;
         } fence;
         /* Other commands do not have a payload. */
         /* Payload definition for future inline commands can be inserted here. */
@@ -967,8 +971,10 @@ struct vpu_ipc_msg_payload_hws_priority_band_setup {
      * in situations when it's starved by the focus band.
      */
     uint32_t normal_band_percentage;
-    /* Reserved */
-    uint32_t reserved_0;
+    /*
+     * TDR timeout value in milliseconds. Default value of 0 meaning no timeout.
+     */
+    uint32_t tdr_timeout;
 };
 
 /*
