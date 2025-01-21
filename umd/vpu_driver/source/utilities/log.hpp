@@ -35,6 +35,9 @@ enum LogMask : uint64_t {
     VPU_CTX = BIT(15), // 0x8000
     VPU_JOB = BIT(16), // 0x10000
     CACHE = BIT(17),   // 0x20000
+    API = BIT(18),     // 0x40000
+    API_DDI = BIT(19), // 0x80000
+    API_EXT = BIT(20), // 0x100000
 };
 #undef BIT
 
@@ -45,7 +48,7 @@ enum LogMask : uint64_t {
 #ifndef UMD_LOGMASK
 #define UMD_LOGMASK                                                                            \
     (CMDLIST | CMDQUEUE | CONTEXT | DEVICE | DRIVER | EVENT | FENCE | GRAPH | IOCTL | MEMORY | \
-     MISC | VPU_CMD | VPU_CTX | VPU_JOB | CACHE)
+     MISC | VPU_CMD | VPU_CTX | VPU_JOB | CACHE | API | API_EXT)
 #endif
 
 #define __FNAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)

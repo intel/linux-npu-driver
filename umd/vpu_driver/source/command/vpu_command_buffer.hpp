@@ -24,13 +24,6 @@ class VPUDeviceContext;
 
 class VPUCommandBuffer {
   public:
-    enum class Priority : uint32_t {
-        IDLE = DRM_IVPU_JOB_PRIORITY_IDLE,
-        NORMAL = DRM_IVPU_JOB_PRIORITY_NORMAL,
-        FOCUS = DRM_IVPU_JOB_PRIORITY_FOCUS,
-        REALTIME = DRM_IVPU_JOB_PRIORITY_REALTIME,
-    };
-
     VPUCommandBuffer(VPUDeviceContext *ctx,
                      VPUBufferObject *buffer,
                      const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
@@ -81,9 +74,6 @@ class VPUCommandBuffer {
      * Return the VPU address of fence signal command
      */
     uint64_t getFenceAddr() const { return syncFenceVpuAddr; }
-
-    void setPriority(Priority p) { priority = p; }
-    Priority getPriority() const { return priority; }
 
     bool replaceBufferHandles(std::vector<uint32_t> &oldHandles, std::vector<uint32_t> &newHandles);
 
@@ -139,7 +129,6 @@ class VPUCommandBuffer {
     VPUDeviceContext *ctx;
     VPUBufferObject *buffer;
     uint32_t jobStatus;
-    Priority priority;
     std::vector<std::shared_ptr<VPUCommand>>::iterator commandsBegin;
     std::vector<std::shared_ptr<VPUCommand>>::iterator commandsEnd;
 

@@ -38,10 +38,12 @@ static void printCopyDescriptor40xx(void *desc, vpu_cmd_header_t *cmd) {
 
 struct VPUHwInfo vpuHwInfo40xx = {.compilerPlatform = VCL_PLATFORM_VPU4000,
                                   .platformName = "40xx",
+                                  .npuArch = NPU40XX,
                                   .physicalEUSimdWidth = 4096,
                                   .nExecUnits = 12288,
                                   .numSubslicesPerSlice = 6,
                                   .tileFuseMask = 0x3F,
+                                  .timerResolution = PERF_FREQUENCY_DEFAULT_HZ / 2,
                                   .fwMappedInferenceVersion = VPU_NNRT_40XX_API_VER,
                                   .fwTimestampType = VPU_TIME_SYSTIME,
                                   .getCopyCommand = &getCopyCommandDescriptor40xx,

@@ -26,7 +26,6 @@ VPUCommandBuffer::VPUCommandBuffer(VPUDeviceContext *ctx,
     : ctx(ctx)
     , buffer(buffer)
     , jobStatus(std::numeric_limits<uint32_t>::max())
-    , priority(Priority::NORMAL)
     , commandsBegin(begin)
     , commandsEnd(end) {
     bufferHandles.emplace_back(buffer->getHandle());
@@ -353,19 +352,6 @@ void VPUCommandBuffer::printCommandBuffer() const {
                 cmd->size,
                 reinterpret_cast<vpu_cmd_metric_query_t *>(cmd)->metric_group_type,
                 reinterpret_cast<vpu_cmd_metric_query_t *>(cmd)->metric_data_address);
-            break;
-        case VPU_CMD_COPY_SYSTEM_TO_SYSTEM:
-            LOG(VPU_CMD,
-                "Command %i: Copy System to System (size: %u bytes)\n"
-                "\tdesc_start_offset = %#lx, desc_count = %u",
-                i,
-                cmd->size,
-                reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_start_offset,
-                reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_count);
-            ctx->printCopyDescriptor(
-                bufferPtr + reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_start_offset +
-                    cmdHeader->descriptor_heap_base_address - buffer->getVPUAddr(),
-                cmd);
             break;
         case VPU_CMD_COPY_LOCAL_TO_LOCAL:
             LOG(VPU_CMD,

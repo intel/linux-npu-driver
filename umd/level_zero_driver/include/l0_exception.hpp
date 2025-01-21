@@ -20,6 +20,14 @@ namespace L0 {
         throw DriverError(result);                       \
     }
 
+#define L0_HANDLE_EXCEPTION(ret, function_call)         \
+    try {                                               \
+        ret = function_call;                            \
+    } catch (const std::exception &e) {                 \
+        LOG_E("Exception caught, msg: '%s'", e.what()); \
+        ret = ZE_RESULT_ERROR_UNKNOWN;                  \
+    }
+
 #define L0_HANDLE_EXCEPTION_AND_RETURN(function_call)   \
     try {                                               \
         return function_call;                           \

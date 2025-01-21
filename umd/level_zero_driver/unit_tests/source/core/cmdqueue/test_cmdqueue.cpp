@@ -9,12 +9,12 @@
 #include <stdint.h>
 
 #include "gtest/gtest.h"
-#include "level_zero_driver/core/source/cmdlist/cmdlist.hpp"
-#include "level_zero_driver/core/source/cmdqueue/cmdqueue.hpp"
-#include "level_zero_driver/core/source/context/context.hpp"
-#include "level_zero_driver/core/source/device/device.hpp"
-#include "level_zero_driver/core/source/event/event.hpp"
-#include "level_zero_driver/core/source/event/eventpool.hpp"
+#include "level_zero_driver/source/cmdlist.hpp"
+#include "level_zero_driver/source/cmdqueue.hpp"
+#include "level_zero_driver/source/context.hpp"
+#include "level_zero_driver/source/device.hpp"
+#include "level_zero_driver/source/event.hpp"
+#include "level_zero_driver/source/eventpool.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"

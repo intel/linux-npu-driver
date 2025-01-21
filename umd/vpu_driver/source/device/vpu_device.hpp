@@ -31,6 +31,7 @@ class VPUDevice {
     const VPUHwInfo &getHwInfo() const;
     const std::vector<GroupInfo> getMetricGroupsInfo() const;
     bool getCapMetricStreamer() const;
+    bool getCapCmdQueueCreation() const;
     virtual std::unique_ptr<VPUDeviceContext> createDeviceContext();
 
     int getBDF(uint32_t *domain, uint32_t *bus, uint32_t *dev, uint32_t *func);

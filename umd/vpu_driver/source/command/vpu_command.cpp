@@ -45,7 +45,7 @@ bool VPUCommand::copyDescriptor(VPUDeviceContext *ctx, void **desc) {
 bool VPUCommand::appendAssociateBufferObject(VPUDeviceContext *ctx, const void *assocPtr) {
     VPUBufferObject *bo = ctx->findBuffer(assocPtr);
     if (bo == nullptr) {
-        LOG_E("Failed to find pointer %p", assocPtr);
+        LOG_E("Failed to find a pointer %p associated with VPUCommand", assocPtr);
         return false;
     }
 

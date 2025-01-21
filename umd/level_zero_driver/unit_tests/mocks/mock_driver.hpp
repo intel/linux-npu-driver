@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "level_zero_driver/core/source/driver/driver.hpp"
+#include "level_zero_driver/source/driver.hpp"
 #include "level_zero_driver/unit_tests/mocks/mock.hpp"
 
 #include <atomic>

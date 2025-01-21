@@ -46,6 +46,6 @@ include_directories(SYSTEM ${VPU_KMD_INCLUDE_DIR})
 add_subdirectory_unique(vpu_driver/source)
 add_subdirectory_unique(vpu_driver/unit_tests)
 
-add_subdirectory_unique(level_zero_driver)
-add_subdirectory_unique(level_zero_driver/api)
+add_subdirectory_unique(level_zero_driver/source)
 add_subdirectory_unique(level_zero_driver/unit_tests)
+add_subdirectory_unique(level_zero_driver/api)

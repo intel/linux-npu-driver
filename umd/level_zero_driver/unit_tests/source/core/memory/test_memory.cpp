@@ -8,7 +8,7 @@
 #include <stddef.h>
 
 #include "gtest/gtest.h"
-#include "level_zero_driver/core/source/context/context.hpp"
+#include "level_zero_driver/source/context.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/unit_tests/test_macros/test.hpp"

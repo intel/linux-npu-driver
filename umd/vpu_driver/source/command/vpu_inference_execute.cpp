@@ -8,7 +8,7 @@
 #include "vpu_driver/source/command/vpu_inference_execute.hpp"
 
 #include "api/vpu_jsm_job_cmd_api.h"
-#include "level_zero_driver/ext/source/graph/elf_parser.hpp"
+#include "level_zero_driver/source/ext/elf_parser.hpp"
 #include "umd_common.hpp"
 #include "vpu_driver/source/command/vpu_command_buffer.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"

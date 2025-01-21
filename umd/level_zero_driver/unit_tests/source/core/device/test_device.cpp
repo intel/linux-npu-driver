@@ -8,7 +8,7 @@
 #include <stdint.h>
 
 #include "gtest/gtest.h"
-#include "level_zero_driver/core/source/device/device.hpp"
+#include "level_zero_driver/source/device.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"

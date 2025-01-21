@@ -57,6 +57,9 @@ bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
         hwInfo.metricStreamerCapability = true;
     if (drvApi->checkDeviceCapability(DRM_IVPU_CAP_DMA_MEMORY_RANGE))
         hwInfo.dmaMemoryRangeCapability = true;
+    if (drvApi->checkDeviceCapability(DRM_IVPU_CAP_MANAGE_CMDQ)) {
+        hwInfo.cmdQueueCreationCapability = true;
+    }
 
     mappedInferenceVersion = drvApi->getFWComponentVersion(hwInfo.fwMappedInferenceIndex);
     jsmApiVersion = drvApi->getFWComponentVersion(hwInfo.fwJsmCmdApiVerIndex);
@@ -260,6 +263,10 @@ const std::vector<GroupInfo> VPUDevice::getMetricGroupsInfo() const {
 
 bool VPUDevice::getCapMetricStreamer() const {
     return hwInfo.metricStreamerCapability;
+}
+
+bool VPUDevice::getCapCmdQueueCreation() const {
+    return hwInfo.cmdQueueCreationCapability;
 }
 
 bool VPUDevice::isConnected() {

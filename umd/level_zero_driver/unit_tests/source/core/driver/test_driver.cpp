@@ -9,8 +9,8 @@
 
 #include "gtest/gtest.h"
 #include "level_zero/ze_intel_npu_uuid.h"
-#include "level_zero_driver/core/source/driver/driver.hpp"
-#include "level_zero_driver/core/source/driver/driver_handle.hpp"
+#include "level_zero_driver/source/driver.hpp"
+#include "level_zero_driver/source/driver_handle.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
 #include "level_zero_driver/unit_tests/mocks/mock_driver.hpp"
 #include "vpu_driver/source/utilities/log.hpp"

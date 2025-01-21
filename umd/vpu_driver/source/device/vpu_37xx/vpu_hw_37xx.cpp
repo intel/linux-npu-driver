@@ -38,6 +38,7 @@ static void printCopyDescriptor37xx(void *desc, vpu_cmd_header_t *cmd) {
 
 struct VPUHwInfo vpuHwInfo37xx = {.compilerPlatform = VCL_PLATFORM_VPU3720,
                                   .platformName = "37xx",
+                                  .npuArch = NPU37XX,
                                   .physicalEUSimdWidth = 4096,
                                   .nExecUnits = 4096,
                                   .numSubslicesPerSlice = 2,

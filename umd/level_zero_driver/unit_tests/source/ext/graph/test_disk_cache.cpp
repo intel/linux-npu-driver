@@ -11,8 +11,8 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "level_zero/ze_graph_ext.h"
-#include "level_zero_driver/ext/source/graph/blob_container.hpp"
-#include "level_zero_driver/ext/source/graph/disk_cache.hpp"
+#include "level_zero_driver/source/ext/blob_container.hpp"
+#include "level_zero_driver/source/ext/disk_cache.hpp"
 #include "vpu_driver/unit_tests/mocks/gmock_os_interface_imp.hpp"
 
 #include <memory>

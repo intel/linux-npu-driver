@@ -5,6 +5,8 @@
  *
  */
 
+#include "level_zero_driver/api/trace/trace_zes_api_ddi.hpp"
+
 #include <level_zero/ze_api.h>
 #include <level_zero/zes_ddi.h>
 
@@ -21,13 +23,20 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetDiagnosticsProcAddrTable(
     ze_api_version_t version,             ///< [in] API version requested
     zes_diagnostics_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
 ) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    trace_zesGetDiagnosticsProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
 
-    ze_result_t result = ZE_RESULT_SUCCESS;
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    ret = ZE_RESULT_SUCCESS;
 
     pDdiTable->pfnGetProperties = nullptr;
 
@@ -35,7 +44,9 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetDiagnosticsProcAddrTable(
 
     pDdiTable->pfnRunTests = nullptr;
 
-    return result;
+exit:
+    trace_zesGetDiagnosticsProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -50,13 +61,20 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetFabricPortProcAddrTable(
     ze_api_version_t version,             ///< [in] API version requested
     zes_fabric_port_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
 ) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    trace_zesGetFabricPortProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
 
-    ze_result_t result = ZE_RESULT_SUCCESS;
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    ret = ZE_RESULT_SUCCESS;
 
     pDdiTable->pfnGetProperties = nullptr;
 
@@ -70,7 +88,9 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetFabricPortProcAddrTable(
 
     pDdiTable->pfnGetThroughput = nullptr;
 
-    return result;
+exit:
+    trace_zesGetFabricPortProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -85,13 +105,20 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetFanProcAddrTable(
     ze_api_version_t version,     ///< [in] API version requested
     zes_fan_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
 ) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    trace_zesGetFanProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
 
-    ze_result_t result = ZE_RESULT_SUCCESS;
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    ret = ZE_RESULT_SUCCESS;
 
     pDdiTable->pfnGetProperties = nullptr;
 
@@ -105,7 +132,9 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetFanProcAddrTable(
 
     pDdiTable->pfnGetState = nullptr;
 
-    return result;
+exit:
+    trace_zesGetFanProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -120,19 +149,28 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetFirmwareProcAddrTable(
     ze_api_version_t version,          ///< [in] API version requested
     zes_firmware_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
 ) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    trace_zesGetFirmwareProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
 
-    ze_result_t result = ZE_RESULT_SUCCESS;
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    ret = ZE_RESULT_SUCCESS;
 
     pDdiTable->pfnGetProperties = nullptr;
 
     pDdiTable->pfnFlash = nullptr;
 
-    return result;
+exit:
+    trace_zesGetFirmwareProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -147,13 +185,20 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetFrequencyProcAddrTable(
     ze_api_version_t version,           ///< [in] API version requested
     zes_frequency_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
 ) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    trace_zesGetFrequencyProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
 
-    ze_result_t result = ZE_RESULT_SUCCESS;
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    ret = ZE_RESULT_SUCCESS;
 
     pDdiTable->pfnGetProperties = nullptr;
 
@@ -189,7 +234,9 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetFrequencyProcAddrTable(
 
     pDdiTable->pfnOcSetTjMax = nullptr;
 
-    return result;
+exit:
+    trace_zesGetFrequencyProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -204,13 +251,20 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetLedProcAddrTable(
     ze_api_version_t version,     ///< [in] API version requested
     zes_led_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
 ) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    trace_zesGetLedProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
 
-    ze_result_t result = ZE_RESULT_SUCCESS;
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    ret = ZE_RESULT_SUCCESS;
 
     pDdiTable->pfnGetProperties = nullptr;
 
@@ -220,7 +274,9 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetLedProcAddrTable(
 
     pDdiTable->pfnSetColor = nullptr;
 
-    return result;
+exit:
+    trace_zesGetLedProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -235,13 +291,20 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetMemoryProcAddrTable(
     ze_api_version_t version,        ///< [in] API version requested
     zes_memory_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
 ) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    trace_zesGetMemoryProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
 
-    ze_result_t result = ZE_RESULT_SUCCESS;
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    ret = ZE_RESULT_SUCCESS;
 
     pDdiTable->pfnGetProperties = nullptr;
 
@@ -249,7 +312,9 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetMemoryProcAddrTable(
 
     pDdiTable->pfnGetBandwidth = nullptr;
 
-    return result;
+exit:
+    trace_zesGetMemoryProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -265,13 +330,20 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetPerformanceFactorProcAddrTable(
     zes_performance_factor_dditable_t
         *pDdiTable ///< [in,out] pointer to table of DDI function pointers
 ) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    trace_zesGetPerformanceFactorProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
 
-    ze_result_t result = ZE_RESULT_SUCCESS;
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    ret = ZE_RESULT_SUCCESS;
 
     pDdiTable->pfnGetProperties = nullptr;
 
@@ -279,7 +351,9 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetPerformanceFactorProcAddrTable(
 
     pDdiTable->pfnSetConfig = nullptr;
 
-    return result;
+exit:
+    trace_zesGetPerformanceFactorProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -294,13 +368,20 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetPowerProcAddrTable(
     ze_api_version_t version,       ///< [in] API version requested
     zes_power_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
 ) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    trace_zesGetPowerProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
 
-    ze_result_t result = ZE_RESULT_SUCCESS;
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    ret = ZE_RESULT_SUCCESS;
 
     pDdiTable->pfnGetProperties = nullptr;
 
@@ -314,7 +395,9 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetPowerProcAddrTable(
 
     pDdiTable->pfnSetEnergyThreshold = nullptr;
 
-    return result;
+exit:
+    trace_zesGetPowerProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -329,19 +412,28 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetPsuProcAddrTable(
     ze_api_version_t version,     ///< [in] API version requested
     zes_psu_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
 ) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    trace_zesGetPsuProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
 
-    ze_result_t result = ZE_RESULT_SUCCESS;
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    ret = ZE_RESULT_SUCCESS;
 
     pDdiTable->pfnGetProperties = nullptr;
 
     pDdiTable->pfnGetState = nullptr;
 
-    return result;
+exit:
+    trace_zesGetPsuProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -356,13 +448,20 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetRasProcAddrTable(
     ze_api_version_t version,     ///< [in] API version requested
     zes_ras_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
 ) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    trace_zesGetRasProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
 
-    ze_result_t result = ZE_RESULT_SUCCESS;
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    ret = ZE_RESULT_SUCCESS;
 
     pDdiTable->pfnGetProperties = nullptr;
 
@@ -372,7 +471,9 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetRasProcAddrTable(
 
     pDdiTable->pfnGetState = nullptr;
 
-    return result;
+exit:
+    trace_zesGetRasProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -387,13 +488,20 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetSchedulerProcAddrTable(
     ze_api_version_t version,           ///< [in] API version requested
     zes_scheduler_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
 ) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    trace_zesGetSchedulerProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
 
-    ze_result_t result = ZE_RESULT_SUCCESS;
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    ret = ZE_RESULT_SUCCESS;
 
     pDdiTable->pfnGetProperties = nullptr;
 
@@ -411,7 +519,9 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetSchedulerProcAddrTable(
 
     pDdiTable->pfnSetComputeUnitDebugMode = nullptr;
 
-    return result;
+exit:
+    trace_zesGetSchedulerProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -426,13 +536,20 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetStandbyProcAddrTable(
     ze_api_version_t version,         ///< [in] API version requested
     zes_standby_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
 ) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    trace_zesGetStandbyProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
 
-    ze_result_t result = ZE_RESULT_SUCCESS;
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    ret = ZE_RESULT_SUCCESS;
 
     pDdiTable->pfnGetProperties = nullptr;
 
@@ -440,7 +557,9 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetStandbyProcAddrTable(
 
     pDdiTable->pfnSetMode = nullptr;
 
-    return result;
+exit:
+    trace_zesGetStandbyProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -455,13 +574,20 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetTemperatureProcAddrTable(
     ze_api_version_t version,             ///< [in] API version requested
     zes_temperature_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
 ) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    trace_zesGetTemperatureProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
 
-    ze_result_t result = ZE_RESULT_SUCCESS;
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    ret = ZE_RESULT_SUCCESS;
 
     pDdiTable->pfnGetProperties = nullptr;
 
@@ -471,6 +597,8 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetTemperatureProcAddrTable(
 
     pDdiTable->pfnGetState = nullptr;
 
-    return result;
+exit:
+    trace_zesGetTemperatureProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 }
