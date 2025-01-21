@@ -1,4 +1,4 @@
-# Copyright 2022-2023 Intel Corporation.
+# Copyright 2022-2024 Intel Corporation.
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -16,14 +16,9 @@ endif()
 
 include(compiler_source.cmake)
 
-if(DEFINED ENV{TARGET_DISTRO})
-  set(TARGET_DISTRO $ENV{TARGET_DISTRO})
-else()
-  set(TARGET_DISTRO ${CMAKE_SYSTEM_NAME})
-endif()
-
-set(OPENVINO_PACKAGE_NAME "openvino-vpu-drv-${TARGET_DISTRO}-${VPUX_PLUGIN_RELEASE}-${BUILD_NUMBER}")
-set(OPENVINO_PACKAGE_DIR "${CMAKE_BINARY_DIR}/third_party/openvino_package")
+string(SUBSTRING ${OPENVINO_REVISION} 0 8 OPENVINO_REVISION_SHORT)
+set(OPENVINO_PACKAGE_NAME "openvino-vpu-drv-${TARGET_DISTRO}-${OPENVINO_REVISION_SHORT}-${BUILD_NUMBER}")
+set(OPENVINO_PACKAGE_DIR "${CMAKE_CURRENT_BINARY_DIR}/openvino_package")
 file(MAKE_DIRECTORY ${OPENVINO_PACKAGE_DIR})
 
 list(APPEND COMMON_CMAKE_ARGS -DCMAKE_TOOLCHAIN_FILE:FILEPATH=${CMAKE_TOOLCHAIN_FILE})
@@ -32,14 +27,13 @@ list(APPEND COMMON_CMAKE_ARGS -DCMAKE_MAKE_PROGRAM:FILEPATH=${CMAKE_MAKE_PROGRAM
 set(THREADING "TBB" CACHE STRING "Build OpenVINO with specific THREADING option")
 
 ### OpenVINO ###
-set(OPENVINO_BINARY_DIR "${OPENVINO_PREFIX_DIR}/build")
+set(OPENVINO_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/build")
 file(MAKE_DIRECTORY ${OPENVINO_BINARY_DIR})
 
 ExternalProject_Add(
   openvino_build
   DOWNLOAD_COMMAND ""
-  DEPENDS npu_plugin_source openvino_source
-  PREFIX ${OPENVINO_PREFIX_DIR}
+  DEPENDS openvino_source
   SOURCE_DIR ${OPENVINO_SOURCE_DIR}
   BINARY_DIR ${OPENVINO_BINARY_DIR}
   INSTALL_DIR ${OPENVINO_PACKAGE_DIR}
@@ -50,15 +44,24 @@ ExternalProject_Add(
     -DENABLE_PYTHON=OFF
     -DENABLE_NCC_STYLE=OFF
     -DENABLE_CLANG_FORMAT=OFF
+    -DENABLE_CPPLINT=OFF
+    -DENABLE_INTEL_NPU_PROTOPIPE=ON
     -DTHREADING=${THREADING})
 
+# manually add an interface library for OpenVino so umd tests can link with it
+add_library(openvino_library INTERFACE)
+add_dependencies(openvino_library openvino_build)
+target_include_directories(openvino_library INTERFACE ${OPENVINO_PACKAGE_DIR}/runtime/include)
+target_link_libraries(openvino_library INTERFACE ${OPENVINO_PACKAGE_DIR}/runtime/lib/intel64/libopenvino.so)
+add_library(openvino::runtime ALIAS openvino_library)
+
 ### OpenCV ###
-set(OPENCV_PREFIX_DIR "${CMAKE_BINARY_DIR}/third_party/opencv")
-set(OPENCV_SOURCE_DIR "${OPENCV_PREFIX_DIR}/src/opencv")
+set(OPENCV_SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/src/opencv")
 file(MAKE_DIRECTORY ${OPENCV_SOURCE_DIR})
 
-set(OPENCV_BINARY_DIR "${OPENCV_PREFIX_DIR}/build")
+set(OPENCV_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/build-opencv")
 file(MAKE_DIRECTORY ${OPENCV_BINARY_DIR})
+set(OPENCV_PACKAGE_DIR "${OPENVINO_PACKAGE_DIR}/opencv")
 
 ExternalProject_Add(
   opencv_build
@@ -67,13 +70,12 @@ ExternalProject_Add(
   DEPENDS openvino_build
   UPDATE_DISCONNECTED TRUE
   PATCH_COMMAND ""
-  PREFIX ${OPENCV_PREFIX_DIR}
   SOURCE_DIR ${OPENCV_SOURCE_DIR}
   BINARY_DIR ${OPENCV_BINARY_DIR}
-  INSTALL_DIR ${OPENVINO_PACKAGE_DIR}/opencv
+  INSTALL_DIR ${OPENCV_PACKAGE_DIR}
   CMAKE_ARGS
     ${COMMON_CMAKE_ARGS}
-    -DCMAKE_INSTALL_PREFIX=${OPENVINO_PACKAGE_DIR}/opencv
+    -DCMAKE_INSTALL_PREFIX=${OPENCV_PACKAGE_DIR}
     -DCMAKE_PREFIX_PATH=${OPENVINO_BINARY_DIR}
     -DOPENCV_GENERATE_SETUPVARS=ON
     -DBUILD_opencv_dnn=OFF
@@ -86,12 +88,22 @@ ExternalProject_Add(
     -DWITH_TIFF=OFF
     -DWITH_WEBP=OFF)
 
+# manually add an interface library for OpenCV so umd tests can link with it
+add_library(opencv_core INTERFACE)
+add_dependencies(opencv_core opencv_build)
+target_include_directories(opencv_core INTERFACE ${OPENCV_PACKAGE_DIR}/include/opencv4)
+target_link_libraries(opencv_core INTERFACE ${OPENCV_PACKAGE_DIR}/lib/libopencv_core.so)
+
+add_library(opencv_imgcodecs INTERFACE)
+add_dependencies(opencv_imgcodecs opencv_build)
+target_include_directories(opencv_imgcodecs INTERFACE ${OPENCV_PACKAGE_DIR}/include/opencv4)
+target_link_libraries(opencv_imgcodecs INTERFACE ${OPENCV_PACKAGE_DIR}/lib/libopencv_imgcodecs.so)
+
 ### single-image-test ###
 ExternalProject_Add(
   single_image_test_build
   DOWNLOAD_COMMAND ""
   DEPENDS opencv_build
-  PREFIX ${OPENVINO_PREFIX_DIR}
   SOURCE_DIR ${OPENVINO_SOURCE_DIR}
   BINARY_DIR ${OPENVINO_BINARY_DIR}
   INSTALL_DIR ${OPENVINO_PACKAGE_DIR}
@@ -103,10 +115,10 @@ ExternalProject_Add(
     --target single-image-test)
 
 ### Sample applications from OpenVINO (benchmark_app ...) ###
-set(SAMPLES_APPS_BUILD_DIR ${OPENVINO_PREFIX_DIR}/build-samples)
+set(SAMPLES_APPS_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/build-samples)
 file(MAKE_DIRECTORY ${SAMPLES_APPS_BUILD_DIR})
 
-set(SAMPLES_APPS_PACKAGE_DIR "${OPENVINO_PACKAGE_DIR}/tools/deployment_tools/inference_engine/bin")
+set(SAMPLES_APPS_PACKAGE_DIR "${OPENVINO_PACKAGE_DIR}/tools/")
 file(MAKE_DIRECTORY ${SAMPLES_APPS_PACKAGE_DIR})
 
 ExternalProject_Add(
@@ -116,38 +128,14 @@ ExternalProject_Add(
   PREFIX ${OPENVINO_PREFIX_DIR}
   SOURCE_DIR ${OPENVINO_SOURCE_DIR}/samples/cpp
   BINARY_DIR ${SAMPLES_APPS_BUILD_DIR}
-  INSTALL_DIR ${SAMPLES_APPS_BUILD_DIR}
+  INSTALL_DIR ""
   CMAKE_ARGS
     ${COMMON_CMAKE_ARGS}
-    -DCMAKE_INSTALL_PREFIX=${SAMPLES_APPS_PACKAGE_DIR}
     -DCMAKE_PREFIX_PATH=${OPENVINO_BINARY_DIR}
     -DOpenCV_DIR=${OPENCV_BINARY_DIR}
     -DSAMPLES_ENABLE_OPENCL=OFF)
 
-### NPU plugin ###
-set(NPU_PLUGIN_BINARY_DIR ${NPU_PLUGIN_PREFIX_DIR}/build)
-file(MAKE_DIRECTORY ${NPU_PLUGIN_BINARY_DIR})
-
-ExternalProject_Add(
-  npu_plugin_build
-  DOWNLOAD_COMMAND ""
-  DEPENDS sample_apps_build
-  PREFIX ${NPU_PLUGIN_PREFIX_DIR}
-  SOURCE_DIR ${NPU_PLUGIN_SOURCE_DIR}
-  BINARY_DIR ${NPU_PLUGIN_BINARY_DIR}
-  INSTALL_DIR ${OPENVINO_PACKAGE_DIR}
-  CMAKE_ARGS
-    ${COMMON_CMAKE_ARGS}
-    -DCMAKE_BUILD_TYPE=Release
-    -DCMAKE_INSTALL_PREFIX=${OPENVINO_PACKAGE_DIR}
-    -DOpenCV_DIR=${OPENCV_BINARY_DIR}
-    -DOpenVINODeveloperPackage_DIR=${OPENVINO_BINARY_DIR}
-    -DTHREADING=${THREADING})
-
-### OV+NPU plugin package ###
-set(COMPILE_TOOL_PACKAGE_DIR "${OPENVINO_PACKAGE_DIR}/tools/compile_tool")
-file(MAKE_DIRECTORY ${COMPILE_TOOL_PACKAGE_DIR})
-
+### OpenVINO package ###
 set(OPENVINO_BINARY_RELEASE_DIR "${OPENVINO_SOURCE_DIR}/bin/intel64/Release")
 set(OPENVINO_LIBRARY_DIR ${OPENVINO_BINARY_RELEASE_DIR} PARENT_SCOPE)
 set(OPENCV_LIBRARY_DIR "${OPENCV_BINARY_DIR}/lib" PARENT_SCOPE)
@@ -155,21 +143,17 @@ set(OPENCV_LIBRARY_DIR "${OPENCV_BINARY_DIR}/lib" PARENT_SCOPE)
 add_custom_target(
   openvino_package ALL
   COMMAND
-    cp -d ${OPENCV_BINARY_DIR}/setup_vars.sh ${OPENVINO_PACKAGE_DIR}/opencv/setupvars.sh &&
+    cp -d ${OPENCV_BINARY_DIR}/setup_vars.sh ${OPENCV_PACKAGE_DIR}/setupvars.sh &&
     cp -d ${SAMPLES_APPS_BUILD_DIR}/intel64/benchmark_app ${SAMPLES_APPS_PACKAGE_DIR}/ &&
     cp -d ${SAMPLES_APPS_BUILD_DIR}/intel64/classification_sample_async ${SAMPLES_APPS_PACKAGE_DIR}/ &&
     cp -d ${SAMPLES_APPS_BUILD_DIR}/intel64/hello_classification ${SAMPLES_APPS_PACKAGE_DIR}/ &&
     cp -d ${SAMPLES_APPS_BUILD_DIR}/intel64/hello_query_device ${SAMPLES_APPS_PACKAGE_DIR}/ &&
-    cp -d ${OPENVINO_BINARY_RELEASE_DIR}/protopipe ${SAMPLES_APPS_PACKAGE_DIR}/ &&
-    cp -d ${OPENVINO_BINARY_RELEASE_DIR}/compile_tool ${COMPILE_TOOL_PACKAGE_DIR}/ &&
     git -C ${OPENCV_SOURCE_DIR} rev-list --max-count=1 HEAD > ${OPENVINO_PACKAGE_DIR}/opencv_sha &&
     git -C ${OPENVINO_SOURCE_DIR} rev-list --max-count=1 HEAD > ${OPENVINO_PACKAGE_DIR}/openvino_sha &&
-    git -C ${NPU_PLUGIN_SOURCE_DIR} rev-list --max-count=1 HEAD > ${OPENVINO_PACKAGE_DIR}/npu_plugin_sha &&
     echo ${OPENVINO_PACKAGE_NAME} > ${OPENVINO_PACKAGE_DIR}/build_version &&
     echo `git -C ${OPENVINO_SOURCE_DIR} rev-parse HEAD` `git -C ${OPENVINO_SOURCE_DIR} config --local --get remote.origin.url` > ${OPENVINO_PACKAGE_DIR}/manifest.txt &&
-    echo `git -C ${NPU_PLUGIN_SOURCE_DIR} rev-parse HEAD` `git -C ${NPU_PLUGIN_SOURCE_DIR} config --local --get remote.origin.url` >> ${OPENVINO_PACKAGE_DIR}/manifest.txt &&
     tar -C ${OPENVINO_PACKAGE_DIR} -czf ${CMAKE_BINARY_DIR}/${OPENVINO_PACKAGE_NAME}.tar.gz .
-  DEPENDS openvino_build opencv_build npu_plugin_build sample_apps_build single_image_test_build
+  DEPENDS openvino_build opencv_build sample_apps_build single_image_test_build
   BYPRODUCTS ${CMAKE_BINARY_DIR}/${OPENVINO_PACKAGE_NAME}.tar.gz)
 
 install(
@@ -195,7 +179,6 @@ install(DIRECTORY ${OPENVINO_BINARY_RELEASE_DIR}/
         FILES_MATCHING
         PATTERN "libnpu_driver_compiler_adapter.so"
         PATTERN "libnpu_level_zero_backend.so"
-        PATTERN "libnpu_mlir_compiler.so"
         PATTERN "libopenvino.so*"
         PATTERN "libopenvino_intel_cpu_plugin.so"
         PATTERN "libopenvino_intel_gpu_plugin.so"
