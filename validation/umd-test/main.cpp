@@ -14,11 +14,13 @@ namespace test_vars {
 bool test_with_gpu;
 bool disable_metrics;
 bool forceDmaHeap;
+bool initialization_tests;
+uint32_t globalSyncTimeoutMs;
 } // namespace test_vars
 
 static void setConfig(const char *optarg) {
     if (!Environment::setupGlobalConfig(optarg)) {
-        fprintf(stderr, "Failed to set up config from path: %s", optarg);
+        fprintf(stderr, "Failed to set up config from path: %s\n", optarg);
         exit(1);
     }
 }
@@ -30,12 +32,16 @@ static void disableMetrics(const char *) {
 
 static void forceDmaHeap(const char *) {
     test_vars::forceDmaHeap = true;
-    if (::testing::GTEST_FLAG(filter).find("UsingDmaHeap.") == std::string::npos)
-        test_app::append_positive_filter("*UsingDmaHeap.*");
+    if (::testing::GTEST_FLAG(filter).find("DmaHeap.") == std::string::npos)
+        test_app::append_positive_filter("*DmaHeap.*");
 }
 
 static void forceAllTests(const char *) {
     test_vars::forceDmaHeap = true;
+}
+
+static void forceSyncTimeout(const char *arg) {
+    test_vars::globalSyncTimeoutMs = atoi(arg);
 }
 
 const char *helpMsg = "  -c/--config [CONFIGURATION_PATH]\n"
@@ -46,6 +52,8 @@ const char *helpMsg = "  -c/--config [CONFIGURATION_PATH]\n"
                       "       Disabling metrics. No metric test will be run\n"
                       "  -R/--dma-heap\n"
                       "       Run tests that requires /dev/dma_heap/system\n"
+                      "  -T/--wait_timeout\n"
+                      "       Change timeout used for synchronization operations [ms] \n"
                       "  -A/--all\n"
                       "       Run all conditional tests(includes dma-heap)\n";
 
@@ -69,6 +77,11 @@ int main(int argc, char **argv) {
         {'G', {"test_with_gpu", no_argument, [](auto) { test_vars::test_with_gpu = true; }}},
         {'M', {"disable_metrics", no_argument, &disableMetrics}},
         {'R', {"dma-heap", no_argument, &forceDmaHeap}},
+        {'T', {"sync_timeout", required_argument, &forceSyncTimeout}},
+        {'I',
+         {"initialization_tests",
+          no_argument,
+          [](auto) { test_vars::initialization_tests = true; }}},
         {'A', {"all", no_argument, &forceAllTests}},
     };
 

@@ -12,6 +12,7 @@
 #include <limits>
 #include <stdio.h>
 #include <string>
+#include <sys/utsname.h>
 #include <unordered_map>
 
 #define ARRAY_SIZE(s) (sizeof(s) / sizeof(s[0]))
@@ -68,6 +69,14 @@ void overwrite_timeout(T &timeout) {
 bool is_vpu37xx(uint16_t pci_id);
 bool is_vpu40xx(uint16_t pci_id);
 bool is_vpu(uint16_t pci_id);
+
+inline bool is_hardening_kernel() {
+    struct utsname uts;
+
+    uname(&uts);
+    std::string str(uts.release);
+    return str.find("hardening") != std::string::npos;
+}
 
 bool has_root_access();
 

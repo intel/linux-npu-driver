@@ -8,7 +8,7 @@
 #include "umd_dma_heap_system.hpp"
 #include "umd_test.h"
 
-class ImportMemoryUsingDmaHeap : public UmdTest, public ::testing::WithParamInterface<uint64_t> {
+class ExternalMemoryDmaHeap : public UmdTest, public ::testing::WithParamInterface<uint64_t> {
   public:
     /* Get allocation properties descriptor */
     ze_memory_allocation_properties_t pMemAllocProperties = {
@@ -36,13 +36,13 @@ class ImportMemoryUsingDmaHeap : public UmdTest, public ::testing::WithParamInte
 };
 
 INSTANTIATE_TEST_SUITE_P(,
-                         ImportMemoryUsingDmaHeap,
+                         ExternalMemoryDmaHeap,
                          ::testing::Values(2 * KB, 16 * MB, 255 * MB),
                          [](const testing::TestParamInfo<uint64_t> &cmd) {
                              return memSizeToStr(cmd.param);
                          });
 
-TEST_P(ImportMemoryUsingDmaHeap, AllocDeviceMemory) {
+TEST_P(ExternalMemoryDmaHeap, DmaHeapToNpu) {
     ze_result_t ret;
     size_t dmaBufferSize = GetParam();
 

@@ -9,7 +9,7 @@
 
 #include <sys/mman.h>
 
-class ExportMemory : public UmdTest, public ::testing::WithParamInterface<uint64_t> {
+class ExternalMemory : public UmdTest, public ::testing::WithParamInterface<uint64_t> {
   public:
     /* Get allocation properties descriptor */
     ze_memory_allocation_properties_t pMemAllocProperties = {
@@ -44,7 +44,7 @@ class ExportMemory : public UmdTest, public ::testing::WithParamInterface<uint64
         .fd = -1};
 };
 
-TEST_F(ExportMemory, GetExternalMemoryProperties) {
+TEST_F(ExternalMemory, GetExternalMemoryProperties) {
     ze_device_external_memory_properties_t prop = {};
     prop.stype = ZE_STRUCTURE_TYPE_DEVICE_EXTERNAL_MEMORY_PROPERTIES;
 
@@ -56,13 +56,13 @@ TEST_F(ExportMemory, GetExternalMemoryProperties) {
 }
 
 INSTANTIATE_TEST_SUITE_P(,
-                         ExportMemory,
+                         ExternalMemory,
                          ::testing::Values(2 * KB, 16 * MB, 255 * MB),
                          [](const testing::TestParamInfo<uint64_t> &cmd) {
                              return memSizeToStr(cmd.param);
                          });
 
-TEST_P(ExportMemory, AllocDeviceMemory) {
+TEST_P(ExternalMemory, AllocDeviceMemory) {
     ze_result_t ret;
     uint64_t size = GetParam();
 
@@ -95,7 +95,7 @@ TEST_P(ExportMemory, AllocDeviceMemory) {
     EXPECT_EQ(close(externalExportFdDesc.fd), 0);
 }
 
-TEST_P(ExportMemory, AllocHostMemory) {
+TEST_P(ExternalMemory, AllocHostMemory) {
     ze_result_t ret;
     uint64_t size = GetParam();
 
@@ -127,7 +127,7 @@ TEST_P(ExportMemory, AllocHostMemory) {
     EXPECT_EQ(close(externalExportFdDesc.fd), 0);
 }
 
-TEST_P(ExportMemory, AllocSharedMemory) {
+TEST_P(ExternalMemory, AllocSharedMemory) {
     ze_result_t ret;
     uint64_t size = GetParam();
 

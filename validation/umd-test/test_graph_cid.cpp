@@ -475,7 +475,6 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
         ze_result_t ret = ZE_RESULT_SUCCESS;
         InferenceStats stats = {};
         ze_command_queue_workload_type_t workloadType = inference.workloadType;
-        auto ddi = Environment::getInstance()->getCommandQueueDDITable();
 
         auto cmdQueueDescInference = cmdQueueDesc;
         cmdQueueDescInference.priority = inference.priority;
@@ -512,7 +511,7 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
           as background, the requested workload will be set after first inference loop
          */
         if (workloadType != ZE_WORKLOAD_TYPE_FORCE_UINT32) {
-            ret = ddi->pfnSetWorkloadType(queue, ZE_WORKLOAD_TYPE_BACKGROUND);
+            ret = zeCommandQueueDDITableExt->pfnSetWorkloadType(queue, ZE_WORKLOAD_TYPE_BACKGROUND);
             BREAK_ON_FAIL(ret, stats);
             ret = zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr);
             BREAK_ON_FAIL(ret, stats);
@@ -557,7 +556,7 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
                 std::chrono::nanoseconds(std::chrono::seconds(inference.time)).count());
             BREAK_ON_FAIL(ret, stats);
             if (workloadType != ZE_WORKLOAD_TYPE_FORCE_UINT32) {
-                ret = ddi->pfnSetWorkloadType(queue, workloadType);
+                ret = zeCommandQueueDDITableExt->pfnSetWorkloadType(queue, workloadType);
                 BREAK_ON_FAIL(ret, stats);
                 workloadType = ZE_WORKLOAD_TYPE_FORCE_UINT32;
             }
@@ -652,5 +651,57 @@ TEST_P(CompilerInDriverMultiInference, Pipeline) {
         const double avgRateBackgroundInferences =
             backgroundFPSInferencesRate.first / backgroundFPSInferencesRate.second;
         EXPECT_GE(avgRateDefaultInferences, avgRateBackgroundInferences * 1.30);
+    }
+}
+
+using ModelCacheTest = CompilerInDriverLongT;
+
+int getNumFiles(const std::filesystem::path &dir) {
+    int numFiles = 0;
+    for ([[maybe_unused]] const auto &entry : std::filesystem::directory_iterator(dir)) {
+        numFiles++;
+    }
+    return numFiles;
+}
+
+std::string getBuildLog(graph_dditable_ext_t *graphDDI) {
+    uint32_t size = 0;
+    ze_result_t result = graphDDI->pfnBuildLogGetString(nullptr, &size, nullptr);
+    if (result != ZE_RESULT_SUCCESS)
+        return {};
+    std::string log(size - 1, 0);
+    result = graphDDI->pfnBuildLogGetString(nullptr, &size, log.data());
+    if (result != ZE_RESULT_SUCCESS)
+        return {};
+    return log;
+}
+
+TEST_F(ModelCacheTest, CheckIfModelIsCachedWithBuildLog) {
+    const char *home = getenv("HOME");
+    ASSERT_NE(home, nullptr);
+    std::filesystem::path cacheDir = std::filesystem::path(home) / ".cache/ze_intel_npu_cache";
+    std::error_code ec;
+    for (const auto &entry : std::filesystem::directory_iterator(cacheDir)) {
+        ASSERT_GE(std::filesystem::remove_all(entry, ec), 0);
+    }
+    ASSERT_EQ(getNumFiles(cacheDir), 0);
+
+    if (!Environment::getConfiguration("image_classification_imagenet").size())
+        GTEST_SKIP() << "No data to perform the test";
+
+    const std::vector<YAML::Node> nodes =
+        Environment::getConfiguration("image_classification_imagenet");
+    ASSERT_GT(nodes.size(), 1);
+
+    for (size_t i = 0; i < 2; i++) {
+        auto graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, nodes[i]);
+        ASSERT_EQ(getBuildLog(zeGraphDDITableExt),
+                  "ZE DynamicCaching cache_status_t: cache_status_t::stored\n");
+        ASSERT_EQ(getNumFiles(cacheDir), i + 1);
+        auto graph2 =
+            Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, nodes[i]);
+        ASSERT_EQ(getBuildLog(zeGraphDDITableExt),
+                  "ZE DynamicCaching cache_status_t: cache_status_t::found\n");
+        ASSERT_EQ(getNumFiles(cacheDir), i + 1);
     }
 }

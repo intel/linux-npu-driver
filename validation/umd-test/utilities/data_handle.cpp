@@ -14,14 +14,13 @@
 
 namespace DataHandle {
 
-void generateRandomData(std::vector<char> &data, size_t size) {
-    std::random_device rd;
-    std::uniform_int_distribution<int8_t> dist;
+void generateRandomData(void *buffer, size_t size) {
+    std::mt19937 rd(std::random_device{}());
+    std::uniform_int_distribution<uint8_t> dist;
 
-    data.reserve(size);
-
+    auto *data = static_cast<uint8_t *>(buffer);
     for (size_t i = 0; i < size; i++) {
-        data.push_back(dist(rd));
+        data[i] = dist(rd);
     }
 }
 

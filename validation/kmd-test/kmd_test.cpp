@@ -5,6 +5,8 @@
  *
  */
 
+#include "kmd_test.h"
+
 #include <chrono>
 #include <fcntl.h>
 #include <fstream>
@@ -12,8 +14,6 @@
 #include <stdio.h>
 #include <sys/mman.h>
 #include <thread>
-
-#include "kmd_test.h"
 
 #define IVPU_PLATFORM_SILICON 0
 #define IVPU_PLATFORM_SIMICS 2
@@ -176,6 +176,29 @@ int KmdContext::prime_fd_to_handle(int32_t fd, uint32_t flags, uint32_t *handle)
 
     *handle = args.handle;
     return ret;
+}
+
+int KmdContext::create_cmdq(uint32_t *cmdq_id, int priority) {
+    struct drm_ivpu_cmdq_create args;
+
+    args.priority = priority;
+
+    int ret = ioctl(DRM_IOCTL_IVPU_CMDQ_CREATE, &args);
+    if (ret)
+        EXPECT_EQ(args.cmdq_id, 0u);
+    else
+        EXPECT_NE(args.cmdq_id, 0u);
+
+    *cmdq_id = args.cmdq_id;
+    return ret;
+}
+
+int KmdContext::destroy_cmdq(uint32_t cmdq_id) {
+    struct drm_ivpu_cmdq_create args;
+
+    args.cmdq_id = cmdq_id;
+
+    return ioctl(DRM_IOCTL_IVPU_CMDQ_DESTROY, &args);
 }
 
 void *KmdContext::bo_mmap(size_t size, int prot, uint64_t mmap_offset) {
@@ -460,7 +483,7 @@ bool KmdTest::get_TDR_timeout(int &tdr) {
 
     /*Default tdr timeout is calculated based on ivpu_hw_timeouts_init() implementation in KMD */
     if (is_fpga())
-        tdr = 2000000;
+        tdr = 30000;
     else if (is_simics())
         tdr = 10000;
     else
@@ -549,17 +572,20 @@ int KmdTest::rebind_module() {
 
 void KmdTest::fw_store() {
     SKIP_NO_DEBUGFS("fw_name");
+
     ASSERT_TRUE(debugfs_file_exists("fw_name"));
     ASSERT_EQ(read_debugfs_file("fw_name", fw_name), 0);
-
     TRACE("Store firmware path: %s\n", fw_name.c_str());
 }
 
 void KmdTest::fw_restore() {
     std::string param;
+    int ret;
 
-    ASSERT_EQ(read_module_param("firmware", param), 0);
-    if (param != "(null)" && !fw_name.empty() && param != fw_name) {
+    // If the `firmware` module param does not exist then the firmware cannot
+    // be changed and does not need to be restored
+    ret = read_module_param("firmware", param);
+    if (!ret && param != "(null)" && !fw_name.empty() && param != fw_name) {
         TRACE("Restore firmware path: %s\n", fw_name.c_str());
 
         context.close();
@@ -875,14 +901,20 @@ void CmdBuffer::add_ts_cmd(MemoryBuffer &ts_buf, uint32_t ts_offset, enum vpu_ti
     add_handle(ts_buf);
 }
 
-void CmdBuffer::add_fence_cmd(MemoryBuffer &fence_buf,
-                              uint32_t fence_offset,
+void CmdBuffer::add_fence_cmd(uint64_t fence_address,
                               uint64_t fence_value,
                               enum vpu_cmd_type type) {
     auto cmd = add_cmd<vpu_cmd_fence_t>(type);
     ASSERT_TRUE(cmd);
-    cmd->offset = fence_buf.vpu_addr() + fence_offset;
+    cmd->offset = fence_address;
     cmd->value = fence_value;
+}
+
+void CmdBuffer::add_fence_cmd(MemoryBuffer &fence_buf,
+                              uint32_t fence_offset,
+                              uint64_t fence_value,
+                              enum vpu_cmd_type type) {
+    add_fence_cmd(fence_buf.vpu_addr() + fence_offset, fence_value, type);
     add_handle(fence_buf);
 }
 
@@ -890,6 +922,7 @@ void CmdBuffer::add_fence_reset_cmd(MemoryBuffer &fence_buf,
                                     uint32_t fence_offset,
                                     uint64_t fence_value) {
     add_fence_cmd(fence_buf, fence_offset, fence_value, VPU_CMD_FENCE_SIGNAL);
+    add_handle(fence_buf);
 }
 
 void CmdBuffer::add_fence_signal_cmd(MemoryBuffer &fence_buf,
@@ -902,6 +935,14 @@ void CmdBuffer::add_fence_wait_cmd(MemoryBuffer &fence_buf,
                                    uint32_t fence_offset,
                                    uint64_t fence_value) {
     add_fence_cmd(fence_buf, fence_offset, fence_value, VPU_CMD_FENCE_WAIT);
+}
+
+// Use arbitrary address to write at (for negative testing)
+void CmdBuffer::add_write_cmd(uint64_t addr, uint64_t value) {
+    auto cmd = add_cmd<vpu_cmd_fence_t>(VPU_CMD_FENCE_SIGNAL);
+    ASSERT_TRUE(cmd);
+    cmd->offset = addr;
+    cmd->value = value;
 }
 
 void CmdBuffer::add_memory_fill_cmd(MemoryBuffer &buf,
@@ -1018,6 +1059,21 @@ int CmdBuffer::submit_retry(drm_ivpu_submit *params, uint32_t submit_timeout_ms)
     return ret;
 }
 
+int CmdBuffer::cmdq_submit(uint32_t cmdq_id) {
+    drm_ivpu_cmdq_submit args = {.buffers_ptr = (__u64)referenced_handles.data(),
+                                 .buffer_count = (__u32)referenced_handles.size(),
+                                 .cmdq_id = cmdq_id,
+                                 .flags = 0,
+                                 .commands_offset = _start};
+
+    if (ALIGN(_end, 64) + VPU_CONTEXT_SAVE_AREA_SIZE > _size)
+        return -ENOSPC;
+
+    prepare_bb_hdr();
+
+    return _context.ioctl(DRM_IOCTL_IVPU_CMDQ_SUBMIT, &args);
+}
+
 int CmdBuffer::wait(uint32_t timeout_ms) {
     test_app::overwrite_timeout(timeout_ms);
     int64_t timeout_abs_ns = drm::time_ns() + MILLI_TO_NSEC(timeout_ms);
@@ -1088,6 +1144,8 @@ bool PmMonitor::wait_for_recovery_event(unsigned timeout_ms) {
         }
 
         udev_device_unref(dev);
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     } while (std::chrono::steady_clock::now() < timeout);
 
     return false;

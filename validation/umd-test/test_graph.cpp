@@ -9,7 +9,7 @@
 
 #include <climits>
 
-class GraphApi : public UmdTest {
+class GraphApiBase : public UmdTest {
   public:
     void SetUp() override {
         UmdTest::SetUp();
@@ -41,7 +41,7 @@ class GraphApi : public UmdTest {
     std::vector<zeScope::SharedPtr<ze_command_list_handle_t>> lists;
 };
 
-TEST_F(GraphApi, GetProfilingDataPropertiesExpectSuccess) {
+TEST_F(GraphApiBase, GetProfilingDataPropertiesExpectSuccess) {
     ze_device_profiling_data_properties_t profProp = {};
     profProp.stype = ZE_STRUCTURE_TYPE_DEVICE_PROFILING_DATA_PROPERTIES;
     EXPECT_EQ(zeGraphProfilingDDITableExt->pfnDeviceGetProfilingDataProperties(zeDevice, &profProp),
@@ -49,7 +49,7 @@ TEST_F(GraphApi, GetProfilingDataPropertiesExpectSuccess) {
     EXPECT_EQ(profProp.extensionVersion, ZE_PROFILING_DATA_EXT_VERSION_CURRENT);
 }
 
-TEST_F(GraphApi, CreateGraphReturnsCorrectError) {
+TEST_F(GraphApiBase, CreateGraphReturnsCorrectError) {
     ze_graph_handle_t handle = nullptr;
     EXPECT_EQ(zeGraphDDITableExt->pfnCreate2(zeContext, zeDevice, nullptr, &handle),
               ZE_RESULT_ERROR_INVALID_NULL_POINTER);
@@ -65,10 +65,26 @@ TEST_F(GraphApi, CreateGraphReturnsCorrectError) {
               ZE_RESULT_ERROR_INVALID_SIZE);
 }
 
-TEST_F(GraphApi, GetNativeBinaryUsingMemcpy) {
-    auto graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, graphBuffer);
-    ASSERT_NE(graph, nullptr);
+class GraphApi : public GraphApiBase {
+  protected:
+    void SetUp() override {
+        GraphApiBase::SetUp();
 
+        if (!Environment::getConfiguration("graph_execution").size())
+            GTEST_SKIP() << "No data to perform the test";
+
+        const YAML::Node node = Environment::getConfiguration("graph_execution")[0];
+        ASSERT_GT(node["path"].as<std::string>().size(), 0);
+
+        graph =
+            Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node, graphBuffer);
+        ASSERT_NE(graph, nullptr);
+    }
+
+    std::shared_ptr<Graph> graph;
+};
+
+TEST_F(GraphApi, GetNativeBinaryUsingMemcpy) {
     size_t size = 0;
     EXPECT_EQ(zeGraphDDITableExt->pfnGetNativeBinary(graph->handle, &size, nullptr),
               ZE_RESULT_SUCCESS);
@@ -81,9 +97,6 @@ TEST_F(GraphApi, GetNativeBinaryUsingMemcpy) {
 }
 
 TEST_F(GraphApi, GetNativeBinaryWithoutMemcpy) {
-    auto graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, graphBuffer);
-    ASSERT_NE(graph, nullptr);
-
     const uint8_t *graphNativeBinary = nullptr;
     size_t size = 0;
     EXPECT_EQ(zeGraphDDITableExt->pfnGetNativeBinary2(graph->handle, &size, &graphNativeBinary),
@@ -93,9 +106,6 @@ TEST_F(GraphApi, GetNativeBinaryWithoutMemcpy) {
 }
 
 TEST_F(GraphApi, AppendGraphInitAndExecuteReturnsCorrectError) {
-    auto graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, graphBuffer);
-    ASSERT_NE(graph, nullptr);
-
     ze_command_list_handle_t list = nullptr;
     ASSERT_EQ(createCommandList(&list), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeGraphDDITableExt->pfnAppendGraphInitialize(list, nullptr, nullptr, 0, nullptr),
@@ -109,9 +119,6 @@ TEST_F(GraphApi, AppendGraphInitAndExecuteReturnsCorrectError) {
 }
 
 TEST_F(GraphApi, SetArgumentPropertiesReturnsCorrectError) {
-    auto graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, graphBuffer);
-    ASSERT_NE(graph, nullptr);
-
     ze_graph_properties_t prop = {};
     prop.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
     ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties(graph->handle, &prop), ZE_RESULT_SUCCESS)
@@ -127,9 +134,6 @@ TEST_F(GraphApi, SetArgumentPropertiesReturnsCorrectError) {
 }
 
 TEST_F(GraphApi, GetArgumentPropertiesReturnsCorrectProperties) {
-    auto graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, graphBuffer);
-    ASSERT_NE(graph, nullptr);
-
     ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties(graph->handle, 0, nullptr),
               ZE_RESULT_ERROR_INVALID_NULL_POINTER);
 
@@ -173,9 +177,6 @@ TEST_F(GraphApi, GetArgumentPropertiesReturnsCorrectProperties) {
 }
 
 TEST_F(GraphApi, GetProperties2) {
-    auto graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, graphBuffer);
-    ASSERT_NE(graph, nullptr);
-
     ze_graph_properties_2_t graphProps = {};
     graphProps.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
     ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties2(graph->handle, &graphProps), ZE_RESULT_SUCCESS)

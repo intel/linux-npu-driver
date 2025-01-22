@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -226,6 +226,8 @@ class Graph {
     static std::shared_ptr<Graph> create(ze_context_handle_t hContext,
                                          ze_device_handle_t hDevice,
                                          graph_dditable_ext_t *graphDDI,
+                                         UmdTest::GlobalConfig &globalConfig,
+                                         const YAML::Node &node,
                                          std::shared_ptr<GraphBuffer> graphBuffer) {
         if (graphBuffer == nullptr)
             return nullptr;
@@ -234,7 +236,8 @@ class Graph {
         if (!graph->createGraphHandle())
             return nullptr;
 
-        graph->inputType = RANDOM;
+        graph->loadInputDataFromConfig(globalConfig, node);
+
         return graph;
     }
 
@@ -338,11 +341,8 @@ class Graph {
     }
 
     void setRandomInput() {
-        std::vector<std::vector<char>> inputData;
-        inputData.resize(inputSize.size());
         for (size_t i = 0; i < inputSize.size(); ++i) {
-            DataHandle::generateRandomData(inputData[i], inputSize[i]);
-            memcpy(inArgs[i], inputData[i].data(), inputData[i].size());
+            DataHandle::generateRandomData(inArgs[i], inputSize[i]);
         }
     }
 
@@ -379,11 +379,8 @@ class Graph {
             ASSERT_EQ(inputSize[0], image.getSizeInBytes());
             memcpy(target[0], image.getPtr(), inputSize[0]);
         } else {
-            std::vector<std::vector<char>> inputData;
-            inputData.resize(inputSize.size());
             for (size_t i = 0; i < inputSize.size(); ++i) {
-                DataHandle::generateRandomData(inputData[i], inputSize[i]);
-                memcpy(target[i], inputData[i].data(), inputData[i].size());
+                DataHandle::generateRandomData(target[i], inputSize[i]);
             }
         }
     }
@@ -483,7 +480,7 @@ class Graph {
     void deallocateAllArguments() { mem.clear(); }
 
     std::shared_ptr<GraphBuffer> getNativeBinaryAsNewBuffer() {
-        size_t size;
+        size_t size = 0;
         if (graphDDI->pfnGetNativeBinary(handle, &size, nullptr) != ZE_RESULT_SUCCESS)
             return nullptr;
 
@@ -495,6 +492,17 @@ class Graph {
             return nullptr;
 
         return std::make_shared<GraphBuffer>(std::move(buffer));
+    }
+
+    std::shared_ptr<GraphBuffer> getNativeBinary2AsNewBuffer() {
+        const uint8_t *buffer = nullptr;
+        size_t size = 0;
+
+        if (graphDDI->pfnGetNativeBinary2(handle, &size, &buffer) != ZE_RESULT_SUCCESS)
+            return nullptr;
+
+        std::vector<char> data(buffer, buffer + size);
+        return std::make_shared<GraphBuffer>(std::move(data));
     }
 
   private:
@@ -513,21 +521,27 @@ class Graph {
 
     void loadArguments(UmdTest::GlobalConfig &globalConfig, const YAML::Node &node) {
         if (format == GraphFormat::MODEL) {
-            if (node["in"].IsDefined() && node["class_index"].IsDefined()) {
-                inputType = InputType::IMAGE;
-                for (auto &image : node["in"].as<std::vector<std::string>>()) {
-                    std::filesystem::path imagePath = globalConfig.imageDir + image;
-                    if (std::filesystem::exists(imagePath)) {
-                        EXPECT_EQ(imagePath.extension(), ".bmp");
-                        images.push_back(imagePath);
-                    }
-                }
-
-                classIndexes = node["class_index"].as<std::vector<uint16_t>>();
-            }
+            loadInputDataFromConfig(globalConfig, node);
         } else {
             format = GraphFormat::BLOB;
             loadBlobArgumentsFromFilesystem(node);
+        }
+    }
+
+    void loadInputDataFromConfig(UmdTest::GlobalConfig &globalConfig, const YAML::Node &node) {
+        if (node["in"].IsDefined() && node["class_index"].IsDefined()) {
+            inputType = InputType::IMAGE;
+            for (auto &image : node["in"].as<std::vector<std::string>>()) {
+                std::filesystem::path imagePath = globalConfig.imageDir + image;
+                if (std::filesystem::exists(imagePath)) {
+                    EXPECT_EQ(imagePath.extension(), ".bmp");
+                    images.push_back(imagePath);
+                }
+            }
+
+            classIndexes = node["class_index"].as<std::vector<uint16_t>>();
+        } else {
+            inputType = InputType::RANDOM;
         }
     }
 

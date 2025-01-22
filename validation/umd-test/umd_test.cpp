@@ -70,6 +70,7 @@ void UmdTest::SetUp() {
     zeDevice = testEnv->getDevice();
     zeGraphDDITableExt = testEnv->getGraphDDITable();
     zeGraphProfilingDDITableExt = testEnv->getGraphProfilingDDITable();
+    zeCommandQueueDDITableExt = testEnv->getCommandQueueDDITable();
     maxMemAllocSize = testEnv->getMaxMemAllocSize();
     pciDevId = testEnv->getPciDevId();
     platformType = testEnv->getPlatformType();
@@ -96,6 +97,9 @@ void UmdTest::SetUp() {
     if (!isSilicon()) {
         syncTimeout = 30'000'000'000;       // 30 seconds
         graphSyncTimeout = 600'000'000'000; // 10 minutes
+    } else {
+        syncTimeout = testEnv->getSyncTimeout();
+        graphSyncTimeout = syncTimeout;
     }
 
     /*Get base configuration from config file*/

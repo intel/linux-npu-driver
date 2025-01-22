@@ -10,7 +10,7 @@
 
 #include <level_zero/ze_api.h>
 
-class BuffersExport : public UmdTest {
+class ExternalMemoryZe : public UmdTest {
   public:
     struct Xpu {
         ze_device_handle_t dev;
@@ -27,7 +27,7 @@ class BuffersExport : public UmdTest {
     void ExportImport(struct Xpu x0, struct Xpu x1);
 };
 
-void BuffersExport::ExportImport(struct Xpu x0, struct Xpu x1) {
+void ExternalMemoryZe::ExportImport(struct Xpu x0, struct Xpu x1) {
     ze_device_handle_t dev0 = x0.dev;
     ze_context_handle_t dev0Ctx = x0.ctx;
     uint32_t dev0Ordinal = x0.ordinal;
@@ -167,7 +167,7 @@ void BuffersExport::ExportImport(struct Xpu x0, struct Xpu x1) {
 // |            |    Mem Fill    |  (Export)     (Import)   |    Copy    |            |
 // +------------+                +--------------------------+            +------------+
 //
-TEST_F(BuffersExport, GpuZeFillToNpuZeCopy) {
+TEST_F(ExternalMemoryZe, GpuZeFillToNpuZeCopy) {
     ExportImport(Gpu, Npu);
 }
 
@@ -176,6 +176,6 @@ TEST_F(BuffersExport, GpuZeFillToNpuZeCopy) {
 // |            |    Mem Fill    |  (Export)     (Import)   |    Copy    |            |
 // +------------+                +--------------------------+            +------------+
 //
-TEST_F(BuffersExport, NpuZeFillToGpuZeCopy) {
+TEST_F(ExternalMemoryZe, NpuZeFillToGpuZeCopy) {
     ExportImport(Npu, Gpu);
 }

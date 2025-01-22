@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -49,8 +49,6 @@ class CommandGraphBase : public UmdTest {
 
     ze_result_t ret = ZE_RESULT_SUCCESS;
 
-    std::shared_ptr<Graph> graph;
-
   private:
     zeScope::SharedPtr<ze_command_queue_handle_t> scopedQueue = nullptr;
     zeScope::SharedPtr<ze_command_list_handle_t> scopedList = nullptr;
@@ -70,20 +68,6 @@ void CommandGraphBase::threadedCommandQueueSyncWrapper(std::promise<_ze_result_t
     promise.set_value(zeCommandQueueSynchronize(queue, UINT64_MAX));
 }
 
-class CommandGraph : public CommandGraphBase {
-  public:
-    void SetUp() override {
-        CommandGraphBase::SetUp();
-
-        if (!Environment::getConfiguration("graph_execution").size())
-            GTEST_SKIP() << "No data to perform the test";
-
-        const YAML::Node node = Environment::getConfiguration("graph_execution")[0];
-
-        graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
-    }
-};
-
 class CommandGraphLong : public CommandGraphBase, public ::testing::WithParamInterface<YAML::Node> {
   protected:
     void SetUp() override {
@@ -95,6 +79,8 @@ class CommandGraphLong : public CommandGraphBase, public ::testing::WithParamInt
         graph->allocateArguments(MemType::SHARED_MEMORY);
         graph->copyInputData();
     }
+
+    std::shared_ptr<Graph> graph;
 };
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CommandGraphLong);
@@ -524,13 +510,21 @@ TEST_P(CommandGraphLong, InferenceDeviceResetInference) {
     graph->checkResults();
 }
 
-TEST_P(CommandGraphLong, ReleaseNativeBinaryAfterAppendGraphInitializeRunInference) {
-    // Convert model to native format
+TEST_P(CommandGraphLong, GetNativeBinaryAndReleaseAfterAppendGraphInitializeRunInference) {
+    // Convert model to native format, zeGraphGetNativeBinary function is used
     auto nativeGraphBuffer = graph->getNativeBinaryAsNewBuffer();
     ASSERT_NE(nativeGraphBuffer, nullptr) << "Unable to get native binary from Graph";
 
+    const YAML::Node node = GetParam();
+
     // Swap the graph with native format type
-    graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, nativeGraphBuffer);
+    graph = Graph::create(zeContext,
+                          zeDevice,
+                          zeGraphDDITableExt,
+                          globalConfig,
+                          node,
+                          nativeGraphBuffer);
+
     ASSERT_NE(graph, nullptr) << "Unable to create new Graph object from native binary";
 
     graph->allocateArguments(MemType::SHARED_MEMORY);
@@ -555,17 +549,24 @@ TEST_P(CommandGraphLong, ReleaseNativeBinaryAfterAppendGraphInitializeRunInferen
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    // TODO: New graph does not have information about ref input/output. It is forced to random
     graph->checkResults();
 }
 
-TEST_P(CommandGraphLong, ReleaseNativeBinaryAfterGraphInitializeRunInference) {
-    // Convert model to native format
+TEST_P(CommandGraphLong, GetNativeBinaryAndReleaseAfterGraphInitializeRunInference) {
+    // Convert model to native format, zeGraphGetNativeBinary function is used
     auto nativeGraphBuffer = graph->getNativeBinaryAsNewBuffer();
     ASSERT_NE(nativeGraphBuffer, nullptr) << "Unable to get native binary from Graph";
 
+    const YAML::Node node = GetParam();
+
     // Swap the graph with native format type
-    graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, nativeGraphBuffer);
+    graph = Graph::create(zeContext,
+                          zeDevice,
+                          zeGraphDDITableExt,
+                          globalConfig,
+                          node,
+                          nativeGraphBuffer);
+
     ASSERT_NE(graph, nullptr) << "Unable to create new Graph object from native binary";
 
     graph->allocateArguments(MemType::SHARED_MEMORY);
@@ -584,7 +585,84 @@ TEST_P(CommandGraphLong, ReleaseNativeBinaryAfterGraphInitializeRunInference) {
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    // TODO: New graph does not have information about ref input/output. It is forced to random
+    graph->checkResults();
+}
+
+TEST_P(CommandGraphLong, GetNativeBinary2AndReleaseAfterAppendGraphInitializeRunInference) {
+    // Convert model to native format, zeGraphGetNativeBinary2 function is used
+    auto nativeGraphBuffer = graph->getNativeBinary2AsNewBuffer();
+    ASSERT_NE(nativeGraphBuffer, nullptr) << "Unable to get native binary from Graph";
+
+    const YAML::Node node = GetParam();
+
+    // Swap the graph with native format type
+    graph = Graph::create(zeContext,
+                          zeDevice,
+                          zeGraphDDITableExt,
+                          globalConfig,
+                          node,
+                          nativeGraphBuffer);
+
+    ASSERT_NE(graph, nullptr) << "Unable to create new Graph object from native binary";
+
+    graph->allocateArguments(MemType::SHARED_MEMORY);
+    graph->copyInputData();
+
+    ASSERT_EQ(
+        zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
+        ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+
+    // Release the blob container
+    nativeGraphBuffer.reset();
+
+    ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeGraphDDITableExt
+                  ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+
+    graph->checkResults();
+}
+
+TEST_P(CommandGraphLong, GetNativeBinary2AndReleaseAfterGraphInitializeRunInference) {
+    // Convert model to native format, zeGraphGetNativeBinary2 function is used
+    auto nativeGraphBuffer = graph->getNativeBinary2AsNewBuffer();
+    ASSERT_NE(nativeGraphBuffer, nullptr) << "Unable to get native binary from Graph";
+
+    const YAML::Node node = GetParam();
+
+    // Swap the graph with native format type
+    graph = Graph::create(zeContext,
+                          zeDevice,
+                          zeGraphDDITableExt,
+                          globalConfig,
+                          node,
+                          nativeGraphBuffer);
+
+    ASSERT_NE(graph, nullptr) << "Unable to create new Graph object from native binary";
+
+    graph->allocateArguments(MemType::SHARED_MEMORY);
+    graph->copyInputData();
+
+    ASSERT_EQ(zeGraphDDITableExt->pfnGraphInitialize(graph->handle), ZE_RESULT_SUCCESS);
+
+    // Release the blob container
+    nativeGraphBuffer.reset();
+
+    ASSERT_EQ(zeGraphDDITableExt
+                  ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+
     graph->checkResults();
 }
 
@@ -689,52 +767,6 @@ TEST_P(CommandGraphLongThreaded, RunInferenceUseFenceSynchronize) {
 
             ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, fence), ZE_RESULT_SUCCESS);
             ASSERT_EQ(zeFenceHostSynchronize(fence, graphSyncTimeout), ZE_RESULT_SUCCESS);
-
-            graph->checkResults();
-        }));
-    }
-    for (const auto &t : tasks) {
-        t.get()->join();
-    }
-}
-
-TEST_F(CommandGraphLongThreaded, RunAllBlobsInSingleContextSimultaneously) {
-    std::vector<std::unique_ptr<std::thread>> tasks;
-
-    if (!Environment::getConfiguration("multi_inference").size())
-        GTEST_SKIP() << "No data to perform the test";
-
-    for (const auto &node : Environment::getConfiguration("multi_inference")[0]["pipeline"]
-                                .as<std::vector<YAML::Node>>()) {
-        tasks.push_back(std::make_unique<std::thread>([this, node]() {
-            std::shared_ptr<Graph> graph;
-
-            graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
-
-            graph->allocateArguments(MemType::SHARED_MEMORY);
-
-            graph->copyInputData();
-
-            auto scopedQueue = zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDesc, ret);
-            ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
-            auto queue = scopedQueue.get();
-
-            auto scopedList = zeScope::commandListCreate(zeContext, zeDevice, cmdListDesc, ret);
-            ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
-            auto list = scopedList.get();
-
-            ASSERT_EQ(zeGraphDDITableExt
-                          ->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
-                      ZE_RESULT_SUCCESS);
-            ASSERT_EQ(
-                zeGraphDDITableExt
-                    ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),
-                ZE_RESULT_SUCCESS);
-            ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
-
-            ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr),
-                      ZE_RESULT_SUCCESS);
-            ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
             graph->checkResults();
         }));
