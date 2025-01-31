@@ -63,7 +63,6 @@ struct DeviceContextTest : public ::testing::Test {
                               ->timestamp_address;
                 EXPECT_GT(vpuAddr, 0) << "Invalid timestamp address in VPU_CMD_TIMESTAMP";
                 break;
-            case VPU_CMD_COPY_SYSTEM_TO_SYSTEM:
             case VPU_CMD_COPY_LOCAL_TO_LOCAL:
                 offset = reinterpret_cast<const vpu_cmd_copy_buffer_t *>(cmd->getCommitStream())
                              ->desc_start_offset;

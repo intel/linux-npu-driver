@@ -185,3 +185,32 @@ TEST_F(Device, GetGlobalTimestamps) {
         task.wait();
     }
 }
+
+TEST_F(Device, VerifySetWorkloadTypeApi) {
+    ze_result_t ret;
+    ze_command_queue_desc_t cmdQueueDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
+                                            .pNext = nullptr,
+                                            .ordinal = 0,
+                                            .index = 0,
+                                            .flags = 0,
+                                            .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
+                                            .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
+
+    auto scopedQueue = zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDesc, ret);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+
+    ret = zeCommandQueueDDITableExt->pfnSetWorkloadType(scopedQueue.get(),
+                                                        ZE_WORKLOAD_TYPE_BACKGROUND);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+
+    ret =
+        zeCommandQueueDDITableExt->pfnSetWorkloadType(scopedQueue.get(), ZE_WORKLOAD_TYPE_DEFAULT);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+
+    ret = zeCommandQueueDDITableExt->pfnSetWorkloadType(nullptr, ZE_WORKLOAD_TYPE_BACKGROUND);
+    ASSERT_EQ(ret, ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
+
+    ret = zeCommandQueueDDITableExt->pfnSetWorkloadType(scopedQueue.get(),
+                                                        ZE_WORKLOAD_TYPE_FORCE_UINT32);
+    ASSERT_EQ(ret, ZE_RESULT_ERROR_INVALID_ENUMERATION);
+}

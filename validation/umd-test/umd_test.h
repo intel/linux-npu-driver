@@ -22,6 +22,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <yaml-cpp/yaml.h>
 
 // Custom printer to dump ze_result_t as hex string
 void PrintTo(const ze_result_t &result, std::ostream *os);
@@ -39,11 +40,6 @@ void PrintTo(const ze_result_t &result, std::ostream *os);
 #define SKIP_VPU40XX(msg) \
     if (isVPU40xx()) {    \
         SKIP_(msg);       \
-    }
-
-#define SKIP_PRESILICON(msg) \
-    if (!isSilicon()) {      \
-        SKIP_(msg);          \
     }
 
 #define SKIP_NO_HWS(msg)       \
@@ -64,6 +60,11 @@ void PrintTo(const ze_result_t &result, std::ostream *os);
 #define SKIP_NEEDS_SYSFS_FILE(x)                                          \
     if (!isFileAvailableInSysFs(x)) {                                     \
         SKIP_("Test is not supported because " x " is missing in SysFs"); \
+    }
+
+#define SKIP_HARDENING(msg)                \
+    if (test_app::is_hardening_kernel()) { \
+        SKIP_(msg);                        \
     }
 
 #define KB (1024llu)
@@ -163,6 +164,7 @@ class UmdTest : public ::testing::Test {
     ze_context_handle_t zeContext = nullptr;
     graph_dditable_ext_t *zeGraphDDITableExt = nullptr;
     ze_graph_profiling_dditable_ext_t *zeGraphProfilingDDITableExt = nullptr;
+    command_queue_dditable_t *zeCommandQueueDDITableExt = nullptr;
     uint64_t maxMemAllocSize = 0;
 
     ze_driver_handle_t zeDriverGpu = nullptr;
@@ -176,8 +178,8 @@ class UmdTest : public ::testing::Test {
     uint16_t pciDevId = 0u;
     uint32_t platformType = 0u;
 
-    uint64_t syncTimeout = 2'000'000'000;    // 2 seconds
-    uint64_t graphSyncTimeout = syncTimeout; // 2 seconds
+    uint64_t syncTimeout = 0ULL;
+    uint64_t graphSyncTimeout = 0ULL;
 
   private:
     zeScope::SharedPtr<ze_context_handle_t> scopedContext;

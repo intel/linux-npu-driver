@@ -7,10 +7,10 @@
 
 #pragma once
 
-#include <stdint.h>
-
 #include "vpu_driver/source/command/vpu_command.hpp"
 #include "vpu_driver/source/device/vpu_37xx/vpu_hw_37xx.hpp"
+#include <stdint.h>
+
 #include "vpu_driver/source/device/vpu_40xx/vpu_hw_40xx.hpp"
 
 #include <array>
@@ -20,8 +20,11 @@
 #include <vector>
 
 constexpr uint16_t INTEL_PCI_VENDOR_ID = 0x8086;
+constexpr uint64_t PERF_FREQUENCY_DEFAULT_HZ = 38'400'000;
 
 namespace VPU {
+
+enum NPUArch { NPUUNKNOWN = 0, NPU37XX, NPU40XX };
 
 using GetCopyCommand = bool(VPUDeviceContext *, const void *, void *, size_t, VPUDescriptor &);
 using PrintCopyDescriptor = void(void *, vpu_cmd_header_t *);
@@ -30,6 +33,7 @@ struct VPUHwInfo {
     uint32_t deviceId = 0u;
     int compilerPlatform = -1;
     char platformName[32];
+    NPUArch npuArch = NPUUNKNOWN;
     uint32_t deviceRevision = 0u;
     uint32_t subdeviceId = 0u;
     uint32_t coreClockRate = 0u;
@@ -43,8 +47,7 @@ struct VPUHwInfo {
     uint32_t tileFuseMask = 0u;
     /* Each set bit in tileConfig represents enabled tile */
     uint32_t tileConfig = 0u;
-    /* timer resolution in cycles per second */
-    uint64_t timerResolution = 38'400'000;
+    uint64_t timerResolution = PERF_FREQUENCY_DEFAULT_HZ;
 
     char name[256] = "Intel(R) AI Boost";
 
@@ -57,6 +60,7 @@ struct VPUHwInfo {
     bool metricStreamerCapability = false;
     bool dmaMemoryRangeCapability = false;
     bool primeBuffersCapability = false;
+    bool cmdQueueCreationCapability = false;
 
     GetCopyCommand *getCopyCommand = nullptr;
     PrintCopyDescriptor *printCopyDescriptor = nullptr;
@@ -75,5 +79,4 @@ inline VPUHwInfo getHwInfoByDeviceId(uint32_t deviceId) {
     }
     throw std::runtime_error("Unrecognized PCI device ID");
 }
-
 } // namespace VPU

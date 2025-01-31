@@ -57,6 +57,9 @@ static const char *ioctl_str(unsigned long r) {
         CASE_RETURN_STR(DRM_IOCTL_IVPU_METRIC_STREAMER_STOP);
         CASE_RETURN_STR(DRM_IOCTL_IVPU_METRIC_STREAMER_GET_DATA);
         CASE_RETURN_STR(DRM_IOCTL_IVPU_METRIC_STREAMER_GET_INFO);
+        CASE_RETURN_STR(DRM_IOCTL_IVPU_CMDQ_CREATE);
+        CASE_RETURN_STR(DRM_IOCTL_IVPU_CMDQ_DESTROY);
+        CASE_RETURN_STR(DRM_IOCTL_IVPU_CMDQ_SUBMIT);
 
         CASE_RETURN_STR(DRM_IVPU_PARAM_DEVICE_ID);
         CASE_RETURN_STR(DRM_IVPU_PARAM_DEVICE_REVISION);
@@ -168,6 +171,40 @@ bool VPUDriverApi::isVpuDevice() const {
     }
 
     return true;
+}
+
+int VPUDriverApi::commandQueueCreate(uint32_t priority, uint32_t &queueId) {
+    drm_ivpu_cmdq_create createArgs = {};
+
+    createArgs.priority = priority;
+    int ret = doIoctl(DRM_IOCTL_IVPU_CMDQ_CREATE, &createArgs);
+    if (ret) {
+        LOG_E("DRM_IOCTL_IVPU_CMDQ_CREATE failed, error %d", ret);
+        return ret;
+    }
+    queueId = createArgs.cmdq_id;
+    return 0;
+}
+
+int VPUDriverApi::commandQueueSubmit(const void *buffers, uint32_t bufCnt, uint32_t queueId) const {
+    drm_ivpu_cmdq_submit submitArgs = {};
+    submitArgs.buffers_ptr = reinterpret_cast<uint64_t>(buffers);
+    submitArgs.buffer_count = bufCnt;
+    submitArgs.cmdq_id = queueId;
+
+    int ret = doIoctl(DRM_IOCTL_IVPU_CMDQ_SUBMIT, &submitArgs);
+    if (ret)
+        LOG_E("DRM_IOCTL_IVPU_CMDQ_SUBMIT failed, error %d", ret);
+    return ret;
+}
+
+int VPUDriverApi::commandQueueDestroy(uint32_t queueId) const {
+    drm_ivpu_cmdq_destroy destroyArgs = {queueId};
+
+    int ret = doIoctl(DRM_IOCTL_IVPU_CMDQ_DESTROY, &destroyArgs);
+    if (ret)
+        LOG_E("DRM_IOCTL_IVPU_CMDQ_DESTROY failed, error %d", ret);
+    return ret;
 }
 
 int VPUDriverApi::submitCommandBuffer(drm_ivpu_submit *arg) const {

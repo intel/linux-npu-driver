@@ -77,7 +77,7 @@ static void setDefaultOptions() {
         TestOptions::blobPath = defaultBlob;
     }
 
-    const std::filesystem::path defaultModel = "validation/models/mtl/add_abc/add_abc.xml";
+    const std::filesystem::path defaultModel = "validation/models/add_abc/add_abc.xml";
     if (TestOptions::modelPath.empty() && std::filesystem::exists(defaultModel)) {
         TestOptions::modelPath = defaultModel;
         TestOptions::modelFlags =

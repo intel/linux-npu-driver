@@ -12,7 +12,7 @@
 
 namespace DataHandle {
 
-void generateRandomData(std::vector<char> &data, size_t size);
+void generateRandomData(void *buffer, size_t size);
 
 int loadFile(const std::string &filePath, std::vector<char> &dataOut);
 

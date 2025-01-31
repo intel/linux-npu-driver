@@ -41,6 +41,10 @@ class VPUDriverApi final {
 
     int getFd() const { return vpuFd; }
     bool isVpuDevice() const;
+    int commandQueueCreate(uint32_t priority, uint32_t &queueId);
+    int commandQueueSubmit(const void *buffers, uint32_t bufCnt, uint32_t queueId) const;
+    int commandQueueDestroy(uint32_t queueId) const;
+
     int submitCommandBuffer(drm_ivpu_submit *arg) const;
     bool checkDeviceCapability(uint32_t index) const;
     bool checkPrimeBuffersCapability() const;

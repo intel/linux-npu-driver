@@ -24,8 +24,6 @@
 #include <utility>
 
 namespace VPU {
-class VPUCommandBuffer;
-class VPUJob;
 struct VPUDescriptor;
 
 class VPUDeviceContext {
@@ -75,14 +73,6 @@ class VPUDeviceContext {
     uint64_t getBufferVPUAddress(const void *ptr) const;
 
     /**
-     * @brief Submit given command buffer to KMD.
-     *
-     * @param job    VPUJob that contains command buffers for execution
-     * @return true if job submitted successfully
-     */
-    bool submitJob(const VPUJob *job);
-
-    /**
        Allocates VPUBufferObject for internal usage of driver.
        @param size[in]: Size of the buffer.
        @param type[in]: Type of buffer range.
@@ -95,7 +85,7 @@ class VPUDeviceContext {
     /**
      * Return assigned VPUDriverApi
      */
-    const VPUDriverApi &getDriverApi() const { return *drvApi; }
+    VPUDriverApi &getDriverApi() const { return *drvApi; }
     const VPUHwInfo &getDeviceCapabilities() const { return *hwInfo; }
     /**
      * Return value of VPU Device ID
@@ -156,8 +146,6 @@ class VPUDeviceContext {
     VPUBufferObject *createBufferObject(size_t size,
                                         VPUBufferObject::Type range,
                                         VPUBufferObject::Location location);
-
-    bool submitCommandBuffer(const VPUCommandBuffer *cmdBuffer);
 
   private:
     std::unique_ptr<VPUDriverApi> drvApi;

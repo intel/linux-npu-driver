@@ -8,11 +8,11 @@
 #include <stdint.h>
 
 #include "gtest/gtest.h"
-#include "level_zero_driver/core/source/context/context.hpp"
-#include "level_zero_driver/core/source/device/device.hpp"
-#include "level_zero_driver/core/source/driver/driver_handle.hpp"
-#include "level_zero_driver/tools/source/metrics/metric.hpp"
-#include "level_zero_driver/tools/source/metrics/metric_query.hpp"
+#include "level_zero_driver/source/context.hpp"
+#include "level_zero_driver/source/device.hpp"
+#include "level_zero_driver/source/driver_handle.hpp"
+#include "level_zero_driver/source/metric.hpp"
+#include "level_zero_driver/source/metric_query.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
 #include "level_zero_driver/unit_tests/mocks/mock_metrics.hpp"
 #include "umd_common.hpp"

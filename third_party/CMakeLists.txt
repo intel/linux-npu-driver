@@ -4,12 +4,15 @@
 # SPDX-License-Identifier: MIT
 #
 
-# Ignore compiler warnings from other third party libraries
+# Ignore compiler warnings from third party libraries
 add_compile_options(-Wno-error -include cstdint)
 
 include(cmake/vpux_elf.cmake)
 include(cmake/level-zero.cmake)
 include(cmake/level-zero-npu-extensions.cmake)
+if (ENABLE_NPU_PERFETTO_BUILD)
+  include(cmake/perfetto.cmake)
+endif()
 
 set(INSTALL_GTEST OFF)
 add_subdirectory(googletest EXCLUDE_FROM_ALL)

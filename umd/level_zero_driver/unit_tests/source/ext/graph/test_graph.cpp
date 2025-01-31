@@ -9,9 +9,9 @@
 
 #include "gtest/gtest.h"
 #include "level_zero/ze_graph_ext.h"
-#include "level_zero_driver/core/source/context/context.hpp"
-#include "level_zero_driver/core/source/device/device.hpp"
-#include "level_zero_driver/ext/source/graph/graph.hpp"
+#include "level_zero_driver/source/context.hpp"
+#include "level_zero_driver/source/device.hpp"
+#include "level_zero_driver/source/ext/graph.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
 #include "level_zero_driver/unit_tests/options.hpp"
 #include "level_zero_driver/unit_tests/utils.hpp"

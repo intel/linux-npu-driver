@@ -19,6 +19,8 @@
 namespace test_vars {
 extern bool test_with_gpu;
 extern bool disable_metrics;
+extern bool initialization_tests;
+extern uint32_t globalSyncTimeoutMs;
 } // namespace test_vars
 
 class Environment : public ::testing::Environment {
@@ -61,6 +63,14 @@ class Environment : public ::testing::Environment {
             config = configWithoutMetrics;
             PRINTF("Disabling metrics (ZET_ENABLE_METRICS=%d). No metric test will be run.\n",
                    config.metricsEnable);
+        }
+
+        if (test_vars::initialization_tests) {
+            return;
+        }
+        if (test_vars::globalSyncTimeoutMs) {
+            syncTimeout = static_cast<uint64_t>(test_vars::globalSyncTimeoutMs) * 1'000'000;
+            PRINTF("Synchronization timeout changed to %d ms.\n", test_vars::globalSyncTimeoutMs);
         }
 
         EXPECT_EQ(setenv("ZET_ENABLE_METRICS", config.metricsEnable ? "1" : "0", 0), 0);
@@ -157,6 +167,7 @@ class Environment : public ::testing::Environment {
     uint64_t getMaxMemAllocSize() { return maxMemAllocSize; }
     uint16_t getPciDevId() { return pciDevId; }
     uint16_t getPlatformType() { return platformType; }
+    uint64_t getSyncTimeout() { return syncTimeout; }
 
     ze_driver_handle_t getDriverGpu() { return zeDriverGpu; }
     ze_device_handle_t getDeviceGpu() { return zeDeviceGpu; }
@@ -266,6 +277,7 @@ class Environment : public ::testing::Environment {
     uint64_t maxMemAllocSize = 0;
     uint16_t pciDevId = 0;
     uint32_t platformType = 0;
+    uint64_t syncTimeout = 2'000'000'000;
 
     ze_driver_handle_t zeDriverGpu = nullptr;
     ze_device_handle_t zeDeviceGpu = nullptr;

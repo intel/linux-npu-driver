@@ -9,9 +9,9 @@
 
 #include <stddef.h>
 
-#include "level_zero_driver/core/source/device/device.hpp"
-#include "level_zero_driver/tools/source/metrics/metric.hpp"
-#include "level_zero_driver/tools/source/metrics/metric_query.hpp"
+#include "level_zero_driver/source/device.hpp"
+#include "level_zero_driver/source/metric.hpp"
+#include "level_zero_driver/source/metric_query.hpp"
 #include "vpu_driver/source/device/vpu_device.hpp"
 
 #include <memory>

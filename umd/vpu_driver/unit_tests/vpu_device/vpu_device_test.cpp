@@ -11,6 +11,7 @@
 #include "vpu_driver/source/command/vpu_job.hpp"
 #include "vpu_driver/source/command/vpu_ts_command.hpp"
 #include "vpu_driver/source/device/metric_info.hpp"
+#include "vpu_driver/source/device/vpu_command_queue.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
 
@@ -28,12 +29,14 @@ struct VPUDeviceTest : public ::testing::Test {
     MockOsInterfaceImp osInfc;
     std::unique_ptr<MockVPUDevice> vpuDevice = MockVPUDevice::createWithDefaultHardwareInfo(osInfc);
     std::shared_ptr<MockVPUDeviceContext> ctx = vpuDevice->createMockDeviceContext();
+    std::unique_ptr<VPUDeviceQueue> queue =
+        VPUDeviceQueue::create(ctx.get(), VPUDeviceQueue::Priority::NORMAL);
 };
 
 TEST_F(VPUDeviceTest, jobSubmissionTriggersIoctls) {
     osInfc.callCntIoctl = 0;
 
-    EXPECT_FALSE(ctx->submitJob(nullptr));
+    EXPECT_FALSE(queue->submit(nullptr));
 
     uint64_t *tsDest = static_cast<uint64_t *>(ctx->createSharedMemAlloc(4096));
     ASSERT_NE(nullptr, tsDest);
@@ -43,7 +46,7 @@ TEST_F(VPUDeviceTest, jobSubmissionTriggersIoctls) {
     EXPECT_TRUE(job->closeCommands());
 
     // Without pinning this test won't pass
-    EXPECT_TRUE(ctx->submitJob(job.get()));
+    EXPECT_TRUE(queue->submit(job.get()));
     // Ioctls:
     // * createSharedMemAlloc calls BO_CREATE and BO_INFO
     // * allocateJob calls BO_CREATE and BO_INFO

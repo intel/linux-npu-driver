@@ -5,25 +5,17 @@
  *
  */
 
-// IWYU pragma: no_include <bits/chrono.h>
-
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 
 #include "umd_common.hpp"
-#include "vpu_driver/source/command/vpu_command_buffer.hpp"
-#include "vpu_driver/source/command/vpu_job.hpp"
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
-#include <chrono> // IWYU pragma: keep
-#include <errno.h>
 #include <exception>
 #include <memory>
 #include <string.h>
-#include <thread>
 #include <uapi/drm/ivpu_accel.h>
-#include <vector>
 
 namespace VPU {
 struct VPUDescriptor;
@@ -137,13 +129,13 @@ VPUBufferObject *VPUDeviceContext::findBuffer(const void *ptr) const {
     const std::lock_guard<std::mutex> lock(mtx);
     auto it = trackedBuffers.lower_bound(ptr);
     if (it == trackedBuffers.end()) {
-        LOG(DEVICE, "Failed to find pointer %p in device context!", ptr);
+        LOG(DEVICE, "Could not find a pointer %p in VPUDeviceContext %p", ptr, this);
         return nullptr;
     }
 
     auto &bo = it->second;
     if (!bo->isInRange(ptr)) {
-        LOG(DEVICE, "Pointer is not within the range");
+        LOG(DEVICE, "Pointer %p is not in the allocation size in VPUDeviceContext %p", ptr, this);
         return nullptr;
     }
 
@@ -189,69 +181,6 @@ uint64_t VPUDeviceContext::getBufferVPUAddress(const void *ptr) const {
     LOG(DEVICE, "CPU address %p mapped to VPU address %#lx", ptr, bo->getVPUAddr() + offset);
 
     return bo->getVPUAddr() + offset;
-}
-
-bool VPUDeviceContext::submitCommandBuffer(const VPUCommandBuffer *cmdBuffer) {
-    drm_ivpu_submit execParam = {};
-    execParam.buffers_ptr = reinterpret_cast<uint64_t>(cmdBuffer->getBufferHandles().data());
-    execParam.buffer_count = safe_cast<uint32_t>(cmdBuffer->getBufferHandles().size());
-    execParam.engine = DRM_IVPU_ENGINE_COMPUTE;
-    execParam.priority = static_cast<uint32_t>(cmdBuffer->getPriority());
-
-    LOG(DEVICE,
-        "Submit VPUCommandBuffer: %p, params -> engine: %u, flags: %u, offset: %u, count: %u, ptr: "
-        "%#llx, prior: %u",
-        cmdBuffer,
-        execParam.engine,
-        execParam.flags,
-        execParam.commands_offset,
-        execParam.buffer_count,
-        execParam.buffers_ptr,
-        execParam.priority);
-
-    constexpr auto pollTime = std::chrono::seconds(2);
-    const auto timeoutPoint = std::chrono::steady_clock::now() + pollTime;
-    while (drvApi->submitCommandBuffer(&execParam) < 0) {
-        /*
-         * SUBMIT ioctl returns EBUSY if command queue is full. Driver should wait till firmware
-         * completes a job and make a space for new job in queue. Polling time is set to 2 seconds
-         * to match with TDR timeout.
-         */
-        if (errno != EBUSY) {
-            LOG_E("Failed to submit command buffer: %p", cmdBuffer);
-            return false;
-        }
-
-        if (std::chrono::steady_clock::now() > timeoutPoint) {
-            LOG_E("Timed out waiting for driver to submit a job");
-            return false;
-        }
-
-        std::this_thread::sleep_for(std::chrono::microseconds(100));
-    }
-    return true;
-}
-
-bool VPUDeviceContext::submitJob(const VPUJob *job) {
-    if (job == nullptr) {
-        LOG_W("Invalid argument - job is nullptr");
-        return false;
-    }
-
-    if (job->getCommandBuffers().size() == 0) {
-        LOG_E("Invalid argument - no command buffer in job");
-        return false;
-    }
-
-    for (const auto &cmdBuffer : job->getCommandBuffers()) {
-        if (!submitCommandBuffer(cmdBuffer.get())) {
-            LOG_E("Failed to submit job using cmdBuffer: %p", cmdBuffer.get());
-            return false;
-        }
-    }
-
-    LOG(DEVICE, "Buffer execution successfully triggered");
-    return true;
 }
 
 bool VPUDeviceContext::getCopyCommandDescriptor(const void *src,

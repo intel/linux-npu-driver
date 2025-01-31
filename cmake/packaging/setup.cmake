@@ -36,6 +36,7 @@ file(WRITE ${CPACK_PROJECT_CONFIG_FILE}
 get_cmake_property(CPACK_COMPONENTS_ALL COMPONENTS)
 list(REMOVE_ITEM CPACK_COMPONENTS_ALL level-zero-devel)
 list(REMOVE_ITEM CPACK_COMPONENTS_ALL openvino_standalone_package)
+list(REMOVE_ITEM CPACK_COMPONENTS_ALL npu_compiler_package)
 
 if (EXISTS "/etc/debian_version")
     set(PACKAGE_TYPE "deb")

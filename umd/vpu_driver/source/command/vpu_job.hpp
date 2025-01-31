@@ -81,11 +81,6 @@ class VPUJob {
 
     bool isClosed() const { return closed; }
 
-    void setPriority(VPUCommandBuffer::Priority p) {
-        for (auto &c : cmdBuffers)
-            c->setPriority(p);
-    }
-
     void setNeedsUpdate(bool value) { needsUpdate = value; }
 
   private:
@@ -100,7 +95,6 @@ class VPUJob {
 
     std::vector<std::unique_ptr<VPUCommandBuffer>> cmdBuffers;
     std::vector<std::shared_ptr<VPUCommand>> commands;
-
     bool closed = false;
     bool needsUpdate = false;
 };

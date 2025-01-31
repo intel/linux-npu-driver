@@ -435,6 +435,55 @@ TEST_F(CommandTimestamp, TwoCommandQueusWithinSameGroupExecuteTimestampAndSynchr
     }
 }
 
+TEST_F(CommandTimestamp, CommandTimestampStressTest) {
+    auto checkTimestamp = [&]() {
+        ze_result_t ret;
+        ze_context_desc_t contextDesc = {.stype = ZE_STRUCTURE_TYPE_CONTEXT_DESC,
+                                         .pNext = nullptr,
+                                         .flags = 0};
+
+        auto devContext = zeScope::contextCreate(zeDriver, contextDesc, ret);
+        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+        auto cmdQueue = zeScope::commandQueueCreate(devContext.get(), zeDevice, cmdQueueDesc, ret);
+        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+
+        auto cmdList = zeScope::commandListCreate(devContext.get(), zeDevice, cmdListDesc, ret);
+        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+
+        auto mem = zeMemory::allocShared(devContext.get(), zeDevice, size, 0);
+        uint64_t *ts = static_cast<uint64_t *>(mem.get());
+
+        ASSERT_EQ(zeCommandListAppendWriteGlobalTimestamp(cmdList.get(), ts, nullptr, 0, nullptr),
+                  ZE_RESULT_SUCCESS);
+
+        ASSERT_EQ(zeCommandListClose(cmdList.get()), ZE_RESULT_SUCCESS);
+
+        auto list = cmdList.get();
+        uint32_t iterations;
+
+        if (isSilicon())
+            iterations = 5000;
+        else
+            iterations = 5;
+
+        for (uint32_t iteration = 0; iteration < iterations; iteration++) {
+            EXPECT_EQ(zeCommandQueueExecuteCommandLists(cmdQueue.get(), 1, &list, nullptr),
+                      ZE_RESULT_SUCCESS);
+            EXPECT_EQ(zeCommandQueueSynchronize(cmdQueue.get(), syncTimeout * 2),
+                      ZE_RESULT_SUCCESS);
+            EXPECT_GT(*ts, 0ULL);
+        }
+    };
+
+    const size_t threadsNum = 20;
+    std::vector<std::future<void>> tasks(threadsNum);
+    for (auto &task : tasks) {
+        task = std::async(std::launch::async, checkTimestamp);
+    }
+    for (const auto &task : tasks) {
+        task.wait();
+    }
+}
 class CommandCopy : public Command {};
 
 TEST_F(CommandCopy, AppendMemoryCopyLocalToLocalAndSynchronize) {

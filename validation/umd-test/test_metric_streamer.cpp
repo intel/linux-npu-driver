@@ -5,9 +5,10 @@
  *
  */
 
-#include "perf_counter.h"
 #include "graph_utilities.hpp"
+#include "perf_counter.h"
 
+#include <bitset>
 #include <chrono>
 #include <future>
 #include <level_zero/ze_api.h>
@@ -39,6 +40,15 @@ class MetricStreamer : public UmdTest, public ::testing::WithParamInterface<metr
 
         if (node["inference_concurrency"].IsDefined())
             inferenceConcurency = node["inference_concurrency"].as<size_t>();
+
+        uint32_t numMetrics = 0;
+        ASSERT_EQ(zetMetricGet(hMetricGroup, &numMetrics, nullptr), ZE_RESULT_SUCCESS);
+        metrics.resize(numMetrics);
+        ASSERT_EQ(zetMetricGet(hMetricGroup, &numMetrics, &metrics[0]), ZE_RESULT_SUCCESS);
+        metricProperties.resize(numMetrics);
+        for (uint32_t i = 0; i < numMetrics; i++) {
+            ASSERT_EQ(zetMetricGetProperties(metrics[i], &metricProperties[i]), ZE_RESULT_SUCCESS);
+        }
     }
 
     void TearDown() override {
@@ -221,6 +231,8 @@ class MetricStreamer : public UmdTest, public ::testing::WithParamInterface<metr
     zet_metric_group_handle_t hMetricGroup = nullptr;
     zet_metric_group_properties_t metricGroupProperties = {};
     ze_result_t ret = ZE_RESULT_SUCCESS;
+    std::vector<zet_metric_handle_t> metrics;
+    std::vector<zet_metric_properties_t> metricProperties;
 
     std::vector<zet_typed_value_t> metricValues = {};
     size_t reportCount = 0;
@@ -434,6 +446,64 @@ TEST_P(MetricStreamer, RunInferenceExpectReportNotificationFromEventHostSynchron
 
 class MetricStreamerMemoryCopy : public MetricStreamer {
   public:
+    void SetUp() override {
+        MetricStreamer::SetUp();
+
+        if (isVPU37xx()) {
+            generateVPU37xxMetricsBitmap();
+        } else {
+            generateVPU40xxMetricsBitmap();
+        }
+
+        TRACE("Counters Bitmap: %s\n", nonZeroMetricsBitmap.to_string().c_str());
+    }
+
+    void generateVPU37xxMetricsBitmap() {
+        for (size_t i = 0; i < metricProperties.size(); i++) {
+            if (strcmp(metricProperties[i].name, "NOC_noc") == 0) {
+                TRACE("NOC_noc: non-zero value\n");
+                nonZeroMetricsBitmap.set(i);
+            } else if (strcmp(metricProperties[i].name, "NOC_DMA") == 0) {
+                TRACE("NOC_DMA: non-zero value\n");
+                nonZeroMetricsBitmap.set(i);
+            } else if (strcmp(metricProperties[i].name, "L2C_Riscv") == 0) {
+                TRACE("L2C_Riscv: zero value\n");
+            } else if (strcmp(metricProperties[i].name, "L2C_Shave") == 0) {
+                TRACE("L2C_Shave: zero value\n");
+            } else if (strcmp(metricProperties[i].name, "NOC_timestamp") == 0) {
+                TRACE("NOC_timestamp: non-zero value\n");
+                nonZeroMetricsBitmap.set(i);
+            } else {
+                FAIL() << "Unrecognized counter in the NOC group." << std::endl;
+            }
+        }
+    }
+
+    void generateVPU40xxMetricsBitmap() {
+        for (size_t i = 0; i < metricProperties.size(); i++) {
+            if (strcmp(metricProperties[i].name, "NOC_noc") == 0) {
+                TRACE("NOC_noc: non-zero value\n");
+                nonZeroMetricsBitmap.set(i);
+            } else if (strcmp(metricProperties[i].name, "NOC_DMA_00") == 0) {
+                TRACE("NOC_DMA_00: non-zero value\n");
+                nonZeroMetricsBitmap.set(i);
+            } else if (strcmp(metricProperties[i].name, "NOC_DMA_01") == 0) {
+                TRACE("NOC_DMA_01: non-zero value\n");
+                nonZeroMetricsBitmap.set(i);
+            } else if (strcmp(metricProperties[i].name, "L2C_Riscv") == 0) {
+                TRACE("L2C_Riscv: non-zero value\n");
+                nonZeroMetricsBitmap.set(i);
+            } else if (strcmp(metricProperties[i].name, "L2C_Shave") == 0) {
+                TRACE("L2C_Shave: zero value\n");
+            } else if (strcmp(metricProperties[i].name, "NOC_timestamp") == 0) {
+                TRACE("NOC_timestamp: non-zero value\n");
+                nonZeroMetricsBitmap.set(i);
+            } else {
+                FAIL() << "Unrecognized counter in the NOC group." << std::endl;
+            }
+        }
+    }
+
     static std::vector<metricTestCase_t>
     createCasesForMetricsTest(std::vector<uint32_t> &executionTime) {
         std::vector<metricTestCase_t> combinations;
@@ -453,6 +523,9 @@ class MetricStreamerMemoryCopy : public MetricStreamer {
             return combinations;
         }
     }
+
+  public:
+    std::bitset<32> nonZeroMetricsBitmap;
 };
 
 std::vector<uint32_t> execTimeMs = {20, 100};
@@ -511,13 +584,17 @@ TEST_P(MetricStreamerMemoryCopy, RunCopyExpectAnyReport) {
 
     size_t numIgnoredSamples = reportCount > 3 ? 3 : 1;
     ASSERT_GT(reportCount, numIgnoredSamples);
+
     for (size_t i = numIgnoredSamples; i < reportCount; i++) {
-        EXPECT_GT(metricValues[metricCount * i].value.ui64, 0llu)
-            << "Incorrect NOC_noc metric value at sample " << i;
-        EXPECT_GT(metricValues[metricCount * i + 1].value.ui64, 0llu)
-            << "Incorrect NOC_dma metric value at sample " << i;
-        EXPECT_GT(metricValues[metricCount * i + 3].value.ui64, 0llu)
-            << "Incorrect timestamp metric value at sample " << i;
+        for (uint32_t j = 0; j < metricCount; j++) {
+            if (nonZeroMetricsBitmap.test(j)) {
+                EXPECT_GT(metricValues[metricCount * i + j].value.ui64, 0llu)
+                    << "Incorrect " << metricProperties[j].name << " metric value at sample " << i;
+            } else {
+                EXPECT_EQ(metricValues[metricCount * i + j].value.ui64, 0llu)
+                    << "Incorrect " << metricProperties[j].name << " metric value at sample " << i;
+            }
+        }
     }
     TRACE_BUF(metricValues.data(), metricValues.size() * sizeof(zet_typed_value_t));
 }

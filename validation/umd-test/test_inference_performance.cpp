@@ -35,8 +35,6 @@ class InferencePerformance : public UmdTest, public ::testing::WithParamInterfac
     void SetUp() override {
         UmdTest::SetUp();
 
-        SKIP_PRESILICON("The test does not apply to the Simics platform");
-
         scopedQueue = zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDesc, ret);
         ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
         queue = scopedQueue.get();

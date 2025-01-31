@@ -37,6 +37,10 @@
     if (!test_app::run_skipped_tests) \
     GTEST_SKIP
 
+#define SKIP_FPGA(msg) \
+    if (is_fpga())     \
+    SKIP_(msg)
+
 #define SKIP_SIMICS(msg) \
     if (is_simics())     \
     SKIP_(msg)
@@ -69,8 +73,8 @@
     if (!test_app::has_root_access()) \
     SKIP_("Needs root privileges")
 
-#define SKIP_HARDENING(msg)    \
-    if (is_hardening_kernel()) \
+#define SKIP_HARDENING(msg)              \
+    if (test_app::is_hardening_kernel()) \
     SKIP_(msg)
 
 #define SKIP_NO_HWS(msg)   \
@@ -180,6 +184,9 @@ class KmdContext {
     int prime_handle_to_fd(uint32_t handle, uint32_t flags, int32_t *fd);
     int prime_fd_to_handle(int32_t fd, uint32_t flags, uint32_t *handle);
 
+    int create_cmdq(uint32_t *cmdq_id, int priority = DRM_IVPU_JOB_PRIORITY_DEFAULT);
+    int destroy_cmdq(uint32_t cmdq_id);
+
     int get_unique_id();
 
     bool valid();
@@ -264,14 +271,6 @@ class KmdTest : public ::testing::Test {
     void SendCheckTimestamp(int engine = ENGINE_COMPUTE);
     void SendCheckTimestamp(int engine, KmdContext &ctx);
     void SendFence(int buf_size, int write_offset, int read_offset);
-
-    bool is_hardening_kernel() {
-        struct utsname uts;
-
-        uname(&uts);
-        std::string str(uts.release);
-        return str.find("hardening") != std::string::npos;
-    }
 
     bool file_exists(const std::filesystem::path &path) {
         std::error_code ec;
@@ -489,6 +488,7 @@ struct CmdBuffer : MemoryBuffer {
     void add_fence_wait_cmd(MemoryBuffer &fence_buf,
                             uint32_t fence_offset,
                             uint64_t fence_val = FENCE_WAIT_VAL);
+    void add_write_cmd(uint64_t addr, uint64_t value);
     void add_memory_fill_cmd(MemoryBuffer &buf,
                              uint64_t start_address,
                              uint64_t size,
@@ -506,11 +506,13 @@ struct CmdBuffer : MemoryBuffer {
                       size_t length,
                       uint16_t copy_cmd = VPU_CMD_COPY_LOCAL_TO_LOCAL);
     int submit(int engine = ENGINE_COMPUTE, int priority = 0, uint32_t timeout_ms = 0);
+    int cmdq_submit(uint32_t cmdq_id);
     void prepare_bb_hdr(void);
     void prepare_params(int engine, int priority, drm_ivpu_submit *params);
     int wait(uint32_t timeout_ms = JOB_SYNC_TIMEOUT_MS);
 
     std::vector<uint32_t> referenced_handles;
+    void add_fence_cmd(uint64_t fence_address, uint64_t fence_value, enum vpu_cmd_type type);
     void add_fence_cmd(MemoryBuffer &fence_buffer,
                        uint32_t fence_offset,
                        uint64_t fence_value,

@@ -50,7 +50,7 @@ foreach(COMPONENT IN LISTS CPACK_COMPONENTS_ALL)
          "\n"
          "src_install() {\n"
          "    mkdir -p \${D}\n"
-         "    cp -r \${S}/* \${D}\n"
+         "    cp -ra \${S}/* \${D}\n"
          "}\n")
 
     if (${COMPONENT_UPPER}_POSTINST)

@@ -13,6 +13,7 @@
 /*
  * Major version changes that break backward compatibility.
  * Major version must start from 1 and can only be incremented.
+ * Minor version must be reset to 0 when Major version is incremented.
  */
 #define VPU_JSM_JOB_CMD_API_VER_MAJOR 4
 
@@ -20,12 +21,12 @@
  * Minor version changes when API backward compatibility is preserved.
  * Resets to 0 if Major version is incremented.
  */
-#define VPU_JSM_JOB_CMD_API_VER_MINOR 6
+#define VPU_JSM_JOB_CMD_API_VER_MINOR 8
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
  */
-#define VPU_JSM_JOB_CMD_API_VER_PATCH 0
+#define VPU_JSM_JOB_CMD_API_VER_PATCH 1
 
 /*
  * Index in the API version table
@@ -81,14 +82,16 @@ enum vpu_cmd_type {
     VPU_CMD_COPY_SYSTEM_TO_SYSTEM = 0x0203,
 
     /** Implemented by Compute Engine */
-    VPU_CMD_DXIL = 0x0300,
     VPU_CMD_JIT_MAPPED_INFERENCE_EXECUTE = 0x0301,
     VPU_CMD_COPY_LOCAL_TO_LOCAL = 0x0302,
     VPU_CMD_CLEAR_BUFFER = 0x0303,
+    VPU_CMD_INFERENCE_EXECUTE = 0x0306,
+
+    /** Deprecated commands. Do not reuse IDs */
+    VPU_CMD_DXIL_DEPRECATED = 0x0300,
     VPU_CMD_OV_BLOB_INITIALIZE_DEPRECATED = 0x0304,
     VPU_CMD_OV_BLOB_EXECUTE_DEPRECATED = 0x0305,
-    VPU_CMD_INFERENCE_EXECUTE = 0x0306,
-    VPU_CMD_DXIL_COPY = 0x0307
+    VPU_CMD_DXIL_COPY_DEPRECATED = 0x0307
 };
 
 enum vpu_desc_table_entry_type {
@@ -292,23 +295,6 @@ typedef struct vpu_cmd_memory_fill {
     uint32_t reserved_1;
 } vpu_cmd_memory_fill_t;
 
-/**
- * @brief DXIL workload execution command
- * @see VPU_CMD_DXIL
- */
-typedef struct vpu_cmd_dxil {
-    vpu_cmd_header_t header;
-    uint32_t reserved_0;       /**< Reserved */
-    uint64_t kernel_entry;     /**< VA to kernel entry function */
-    uint64_t dispatch_data;    /**< VA to buffer containing all the kernels invocation data */
-    uint32_t kernel_data_size; /**< Size of kernel data for a single kernel */
-    uint32_t shave_count;      /**< Number of shaves or kernel invocations */
-    uint64_t reserved_1;       /**< Reserved */
-    uint64_t shave_stack[16];  /**< Array of pointers to VA where the stack for each Shave is located */
-    uint32_t shave_stack_size; /**< Shave stack size */
-    uint32_t reserved_2;       /**< Reserved */
-} vpu_cmd_dxil_t;
-
 typedef struct vpu_cmd_inference_entry {
     /** Virtual address and size of the host mapped inference */
     vpu_cmd_resource_descriptor_t host_mapped_inference;
@@ -372,8 +358,10 @@ typedef struct vpu_cmd_fence {
     uint32_t reserved_0;
     /**
      * Offset from the base of the fence heap for the current fence value
-     * NOTE: Resulting address (heap base plus offset) must be aligned on a 64B boundary
+     * NOTE: (VPU 37xx) - Resulting address (heap base plus offset) must be aligned on a 64B boundary
      * to allow proper handling of VPU cache operations.
+     * (VPU 40xx) - Resulting address (heap base plus offset) must be aligned on an 8B boundary as
+     * LNL+ facilitates cache-bypass, memory access.
      */
     uint64_t offset;
     /** Fence value to be written */

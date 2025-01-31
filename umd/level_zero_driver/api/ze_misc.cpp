@@ -5,31 +5,51 @@
  *
  */
 
+#include "level_zero_driver/api/trace/trace_ze_api_ddi.hpp"
+
 #include <level_zero/ze_api.h>
 #include <level_zero/ze_ddi.h>
 
 extern "C" {
 ZE_APIEXPORT ze_result_t ZE_APICALL zeGetImageProcAddrTable(ze_api_version_t version,
                                                             ze_image_dditable_t *pDdiTable) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    trace_zeGetImageProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
 
     pDdiTable->pfnGetProperties = nullptr; // zeImageGetProperties
     pDdiTable->pfnCreate = nullptr;        // zeImageCreate
     pDdiTable->pfnDestroy = nullptr;       // zeImageDestroy
-    return ZE_RESULT_SUCCESS;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zeGetImageProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 
 ZE_APIEXPORT ze_result_t ZE_APICALL zeGetModuleProcAddrTable(ze_api_version_t version,
                                                              ze_module_dditable_t *pDdiTable) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    trace_zeGetModuleProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
 
     pDdiTable->pfnCreate = nullptr;             // zeModuleCreate
     pDdiTable->pfnDestroy = nullptr;            // zeModuleDestroy
@@ -39,30 +59,52 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetModuleProcAddrTable(ze_api_version_t ve
     pDdiTable->pfnGetKernelNames = nullptr;     // zeModuleGetKernelNames
     pDdiTable->pfnGetFunctionPointer = nullptr; // zeModuleGetFunctionPointer
     pDdiTable->pfnGetProperties = nullptr;      // zeModuleGetProperties
-    return ZE_RESULT_SUCCESS;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zeGetModuleProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 
 ZE_APIEXPORT ze_result_t ZE_APICALL
 zeGetModuleBuildLogProcAddrTable(ze_api_version_t version,
                                  ze_module_build_log_dditable_t *pDdiTable) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    trace_zeGetModuleBuildLogProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
 
     pDdiTable->pfnDestroy = nullptr;   // zeModuleBuildLogDestroy
     pDdiTable->pfnGetString = nullptr; // zeModuleBuildLogGetString
-    return ZE_RESULT_SUCCESS;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zeGetModuleBuildLogProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 
 ZE_APIEXPORT ze_result_t ZE_APICALL zeGetKernelProcAddrTable(ze_api_version_t version,
                                                              ze_kernel_dditable_t *pDdiTable) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    trace_zeGetKernelProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
 
     pDdiTable->pfnCreate = nullptr;           // zeKernelCreate
     pDdiTable->pfnDestroy = nullptr;          // zeKernelDestroy
@@ -77,19 +119,34 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetKernelProcAddrTable(ze_api_version_t ve
     pDdiTable->pfnGetProperties = nullptr;       // zeKernelGetProperties
     pDdiTable->pfnSetCacheConfig = nullptr;      // zeKernelSetCacheConfig
     pDdiTable->pfnGetName = nullptr;             // zeKernelGetName
-    return ZE_RESULT_SUCCESS;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zeGetKernelProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 
 ZE_APIEXPORT ze_result_t ZE_APICALL zeGetSamplerProcAddrTable(ze_api_version_t version,
                                                               ze_sampler_dditable_t *pDdiTable) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    trace_zeGetSamplerProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
 
     pDdiTable->pfnCreate = nullptr;  // zeSamplerCreate
     pDdiTable->pfnDestroy = nullptr; // zeSamplerDestroy
-    return ZE_RESULT_SUCCESS;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zeGetSamplerProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 }

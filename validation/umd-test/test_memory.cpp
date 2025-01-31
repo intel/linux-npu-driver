@@ -7,9 +7,9 @@
 
 #include "umd_test.h"
 
-#include <vector>
 #include <memory>
 #include <thread>
+#include <vector>
 
 class MemoryAllocation : public UmdTest, public ::testing::WithParamInterface<uint64_t> {
   public:
@@ -300,6 +300,35 @@ TEST_F(MemoryExecution, MultipleCopies) {
 
     EXPECT_EQ(memcmp(hostMem.get(), static_cast<uint8_t *>(hostMem.get()) + size * numIter, size),
               0);
+}
+
+TEST_F(MemoryExecution, CheckQueryContextMemory) {
+    ze_graph_memory_query_t memAllocated = {};
+    size_t testAllocSize = 20000;
+
+    ASSERT_EQ(ZE_RESULT_SUCCESS,
+              zeGraphDDITableExt->pfnQueryContextMemory(zeContext,
+                                                        ZE_GRAPH_QUERY_MEMORY_DDR,
+                                                        &memAllocated));
+    size_t initialMem = memAllocated.allocated;
+
+    auto mem = AllocHostMemory(testAllocSize);
+    ASSERT_EQ(ZE_RESULT_SUCCESS,
+              zeGraphDDITableExt->pfnQueryContextMemory(zeContext,
+                                                        ZE_GRAPH_QUERY_MEMORY_DDR,
+                                                        &memAllocated));
+    size_t userAllocatedMem = memAllocated.allocated;
+    EXPECT_EQ(userAllocatedMem, initialMem + testAllocSize);
+
+    ASSERT_EQ(zeCommandListAppendBarrier(list, nullptr, 0, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(ZE_RESULT_SUCCESS,
+              zeGraphDDITableExt->pfnQueryContextMemory(zeContext,
+                                                        ZE_GRAPH_QUERY_MEMORY_DDR,
+                                                        &memAllocated));
+
+    /* Expected some internal allocations for command buffer*/
+    EXPECT_GT(memAllocated.allocated, userAllocatedMem);
 }
 
 class MemoryAllocationThreaded : public UmdTest {

@@ -123,6 +123,12 @@ int MockOsInterfaceImp::osiIoctl(int fd, unsigned long request, void *data) {
 
     } else if (request == DRM_IOCTL_IVPU_SUBMIT) {
         callCntSubmit++;
+    } else if (request == DRM_IOCTL_IVPU_CMDQ_CREATE) {
+        callCntSubmit++;
+    } else if (request == DRM_IOCTL_IVPU_CMDQ_SUBMIT) {
+        callCntSubmit++;
+    } else if (request == DRM_IOCTL_IVPU_CMDQ_DESTROY) {
+        callCntSubmit++;
     } else if (request == DRM_IOCTL_IVPU_BO_WAIT) {
         bool timeout = waitFailed.test(0);
         waitFailed >>= 1;

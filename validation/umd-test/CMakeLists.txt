@@ -13,6 +13,7 @@ add_subdirectory(utilities)
 
 find_package(OpenVINO QUIET COMPONENTS Runtime)
 find_package(OpenCV QUIET)
+
 find_package(OpenCL QUIET)
 
 add_executable(${PROJECT_NAME}
@@ -21,9 +22,6 @@ add_executable(${PROJECT_NAME}
     model_params.cpp
     main.cpp
     umd_test.cpp
-    test_buffers_export.cpp
-    test_buffers_import.cpp
-    test_buffers_export_gpu.cpp
     test_commands.cpp
     test_context.cpp
     test_copy_performance.cpp
@@ -32,6 +30,9 @@ add_executable(${PROJECT_NAME}
     test_event.cpp
     test_event_sync.cpp
     test_eventpool.cpp
+    test_external_memory.cpp
+    test_external_memory_dma_heap.cpp
+    test_external_memory_ze.cpp
     test_fence.cpp
     test_graph.cpp
     test_graph_cid.cpp
@@ -40,6 +41,7 @@ add_executable(${PROJECT_NAME}
     test_graph_query.cpp
     test_immediate_cmdlist.cpp
     test_inference_performance.cpp
+    test_init_drivers.cpp
     test_memory.cpp
     test_metric.cpp
     test_metric_streamer.cpp
@@ -48,19 +50,19 @@ add_executable(${PROJECT_NAME}
 
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/linux/include/uapi")
 
-if (OpenVINO_FOUND)
+if (TARGET openvino::runtime)
     target_sources(${PROJECT_NAME} PRIVATE test_ov_inference.cpp test_mutable_cmdlist.cpp)
     target_link_libraries(${PROJECT_NAME} openvino::runtime)
     target_compile_definitions(${PROJECT_NAME} PUBLIC UMD_TESTS_USE_OPENVINO=1)
 endif()
 
-if (OpenCV_FOUND)
+if (TARGET opencv_core AND TARGET opencv_imgcodecs)
     target_link_libraries(${PROJECT_NAME} opencv_core opencv_imgcodecs)
     target_compile_definitions(${PROJECT_NAME} PRIVATE UMD_TESTS_USE_OPENCV)
 endif()
 
 if (OpenCL_FOUND)
-    target_sources(${PROJECT_NAME} PRIVATE test_buffers_import_gpu.cpp)
+    target_sources(${PROJECT_NAME} PRIVATE test_external_memory_opencl.cpp)
     target_link_libraries(${PROJECT_NAME} OpenCL)
 endif()
 

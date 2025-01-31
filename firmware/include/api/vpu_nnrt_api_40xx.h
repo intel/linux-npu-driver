@@ -7,30 +7,43 @@
 #define VPU_NNRT_API_40XX_H
 
 #include "vpu_nce_hw_40xx.h"
-#include "vpu_dma_hw_40xx.h"
+#include "vpu_dma_hw.h"
 #include "vpu_media_hw.h"
 #include "vpu_pwrmgr_api.h"
+#include "vpu_nnrt_wlm.h"
+#include "vpu_nnrt_common.h"
 
 /*
  * When a change is made to vpu_nnrt_api_40xx.h that breaks backwards compatibility
- * VPU_NNRT_40XX_API_VER_MAJOR must be incremented.
+ * (old blob does not work with new firmware) VPU_NNRT_40XX_API_VER_MAJOR must be incremented.
  *
- * If a change preserves backwards compatibility then VPU_NNRT_40XX_API_VER_MINOR
+ * If a change preserves backwards compatibility but breaks forwards compatibility
+ * (new blob does not work with old firmware) then VPU_NNRT_40XX_API_VER_MINOR
  * should be incremented. It resets to 0 when the major version is incremented.
  *
  * If vpu_nnrt_api_40xx.h is modified (field names, documentation, formatting) but the API
  * itself is not changed, then VPU_NNRT_40XX_API_VER_PATCH should be incremented.
  *
  * When the compiler creates a MappedInference in an ELF blob
- * VpuMappedInference.vpu_nnrt_api_ver is set to the version of nn_public used.
+ * VpuMappedInference.vpu_nnrt_api_ver is set to the version of the NNRT API used.
  * NNRuntime checks this version at inference time to ensure it is current and
  * returns an error if the major version does not match.
  * Note: VPU_NNRT_40XX_API_VER_PATCH is not stored in the MappedInference as
  * compatibility is not affected if this changes.
+ *
+ * API changelog
+ * -------------
+ * 11.6:
+ *   - Added VpuWorkItem::next_workitem_idx to allow a linked list of work items to be enqueued.
+ *
+ * 11.5:
+ *   - Added barrier configuration data (barriers_configuration, num_of_barrier_reprogrammings,
+ *     barrier_programming_mode and barrier_configuration_stride in VpuManagedMappedInference)
+ *     to allow runtime to efficiently fill barrier FIFOs.
  */
 #define VPU_NNRT_40XX_API_VER_MAJOR 11
-#define VPU_NNRT_40XX_API_VER_MINOR 4
-#define VPU_NNRT_40XX_API_VER_PATCH 10
+#define VPU_NNRT_40XX_API_VER_MINOR 6
+#define VPU_NNRT_40XX_API_VER_PATCH 0
 #define VPU_NNRT_40XX_API_VER ((VPU_NNRT_40XX_API_VER_MAJOR << 16) | VPU_NNRT_40XX_API_VER_MINOR)
 
 /* Index in the API version table, same for all HW generations */
@@ -45,7 +58,7 @@
  * should be incremented. It resets to 0 when the major version is incremented.
  */
 #define VPU_ACT_RT_VER_MAJOR 1
-#define VPU_ACT_RT_VER_MINOR 6
+#define VPU_ACT_RT_VER_MINOR 8
 #define VPU_ACT_RT_VER_PATCH 0
 #define VPU_ACT_RT_VER ((VPU_ACT_RT_VER_MAJOR << 16) | VPU_ACT_RT_VER_MINOR)
 
@@ -105,36 +118,6 @@ struct VPU_ALIGNED_STRUCT(8) VpuPtr {
 };
 
 static_assert(sizeof(VpuPtr<void>) == 8, "VpuPtr size != 8");
-
-template <typename T>
-struct VPU_ALIGNED_STRUCT(8) VpuTaskReference {
-    uint64_t reserved1;
-    uint64_t reserved2;
-    uint64_t reserved3;
-
-    uint64_t address;
-    uint64_t count;
-
-    T *data() { return reinterpret_cast<T *>(address); }
-    const T *data() const { return reinterpret_cast<T *>(address); }
-
-    T *data(int64_t offset) { return reinterpret_cast<T *>(address + offset); }
-    const T *data(int64_t offset) const { return reinterpret_cast<T *>(address + offset); }
-
-    uint64_t size() const { return count; };
-
-    T &at(uint32_t index, int64_t offset = 0) { return (reinterpret_cast<T *>(address + offset))[index]; }
-    const T &at(uint32_t index, int64_t offset = 0) const { return (reinterpret_cast<T *>(address + offset))[index]; }
-
-    template <class TD>
-    VpuTaskReference &operator=(TD fixedVector) {
-        address = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(fixedVector.data())) - fixedVector.apertureOffset();
-        count = static_cast<uint64_t>(fixedVector.size());
-        return *this;
-    }
-};
-
-static_assert(sizeof(VpuTaskReference<uint32_t>) == 40, "VpuTaskReference size != 40");
 
 typedef void(actKernelEntryFunction)(void *);
 
@@ -199,22 +182,6 @@ struct VPU_ALIGNED_STRUCT(4) VpuResourceRequirements {
 };
 
 static_assert(sizeof(VpuResourceRequirements) == 12, "VpuResourceRequirements size != 12");
-
-struct VPU_ALIGNED_STRUCT(8) VpuNNShaveRuntimeConfigs {
-    uint64_t reserved;
-    uint64_t runtime_entry; // when useScheduleEmbeddedRt = true this is a windowed address
-    uint64_t act_rt_window_base;
-    uint32_t stack_frames[VPU_AS_TOTAL];
-    uint32_t stack_size;
-    uint32_t code_window_buffer_size;
-    uint32_t perf_metrics_mask;
-    uint32_t runtime_version;
-    uint8_t use_schedule_embedded_rt; // when useScheduleEmbeddedRt = false; FW copies ActRt to this buffer
-                                      // when useScheduleEmbeddedRt = true; buffer already contains the ActRt
-    VpuHWPStatMode dpu_perf_mode;
-    uint8_t pad_[6];
-};
-static_assert(sizeof(VpuNNShaveRuntimeConfigs) == 96, "VpuNNShaveRuntimeConfigs size != 96");
 
 struct VPU_ALIGNED_STRUCT(32) VpuDMATask {
     DmaDescriptor transaction_;
@@ -310,7 +277,7 @@ struct VPU_ALIGNED_STRUCT(32) VpuMappedInference {
     VpuTaskReference<VpuBarrierCountConfig> barrier_configs;
     VpuNNShaveRuntimeConfigs shv_rt_configs;
     uint64_t hwp_workpoint_cfg_addr;
-    VpuTaskReference<uint8_t> managed_inference;
+    VpuTaskReference<VpuManagedMappedInference> managed_inference;
 };
 
 static_assert(sizeof(VpuMappedInference) == 1728, "VpuMappedInference size != 1728");

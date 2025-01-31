@@ -5,13 +5,18 @@
  *
  */
 
+// IWYU pragma: no_include "perfetto.h"
+
 #include <stdint.h>
 
 #include "level_zero_driver/api/ext/ze_graph.hpp"
 #include "level_zero_driver/api/ext/ze_queue.hpp"
-#include "level_zero_driver/core/source/driver/driver.hpp"
-#include "level_zero_driver/core/source/driver/driver_handle.hpp"
+#include "level_zero_driver/api/trace/trace_perfetto.hpp"
+#include "level_zero_driver/api/trace/trace_ze_api.hpp"
+#include "level_zero_driver/api/trace/trace_ze_api_ddi.hpp"
 #include "level_zero_driver/include/l0_exception.hpp"
+#include "level_zero_driver/source/driver.hpp"
+#include "level_zero_driver/source/driver_handle.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <array>
@@ -22,45 +27,94 @@
 #include <level_zero/ze_graph_profiling_ext.h>
 #include <string.h>
 
+PERFETTO_TRACK_EVENT_STATIC_STORAGE();
+
 namespace L0 {
+[[maybe_unused]] static TracePerfetto trace_perfetto;
+
 ze_result_t zeInit(ze_init_flags_t flags) {
-    L0_HANDLE_EXCEPTION_AND_RETURN(L0::init(flags));
+    trace_zeInit(flags);
+    ze_result_t ret;
+
+    L0_HANDLE_EXCEPTION(ret, L0::init(flags));
+
+    trace_zeInit(ret, flags);
+    return ret;
 }
 
 ze_result_t zeDriverGet(uint32_t *pCount, ze_driver_handle_t *phDrivers) {
-    L0_HANDLE_EXCEPTION_AND_RETURN(L0::driverHandleGet(pCount, phDrivers));
+    trace_zeDriverGet(pCount, phDrivers);
+    ze_result_t ret;
+
+    L0_HANDLE_EXCEPTION(ret, L0::driverHandleGet(pCount, phDrivers));
+
+    trace_zeDriverGet(ret, pCount, phDrivers);
+    return ret;
+}
+
+ze_result_t
+zeInitDrivers(uint32_t *pCount, ze_driver_handle_t *phDrivers, ze_init_driver_type_desc_t *desc) {
+    trace_zeInitDrivers(pCount, phDrivers, desc);
+    ze_result_t ret;
+
+    L0_HANDLE_EXCEPTION(ret, L0::initDrivers(pCount, phDrivers, desc));
+
+    trace_zeInitDrivers(pCount, phDrivers, desc);
+    return ret;
 }
 
 ze_result_t zeDriverGetProperties(ze_driver_handle_t hDriver, ze_driver_properties_t *pProperties) {
+    trace_zeDriverGetProperties(hDriver, pProperties);
+    ze_result_t ret;
+
     if (hDriver == nullptr) {
-        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
     }
-    L0_HANDLE_EXCEPTION_AND_RETURN(
-        L0::DriverHandle::fromHandle(hDriver)->getProperties(pProperties));
+    L0_HANDLE_EXCEPTION(ret, L0::DriverHandle::fromHandle(hDriver)->getProperties(pProperties));
+
+exit:
+    trace_zeDriverGetProperties(ret, hDriver, pProperties);
+    return ret;
 }
 
 ze_result_t zeDriverGetApiVersion(ze_driver_handle_t hDriver, ze_api_version_t *version) {
+    trace_zeDriverGetApiVersion(hDriver, version);
+    ze_result_t ret;
+
     if (hDriver == nullptr) {
-        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
     }
-    L0_HANDLE_EXCEPTION_AND_RETURN(L0::DriverHandle::fromHandle(hDriver)->getApiVersion(version));
+    L0_HANDLE_EXCEPTION(ret, L0::DriverHandle::fromHandle(hDriver)->getApiVersion(version));
+
+exit:
+    trace_zeDriverGetApiVersion(ret, hDriver, version);
+    return ret;
 }
 
 ze_result_t zeDriverGetIpcProperties(ze_driver_handle_t hDriver,
                                      ze_driver_ipc_properties_t *pIPCProperties) {
+    trace_zeDriverGetIpcProperties(hDriver, pIPCProperties);
+    ze_result_t ret;
+
     if (hDriver == nullptr) {
-        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
     }
-    L0_HANDLE_EXCEPTION_AND_RETURN(
-        L0::DriverHandle::fromHandle(hDriver)->getIPCProperties(pIPCProperties));
+    L0_HANDLE_EXCEPTION(ret,
+                        L0::DriverHandle::fromHandle(hDriver)->getIPCProperties(pIPCProperties));
+
+exit:
+    trace_zeDriverGetIpcProperties(ret, hDriver, pIPCProperties);
+    return ret;
 }
 
 ze_result_t zeDriverGetExtensionProperties(ze_driver_handle_t hDriver,
                                            uint32_t *pCount,
                                            ze_driver_extension_properties_t *pExtensionProperties) {
-    if (hDriver == nullptr) {
-        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
-    }
+    trace_zeDriverGetExtensionProperties(hDriver, pCount, pExtensionProperties);
+    ze_result_t ret;
 
     std::array<ze_driver_extension_properties_t, 11> supportedExts = {{
         {ZE_GRAPH_EXT_NAME, ZE_GRAPH_EXT_VERSION_CURRENT},
@@ -76,20 +130,28 @@ ze_result_t zeDriverGetExtensionProperties(ze_driver_handle_t hDriver,
         {"ZE_extension_graph_1_8", ZE_GRAPH_EXT_VERSION_1_8},
     }};
 
+    if (hDriver == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+
     if (pCount == nullptr) {
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
     }
 
     if (*pCount == 0) {
         *pCount = supportedExts.size();
-        return ZE_RESULT_SUCCESS;
+        ret = ZE_RESULT_SUCCESS;
+        goto exit;
     }
 
     if (*pCount > supportedExts.size())
         *pCount = supportedExts.size();
 
     if (pExtensionProperties == nullptr) {
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
     }
 
     for (size_t i = 0; i < *pCount; i++) {
@@ -97,19 +159,28 @@ ze_result_t zeDriverGetExtensionProperties(ze_driver_handle_t hDriver,
         pExtensionProperties++;
     }
 
-    return ZE_RESULT_SUCCESS;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zeDriverGetExtensionProperties(ret, hDriver, pCount, pExtensionProperties);
+    return ret;
 }
 
 ze_result_t zeDriverGetExtensionFunctionAddress(ze_driver_handle_t hDriver,
                                                 const char *name,
                                                 void **ppFunctionAddress) {
+    trace_zeDriverGetExtensionFunctionAddress(hDriver, name, ppFunctionAddress);
+    ze_result_t ret;
+
     if (hDriver == nullptr) {
-        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
     }
 
     if (name == nullptr || ppFunctionAddress == nullptr) {
         LOG_E("Invalid name or ppFunctionAddress pointer");
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
     }
 
     if (strcmp(name, ZE_PROFILING_DATA_EXT_NAME) == 0) {
@@ -122,8 +193,9 @@ ze_result_t zeDriverGetExtensionFunctionAddress(ze_driver_handle_t hDriver,
         table.pfnDeviceGetProfilingDataProperties = L0::zeDeviceGetProfilingDataProperties;
         table.pfnProfilingLogGetString = L0::zeGraphProfilingLogGetString;
         *ppFunctionAddress = reinterpret_cast<void *>(&table);
-        LOG(DRIVER, "Return DDI table for extension: %s", name);
-        return ZE_RESULT_SUCCESS;
+        LOG(DRIVER, "ret = DDI table for extension: %s", name);
+        ret = ZE_RESULT_SUCCESS;
+        goto exit;
     }
 
     if (strcmp(name, ZE_COMMAND_QUEUE_NPU_EXT_NAME) == 0) {
@@ -131,8 +203,9 @@ ze_result_t zeDriverGetExtensionFunctionAddress(ze_driver_handle_t hDriver,
 
         table.pfnSetWorkloadType = L0::zeCommandQueueSetWorkloadType;
         *ppFunctionAddress = reinterpret_cast<void *>(&table);
-        LOG(DRIVER, "Return DDI table for extension: %s", name);
-        return ZE_RESULT_SUCCESS;
+        LOG(DRIVER, "ret = DDI table for extension: %s", name);
+        ret = ZE_RESULT_SUCCESS;
+        goto exit;
     }
 
     static ze_graph_dditable_ext_t table;
@@ -179,35 +252,59 @@ ze_result_t zeDriverGetExtensionFunctionAddress(ze_driver_handle_t hDriver,
 
     if (strstr(name, ZE_GRAPH_EXT_NAME) != nullptr) {
         *ppFunctionAddress = reinterpret_cast<void *>(&table);
-        LOG(DRIVER, "Return DDI table for extension: %s", name);
-        return ZE_RESULT_SUCCESS;
+        LOG(DRIVER, "ret = DDI table for extension: %s", name);
+        ret = ZE_RESULT_SUCCESS;
+        goto exit;
     }
 
     LOG_E("The name of extension is unknown: %s", name);
-    return ZE_RESULT_ERROR_UNKNOWN;
+    ret = ZE_RESULT_ERROR_UNKNOWN;
+
+exit:
+    trace_zeDriverGetExtensionFunctionAddress(ret, hDriver, name, ppFunctionAddress);
+    return ret;
 }
 } // namespace L0
 
 extern "C" {
 ZE_APIEXPORT ze_result_t ZE_APICALL zeGetGlobalProcAddrTable(ze_api_version_t version,
                                                              ze_global_dditable_t *pDdiTable) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    trace_zeGetGlobalProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
 
     pDdiTable->pfnInit = L0::zeInit;
-    return ZE_RESULT_SUCCESS;
+    pDdiTable->pfnInitDrivers = L0::zeInitDrivers;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zeGetGlobalProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 
 ZE_APIEXPORT ze_result_t ZE_APICALL zeGetDriverProcAddrTable(ze_api_version_t version,
                                                              ze_driver_dditable_t *pDdiTable) {
-    if (nullptr == pDdiTable)
-        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    trace_zeGetDriverProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
 
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version))
-        return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
 
     pDdiTable->pfnGet = L0::zeDriverGet;
     pDdiTable->pfnGetApiVersion = L0::zeDriverGetApiVersion;
@@ -215,6 +312,10 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetDriverProcAddrTable(ze_api_version_t ve
     pDdiTable->pfnGetIpcProperties = L0::zeDriverGetIpcProperties;
     pDdiTable->pfnGetExtensionProperties = L0::zeDriverGetExtensionProperties;
     pDdiTable->pfnGetExtensionFunctionAddress = L0::zeDriverGetExtensionFunctionAddress;
-    return ZE_RESULT_SUCCESS;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zeGetDriverProcAddrTable(ret, version, pDdiTable);
+    return ret;
 }
 }

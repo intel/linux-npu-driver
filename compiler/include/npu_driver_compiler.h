@@ -23,7 +23,7 @@ extern "C" {
 #endif
 
 #define VCL_COMPILER_VERSION_MAJOR 6
-#define VCL_COMPILER_VERSION_MINOR 1
+#define VCL_COMPILER_VERSION_MINOR 3
 #define VCL_PROFILING_VERSION_MAJOR 2
 #define VCL_PROFILING_VERSION_MINOR 0
 
@@ -123,6 +123,7 @@ typedef enum __vcl_platform_t {
     VCL_PLATFORM_VPU3700 = 0,  ///< VPU3700
     VCL_PLATFORM_VPU3720 = 1,  ///< VPU3720
     VCL_PLATFORM_VPU4000 = 2,  ///< VPU4000
+
 } vcl_platform_t;
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -14,6 +14,7 @@
 class Copy : public KmdTest, public ::testing::WithParamInterface<std::tuple<__u16, __u32>> {
   protected:
     void CopyPerfTest(int engine, int buf_size, int copy_size, int repeats, bool coherent = true);
+    void CopyDuringCtxCreation(int engine);
 
     void CopySystem2Local2System(int size, bool L2L) {
         const unsigned char pattern = 0xCD;
@@ -37,40 +38,19 @@ class Copy : public KmdTest, public ::testing::WithParamInterface<std::tuple<__u
         CmdBuffer cmd_buf(context, 4096, VPU_BUF_USAGE_BATCHBUFFER);
         ASSERT_EQ(cmd_buf.create(), 0);
 
-        cmd_buf.add_copy_cmd(descr_buf,
-                             0,
-                             src_buf,
-                             0,
-                             mid1_buf,
-                             0,
-                             size,
-                             VPU_CMD_COPY_SYSTEM_TO_LOCAL);
+        cmd_buf.add_copy_cmd(descr_buf, 0, src_buf, 0, mid1_buf, 0, size);
         ASSERT_EQ(cmd_buf.submit(ENGINE_COPY), 0);
         ASSERT_EQ(cmd_buf.wait(), 0);
 
         if (L2L) {
             cmd_buf.start(0);
-            cmd_buf.add_copy_cmd(descr_buf,
-                                 0,
-                                 mid1_buf,
-                                 0,
-                                 mid2_buf,
-                                 0,
-                                 size,
-                                 VPU_CMD_COPY_LOCAL_TO_LOCAL);
+            cmd_buf.add_copy_cmd(descr_buf, 0, mid1_buf, 0, mid2_buf, 0, size);
             ASSERT_EQ(cmd_buf.submit(ENGINE_COMPUTE), 0);
             ASSERT_EQ(cmd_buf.wait(), 0);
         }
 
         cmd_buf.start(0);
-        cmd_buf.add_copy_cmd(descr_buf,
-                             0,
-                             L2L ? mid2_buf : mid1_buf,
-                             0,
-                             dst_buf,
-                             0,
-                             size,
-                             VPU_CMD_COPY_LOCAL_TO_SYSTEM);
+        cmd_buf.add_copy_cmd(descr_buf, 0, L2L ? mid2_buf : mid1_buf, 0, dst_buf, 0, size);
         ASSERT_EQ(cmd_buf.submit(ENGINE_COPY), 0);
         ASSERT_EQ(cmd_buf.wait(), 0);
 
@@ -183,8 +163,7 @@ TEST_F(Copy, Loop) {
                              src_offset,
                              *dst_bufs[i],
                              dst_offset,
-                             copy_len,
-                             VPU_CMD_COPY_SYSTEM_TO_SYSTEM);
+                             copy_len);
         ASSERT_EQ(cmd_buf.submit(ENGINE_COPY), 0);
         ASSERT_EQ(cmd_buf.wait(), 0);
 
@@ -196,14 +175,10 @@ TEST_F(Copy, Loop) {
     }
 }
 
-std::vector<std::tuple<__u16, __u32>> memtest_cases = {
-    {VPU_CMD_COPY_LOCAL_TO_LOCAL, 4 * KB},
-    {VPU_CMD_COPY_SYSTEM_TO_LOCAL, 4 * KB},
-    {VPU_CMD_COPY_LOCAL_TO_SYSTEM, 4 * KB},
-    {VPU_CMD_COPY_SYSTEM_TO_SYSTEM, 4 * KB},
-    {VPU_CMD_COPY_SYSTEM_TO_SYSTEM, 64 * KB},
-    {VPU_CMD_COPY_SYSTEM_TO_SYSTEM, 4 * MB},
-    {VPU_CMD_COPY_SYSTEM_TO_SYSTEM, 16 * MB - 1}};
+std::vector<std::tuple<__u16, __u32>> memtest_cases = {{VPU_CMD_COPY_LOCAL_TO_LOCAL, 4 * KB},
+                                                       {VPU_CMD_COPY_LOCAL_TO_LOCAL, 64 * KB},
+                                                       {VPU_CMD_COPY_LOCAL_TO_LOCAL, 4 * MB},
+                                                       {VPU_CMD_COPY_LOCAL_TO_LOCAL, 16 * MB - 1}};
 
 INSTANTIATE_TEST_SUITE_P(,
                          Copy,
@@ -213,15 +188,6 @@ INSTANTIATE_TEST_SUITE_P(,
                              switch (std::get<0>(cmd.param)) {
                              case VPU_CMD_COPY_LOCAL_TO_LOCAL:
                                  str = std::string("LocalToLocal_");
-                                 break;
-                             case VPU_CMD_COPY_SYSTEM_TO_LOCAL:
-                                 str = std::string("SystemToLocal_");
-                                 break;
-                             case VPU_CMD_COPY_LOCAL_TO_SYSTEM:
-                                 str = std::string("LocalToSystem_");
-                                 break;
-                             case VPU_CMD_COPY_SYSTEM_TO_SYSTEM:
-                                 str = std::string("SystemToSystem_");
                                  break;
                              default:
                                  str = std::string("Unknown_");
@@ -244,7 +210,6 @@ void Copy::CopyPerfTest(int engine, int buf_len, int copy_len, int repeats, bool
     int flags = 0;
 
     if (engine == ENGINE_COPY) {
-        cmd = VPU_CMD_COPY_SYSTEM_TO_SYSTEM;
         flags = DRM_IVPU_BO_SHAVE_MEM;
     }
 
@@ -308,4 +273,51 @@ TEST_F(Copy, CoherentPerf) {
 
 TEST_F(Copy, NonCoherentPerf) {
     CopyPerfTest(ENGINE_COPY, 1 * MB, 1 * MB, 2, false);
+}
+
+void Copy::CopyDuringCtxCreation(int engine) {
+    const unsigned char pattern = 0xCD;
+    bool stop = false;
+    std::size_t size = 1 * MB;
+
+    std::thread tdr_thread([&stop]() {
+        while (!stop) {
+            KmdContext thread_ctx;
+            ASSERT_GE(thread_ctx.open(), 0);
+            CmdBuffer cmd_buf(thread_ctx, 4096);
+            ASSERT_EQ(cmd_buf.create(), 0);
+
+            std::this_thread::yield();
+        }
+    });
+
+    MemoryBuffer src_buf(*this, size, VPU_BUF_USAGE_INPUT_LOW);
+    ASSERT_EQ(src_buf.create(), 0);
+    src_buf.fill(pattern);
+
+    MemoryBuffer dst_buf(*this, size, VPU_BUF_USAGE_INPUT_LOW);
+    ASSERT_EQ(dst_buf.create(), 0);
+    dst_buf.clear();
+
+    MemoryBuffer descr_buf(*this, size, VPU_BUF_USAGE_DESCRIPTOR_HEAP);
+    ASSERT_EQ(descr_buf.create(), 0);
+
+    CmdBuffer cmd_buf(context, 4096, VPU_BUF_USAGE_BATCHBUFFER);
+    ASSERT_EQ(cmd_buf.create(), 0);
+
+    cmd_buf.start(0);
+    cmd_buf.add_copy_cmd(descr_buf, 0, src_buf, 0, dst_buf, 0, size);
+    ASSERT_EQ(cmd_buf.submit(engine), 0);
+    ASSERT_EQ(cmd_buf.wait(), 0);
+
+    stop = true;
+    tdr_thread.join();
+}
+
+TEST_F(Copy, CopyDuringCtxCreationComputeEngine) {
+    CopyDuringCtxCreation(ENGINE_COMPUTE);
+}
+
+TEST_F(Copy, CopyDuringCtxCreationCopyEngine) {
+    CopyDuringCtxCreation(ENGINE_COPY);
 }

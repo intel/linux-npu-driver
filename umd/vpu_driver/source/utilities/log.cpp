@@ -74,6 +74,8 @@ const char *getLogMaskStr(uint64_t mask) {
         CASE_RETURN_STR(VPU_CTX);
         CASE_RETURN_STR(VPU_JOB);
         CASE_RETURN_STR(CACHE);
+        CASE_RETURN_STR(API);
+        CASE_RETURN_STR(API_DDI);
     default:
         return "?";
     };
