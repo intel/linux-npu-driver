@@ -37,6 +37,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(ENABLE_OPENVINO_PACKAGE "Enable building the OpenVINO package" OFF)
 option(ENABLE_NPU_COMPILER_BUILD "Enable building compiler in driver" OFF)
 option(ENABLE_NPU_PERFETTO_BUILD "Enable building with Perfetto library" OFF)
+# TODO: USE_SYSTEM_LIBRARIES should also unvendor the kernel uapi header.
+option(USE_SYSTEM_LIBRARIES "Use system versions of third_party libraries" OFF)
 
 message(STATUS "option ENABLE_NPU_COMPILER_BUILD: ${ENABLE_NPU_COMPILER_BUILD}")
 message(STATUS "option ENABLE_NPU_PERFETTO_BUILD: ${ENABLE_NPU_PERFETTO_BUILD}")

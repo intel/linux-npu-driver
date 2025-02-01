@@ -21,6 +21,9 @@ endif()
 find_package(LevelZero ${LEVEL_ZERO_VERSION})
 
 if(NOT LevelZero_FOUND)
+  if(USE_SYSTEM_LIBRARIES)
+    message(FATAL_ERROR "LevelZero was not found and USE_SYSTEM_LIBRARIES was requested.")
+  endif()
   message(STATUS "LevelZero not found in the system, take one from third_party/level_zero")
 
   # EXCLUDE_FROM_ALL is used because level-zero-devel install destination starts with root
