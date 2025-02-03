@@ -1,6 +1,6 @@
 <!---
 
-Copyright (C) 2022-2024 Intel Corporation
+Copyright (C) 2022-2025 Intel Corporation
 
 SPDX-License-Identifier: MIT
 
@@ -123,13 +123,14 @@ export ZE_INTEL_NPU_LOGMASK=$((1<<4|1<<3|1<<17))
 
 ## Supported devices
 
-The Intel® NPU driver supports following Intel® processor families
+The Intel® NPU driver supports following Intel® processor families:
 
-|Platform|Kernel support|NPU driver release|
-|---|---|---|
-|[Meteor Lake](https://ark.intel.com/content/www/us/en/ark/products/codename/90353/products-formerly-meteor-lake.html)|v6.5.0-35-generic - Ubuntu22.04 Stock kernel|[v1.1.0](https://github.com/intel/linux-npu-driver/tree/v1.1.0)|
-|Arrow Lake|v6.5.0-45-generic - Ubuntu22.04 Stock kernel|[v1.5.0](https://github.com/intel/linux-npu-driver/tree/v1.5.0)|
-|Lunar Lake|v6.8.0-40-generic - Ubuntu24.04 Stock kernel|[v1.5.0](https://github.com/intel/linux-npu-driver/tree/v1.5.0)|
+* [Meteor Lake](https://ark.intel.com/content/www/us/en/ark/products/codename/90353/products-formerly-meteor-lake.html)
+* [Arrow Lake](https://www.intel.com/content/www/us/en/ark/products/codename/225837/products-formerly-arrow-lake.html)
+* [Lunar Lake](https://www.intel.com/content/www/us/en/ark/products/codename/213792/products-formerly-lunar-lake.html)
+
+For detailed information on kernel support and NPU driver releases, please refer to the [release
+page](https://github.com/intel/linux-npu-driver/releases).
 
 ## Kernel module driver
 
@@ -181,7 +182,7 @@ cmake -B build -S .
 cmake --build build --parallel $(nproc)
 
 # install the driver in the system
-sudo cmake --install build --prefix /usr
+sudo cmake --install build
 
 # reload the intel_vpu module to load new firmware
 sudo rmmod intel_vpu
@@ -191,12 +192,10 @@ sudo modprobe intel_vpu
 ## Building a driver together with the compiler
 
 The driver has a target in `compiler/npu_compiler.cmake` to build
-Compiler-in-Driver component from [NPU plugin
-repository](https://github.com/openvinotoolkit/npu_plugin.git).
+Compiler-in-Driver component from [NPU compiler repository](https://github.com/openvinotoolkit/npu_compiler/tree/develop/src/vpux_driver_compiler).
 
 OpenVINO runtime is required by compiler. About the dependencies for building OpenVINO,
-please check the [OpenVINO build
-document](https://github.com/openvinotoolkit/openvino/blob/master/docs/dev/build.md).
+please check the [OpenVINO build document](https://github.com/openvinotoolkit/openvino/blob/master/docs/dev/build.md).
 
 To build a compiler from the driver repository the `ENABLE_NPU_COMPILER_BUILD` flag has to be set:
 ```
@@ -207,7 +206,7 @@ cmake -B build -S . -DENABLE_NPU_COMPILER_BUILD=ON
 cmake --build build --parallel $(nproc)
 
 # install the driver in the system
-sudo cmake --install build --prefix /usr
+sudo cmake --install build
 
 # reload the intel_vpu module to load new firmware
 sudo rmmod intel_vpu
@@ -215,6 +214,10 @@ sudo modprobe intel_vpu
 ```
 
 The compiler binary `libnpu_driver_compiler.so` can be found in `build/lib/`.
+
+> [!Note]
+> In case non standard compiler build (different then Release config), please follow the guideline
+> in [npu_compiler/src/vpux_driver_compiler/README.md](https://github.com/openvinotoolkit/npu_compiler/blob/develop/src/vpux_driver_compiler/README.md#how-to-build-related-targets-locally)
 
 ## Driver test application
 
