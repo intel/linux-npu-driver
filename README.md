@@ -24,7 +24,7 @@ the older name - Versatile Processing Unit (VPU).
 
 ## Releases
 
-[The release page contains the binaries and supported component versions](https://github.com/intel/linux-npu-driver/releases).
+[The release page contains the binaries and supported component versions.](https://github.com/intel/linux-npu-driver/releases)
 
 ## Build and troubleshooting
 
@@ -42,4 +42,5 @@ You may obtain a copy of the license at: https://opensource.org/licenses/MIT
 * [Intel® NPU Acceleration Library](https://intel.github.io/intel-npu-acceleration-library/)
 * [OpenVINO™](https://github.com/openvinotoolkit/openvino.git)
 * [OpenVINO™ AI Plugins for GIMP](https://github.com/intel/openvino-ai-plugins-gimp)
+* [Canonical brings GenAI to GIMP 3.0 with Intel® OpenVINO™ AI Plugins](https://discourse.ubuntu.com/t/canonical-brings-genai-to-gimp-3-0-with-intel-openvino-ai-plugins/54799)
 * [OpenVINO™ AI Plugins for Audacity*](https://github.com/intel/openvino-plugins-ai-audacity)
