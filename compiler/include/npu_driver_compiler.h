@@ -22,8 +22,8 @@
 extern "C" {
 #endif
 
-#define VCL_COMPILER_VERSION_MAJOR 6
-#define VCL_COMPILER_VERSION_MINOR 3
+#define VCL_COMPILER_VERSION_MAJOR 7
+#define VCL_COMPILER_VERSION_MINOR 1
 #define VCL_PROFILING_VERSION_MAJOR 2
 #define VCL_PROFILING_VERSION_MINOR 0
 
@@ -116,17 +116,6 @@ typedef struct __vcl_profiling_properties_t {
 } vcl_profiling_properties_t;
 
 ///////////////////////////////////////////////////////////////////////////////
-/// @brief Defines platform for compilation
-typedef enum __vcl_platform_t {
-    VCL_PLATFORM_UNKNOWN = -1,
-
-    VCL_PLATFORM_VPU3700 = 0,  ///< VPU3700
-    VCL_PLATFORM_VPU3720 = 1,  ///< VPU3720
-    VCL_PLATFORM_VPU4000 = 2,  ///< VPU4000
-
-} vcl_platform_t;
-
-///////////////////////////////////////////////////////////////////////////////
 /// @brief Defines debug level for VCL
 typedef enum __vcl_log_level_t {
     VCL_LOG_NONE = 0,     ///< Log is disabled
@@ -139,11 +128,27 @@ typedef enum __vcl_log_level_t {
 } vcl_log_level_t;
 
 ///////////////////////////////////////////////////////////////////////////////
+/// @brief Defines device desc to be passed during creation
+///
+///        For online compilation, revision is always valid value and -1u for offline compilation.
+///        1. In offline mode the driver does not know the stepping and provides -1 (unknown) to VCL
+///        2. In VCL
+///               If driver provides valid revsion, the value will be default value for NPU_STEPPING
+///               If driver provides -1u as value for revision, VCL will not set NPU_STEPPING
+///        3. If NPU_STEPPING is set by user with config, VCL will use user config instead of default value.
+///        4. If NPU_STEPPING is not passed to compiler, compiler will choose default stepping.
+typedef struct __vcl_device_desc_t {
+    uint64_t size;       /// Size of vcl_device_desc_t
+    uint32_t deviceID;   /// The lower 16 bits equal to PCI Device ID, the upper 16 bits are zero
+    uint16_t revision;   /// NPU Revision Identifier, -1u as invalid value
+    uint32_t tileCount;  /// Value equals maximum number of slices
+} vcl_device_desc_t;
+
+///////////////////////////////////////////////////////////////////////////////
 /// @brief Defines compiler desc to be passed during creation
 typedef struct __vcl_compiler_desc_t {
-    vcl_platform_t platform;
-    vcl_log_level_t debug_level;
-
+    vcl_version_info_t version;  /// The host vcl version
+    vcl_log_level_t debugLevel;  /// Debug level for VCL
 } vcl_compiler_desc_t;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -198,8 +203,14 @@ typedef struct __vcl_profiling_output_t {
 } vcl_profiling_output_t, *p_vcl_profiling_output_t;
 
 ///////////////////////////////////////////////////////////////////////////////
+/// @brief Return VCL API version to caller, shall never change this interface to support backward compatibility check
+VCL_APIEXPORT vcl_result_t VCL_APICALL vclGetVersion(vcl_version_info_t* compilerVersion,
+                                                     vcl_version_info_t* profilingVersion);
+
+///////////////////////////////////////////////////////////////////////////////
 /// @brief Creates a compiler object and returns the compiler handle
-VCL_APIEXPORT vcl_result_t VCL_APICALL vclCompilerCreate(vcl_compiler_desc_t desc, vcl_compiler_handle_t* compiler,
+VCL_APIEXPORT vcl_result_t VCL_APICALL vclCompilerCreate(vcl_compiler_desc_t* compilerDesc,
+                                                         vcl_device_desc_t* deviceDesc, vcl_compiler_handle_t* compiler,
                                                          vcl_log_handle_t* logHandle);
 
 ///////////////////////////////////////////////////////////////////////////////
