@@ -1,17 +1,20 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
+#include "frame_counter.hpp"
 #include "umd_test.h"
+#include "utilities/data_handle.h"
 
+#include <algorithm>
 #include <memory>
 #include <thread>
 #include <vector>
 
-class MemoryAllocation : public UmdTest, public ::testing::WithParamInterface<uint64_t> {
+class MemoryAllocation : public UmdTest, public ::testing::WithParamInterface<YAML::Node> {
   public:
     void SetUp() override {
         UmdTest::SetUp();
@@ -20,36 +23,82 @@ class MemoryAllocation : public UmdTest, public ::testing::WithParamInterface<ui
 
     void TearDown() override { UmdTest::TearDown(); }
 
-    void *mem = nullptr;
+    static uint64_t decodeSize(const YAML::Node &node) {
+        if (node["size_in_bytes"].IsDefined())
+            return node["size_in_bytes"].as<uint64_t>();
 
-    size_t size = 10;
-    void *ptr = nullptr;
+        throw std::runtime_error("Missing size_in_bytes field in config");
+    }
 
-    size_t pSize = 0;
-    void *basePtr = nullptr;
+    static std::string decodeType(const YAML::Node &node) {
+        return node["type"].as<std::string>("host_to_host");
+    }
+
+    void allocMemoryBasedOnType(const std::string &type,
+                                size_t size,
+                                std::shared_ptr<void> &dst,
+                                std::shared_ptr<void> &src) {
+        try {
+            const std::string_view sep = "_to_";
+            const auto sepPos = type.find(sep);
+            if (sepPos == std::string::npos)
+                FAIL() << "Unkown type: " << type << " passed in configuration";
+
+            const auto srcName = type.substr(0, sepPos);
+            if (srcName == "device") {
+                src = AllocDeviceMemory(size);
+            } else if (srcName == "shared") {
+                src = AllocSharedMemory(size);
+            } else if (srcName == "host") {
+                src = AllocHostMemory(size);
+            } else {
+                FAIL() << "Unkown type: " << type << " passed in configuration";
+            }
+
+            const auto dstName = type.substr(sepPos + sep.size());
+            if (dstName == "device") {
+                dst = AllocDeviceMemory(size);
+            } else if (dstName == "shared") {
+                dst = AllocSharedMemory(size);
+            } else if (dstName == "host") {
+                dst = AllocHostMemory(size);
+            } else {
+                FAIL() << "Unkown type: " << type << " passed in configuration";
+            }
+        } catch (const std::out_of_range &err) {
+            FAIL() << "Unkown type: " << type << " passed in configuration";
+        }
+    }
 
     ze_memory_allocation_properties_t pMemAllocProperties = {};
 };
 
-INSTANTIATE_TEST_SUITE_P(Sizes,
+static std::vector<YAML::Node> getMemoryAllocationParameters() {
+    if (Environment::getConfiguration()["alloc"].IsDefined())
+        return Environment::getConfiguration("alloc");
+
+    return {
+        YAML::Load("size_in_bytes: 2048"),
+        YAML::Load("size_in_bytes: " + std::to_string(16 * MB)),
+        YAML::Load("size_in_bytes: " + std::to_string(128 * MB)),
+    };
+}
+
+INSTANTIATE_TEST_SUITE_P(,
                          MemoryAllocation,
-                         ::testing::Values(2 * KB, // force line break
-                                           16 * MB,
-                                           64 * MB,
-                                           128 * MB,
-                                           255 * MB),
-                         [](const testing::TestParamInfo<uint64_t> &cmd) {
-                             return memSizeToStr(cmd.param);
+                         ::testing::ValuesIn(getMemoryAllocationParameters()),
+                         [](const testing::TestParamInfo<YAML::Node> &p) {
+                             return memSizeToStr(MemoryAllocation::decodeSize(p.param));
                          });
 
 TEST_P(MemoryAllocation, AllocDeviceMemory) {
-    uint64_t size = GetParam();
+    uint64_t size = decodeSize(GetParam());
     auto mem = AllocDeviceMemory(size);
     ASSERT_TRUE(mem.get()) << "Failed to allocate device memory using size " << size;
 }
 
 TEST_P(MemoryAllocation, AllocHostMemory) {
-    uint64_t size = GetParam();
+    uint64_t size = decodeSize(GetParam());
     auto mem = AllocHostMemory(size);
     ASSERT_TRUE(mem.get()) << "Failed to allocate host memory using size " << size;
 }
@@ -70,19 +119,26 @@ TEST_F(MemoryAllocation, QueryContextMemory) {
 }
 
 TEST_F(MemoryAllocation, GetMemAddressRangeWithoutMemInputExpectSuccess) {
+    size_t size = 128;
+
     auto mem = AllocHostMemory(size);
-    ASSERT_NE(nullptr, ptr = mem.get());
+    ASSERT_NE(nullptr, mem.get());
+    void *ptr = mem.get();
 
     ASSERT_EQ(
         ZE_RESULT_SUCCESS,
         zeMemGetAddressRange(zeContext, static_cast<char *>(ptr) + size - 1, nullptr, nullptr));
-    EXPECT_NE(ptr, basePtr);
-    EXPECT_NE(size, pSize);
 }
 
 TEST_F(MemoryAllocation, GetMemAddressRangeWithMemInputExpectSuccess) {
+    size_t size = 10;
+
     auto mem = AllocHostMemory(size);
-    EXPECT_NE(nullptr, ptr = mem.get());
+    EXPECT_NE(nullptr, mem.get());
+    void *ptr = mem.get();
+
+    size_t pSize = 0;
+    void *basePtr = nullptr;
 
     ASSERT_EQ(
         ZE_RESULT_SUCCESS,
@@ -92,6 +148,9 @@ TEST_F(MemoryAllocation, GetMemAddressRangeWithMemInputExpectSuccess) {
 }
 
 TEST_F(MemoryAllocation, GetMemPropertiesWithAllocHostMemExpectSuccess) {
+    size_t size = 10;
+    void *ptr = nullptr;
+
     auto mem = AllocHostMemory(size);
     ASSERT_NE(nullptr, ptr = mem.get());
 
@@ -108,6 +167,9 @@ TEST_F(MemoryAllocation, GetMemPropertiesWithAllocHostMemExpectSuccess) {
 }
 
 TEST_F(MemoryAllocation, GetMemPropertiesWithAllocDeviceMemExpectSuccess) {
+    size_t size = 10;
+    void *ptr = nullptr;
+
     auto mem = AllocDeviceMemory(size);
     ASSERT_NE(nullptr, ptr = mem.get());
 
@@ -150,8 +212,6 @@ class MemoryExecution : public MemoryAllocation {
         list = scopedList.get();
     }
 
-    void TearDown() override { MemoryAllocation::TearDown(); }
-
     ze_command_queue_handle_t queue = nullptr;
     ze_command_list_handle_t list = nullptr;
 
@@ -160,83 +220,45 @@ class MemoryExecution : public MemoryAllocation {
     zeScope::SharedPtr<ze_command_list_handle_t> scopedList = nullptr;
 };
 
-INSTANTIATE_TEST_SUITE_P(Sizes,
+static std::vector<YAML::Node> getMemoryExecutionParameters() {
+    if (Environment::getConfiguration()["copy"].IsDefined())
+        return Environment::getConfiguration("copy");
+
+    return {
+        YAML::Load("{ size_in_bytes: 2048, type: host_to_host }"),
+        YAML::Load("{ size_in_bytes: 8096, type: shared_to_shared }"),
+        YAML::Load("{ size_in_bytes: 65536, type: host_to_device }"),
+        YAML::Load("{ size_in_bytes: " + std::to_string(4 * MB) + ", type: shared_to_host}"),
+        YAML::Load("size_in_bytes: " + std::to_string(16 * MB - 1)),
+        YAML::Load("size_in_bytes: " + std::to_string(16 * MB)),
+    };
+}
+
+INSTANTIATE_TEST_SUITE_P(,
                          MemoryExecution,
-                         ::testing::Values(2 * KB, // force line break
-                                           16 * MB,
-                                           63 * MB, // -1MB to save space for command buffer
-                                           126 * MB // -1MB to save space for command buffer
-                                           ),
-                         [](const testing::TestParamInfo<uint64_t> &cmd) {
-                             return memSizeToStr(cmd.param);
+                         ::testing::ValuesIn(getMemoryExecutionParameters()),
+                         [](const testing::TestParamInfo<YAML::Node> &p) {
+                             return MemoryExecution::decodeType(p.param) + "_" +
+                                    memSizeToStr(p.param["size_in_bytes"].as<uint64_t>());
                          });
 
-TEST_P(MemoryExecution, ExecuteTimestampCommandInMemoryLowRange) {
-    size_t size = GetParam();
+TEST_P(MemoryExecution, AllocMemoryExecuteCopyCommand) {
+    size_t size = decodeSize(GetParam());
 
-    auto mem = AllocSharedMemory(size);
-    ASSERT_TRUE(mem.get()) << "Failed to allocate shared memory";
+    std::shared_ptr<void> dst;
+    std::shared_ptr<void> src;
+    allocMemoryBasedOnType(decodeType(GetParam()), size, dst, src);
+    ASSERT_TRUE(dst.get()) << "Failed to allocate destination memory";
+    ASSERT_TRUE(src.get()) << "Failed to allocate source memory";
 
-    uint64_t *ts = static_cast<uint64_t *>(mem.get());
-    ASSERT_EQ(zeCommandListAppendWriteGlobalTimestamp(list, ts, nullptr, 0, nullptr),
+    DataHandle::generateRandomData(src.get(), size);
+
+    ASSERT_EQ(zeCommandListAppendMemoryCopy(list, dst.get(), src.get(), size, nullptr, 0, nullptr),
               ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
-
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, syncTimeout), ZE_RESULT_SUCCESS);
-    EXPECT_NE(*ts, 0llu) << "Timestamp should be different from 0";
-}
-
-TEST_P(MemoryExecution, ExecuteCopyCommandInMemoryLowRange) {
-    size_t size = GetParam();
-
-    auto mem = AllocSharedMemory(size);
-    ASSERT_TRUE(mem.get()) << "Failed to allocate shared memory";
-
-    uint64_t *copyDst = static_cast<uint64_t *>(mem.get()) + 64;
-    uint64_t *copySrc = static_cast<uint64_t *>(mem.get());
-
-    *copySrc = 0xdeadbeef;
-
-    ASSERT_EQ(zeCommandListAppendMemoryCopy(list,
-                                            copyDst,
-                                            copySrc,
-                                            sizeof(uint64_t),
-                                            nullptr,
-                                            0,
-                                            nullptr),
-              ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
-
-    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandQueueSynchronize(queue, syncTimeout), ZE_RESULT_SUCCESS);
-    EXPECT_EQ(*copySrc, *copyDst) << "Value after copy should be equal";
-}
-
-TEST_P(MemoryExecution, ExecuteCopyCommandInMemoryHighRange) {
-    size_t size = GetParam();
-
-    auto mem = AllocHostMemory(size);
-    ASSERT_TRUE(mem.get()) << "Failed to allocate shared memory";
-
-    uint64_t *copyDst = static_cast<uint64_t *>(mem.get()) + 64;
-    uint64_t *copySrc = static_cast<uint64_t *>(mem.get());
-
-    *copySrc = 0xdeadbeef;
-
-    ASSERT_EQ(zeCommandListAppendMemoryCopy(list,
-                                            copyDst,
-                                            copySrc,
-                                            sizeof(uint64_t),
-                                            nullptr,
-                                            0,
-                                            nullptr),
-              ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
-
-    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandQueueSynchronize(queue, syncTimeout), ZE_RESULT_SUCCESS);
-    EXPECT_EQ(*copySrc, *copyDst) << "Value after copy should be equal";
+    ASSERT_EQ(memcmp(dst.get(), src.get(), size), 0);
 }
 
 // TODO: Allow copy from user pointer, EISW-19284
@@ -262,44 +284,6 @@ TEST_F(MemoryExecution, DISABLED_CopyingFromUnpinnedHostMemoryShouldBeAllowed) {
         << "Failed to pin memory using size " << size;
     ASSERT_EQ(zeCommandQueueSynchronize(queue, syncTimeout), ZE_RESULT_SUCCESS);
     EXPECT_EQ(memcmp(destDevMem.get(), hostMem.data(), size), 0);
-}
-
-TEST_F(MemoryExecution, MultipleCopies) {
-    const size_t size = 1024;
-    const size_t numIter = 4;
-
-    auto hostMem = AllocHostMemory(size * (numIter + 1));
-    auto devMem = AllocSharedMemory(size * (numIter + 1));
-
-    memset(hostMem.get(), 0xAB, size);
-
-    uint8_t *hostPtr = static_cast<uint8_t *>(hostMem.get());
-    uint8_t *devPtr = static_cast<uint8_t *>(devMem.get());
-    void *dst = nullptr;
-    void *src = nullptr;
-    for (size_t i = 0; i < (numIter * 3); i++) {
-        if (i % 3 == 0) {
-            src = hostPtr;
-            dst = devPtr;
-        } else if (i % 3 == 1) {
-            src = devPtr;
-            devPtr += 1024;
-            dst = devPtr;
-        } else {
-            src = devPtr;
-            hostPtr += 1024;
-            dst = hostPtr;
-        }
-        ASSERT_EQ(zeCommandListAppendMemoryCopy(list, dst, src, size, nullptr, 0, nullptr),
-                  ZE_RESULT_SUCCESS);
-    }
-
-    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandQueueSynchronize(queue, syncTimeout), ZE_RESULT_SUCCESS);
-
-    EXPECT_EQ(memcmp(hostMem.get(), static_cast<uint8_t *>(hostMem.get()) + size * numIter, size),
-              0);
 }
 
 TEST_F(MemoryExecution, CheckQueryContextMemory) {
@@ -401,5 +385,151 @@ TEST_F(MemoryAllocationThreaded, FreeMem) {
     }
     for (const auto &t : tasks) {
         t.get()->join();
+    }
+}
+
+class MultiMemoryExecution : public MemoryAllocation {
+  public:
+    struct MultiCopyParam {
+        // Input
+        uint64_t size;
+        std::string type;
+        uint64_t iterationCount;
+        uint64_t targetFps;
+        uint64_t delayUs;
+
+        // Results
+        ze_result_t result = ZE_RESULT_SUCCESS;
+        FrameCounter counter;
+    };
+
+    static std::pair<std::string, std::vector<MultiCopyParam>>
+    decodeMultiCopy(const YAML::Node &node) {
+        auto name = node["name"].as<std::string>();
+
+        std::vector<MultiCopyParam> params;
+        for (const auto &pipeline : node["pipeline"].as<std::vector<YAML::Node>>()) {
+            MultiCopyParam param;
+            param.size = decodeSize(pipeline);
+            param.type = decodeType(pipeline);
+            param.iterationCount = pipeline["iteration_count"].as<uint64_t>(10);
+            param.targetFps = pipeline["target_fps"].as<uint64_t>(UINT64_MAX);
+            param.delayUs = pipeline["delay_in_us"].as<uint64_t>(0);
+            params.push_back(std::move(param));
+        }
+
+        return {name, params};
+    }
+
+    ze_command_queue_desc_t cmdQueueDesc{.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
+                                         .pNext = nullptr,
+                                         .ordinal = 0,
+                                         .index = 0,
+                                         .flags = 0,
+                                         .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
+                                         .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
+    ze_command_list_desc_t cmdListDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
+                                          .pNext = nullptr,
+                                          .commandQueueGroupOrdinal = 0,
+                                          .flags = 0};
+};
+
+static std::vector<YAML::Node> getMultiMemoryExecutionParameters() {
+    if (Environment::getConfiguration()["multi_copy"].IsDefined())
+        return Environment::getConfiguration("multi_copy");
+
+    return {
+        YAML::Load("{name: 3CopyStreams, pipeline: ["
+                   "{size_in_bytes: 4096, target_fps: 100, iteration_count: 10},"
+                   "{size_in_bytes: 4096, type: shared_to_host, iteration_count: 200},"
+                   "{size_in_bytes: 8096, iteration_count: 100}]}"),
+    };
+}
+
+INSTANTIATE_TEST_SUITE_P(,
+                         MultiMemoryExecution,
+                         ::testing::ValuesIn(getMultiMemoryExecutionParameters()),
+                         [](const testing::TestParamInfo<YAML::Node> &p) {
+                             return MultiMemoryExecution::decodeMultiCopy(p.param).first;
+                         });
+
+#define BREAK_ON_FAIL(ret_)                 \
+    if (ret_ != ZE_RESULT_SUCCESS) {        \
+        EXPECT_EQ(ret_, ZE_RESULT_SUCCESS); \
+        param.result = ret_;                \
+        break;                              \
+    }
+
+TEST_P(MultiMemoryExecution, Pipeline) {
+    auto [name, params] = decodeMultiCopy(GetParam());
+    std::vector<std::thread> threads;
+    for (auto &param : params) {
+        threads.emplace_back([this, &param]() {
+            do {
+                ze_result_t ret;
+                auto scopedQueue =
+                    zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDesc, ret);
+                BREAK_ON_FAIL(ret);
+                auto queue = scopedQueue.get();
+
+                auto scopedList = zeScope::commandListCreate(zeContext, zeDevice, cmdListDesc, ret);
+                BREAK_ON_FAIL(ret);
+                auto list = scopedList.get();
+
+                std::shared_ptr<void> dst;
+                std::shared_ptr<void> src;
+                allocMemoryBasedOnType(param.type, param.size, dst, src);
+                ret = dst == nullptr || src == nullptr ? ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY
+                                                       : ZE_RESULT_SUCCESS;
+                BREAK_ON_FAIL(ret);
+
+                DataHandle::generateRandomData(src.get(), param.size);
+
+                BREAK_ON_FAIL(zeCommandListAppendMemoryCopy(list,
+                                                            dst.get(),
+                                                            src.get(),
+                                                            param.size,
+                                                            nullptr,
+                                                            0,
+                                                            nullptr));
+                BREAK_ON_FAIL(zeCommandListClose(list));
+                // Warm up
+                BREAK_ON_FAIL(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr));
+                BREAK_ON_FAIL(zeCommandQueueSynchronize(queue, syncTimeout));
+
+                std::this_thread::sleep_for(std::chrono::microseconds(param.delayUs));
+
+                param.counter.startTimer(0, param.targetFps);
+                for (size_t i = 0; i < param.iterationCount; i++) {
+                    param.counter.delayNextFrame();
+
+                    BREAK_ON_FAIL(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr));
+                    BREAK_ON_FAIL(zeCommandQueueSynchronize(queue, syncTimeout));
+
+                    param.counter.recordFrame();
+                }
+                param.counter.stopTimer();
+            } while (false);
+        });
+    }
+
+    for (auto &thread : threads)
+        thread.join();
+
+    for (const auto &param : params) {
+        PRINTF("------------------------------------------------------\n");
+        PRINTF("Size/Type:            %lu/%s\n", param.size, param.type.c_str());
+        if (param.result == ZE_RESULT_SUCCESS) {
+            PRINTF("Status:               SUCCESS \n");
+        } else {
+            PRINTF("Status:               FAIL (%#x) \n", param.result);
+        }
+        PRINTF("FramesExecuted:       %lu\n", param.counter.frameCount);
+        PRINTF("CalculatedFPS:        %f\n", param.counter.fps);
+        PRINTF("Bandwidth[MB/s]:      %f\n", param.counter.getBytesPerSec(param.size) / (MB));
+        PRINTF("ExecutionTime[ms]:    %f\n", param.counter.totalTimeMs);
+        PRINTF("MinFrameExecTime[ms]: %f\n", param.counter.frameMinMs);
+        PRINTF("AvgFrameExecTime[ms]: %f\n", param.counter.frameAvgMs);
+        PRINTF("MaxFrameExecTime[ms]: %f\n", param.counter.frameMaxMs);
     }
 }

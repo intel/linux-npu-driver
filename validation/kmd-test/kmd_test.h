@@ -12,7 +12,7 @@
 #include "api/vpu_jsm_job_cmd_api.h"
 #include "drm/ivpu_accel.h"
 #include "drm_helpers.h"
-#include "file_helper.h"
+#include "file_helpers.h"
 #include "linux/dma-heap.h"
 #include "perf_counter.h"
 #include "test_app.h"
@@ -21,7 +21,6 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <fstream>
-#include <libudev.h>
 #include <linux/kernel.h>
 #include <linux/magic.h>
 #include <sys/ioctl.h>
@@ -205,17 +204,19 @@ class KmdContext {
 
 class PmMonitor {
   public:
-    static constexpr const char *vpu_path = "/sys/devices/pci0000:00/0000:00:0b.0";
-    udev_monitor *ud_mon{nullptr};
-    udev_device *ud_dev{nullptr};
-    udev *ud{nullptr};
-    fd_set ud_fds;
-    int ud_fd = 0;
+    int uevent_sock;
 
     PmMonitor();
     bool wait_for_recovery_event(unsigned timeout_ms = PM_STATE_TIMEOUT_MS);
     ~PmMonitor();
+
+    PmMonitor(const PmMonitor &) = delete;
+    PmMonitor(PmMonitor &&) = delete;
+    PmMonitor &operator=(const PmMonitor &) = delete;
+    PmMonitor &operator=(PmMonitor &&) = delete;
 };
+
+struct MemoryBuffer;
 
 class KmdTest : public ::testing::Test {
   public:
@@ -267,15 +268,11 @@ class KmdTest : public ::testing::Test {
     void fw_restore();
 
     int RunCommand(char *const commandLine[], int secTimeout);
+    void CopyTest(KmdContext &ctx, MemoryBuffer &src_buf, uint64_t size, uint8_t pattern);
 
     void SendCheckTimestamp(int engine = ENGINE_COMPUTE);
     void SendCheckTimestamp(int engine, KmdContext &ctx);
     void SendFence(int buf_size, int write_offset, int read_offset);
-
-    bool file_exists(const std::filesystem::path &path) {
-        std::error_code ec;
-        return std::filesystem::exists(path, ec);
-    }
 
     bool debugfs_file_exists(const std::string &file) {
         return file_exists(get_debugfs_path() + "/" + file);
@@ -325,79 +322,6 @@ class KmdTest : public ::testing::Test {
     template <class T>
     int write_debugfs_file(const std::string &file, const T &val) {
         return write_existing_file(get_debugfs_path() + "/" + file, val);
-    }
-
-    template <class T>
-    int write_existing_file(const std::string &path, const T &val) {
-        if (!file_exists(path))
-            return ENOENT;
-        return write_file(path, val);
-    }
-
-    template <class T>
-    int write_file(const std::string &path, const T &val) {
-        FILE *file = fopen(path.c_str(), "wb");
-        if (!file)
-            return errno;
-
-        std::ostringstream ss;
-        ss << val;
-
-        std::string str = ss.str();
-        if (fwrite(str.c_str(), 1, str.size(), file) != str.size()) {
-            fclose(file);
-            return errno;
-        }
-
-        return fclose(file);
-    }
-
-    int read_file_to_ss(const std::string &path, std::stringstream &ss) {
-        FILE *file = fopen(path.c_str(), "rb");
-        if (!file)
-            return errno;
-
-        char buffer[1024];
-        while (fgets(buffer, sizeof(buffer), file))
-            ss << buffer;
-
-        if (ferror(file)) {
-            fclose(file);
-            return errno;
-        }
-
-        return fclose(file);
-    }
-
-    template <class T>
-    int read_file(const std::string &path, T &val) {
-        std::stringstream ss;
-
-        int ret = read_file_to_ss(path, ss);
-        if (ret)
-            return ret;
-
-        if (std::is_integral_v<T> && ss.str().substr(0, 2) == "0x")
-            ss >> std::hex >> val;
-        else
-            ss >> val;
-
-        return ss.fail() ? EINVAL : 0;
-    }
-
-    int read_file(const std::string &path, std::string &str) {
-        std::stringstream ss;
-
-        int ret = read_file_to_ss(path, ss);
-        if (ret)
-            return ret;
-
-        str = ss.str();
-        int lines = std::count(str.begin(), str.end(), '\n');
-        if (lines == 1 && str.back() == '\n')
-            str.pop_back(); // remove newlines from single line files
-
-        return 0;
     }
 
     std::string vpu_bus_id;

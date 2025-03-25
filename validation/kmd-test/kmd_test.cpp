@@ -8,11 +8,14 @@
 #include "kmd_test.h"
 
 #include <chrono>
+#include <climits>
+#include <cstdio>
 #include <fcntl.h>
+#include <filesystem>
 #include <fstream>
-#include <limits.h>
-#include <stdio.h>
+#include <linux/netlink.h>
 #include <sys/mman.h>
+#include <sys/socket.h>
 #include <thread>
 
 #define IVPU_PLATFORM_SILICON 0
@@ -554,12 +557,19 @@ int KmdTest::write_bind_unbind_sysfs(std::string param) const {
 }
 
 int KmdTest::bind_module() const {
+    if (test_app::disable_unbind)
+        return 0;
+
     return write_bind_unbind_sysfs("bind");
 }
 
 int KmdTest::unbind_module() {
     initial_reset_counter = 0;
     expected_resets = 0;
+
+    if (test_app::disable_unbind)
+        return 0;
+
     return write_bind_unbind_sysfs("unbind");
 }
 
@@ -635,6 +645,25 @@ int KmdTest::RunCommand(char *const commandLine[], int secTimeout) {
     EXPECT_GT(pid, 0);
 
     return pid <= 0 ? (int)pid : WaitPid(pid, secTimeout);
+}
+
+void KmdTest::CopyTest(KmdContext &ctx, MemoryBuffer &src_buf, uint64_t size, uint8_t pattern) {
+    uint64_t cmd_size = 4 * KB;
+
+    MemoryBuffer dst_buf(ctx, size);
+    ASSERT_EQ(dst_buf.create(), 0);
+
+    MemoryBuffer desc_buf(ctx, cmd_size, VPU_BUF_USAGE_DESCRIPTOR_HEAP);
+    ASSERT_EQ(desc_buf.create(), 0);
+
+    CmdBuffer cmd_buf(ctx, cmd_size);
+    ASSERT_EQ(cmd_buf.create(), 0);
+
+    cmd_buf.add_copy_cmd(desc_buf, 0, src_buf, 0, dst_buf, 0, size);
+
+    ASSERT_EQ(cmd_buf.submit(), 0);
+    ASSERT_EQ(cmd_buf.wait(), 0);
+    EXPECT_BYTE_ARR_EQ(dst_buf.ptr(), size, pattern);
 }
 
 static uint32_t buf_usage_to_flags(VPU_BUF_USAGE usage) {
@@ -1092,58 +1121,51 @@ int CmdBuffer::wait(uint32_t timeout_ms) {
 }
 
 PmMonitor::PmMonitor() {
-    ud = udev_new();
-    if (!ud)
-        return;
+    uevent_sock =
+        socket(PF_NETLINK, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, NETLINK_KOBJECT_UEVENT);
+    if (uevent_sock == -1)
+        throw std::runtime_error("Failed to create NETLINK_KOBJECT_UEVENT socket");
 
-    ud_dev = udev_device_new_from_syspath(ud, vpu_path);
-    if (!ud_dev)
-        return;
+    int enable = 1;
+    int ret = setsockopt(uevent_sock, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
+    if (ret == -1)
+        throw std::runtime_error("Failed to set uevent socket options");
 
-    ud_mon = udev_monitor_new_from_netlink(ud, "udev");
-    if (!ud_mon)
-        return;
-
-    udev_monitor_enable_receiving(ud_mon);
-    ud_fd = udev_monitor_get_fd(ud_mon);
-    if (!ud_fd)
-        return;
-
-    FD_ZERO(&ud_fds);
-    FD_SET(ud_fd, &ud_fds);
+    sockaddr_nl nladdr = {};
+    nladdr.nl_family = AF_NETLINK;
+    nladdr.nl_pid = 0;
+    nladdr.nl_groups = 1;
+    ret = bind(uevent_sock, (struct sockaddr *)&nladdr, sizeof(nladdr));
+    if (ret == -1)
+        throw std::runtime_error("Failed to bind uevent socket");
 }
 
 PmMonitor::~PmMonitor() {
-    if (ud_mon)
-        udev_monitor_unref(ud_mon);
-
-    if (ud_dev)
-        udev_device_unref(ud_dev);
-
-    if (ud)
-        udev_unref(ud);
+    close(uevent_sock);
 }
 
 bool PmMonitor::wait_for_recovery_event(unsigned timeout_ms) {
+    const char event[] = "IVPU_PM_EVENT=IVPU_RECOVER";
+    constexpr int response_size = 4096;
+    char response[response_size] = {};
+
     test_app::overwrite_timeout(timeout_ms);
     std::chrono::steady_clock::time_point timeout =
         std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
-    udev_device *dev;
 
     do {
-        dev = udev_monitor_receive_device(ud_mon);
-        if (!dev)
-            continue;
-
-        const char *evt = udev_device_get_property_value(dev, "IVPU_PM_EVENT");
-        if (evt) {
-            if (strcmp(evt, "IVPU_RECOVER") == 0) {
-                udev_device_unref(dev);
-                return true;
-            }
+        ssize_t len = recv(uevent_sock, response, response_size - 1, 0);
+        if (len > 0) {
+            response[len] = 0;
+            char *p = response;
+            char *end = response + len;
+            do {
+                if (p < end - sizeof(event) && strstr(p, event)) {
+                    return true;
+                }
+                p = strchr(p, 0);
+            } while (p && ++p < end);
         }
-
-        udev_device_unref(dev);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     } while (std::chrono::steady_clock::now() < timeout);

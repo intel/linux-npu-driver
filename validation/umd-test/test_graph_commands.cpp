@@ -795,7 +795,7 @@ TEST_P(CommandGraphLong, MutableCmdList) {
     ze_mutable_command_id_exp_desc_t mutableCmdIdDesc{
         .stype = ZE_STRUCTURE_TYPE_MUTABLE_COMMAND_ID_EXP_DESC,
         .pNext = nullptr,
-        .flags = ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT,
+        .flags = ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS,
     };
     uint64_t commandId;
     ASSERT_EQ(zeCommandListGetNextCommandIdExp(mutableList, &mutableCmdIdDesc, &commandId),

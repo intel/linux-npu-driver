@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -155,7 +155,9 @@ TEST_F(Device, GetPropertiesMutableCmdListDeviceIpVersion) {
 
     EXPECT_NE(deviceIpVersion.ipVersion, std::numeric_limits<uint32_t>::max());
     EXPECT_EQ(mutableCmdListProps.mutableCommandListFlags, 0);
-    EXPECT_EQ(mutableCmdListProps.mutableCommandFlags, ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT);
+    EXPECT_EQ(mutableCmdListProps.mutableCommandFlags,
+              ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT_DEPRECATED |
+                  ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS);
 
     TRACE("PCI Device ID: %#x\n", devProp.deviceId);
     TRACE("Tile count: %u\n", devProp.numSlices);

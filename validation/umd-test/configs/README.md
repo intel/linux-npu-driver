@@ -126,9 +126,12 @@ A section may consist of fields:
 - **in:** optional, image used as an input for network
 - **class_index:** optional, expected image class index
 - **target\_fps:** target fps rate
+- **fps\_deviation:** maximum deviation from target fps rate to define test as passed
+- **workload\_type:** the workload type, available two types: default, background
 - **exec\_time\_in\_secs:** execution time in seconds
 - **priority:** command queue priority, available priority levels: high, low, normal
 - **delay_in_us:** wait a specified period of time before starting the inference
+- **parallel_reqs:** number of parallel inference requests to execute, default is 1
 
 Example:
 ```
@@ -151,9 +154,66 @@ multi_inference:
       flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NHWC" --outputs_precisions="473:fp32" --outputs_layouts="473:NC"
       target_fps: 30
       exec_time_in_secs: 10
+      parallel_reqs: 2
 ```
 
 ---
+
+## Section alloc
+
+This section is used in MemoryAllocation* tests. The user can specify the
+allocation size. The section fields:
+ * **size_in_bytes:** the size used in test
+
+Example:
+```
+alloc:
+  - size_in_bytes: 10
+  - size_in_bytes: 0x10000
+```
+
+## Section copy
+
+This section is used in MemoryExecution* tests. Test run a single copy
+operation using zeCommandListAppendMemoryCopy. User can specify the size of
+copy and the memory allocation type. The section fields:
+ * **size_in_bytes**: the size used in copy command
+ * **type:** the allocation type, allowed values: any combination of `device`,
+ `shared` and `host` with `_to_` separator, ex. `host_to_host`,
+ `shared_to_device`, `shared_to_host`. If not set, then `host_to_host` is used by default
+
+Example:
+```
+copy:
+  - size_in_bytes: 10
+  - { size_in_bytes: 0x1000, type: device_to_shared }
+  - size_in_bytes: 4096
+    type: shared_to_shared
+```
+
+## Section multi copy
+
+This section is used in MultiMemoryExecution* test. It allows to specify the
+stream with copy command. The stream means a separate thread. This means that
+user can set multiple streams with different copy commands. The section fields:
+ * **name:** the test name
+ * **pipeline:** the list of streams
+   * **size_in_bytes:** the size of single copy command
+   * **type:** the allocation type, same as in "Section copy"
+   * **target_fps:** the frame per second limit set on stream
+   * **iteration_count:** number of copy command iteration
+   * **delay_in_us:** number of microseconds that delay the start of stream
+
+Example:
+```
+multi_copy:
+  - name: CopyStress
+    pipeline:
+      - {size_in_bytes: 0x1000, iteration_count: 1000 }
+      - {size_in_bytes: 0x1000, iteration_count: 1000 }
+      - {size_in_bytes: 0x1000, iteration_count: 1000 }
+      - {size_in_bytes: 0x1000, iteration_count: 1000 }
+```
 
 # Running tests with a configuration file
 

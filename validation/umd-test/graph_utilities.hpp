@@ -40,10 +40,7 @@ enum InputType {
 
 class InferenceRequest {
   public:
-    void setUp(ze_context_handle_t hContext,
-               ze_device_handle_t hDevice,
-               ze_graph_handle_t hGraph,
-               graph_dditable_ext_t *dGraph) {
+    void setUpCommandQueue(ze_context_handle_t hContext, ze_device_handle_t hDevice) {
         ze_result_t ret = ZE_RESULT_SUCCESS;
         ze_command_queue_desc_t desc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
                                         .pNext = nullptr,
@@ -55,7 +52,13 @@ class InferenceRequest {
         scopedQueue = zeScope::commandQueueCreate(hContext, hDevice, desc, ret);
         ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
         queue = scopedQueue.get();
+    }
 
+    void setUpCommandList(ze_context_handle_t hContext,
+                          ze_device_handle_t hDevice,
+                          ze_graph_handle_t hGraph,
+                          graph_dditable_ext_t *dGraph) {
+        ze_result_t ret = ZE_RESULT_SUCCESS;
         ze_command_list_desc_t descl = {.stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
                                         .pNext = nullptr,
                                         .commandQueueGroupOrdinal = 0,
@@ -69,19 +72,48 @@ class InferenceRequest {
         ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
     }
 
-    ze_result_t runAsync() { return zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr); }
-    ze_result_t wait(uint64_t ns) { return zeCommandQueueSynchronize(queue, ns); }
+    void setUpFence(ze_context_handle_t hContext, ze_device_handle_t hDevice) {
+        ze_result_t ret = {};
+        ze_fence_desc_t desc = {.stype = ZE_STRUCTURE_TYPE_FENCE_DESC,
+                                .pNext = nullptr,
+                                .flags = 0};
+        scopedFence = zeScope::fenceCreate(queue, desc, ret);
+        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+        fence = scopedFence.get();
+    }
 
-    void getResults();
+    ze_result_t runAsync() {
+        startPoint = std::chrono::steady_clock::now();
+        if (fence != nullptr) {
+            EXPECT_EQ(zeFenceReset(fence), ZE_RESULT_SUCCESS);
+        }
+        return zeCommandQueueExecuteCommandLists(queue, 1, &list, fence);
+    }
+
+    ze_result_t wait(uint64_t ns) {
+        ze_result_t ret;
+        if (fence != nullptr) {
+            ret = zeFenceHostSynchronize(fence, ns);
+        } else {
+            ret = zeCommandQueueSynchronize(queue, ns);
+        }
+        latencyMs =
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - startPoint)
+                .count();
+        return ret;
+    }
 
   public:
     ze_command_queue_handle_t queue = nullptr;
     ze_command_list_handle_t list = nullptr;
-    std::vector<void *> inArgs, outArgs;
+    ze_fence_handle_t fence = nullptr;
+    double latencyMs = 0.f;
 
   private:
     zeScope::SharedPtr<ze_command_queue_handle_t> scopedQueue;
     zeScope::SharedPtr<ze_command_list_handle_t> scopedList;
+    zeScope::SharedPtr<ze_fence_handle_t> scopedFence;
+    std::chrono::steady_clock::time_point startPoint;
 };
 
 class GraphBuffer {
@@ -443,8 +475,20 @@ class Graph {
 
     std::unique_ptr<InferenceRequest> newInferRequest() {
         auto infer = std::make_unique<InferenceRequest>();
+
         // Initialization is done in setUp to take advantage of ASSERT_*
-        infer->setUp(hContext, hDevice, handle, graphDDI);
+        infer->setUpCommandQueue(hContext, hDevice);
+        infer->setUpCommandList(hContext, hDevice, handle, graphDDI);
+        return infer;
+    }
+
+    std::unique_ptr<InferenceRequest> newInferRequestUsingQueue(ze_command_queue_handle_t hQueue) {
+        auto infer = std::make_unique<InferenceRequest>();
+        infer->queue = hQueue;
+
+        // Initialization is done in setUp to take advantage of ASSERT_*
+        infer->setUpCommandList(hContext, hDevice, handle, graphDDI);
+        infer->setUpFence(hContext, hDevice);
         return infer;
     }
 

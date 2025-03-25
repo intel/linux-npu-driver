@@ -39,11 +39,11 @@ void ExternalMemoryZe::ExportImport(struct Xpu x0, struct Xpu x1) {
     const size_t sz = 1024u;
     ze_result_t ret;
 
-    if (!isVPU37xx())
-        SKIP_("Test for MTL (37xx) platform only.");
+    if (!isVPU37xx() && !isVPU40xx())
+        SKIP_("Test for MTL (37xx) and LNL(40xx) platforms only.");
 
-    if (!test_vars::test_with_gpu)
-        SKIP_("Flag --test_with_gpu not set.");
+    if (!test_vars::forceGpu)
+        SKIP_("Flag --gpu not set.");
 
     // --- dev0
     ze_device_external_memory_properties_t propMem = {};
@@ -168,6 +168,9 @@ void ExternalMemoryZe::ExportImport(struct Xpu x0, struct Xpu x1) {
 // +------------+                +--------------------------+            +------------+
 //
 TEST_F(ExternalMemoryZe, GpuZeFillToNpuZeCopy) {
+    // Kernel generates following warning when this test is executed in MTL
+    // WARNING: CPU: 1 PID: 6578 at drivers/gpu/drm/drm_gem.c:1064 drm_gem_mmap_obj+0x176/0x1a0
+    SKIP_VPU37XX("Test generate kernel warning from i915 module, run with -S to execute test");
     ExportImport(Gpu, Npu);
 }
 

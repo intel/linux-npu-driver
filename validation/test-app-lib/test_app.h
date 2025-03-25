@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include "thread_helper.h"
+
 #include <getopt.h>
 #include <gtest/gtest.h>
 #include <limits>
@@ -43,6 +45,7 @@ namespace test_app {
 extern bool max_timeout;
 extern bool verbose_logs;
 extern bool run_skipped_tests;
+extern bool disable_unbind;
 extern unsigned pause_after_test_ms;
 
 int hex_dump(void *data, long size, const char *name);

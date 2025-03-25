@@ -13,7 +13,6 @@ add_subdirectory(utilities)
 
 find_package(OpenVINO QUIET COMPONENTS Runtime)
 find_package(OpenCV QUIET)
-
 find_package(OpenCL QUIET)
 
 add_executable(${PROJECT_NAME}
@@ -27,6 +26,7 @@ add_executable(${PROJECT_NAME}
     test_copy_performance.cpp
     test_device.cpp
     test_driver.cpp
+    test_driver_cache.cpp
     test_event.cpp
     test_event_sync.cpp
     test_eventpool.cpp
@@ -49,6 +49,7 @@ add_executable(${PROJECT_NAME}
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/linux/include/uapi")
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/umd/level_zero_driver/api/prv/")
 
 if (TARGET openvino::runtime)
     target_sources(${PROJECT_NAME} PRIVATE test_ov_inference.cpp test_mutable_cmdlist.cpp)

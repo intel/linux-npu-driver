@@ -52,6 +52,10 @@ class Metric : public MetricGroup {
         for (uint8_t i = 0; i < metricGroupsCount; i++) {
             ASSERT_EQ(zetMetricGroupGetProperties(metricGroups[i], &groupProperties[i]),
                       ZE_RESULT_SUCCESS);
+            // always operate on lowercase names to make comparison case insensitive
+            for (char *p = groupProperties[i].name; *p; ++p) {
+                *p = tolower(*p);
+            }
 
             auto metricCount = groupProperties[i].metricCount;
 
@@ -68,7 +72,7 @@ class Metric : public MetricGroup {
                 EXPECT_EQ(zetMetricGetProperties(metrics[j], &properties), ZE_RESULT_SUCCESS);
                 metricsProperties.push_back(properties);
             }
-            metricsPropertiesAll.push_back(metricsProperties);
+            metricsPropertiesAll.push_back(std::move(metricsProperties));
         }
     }
 
@@ -163,6 +167,8 @@ class MetricQuery : public Metric, public ::testing::WithParamInterface<metricTe
 
     uint32_t findMetricGroupIndex(std::string groupName) {
         uint32_t index;
+        // operate only with lower case strings to make comparison case insensitive
+        std::transform(groupName.begin(), groupName.end(), groupName.begin(), ::tolower);
         for (index = 0; index < groupProperties.size(); index++) {
             if (groupName == groupProperties[index].name)
                 break;
@@ -326,9 +332,9 @@ INSTANTIATE_TEST_SUITE_P(
     MetricQuery,
     ::testing::ValuesIn(MetricQuery::createCasesForMetricsTest(queryIndexesComputeEngine)),
     [](const testing::TestParamInfo<metricTestCase_t> &p) {
-        auto node = std::get<0>(p.param);
-        auto metricGroupName = std::get<1>(p.param);
-        auto queryIndex = std::get<2>(p.param);
+        const auto &node = std::get<0>(p.param);
+        const auto &metricGroupName = std::get<1>(p.param);
+        const auto &queryIndex = std::get<2>(p.param);
 
         return generateTestNameFromNode(node) + "_" + metricGroupName + "_OnIndex" +
                std::to_string(queryIndex);
@@ -450,8 +456,8 @@ INSTANTIATE_TEST_SUITE_P(
     MetricQueryMemoryCopy,
     ::testing::ValuesIn(MetricQueryMemoryCopy::createCasesForMetricsTest(queryIndexes)),
     [](const testing::TestParamInfo<metricTestCase_t> &p) {
-        auto metricGroupName = std::get<1>(p.param);
-        auto queryIndex = std::get<2>(p.param);
+        const auto &metricGroupName = std::get<1>(p.param);
+        const auto &queryIndex = std::get<2>(p.param);
         return metricGroupName + "_OnIndex" + std::to_string(queryIndex);
     });
 

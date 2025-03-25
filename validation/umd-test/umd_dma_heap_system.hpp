@@ -86,7 +86,7 @@ class DmaHeapSystem {
         }
 
         struct dma_heap_allocation_data heapAlloc = {
-            .len = ALLIGN_TO_PAGE(size),
+            .len = ALIGN_TO_PAGE(size),
             .fd = 0,
             .fd_flags = O_RDWR | O_CLOEXEC,
             .heap_flags = 0,

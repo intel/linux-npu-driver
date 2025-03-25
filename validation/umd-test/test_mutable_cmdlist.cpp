@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -132,7 +132,8 @@ class MutableCmdList : public UmdTest {
         devProp.pNext = &mutableCmdListProps;
         ze_result_t result = zeDeviceGetProperties(zeDevice, &devProp);
         ASSERT_EQ(ZE_RESULT_SUCCESS, result);
-        ASSERT_EQ(ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT,
+        ASSERT_EQ(ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT_DEPRECATED |
+                      ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS,
                   mutableCmdListProps.mutableCommandFlags);
 
         ze_command_queue_desc_t cmdQueueDesc{.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
@@ -258,7 +259,7 @@ TEST_F(MutableCmdList, UpdateGraphFirstInput) {
     ze_mutable_command_id_exp_desc_t mutableCmdIdDesc{
         .stype = ZE_STRUCTURE_TYPE_MUTABLE_COMMAND_ID_EXP_DESC,
         .pNext = nullptr,
-        .flags = ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT,
+        .flags = ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS,
     };
     uint64_t commandId;
     ze_result_t result =
@@ -351,7 +352,7 @@ TEST_F(MutableCmdList, UpdateGraphInputsAndOutputs) {
     ze_mutable_command_id_exp_desc_t mutableCmdIdDesc{
         .stype = ZE_STRUCTURE_TYPE_MUTABLE_COMMAND_ID_EXP_DESC,
         .pNext = nullptr,
-        .flags = ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT,
+        .flags = ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS,
     };
     uint64_t commandId;
     ze_result_t result =
@@ -481,7 +482,7 @@ TEST_F(MutableCmdList, UpdateTwoGraphsInSingleCmdList) {
     ze_mutable_command_id_exp_desc_t mutableCmdIdDesc{
         .stype = ZE_STRUCTURE_TYPE_MUTABLE_COMMAND_ID_EXP_DESC,
         .pNext = nullptr,
-        .flags = ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT,
+        .flags = ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS,
     };
 
     // get the id of first graph execute command
@@ -601,7 +602,7 @@ TEST_F(MutableCmdList, UpdateGraphTwice) {
     ze_mutable_command_id_exp_desc_t mutableCmdIdDesc{
         .stype = ZE_STRUCTURE_TYPE_MUTABLE_COMMAND_ID_EXP_DESC,
         .pNext = nullptr,
-        .flags = ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT,
+        .flags = ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS,
     };
     uint64_t commandId;
     ze_result_t result =
@@ -758,7 +759,7 @@ TEST_F(MutableCmdList, GetNextCommandIdNotMutableCmdList) {
     ze_mutable_command_id_exp_desc_t mutableCmdIdDesc{
         .stype = ZE_STRUCTURE_TYPE_MUTABLE_COMMAND_ID_EXP_DESC,
         .pNext = nullptr,
-        .flags = ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT,
+        .flags = ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS,
     };
     uint64_t commandId;
     ASSERT_EQ(ZE_RESULT_ERROR_INVALID_ARGUMENT,
@@ -789,7 +790,7 @@ TEST_F(MutableCmdList, GetNextCommandIdClosedCmdList) {
     ze_mutable_command_id_exp_desc_t mutableCmdIdDesc{
         .stype = ZE_STRUCTURE_TYPE_MUTABLE_COMMAND_ID_EXP_DESC,
         .pNext = nullptr,
-        .flags = ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT,
+        .flags = ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS,
     };
     uint64_t commandId;
     ASSERT_EQ(ZE_RESULT_ERROR_INVALID_ARGUMENT,
@@ -838,7 +839,7 @@ TEST_F(MutableCmdList, MutateGraphExecuteInMultipleCommandList) {
         ze_mutable_command_id_exp_desc_t mutableCmdIdDesc{
             .stype = ZE_STRUCTURE_TYPE_MUTABLE_COMMAND_ID_EXP_DESC,
             .pNext = nullptr,
-            .flags = ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT,
+            .flags = ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS,
         };
 
         result = zeCommandListGetNextCommandIdExp(cmdList, &mutableCmdIdDesc, &commandIds[i]);

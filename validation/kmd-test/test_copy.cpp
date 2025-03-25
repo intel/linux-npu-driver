@@ -277,11 +277,10 @@ TEST_F(Copy, NonCoherentPerf) {
 
 void Copy::CopyDuringCtxCreation(int engine) {
     const unsigned char pattern = 0xCD;
-    bool stop = false;
     std::size_t size = 1 * MB;
 
-    std::thread tdr_thread([&stop]() {
-        while (!stop) {
+    test_app::thread tdr_thread([&tdr_thread]() {
+        while (!tdr_thread.stop_requested()) {
             KmdContext thread_ctx;
             ASSERT_GE(thread_ctx.open(), 0);
             CmdBuffer cmd_buf(thread_ctx, 4096);
@@ -309,9 +308,6 @@ void Copy::CopyDuringCtxCreation(int engine) {
     cmd_buf.add_copy_cmd(descr_buf, 0, src_buf, 0, dst_buf, 0, size);
     ASSERT_EQ(cmd_buf.submit(engine), 0);
     ASSERT_EQ(cmd_buf.wait(), 0);
-
-    stop = true;
-    tdr_thread.join();
 }
 
 TEST_F(Copy, CopyDuringCtxCreationComputeEngine) {

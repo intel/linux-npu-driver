@@ -8,6 +8,7 @@
 #include "test_app.h"
 
 #include "drm_helpers.h"
+#include "file_helpers.h"
 #include "gtest/gtest.h"
 #include "perf_counter.h"
 #include "version.h"
@@ -23,11 +24,11 @@
 
 namespace test_app {
 
-bool g_list_tests = false;
-pid_t g_parent_pid;
-bool max_timeout = false;
-bool verbose_logs = false;
+bool g_list_tests;
+bool max_timeout;
+bool verbose_logs;
 bool run_skipped_tests;
+bool disable_unbind;
 unsigned pause_after_test_ms;
 
 static int list_tests_with_full_names() {
@@ -88,15 +89,12 @@ static void print_help(const char *extraMessage, const char *appName) {
            "       Override default timeout for performance tests\n"
            "  -p/--pause_after_test_ms [PAUSE_MS]\n"
            "       Add delay in ms after test completion\n"
+           "  -d/--disable_unbind\n"
+           "       Disable unbinding the device from the driver\n"
            "  -V/--version\n"
            "       Display application version\n"
            "%s\n",
            extraMessage);
-
-    printf("Environment Variables:\n"
-           "  TESTS_DUMP_FW_LOG_ON_FAIL\n"
-           "      Dump firmware log on failure.\n"
-           "\n");
 
     printf("Example Usage:\n");
     printf("  %s -v Device.*\n", appName);
@@ -163,6 +161,7 @@ void parse_args(std::unordered_map<int, Argument> &extArgs,
         {'l', {"list_tests", no_argument, [](auto) { g_list_tests = true; }}},
         {'t', {"timeout_msec", required_argument, &setDefaultPerfTimeout}},
         {'p', {"pause_after_test_ms", required_argument, &setPauseAfterTestMs}},
+        {'u', {"disable_unbind", no_argument, [](auto) { test_app::disable_unbind = true; }}},
         {'V', {"version", no_argument, &printVersion}},
     };
 
@@ -217,18 +216,26 @@ void append_negative_filter(const char *negative_pattern) {
  * See https://github.com/google/googletest/blob/main/docs/advanced.md#propagating-fatal-failures
  */
 class ThrowListener : public testing::EmptyTestEventListener {
+  public:
+    ThrowListener() {
+        /* Save parent pid not to throw exceptions from child processes */
+        parent_process_pid = getpid();
+        main_thread_id = std::this_thread::get_id();
+    }
+
+  private:
     void OnTestPartResult(const testing::TestPartResult &result) override {
         if (result.type() == testing::TestPartResult::kFatalFailure) {
-            if (g_parent_pid == getpid())
+            if (getpid() == parent_process_pid && std::this_thread::get_id() == main_thread_id)
                 throw testing::AssertionException(result);
         }
     }
+
+    pid_t parent_process_pid;
+    std::thread::id main_thread_id;
 };
 
 int run() {
-    /* Save parent pid not to throw exceptions from child processes */
-    g_parent_pid = getpid();
-
     if (g_list_tests) {
         ::testing::GTEST_FLAG(list_tests) = true;
         return list_tests_with_full_names();

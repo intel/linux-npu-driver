@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
+#include "perf_counter.h"
 #include "umd_test.h"
 
 #include <future>
@@ -226,6 +227,47 @@ TEST_F(Command, MultipleCommandQueueSubmissionStressTest) {
     }
 }
 
+TEST_F(Command, SynchronousCommandQueueSubmissionTest) {
+    const size_t numCommands = isSilicon() ? 1000 : 50;
+    auto mem = AllocSharedMemory(size);
+    uint64_t *ts = static_cast<uint64_t *>(mem.get());
+    ASSERT_TRUE(ts) << "Failed to allocate shared memory";
+    *ts = 0ULL;
+
+    cmdQueueDesc.mode = ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS;
+    auto sQueue = zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDesc, ret);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+
+    for (size_t i = 0; i <= numCommands; i++) {
+        ASSERT_EQ(zeCommandListAppendWriteGlobalTimestamp(list, ts, nullptr, 0, nullptr),
+                  ZE_RESULT_SUCCESS);
+    }
+    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+
+    /* Execute single command list on synchronous mode */
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(sQueue.get(), 1, &list, nullptr),
+              ZE_RESULT_SUCCESS);
+    /* The command list should be ready immediately after execution */
+    ASSERT_EQ(zeCommandQueueSynchronize(sQueue.get(), 0), ZE_RESULT_SUCCESS);
+    EXPECT_GT(*ts, 0);
+
+    /* Execute three times without synchronization */
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(sQueue.get(), 1, &list, nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(sQueue.get(), 1, &list, nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(sQueue.get(), 1, &list, nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(sQueue.get(), 0), ZE_RESULT_SUCCESS);
+
+    /* Execute queue created in default mode, NOT_READY expected for timeout set to 0 */
+    *ts = 0;
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(queue, 0), ZE_RESULT_NOT_READY);
+    ASSERT_EQ(zeCommandQueueSynchronize(queue, syncTimeout), ZE_RESULT_SUCCESS);
+    EXPECT_GT(*ts, 0);
+}
+
 class CommandTimestamp : public Command {};
 
 TEST_F(CommandTimestamp, AppendGlobalTimestampAndSynchronize) {
@@ -243,7 +285,7 @@ TEST_F(CommandTimestamp, AppendGlobalTimestampAndSynchronize) {
 }
 
 TEST_F(CommandTimestamp, AppendGlobalTimestampOffsetNotZeroAndSynchronize) {
-    const size_t allocSize = PAGE_SIZE;
+    const size_t allocSize = pageSize;
     auto mem = AllocSharedMemory(allocSize);
     ASSERT_TRUE(mem.get()) << "Failed to allocate shared memory";
 
@@ -459,14 +501,11 @@ TEST_F(CommandTimestamp, CommandTimestampStressTest) {
         ASSERT_EQ(zeCommandListClose(cmdList.get()), ZE_RESULT_SUCCESS);
 
         auto list = cmdList.get();
-        uint32_t iterations;
 
-        if (isSilicon())
-            iterations = 5000;
-        else
-            iterations = 5;
+        PerfCounter counter(isSilicon() ? 5000 : 100);
+        counter.start();
 
-        for (uint32_t iteration = 0; iteration < iterations; iteration++) {
+        while (!counter.isTimedOut()) {
             EXPECT_EQ(zeCommandQueueExecuteCommandLists(cmdQueue.get(), 1, &list, nullptr),
                       ZE_RESULT_SUCCESS);
             EXPECT_EQ(zeCommandQueueSynchronize(cmdQueue.get(), syncTimeout * 2),
