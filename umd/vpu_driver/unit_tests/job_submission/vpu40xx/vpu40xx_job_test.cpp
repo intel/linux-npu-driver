@@ -56,7 +56,12 @@ TEST_F(VPUJobTestForVPU40xx, jobCanGenerateSingleCopyBuffer) {
 
     auto job = std::make_unique<VPUJob>(ctx);
     for (int i = 0; i < cmdCount; i++)
-        EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx, hostMem, sharedMem, allocSize)));
+        EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx,
+                                                              hostMem,
+                                                              ctx->findBufferObject(hostMem),
+                                                              sharedMem,
+                                                              ctx->findBufferObject(sharedMem),
+                                                              allocSize)));
     EXPECT_TRUE(job->closeCommands());
 
     EXPECT_EQ(1u, job->getCommandBuffers().size());
@@ -88,11 +93,20 @@ TEST_F(VPUJobTestForVPU40xx, jobShouldProperlySaveAppendedCommands) {
         EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx, tsHeap)));
 
     for (int i = 0; i < 3; i++)
-        EXPECT_TRUE(
-            job->appendCommand(VPUCopyCommand::create(ctx, sharedMem, sharedMem, allocSize)));
+        EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx,
+                                                              sharedMem,
+                                                              ctx->findBufferObject(sharedMem),
+                                                              sharedMem,
+                                                              ctx->findBufferObject(sharedMem),
+                                                              allocSize)));
 
     for (int i = 0; i < 3; i++)
-        EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx, hostMem, sharedMem, allocSize)));
+        EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx,
+                                                              hostMem,
+                                                              ctx->findBufferObject(hostMem),
+                                                              sharedMem,
+                                                              ctx->findBufferObject(sharedMem),
+                                                              allocSize)));
 
     EXPECT_TRUE(job->closeCommands());
 

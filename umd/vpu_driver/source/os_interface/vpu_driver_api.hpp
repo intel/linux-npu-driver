@@ -90,7 +90,7 @@ class VPUDriverApi final {
   private:
     bool openDevice();
     bool closeDevice();
-    int doIoctl(unsigned long request, void *arg) const;
+    int doIoctl(unsigned int request, void *arg) const;
 
     const static int32_t umdIoctlVersionMajor = 1;
     const static int32_t umdIoctlVersionMinor = 0;

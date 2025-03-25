@@ -23,6 +23,7 @@
 #include <chrono> // IWYU pragma: keep
 #include <errno.h>
 #include <iterator>
+#include <limits>
 #include <mutex>
 #include <utility>
 
@@ -43,9 +44,12 @@ static VPU::VPUDeviceQueue::Priority toVPUDevicePriority(ze_command_queue_priori
     }
 }
 
-CommandQueue::CommandQueue(Context *context, std::unique_ptr<VPU::VPUDeviceQueue> queue)
+CommandQueue::CommandQueue(Context *context,
+                           std::unique_ptr<VPU::VPUDeviceQueue> queue,
+                           CommandQueueMode mode)
     : vpuQueue(std::move(queue))
-    , pContext(context) {}
+    , pContext(context)
+    , queueMode(mode) {}
 
 ze_result_t CommandQueue::create(ze_context_handle_t hContext,
                                  ze_device_handle_t hDevice,
@@ -81,7 +85,11 @@ ze_result_t CommandQueue::create(ze_context_handle_t hContext,
                       "VPU Command queue creation failed.",
                       ZE_RESULT_ERROR_UNINITIALIZED);
 
-        auto cmdQueue = std::make_unique<CommandQueue>(pContext, std::move(vpuQueue));
+        auto cmdQueue = std::make_unique<CommandQueue>(
+            pContext,
+            std::move(vpuQueue),
+            desc->mode == ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS ? CommandQueueMode::SYNCHRONOUS
+                                                            : CommandQueueMode::DEFAULT);
         *phCommandQueue = cmdQueue.get();
         pContext->appendObject(std::move(cmdQueue));
         LOG(CMDQUEUE, "CommandQueue created - %p", *phCommandQueue);
@@ -200,6 +208,9 @@ ze_result_t CommandQueue::executeCommandLists(uint32_t nCommandLists,
         std::copy(jobs.begin(), jobs.end(), std::back_inserter(trackedJobs));
     }
 
+    if (queueMode == CommandQueueMode::SYNCHRONOUS)
+        return synchronize(std::numeric_limits<uint64_t>::max());
+
     return ZE_RESULT_SUCCESS;
 }
 
@@ -210,7 +221,7 @@ ze_result_t CommandQueue::synchronize(uint64_t timeout) {
     {
         std::shared_lock lock(fenceMutex);
         if (trackedJobs.empty() && fences.empty()) {
-            LOG_W("No CommandList submitted");
+            LOG(CMDQUEUE, "No CommandList submitted");
             return ZE_RESULT_SUCCESS;
         }
 

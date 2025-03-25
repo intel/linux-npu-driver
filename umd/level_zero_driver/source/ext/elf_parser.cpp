@@ -14,9 +14,10 @@
 #include "level_zero/ze_api.h"
 #include "level_zero/ze_graph_ext.h"
 #include "level_zero_driver/include/l0_exception.hpp"
-#include "npu_driver_compiler.h"
 #include "umd_common.hpp"
 #include "vpu_driver/source/command/vpu_inference_execute.hpp"
+#include "vpu_driver/source/device/vpu_37xx/vpu_hw_37xx.hpp"
+#include "vpu_driver/source/device/vpu_40xx/vpu_hw_40xx.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
@@ -31,7 +32,9 @@
 #include <algorithm>
 #include <array>
 #include <exception>
+#include <functional>
 #include <iterator>
+#include <map>
 #include <memory>
 #include <string.h>
 #include <vpux_elf/accessor.hpp>
@@ -73,8 +76,7 @@ class DriverBufferManager : public elf::BufferManager {
             size = 1;
         }
 
-        VPU::VPUBufferObject *bo =
-            ctx->createInternalBufferObject(size, getBufferType(buffSpecs.procFlags));
+        auto bo = ctx->createUntrackedBufferObject(size, getBufferType(buffSpecs.procFlags));
         if (bo == nullptr) {
             LOG_E("Failed to allocate the memory");
             return elf::DeviceBuffer();
@@ -85,6 +87,13 @@ class DriverBufferManager : public elf::BufferManager {
             bo->getBasePointer(),
             bo->getVPUAddr(),
             bo->getAllocSize());
+
+        const std::lock_guard<std::mutex> lock(mtx);
+        auto [it, success] = tracedElfParserBuffers.try_emplace(bo->getBasePointer(), bo);
+        if (!success) {
+            LOG_E("Failed to trace elf parser buffer");
+            return elf::DeviceBuffer();
+        }
         return elf::DeviceBuffer(bo->getBasePointer(), bo->getVPUAddr(), buffSpecs.size);
     }
 
@@ -94,8 +103,9 @@ class DriverBufferManager : public elf::BufferManager {
             devAddress.cpu_addr(),
             devAddress.vpu_addr(),
             devAddress.size());
-        if (!ctx->freeMemAlloc(devAddress.cpu_addr()))
-            LOG_E("Failed to deallocate the memory");
+        const std::lock_guard<std::mutex> lock(mtx);
+        if (tracedElfParserBuffers.erase(devAddress.cpu_addr()) == 0)
+            LOG_E("Failed to deallocate elf parser the memory");
     }
 
     void lock(elf::DeviceBuffer &devAddress) override {}
@@ -114,7 +124,7 @@ class DriverBufferManager : public elf::BufferManager {
             return 0;
         }
 
-        VPU::VPUBufferObject *bo = ctx->findBuffer(to.cpu_addr());
+        auto bo = findBuffer(to.cpu_addr());
         if (bo == nullptr) {
             LOG_E("Failed to find a buffer");
             return 0;
@@ -128,8 +138,20 @@ class DriverBufferManager : public elf::BufferManager {
         return count;
     }
 
+    std::shared_ptr<VPU::VPUBufferObject> findBuffer(const void *ptr) {
+        const std::lock_guard<std::mutex> lock(mtx);
+        auto it = tracedElfParserBuffers.lower_bound(ptr);
+        if (it == tracedElfParserBuffers.end()) {
+            return nullptr;
+        }
+        return it->second;
+    }
+
   private:
+    mutable std::mutex mtx;
     VPU::VPUDeviceContext *ctx;
+    std::map<const void *, std::shared_ptr<VPU::VPUBufferObject>, std::greater<const void *>>
+        tracedElfParserBuffers;
 };
 
 class ElfAccessManager : public elf::AccessManager {
@@ -202,11 +224,12 @@ bool ElfParser::checkMagic(const std::unique_ptr<BlobContainer> &blob) {
     return elf::utils::checkELFMagic(blob->ptr);
 }
 
-static inline elf::platform::ArchKind toArchKind(int platform) {
-    switch (platform) {
-    case VCL_PLATFORM_VPU3720:
+static inline elf::platform::ArchKind toArchKind(uint32_t deviceId) {
+    switch (deviceId) {
+    case PCI_DEVICE_ID_MTL:
+    case PCI_DEVICE_ID_ARL:
         return elf::platform::ArchKind::VPUX37XX;
-    case VCL_PLATFORM_VPU4000:
+    case PCI_DEVICE_ID_LNL:
         return elf::platform::ArchKind::VPUX40XX;
     default:
         return elf::platform::ArchKind::UNKNOWN;
@@ -220,7 +243,7 @@ createHostParsedInference(elf::BufferManager *buffer,
                           std::string &errorMsg) {
     elf::HPIConfigs config = {};
     config.nnVersion = toVersion<elf::Version>(ctx->getFwMappedInferenceVersion());
-    config.archKind = toArchKind(ctx->getCompilerPlatform());
+    config.archKind = toArchKind(ctx->getPciDevId());
 
     try {
         return std::make_shared<elf::HostParsedInference>(buffer, access, config);
@@ -291,8 +314,8 @@ std::unique_ptr<ElfParser> ElfParser::getElfParser(VPU::VPUDeviceContext *ctx,
     return nullptr;
 }
 
-elf::VersionsProvider ElfParser::getElfVer(int arch) {
-    return elf::VersionsProvider(toArchKind(arch));
+elf::VersionsProvider ElfParser::getElfVer(uint32_t deviceId) {
+    return elf::VersionsProvider(toArchKind(deviceId));
 }
 
 static ze_graph_argument_precision_t getTensorPrecision(elf::DType type) {
@@ -329,6 +352,8 @@ static ze_graph_argument_precision_t getTensorPrecision(elf::DType type) {
         return ZE_GRAPH_ARGUMENT_PRECISION_BIN;
     case elf::DType::DType_BFP16:
         return ZE_GRAPH_ARGUMENT_PRECISION_BF16;
+    case elf::DType::DType_I4X:
+        return ZE_GRAPH_ARGUMENT_PRECISION_NF4;
     default:
         return ZE_GRAPH_ARGUMENT_PRECISION_UNKNOWN;
     }
@@ -461,19 +486,21 @@ static void fillNetworkProperties(const elf::TensorRef &netTensor,
 
 static void fillOVNodeProperties(const elf::OVNode &node, ze_graph_argument_properties_3_t &prop) {
     memcpy(prop.debug_friendly_name, node.friendly_name, sizeof(prop.debug_friendly_name) - 1);
-    if (node.tensor_names_count > ZE_MAX_GRAPH_TENSOR_NAMES_SIZE) {
-        LOG_E("Tensor names count exceeds the Graph Extension limits (%u > %u)",
+
+    uint32_t tensorNamesCount = node.tensor_names_count;
+    if (tensorNamesCount > ZE_MAX_GRAPH_TENSOR_NAMES_SIZE) {
+        LOG_W("Tensor names count exceeds the Graph Extension limits (%u > %u)",
               node.tensor_names_count,
               ZE_MAX_GRAPH_TENSOR_NAMES_SIZE);
-        return;
+        tensorNamesCount = ZE_MAX_GRAPH_TENSOR_NAMES_SIZE;
     }
 
-    for (unsigned i = 0; i < node.tensor_names_count; i++) {
+    for (uint32_t i = 0; i < tensorNamesCount; i++) {
         memcpy(prop.associated_tensor_names[i],
                node.tensor_names[i],
                sizeof(prop.associated_tensor_names[i]) - 1);
     }
-    prop.associated_tensor_names_count = node.tensor_names_count;
+    prop.associated_tensor_names_count = tensorNamesCount;
 }
 
 bool ElfParser::getArgumentProperties(std::vector<ze_graph_argument_properties_3_t> &props) const {
@@ -628,17 +655,24 @@ bool ElfParser::getProfilingSize(uint32_t &size) const {
     return true;
 }
 
+std::shared_ptr<VPU::VPUBufferObject> ElfParser::findBuffer(const void *ptr) {
+    auto driverBufferManager = reinterpret_cast<DriverBufferManager *>(bufferManager.get());
+    if (driverBufferManager == nullptr)
+        return nullptr;
+    return driverBufferManager->findBuffer(ptr);
+}
+
 bool ElfParser::applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &cmdHpi,
                                   const std::vector<std::pair<const void *, uint32_t>> &inputPtrs,
                                   const std::vector<std::pair<const void *, uint32_t>> &outputPtrs,
                                   const std::pair<const void *, uint32_t> &profilingPtr,
-                                  std::vector<VPU::VPUBufferObject *> &bos) {
+                                  std::vector<std::shared_ptr<VPU::VPUBufferObject>> &bos) {
     auto getDeviceBuffers = [this, &bos](const std::vector<std::pair<const void *, uint32_t>> &ptrs,
                                          std::vector<elf::DeviceBuffer> &buffers) {
         buffers.reserve(ptrs.size());
 
         for (const auto &[ptr, size] : ptrs) {
-            auto *bo = ctx->findBuffer(ptr);
+            auto bo = ctx->findBufferObject(ptr);
             if (bo == nullptr) {
                 LOG_E("Failed to find a user buffer");
                 return false;
@@ -646,7 +680,7 @@ bool ElfParser::applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &cmd
 
             bos.push_back(bo);
 
-            uint64_t vpuAddr = ctx->getBufferVPUAddress(ptr);
+            uint64_t vpuAddr = bo->getVPUAddr(ptr);
             uint8_t *basePtr = static_cast<uint8_t *>(const_cast<void *>(ptr));
             buffers.emplace_back(basePtr, vpuAddr, size);
         }
@@ -733,26 +767,23 @@ std::shared_ptr<VPU::VPUInferenceExecute> ElfParser::createInferenceExecuteComma
         cmdHpi = hpi;
     }
 
-    std::vector<VPU::VPUBufferObject *> bos;
+    std::vector<std::shared_ptr<VPU::VPUBufferObject>> bos;
     auto hpiBuffer = cmdHpi->getParsedInference();
-    VPU::VPUBufferObject *bo = ctx->findBuffer(hpiBuffer.cpu_addr());
+    auto bo = findBuffer(hpiBuffer.cpu_addr());
     if (bo == nullptr) {
         LOG_E("Failed to find a buffer in tracked memory");
         return nullptr;
     }
-    bos.push_back(bo);
+    bos.push_back(std::move(bo));
 
     for (const auto &buffer : cmdHpi->getAllocatedBuffers()) {
-        if (buffer.size() == 0)
-            continue;
-
-        VPU::VPUBufferObject *bo = ctx->findBuffer(buffer.cpu_addr());
+        auto bo = findBuffer(buffer.cpu_addr());
         if (bo == nullptr) {
             LOG_E("Failed to find a buffer in tracked memory");
             return nullptr;
         }
 
-        bos.push_back(bo);
+        bos.push_back(std::move(bo));
     }
 
     auto cmd = VPU::VPUInferenceExecute::create(shared_from_this(),
@@ -761,7 +792,7 @@ std::shared_ptr<VPU::VPUInferenceExecute> ElfParser::createInferenceExecuteComma
                                                 outputPtrs,
                                                 profilingPtr,
                                                 inferenceId,
-                                                std::move(bos));
+                                                bos);
     if (cmd == nullptr)
         return nullptr;
 

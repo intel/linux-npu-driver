@@ -68,7 +68,6 @@ void Driver::initializeLogging() {
 }
 
 ze_result_t Driver::getInitStatus() {
-    LOG(DRIVER, "Current driver init status is %u", initStatus);
     return initStatus;
 }
 
@@ -90,7 +89,7 @@ void Driver::driverInit(ze_init_flags_t flags) {
         initializeEnvVariables();
         if (osInfc == nullptr) {
             LOG(DRIVER, "OS interface updated");
-            osInfc = &VPU::getOsInstance();
+            osInfc = VPU::getOsInstance();
 
             if (osInfc == nullptr) {
                 LOG_E("Failed to initialize (OS interface is null)");
@@ -111,9 +110,6 @@ void Driver::driverInit(ze_init_flags_t flags) {
         }
         displayComponentVersions();
     });
-
-    LOG(DRIVER, "Driver init status to %u", initStatus);
-    return;
 }
 
 ze_result_t driverHandleGet(uint32_t *pCount, ze_driver_handle_t *phDriverHandles) {
@@ -158,8 +154,6 @@ ze_result_t init(ze_init_flags_t flags) {
         return ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY;
 
     pDriver->driverInit(flags);
-    LOG(DRIVER, "Updating driver init status to %u", pDriver->getInitStatus());
-
     return pDriver->getInitStatus();
 }
 

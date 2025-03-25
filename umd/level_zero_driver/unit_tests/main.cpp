@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <string>
 #include <unistd.h>
+#include <utility>
 
 namespace TestOptions {
 
@@ -74,12 +75,12 @@ static bool parseOptions(int argc, char **argv) {
 static void setDefaultOptions() {
     const std::filesystem::path defaultBlob = "validation/blobs/mtl/mobilenet-v2/vpuip.blob";
     if (TestOptions::blobPath.empty() && std::filesystem::exists(defaultBlob)) {
-        TestOptions::blobPath = defaultBlob;
+        TestOptions::blobPath = std::move(defaultBlob);
     }
 
     const std::filesystem::path defaultModel = "validation/models/add_abc/add_abc.xml";
     if (TestOptions::modelPath.empty() && std::filesystem::exists(defaultModel)) {
-        TestOptions::modelPath = defaultModel;
+        TestOptions::modelPath = std::move(defaultModel);
         TestOptions::modelFlags =
             "--inputs_precisions=\"A:fp16 B:fp16 C:fp16\" --inputs_layouts=\"A:C B:C C:C\" "
             "--outputs_precisions=\"Y:fp16\" --outputs_layouts=\"Y:C\"";

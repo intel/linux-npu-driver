@@ -32,6 +32,11 @@ class DiskCache {
     std::unique_ptr<BlobContainer> getBlob(const Key &key);
     void setBlob(const Key &key, const std::unique_ptr<BlobContainer> &blob);
 
+    void setMaxSize(size_t size) { maxSize = size; }
+    size_t getMaxSize() { return maxSize; }
+    std::filesystem::path getCacheDirPath() { return cachePath; }
+    size_t getCacheSize();
+
   private:
     VPU::OsInterface &osInfc;
     std::filesystem::path cachePath;

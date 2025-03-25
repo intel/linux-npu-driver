@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -9,7 +9,6 @@
 
 #include "context.hpp"
 #include "device.hpp"
-#include "event.hpp"
 #include "ext/graph.hpp"
 #include "ext/profiling_data.hpp"
 #include "level_zero_driver/include/l0_exception.hpp"
@@ -24,14 +23,12 @@
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
-#include "vpu_driver/source/utilities/log.hpp"
 
 #include <level_zero/ze_api.h>
 #include <level_zero/ze_graph_ext.h>
 #include <optional>
 #include <string.h>
 #include <type_traits>
-#include <utility>
 
 namespace L0 {
 
@@ -143,71 +140,6 @@ ze_result_t CommandList::checkCommandAppendCondition() {
     return ZE_RESULT_SUCCESS;
 }
 
-template <typename Cmd, typename... Args>
-ze_result_t CommandList::appendCommand(Args... args) {
-    auto cmd = Cmd::create(args...);
-    if (cmd == nullptr) {
-        LOG_E("Command is NULL / failed to be initialized!");
-        return ZE_RESULT_ERROR_UNINITIALIZED;
-    }
-
-    if (!vpuJob->appendCommand(cmd)) {
-        LOG_E("Command(%#x) failed to push to list!", cmd->getCommandType());
-        return ZE_RESULT_ERROR_UNKNOWN;
-    }
-
-    LOG(CMDLIST, "Successfully appended the command(%#x) to CommandList", cmd->getCommandType());
-
-    return ZE_RESULT_SUCCESS;
-}
-
-template <typename Cmd, typename... Args>
-ze_result_t CommandList::appendCommandWithEvents(ze_event_handle_t hSignalEvent,
-                                                 uint32_t numWaitEvents,
-                                                 ze_event_handle_t *phWaitEvents,
-                                                 Args... args) {
-    ze_result_t result = checkCommandAppendCondition();
-    if (result != ZE_RESULT_SUCCESS)
-        return result;
-
-    if (numWaitEvents > 0) {
-        if (phWaitEvents == nullptr) {
-            LOG_E("Invalid wait event input. phWaitEvents: %p, numWaitEvents: %u",
-                  phWaitEvents,
-                  numWaitEvents);
-            return ZE_RESULT_ERROR_INVALID_SIZE;
-        }
-
-        result = appendWaitOnEvents(numWaitEvents, phWaitEvents);
-        if (result != ZE_RESULT_SUCCESS) {
-            LOG_E("Failed to add %u wait on events.", numWaitEvents);
-            return result;
-        }
-    }
-
-    result = appendCommand<Cmd>(args...);
-    if (result != ZE_RESULT_SUCCESS)
-        return result;
-
-    if (hSignalEvent != nullptr) {
-        result = appendSignalEvent(hSignalEvent);
-        if (result != ZE_RESULT_SUCCESS) {
-            LOG_E("Failed to append signal event command (handle: %p, error: %#x).",
-                  hSignalEvent,
-                  result);
-            return result;
-        }
-    }
-
-    LOG(CMDLIST,
-        "Successfully appended the command with hSignal(%p), %u wait events(%p).",
-        hSignalEvent,
-        numWaitEvents,
-        phWaitEvents);
-
-    return postAppend();
-}
-
 ze_result_t CommandList::appendBarrier(ze_event_handle_t hSignalEvent,
                                        uint32_t numWaitEvents,
                                        ze_event_handle_t *phWaitEvents) {
@@ -228,12 +160,16 @@ ze_result_t CommandList::appendMemoryCopy(void *dstptr,
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
     // Append a memory copy command.
+    auto srcBo = ctx->findBufferObject(srcptr);
+    auto dstBo = ctx->findBufferObject(dstptr);
     return appendCommandWithEvents<VPU::VPUCopyCommand>(hSignalEvent,
                                                         numWaitEvents,
                                                         phWaitEvents,
                                                         ctx,
                                                         srcptr,
+                                                        std::move(srcBo),
                                                         dstptr,
+                                                        std::move(dstBo),
                                                         size);
 }
 
@@ -304,11 +240,17 @@ ze_result_t CommandList::appendMemoryFillCmd(void *ptr,
         return ZE_RESULT_ERROR_INVALID_SIZE;
     }
 
+    auto ptrBo = ctx->findBufferObject(ptr);
+    if (ptrBo == nullptr) {
+        LOG_E("Buffer object not found");
+        return ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY;
+    }
+
     return appendCommandWithEvents<VPU::VPUFillCommand>(hSignalEvent,
                                                         numWaitEvents,
                                                         phWaitEvents,
-                                                        ctx,
                                                         ptr,
+                                                        std::move(ptrBo),
                                                         size,
                                                         fill_pattern);
 }
@@ -325,24 +267,26 @@ ze_result_t CommandList::appendMemoryFillAsCopyCmd(void *ptr,
         return result;
 
     auto patternBo =
-        ctx->createInternalBufferObject(size + patternSize, VPU::VPUBufferObject::Type::CachedDma);
+        ctx->createUntrackedBufferObject(size + patternSize, VPU::VPUBufferObject::Type::CachedDma);
     if (patternBo == nullptr) {
         LOG_E("Failed to allocate memory");
         return ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY;
     }
-    tracedInternalBos.push_back(patternBo);
 
     if (!patternBo->fillBuffer(pattern, patternSize)) {
         LOG_E("Failed to fill memory");
         return ZE_RESULT_ERROR_INVALID_SIZE;
     }
     // Implement fill by memory copy from internal filled buffer to user buffer.
+    auto fillBo = ctx->findBufferObject(ptr);
     return appendCommandWithEvents<VPU::VPUCopyCommand>(hSignalEvent,
                                                         numWaitEvents,
                                                         phWaitEvents,
                                                         ctx,
                                                         patternBo->getBasePointer(),
+                                                        patternBo,
                                                         ptr,
+                                                        std::move(fillBo),
                                                         size);
 }
 
@@ -356,7 +300,7 @@ ze_result_t CommandList::appendWriteGlobalTimestamp(uint64_t *dstptr,
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    auto dstBo = ctx->findBuffer(dstptr);
+    auto dstBo = ctx->findBufferObject(dstptr);
     if (dstBo == nullptr) {
         LOG_E("Buffer object not found");
         return ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY;
@@ -381,6 +325,7 @@ ze_result_t CommandList::appendWriteGlobalTimestamp(uint64_t *dstptr,
         LOG_E("Failed to allocate memory");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
+    memset(allignedBo->getBasePointer(), 0, sizeof(uint64_t));
     tracedInternalBos.push_back(allignedBo);
 
     if (numWaitEvents > 0) {
@@ -406,7 +351,9 @@ ze_result_t CommandList::appendWriteGlobalTimestamp(uint64_t *dstptr,
 
     result = appendCommand<VPU::VPUCopyCommand>(ctx,
                                                 allignedBo->getBasePointer(),
+                                                ctx->findBufferObject(allignedBo->getBasePointer()),
                                                 dstptr,
+                                                dstBo,
                                                 sizeof(uint64_t));
     if (result != ZE_RESULT_SUCCESS)
         return result;
@@ -714,9 +661,13 @@ ze_result_t CommandList::getNextCommandId(const ze_mutable_command_id_exp_desc_t
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    if (desc->flags != ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT) {
+    switch (desc->flags) {
+    case ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT_DEPRECATED:
+    case ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS:
+        break;
+    default:
         LOG_E("Unsupported flag (%#x) in ze_mutable_command_id_exp_desc_t::flags. Only "
-              "ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT is supported",
+              "ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS is supported",
               desc->flags);
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }

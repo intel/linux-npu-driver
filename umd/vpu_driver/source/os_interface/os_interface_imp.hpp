@@ -22,12 +22,12 @@ class OsInterfaceImp : public OsInterface {
     OsInterfaceImp() = default;
 
   public:
-    static OsInterface &getInstance();
+    static OsInterface *getInstance();
 
     int osiOpen(const char *pathname, int flags, mode_t mode) override;
     int osiClose(int fd) override;
     int osiFcntl(int fd, int cmd) override;
-    int osiIoctl(int fd, unsigned long request, void *arg) override;
+    int osiIoctl(int fd, unsigned int request, void *arg) override;
 
     size_t osiGetSystemPageSize() override;
 

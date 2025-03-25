@@ -96,7 +96,6 @@ DriverHandle::DriverHandle(std::vector<std::unique_ptr<VPU::VPUDevice>> vpuDevic
         devices.push_back(std::make_unique<Device>(this, std::move(vpuDevice)));
 
     numDevices = safe_cast<uint32_t>(devices.size());
-    LOG(DRIVER, "Update numDevices with '%d'.", numDevices);
 }
 
 std::unique_ptr<DriverHandle>

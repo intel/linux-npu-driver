@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/types.h>
+#include <utility>
 
 namespace VPU {
 
@@ -58,7 +59,7 @@ VPUBufferObject::~VPUBufferObject() {
     }
 }
 
-std::unique_ptr<VPUBufferObject>
+std::shared_ptr<VPUBufferObject>
 VPUBufferObject::create(const VPUDriverApi &drvApi, Location type, Type range, size_t size) {
     uint32_t handle = 0;
     uint64_t vpuAddr = 0;
@@ -87,10 +88,16 @@ VPUBufferObject::create(const VPUDriverApi &drvApi, Location type, Type range, s
         MemoryStatistics::get().inc(type, ALIGN(size, pageSize));
     }
 
-    return std::make_unique<VPUBufferObject>(drvApi, type, range, ptr, size, handle, vpuAddr);
+    return std::make_shared<VPUBufferObject>(drvApi,
+                                             type,
+                                             range,
+                                             std::move(ptr),
+                                             size,
+                                             handle,
+                                             vpuAddr);
 }
 
-std::unique_ptr<VPUBufferObject>
+std::shared_ptr<VPUBufferObject>
 VPUBufferObject::importFromFd(const VPUDriverApi &drvApi, Location type, int32_t fd) {
     uint32_t handle = 0;
 
@@ -123,23 +130,27 @@ VPUBufferObject::importFromFd(const VPUDriverApi &drvApi, Location type, int32_t
         return nullptr;
     }
 
-    return std::make_unique<VPUBufferObject>(drvApi, type, range, ptr, size, handle, vpuAddr);
+    return std::make_shared<VPUBufferObject>(drvApi,
+                                             type,
+                                             range,
+                                             std::move(ptr),
+                                             size,
+                                             handle,
+                                             vpuAddr);
 }
 
 bool VPUBufferObject::copyToBuffer(const void *data, size_t size, uint64_t offset) {
-    if (offset > allocSize) {
-        LOG_E("Invalid offset value");
+    if ((offset + size) > allocSize) {
+        LOG_E("Copy out of buffer range");
+        return false;
+    }
+
+    if (data == nullptr || size == 0) {
+        LOG_E("Invalid arguments. data(%p) size(%ld)", data, size);
         return false;
     }
 
     uint8_t *dstPtr = basePtr + offset;
-    size_t dstMax = allocSize - offset;
-
-    if (data == nullptr || size == 0 || dstMax == 0 || size > dstMax) {
-        LOG_E("Invalid arguments. data(%p) size(%ld) dstMax(%ld)", data, size, dstMax);
-        return false;
-    }
-
     memcpy(dstPtr, data, size);
     return true;
 }

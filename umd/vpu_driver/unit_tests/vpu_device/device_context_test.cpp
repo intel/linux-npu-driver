@@ -223,7 +223,12 @@ TEST_F(DeviceContextTest, createTimestampAndCopyCommandListToCheckCommandsOffset
     commands.emplace_back(VPUTimeStampCommand::create(ctx, (uint64_t *)timestamp1));
     ASSERT_NE(commands.back(), nullptr);
 
-    commands.emplace_back(VPUCopyCommand::create(ctx, copy1, dest1, allocSize));
+    commands.emplace_back(VPUCopyCommand::create(ctx,
+                                                 copy1,
+                                                 ctx->findBufferObject(copy1),
+                                                 dest1,
+                                                 ctx->findBufferObject(dest1),
+                                                 allocSize));
     ASSERT_NE(commands.back(), nullptr);
 
     commands.emplace_back(VPUTimeStampCommand::create(ctx, (uint64_t *)timestamp2));
@@ -265,7 +270,12 @@ TEST_F(DeviceContextTest,
     commands.emplace_back(VPUTimeStampCommand::create(ctx, (uint64_t *)timestamp1));
     ASSERT_NE(commands.back(), nullptr);
 
-    commands.emplace_back(VPUCopyCommand::create(ctx, copy1, dest1, allocSize));
+    commands.emplace_back(VPUCopyCommand::create(ctx,
+                                                 copy1,
+                                                 ctx->findBufferObject(copy1),
+                                                 dest1,
+                                                 ctx->findBufferObject(dest1),
+                                                 allocSize));
     ASSERT_NE(commands.back(), nullptr);
 
     EXPECT_EQ(commands.size(), 2u);
@@ -304,7 +314,12 @@ TEST_F(DeviceContextTest, createMemAndAppendCommandListNotInOrderOffsetReturnsCo
     commands.emplace_back(VPUTimeStampCommand::create(ctx, (uint64_t *)timestamp1));
     ASSERT_NE(commands.back(), nullptr);
 
-    commands.emplace_back(VPUCopyCommand::create(ctx, copy1, dest1, allocSize));
+    commands.emplace_back(VPUCopyCommand::create(ctx,
+                                                 copy1,
+                                                 ctx->findBufferObject(copy1),
+                                                 dest1,
+                                                 ctx->findBufferObject(dest1),
+                                                 allocSize));
     ASSERT_NE(commands.back(), nullptr);
 
     commands.emplace_back(VPUTimeStampCommand::create(ctx, (uint64_t *)timestamp2));
@@ -348,16 +363,31 @@ TEST_F(DeviceContextTest, createMemAndAppendLargeCommandListOffsetReturnsCorrect
     commands.emplace_back(VPUTimeStampCommand::create(ctx, (uint64_t *)timestamp1));
     ASSERT_NE(commands.back(), nullptr);
 
-    commands.emplace_back(VPUCopyCommand::create(ctx, copy1, dest1, allocSize));
+    commands.emplace_back(VPUCopyCommand::create(ctx,
+                                                 copy1,
+                                                 ctx->findBufferObject(copy1),
+                                                 dest1,
+                                                 ctx->findBufferObject(dest1),
+                                                 allocSize));
     ASSERT_NE(commands.back(), nullptr);
 
     commands.emplace_back(VPUTimeStampCommand::create(ctx, (uint64_t *)timestamp2));
     ASSERT_NE(commands.back(), nullptr);
 
-    commands.emplace_back(VPUCopyCommand::create(ctx, copy2, dest2, allocSize));
+    commands.emplace_back(VPUCopyCommand::create(ctx,
+                                                 copy2,
+                                                 ctx->findBufferObject(copy2),
+                                                 dest2,
+                                                 ctx->findBufferObject(dest2),
+                                                 allocSize));
     ASSERT_NE(commands.back(), nullptr);
 
-    commands.emplace_back(VPUCopyCommand::create(ctx, copy3, dest3, allocSize));
+    commands.emplace_back(VPUCopyCommand::create(ctx,
+                                                 copy3,
+                                                 ctx->findBufferObject(copy3),
+                                                 dest3,
+                                                 ctx->findBufferObject(dest3),
+                                                 allocSize));
     ASSERT_NE(commands.back(), nullptr);
 
     commands.emplace_back(VPUTimeStampCommand::create(ctx, (uint64_t *)timestamp3));
@@ -455,7 +485,12 @@ TEST_F(DeviceContextTest, implictlyAllocatedCopyCommandMemoryShouldBeDeallocated
 
     // Copy command will internally create a descriptor buffer
     // which will be deallocated from VPUCopyCommand's destructor.
-    auto cpCmd = VPUCopyCommand::create(ctx, hostSrcPtr, hostDestPtr, 4096);
+    auto cpCmd = VPUCopyCommand::create(ctx,
+                                        hostSrcPtr,
+                                        ctx->findBufferObject(hostSrcPtr),
+                                        hostDestPtr,
+                                        ctx->findBufferObject(hostDestPtr),
+                                        4096);
     EXPECT_NE(cpCmd, nullptr);
 
     // Deallocate explictly allocated memory.

@@ -66,7 +66,12 @@ TEST_F(VPUCommandBufferTest, allocateCommandBufferWithCopyCommand) {
     void *dst = ctx->createSharedMemAlloc(sizeof(uint64_t));
 
     std::vector<std::shared_ptr<VPUCommand>> cmds;
-    cmds.emplace_back(VPUCopyCommand::create(ctx, src, dst, sizeof(uint64_t)));
+    cmds.emplace_back(VPUCopyCommand::create(ctx,
+                                             src,
+                                             ctx->findBufferObject(src),
+                                             dst,
+                                             ctx->findBufferObject(dst),
+                                             sizeof(uint64_t)));
     ASSERT_NE(cmds.back(), nullptr);
 
     EXPECT_NE(nullptr, VPUCommandBuffer::allocateCommandBuffer(ctx, cmds.begin(), cmds.end()));

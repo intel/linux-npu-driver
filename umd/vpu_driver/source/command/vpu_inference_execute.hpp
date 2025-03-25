@@ -39,7 +39,7 @@ class VPUInferenceExecute : public VPUCommand {
                         const std::vector<std::pair<const void *, uint32_t>> &outputs,
                         const std::pair<void *, uint32_t> &profiling,
                         uint64_t inferenceId,
-                        std::vector<VPUBufferObject *> bos,
+                        std::vector<std::shared_ptr<VPUBufferObject>> &bos,
                         size_t argBosPosition);
     ~VPUInferenceExecute() = default;
 
@@ -53,7 +53,7 @@ class VPUInferenceExecute : public VPUCommand {
            const std::vector<std::pair<const void *, uint32_t>> &outputs,
            const std::pair<void *, uint32_t> &profiling,
            uint64_t inferenceId,
-           std::vector<VPUBufferObject *> bos);
+           std::vector<std::shared_ptr<VPUBufferObject>> &bos);
 
     const vpu_cmd_header_t *getHeader() const override {
         return reinterpret_cast<const vpu_cmd_header_t *>(

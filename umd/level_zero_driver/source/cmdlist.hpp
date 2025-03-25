@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -11,14 +11,17 @@
 #include <stdint.h>
 
 #include "level_zero_driver/include/l0_handler.hpp"
+#include "level_zero_driver/source/event.hpp"
 #include "vpu_driver/source/command/vpu_event_command.hpp"
 #include "vpu_driver/source/command/vpu_job.hpp"
+#include "vpu_driver/source/utilities/log.hpp"
 
 #include <level_zero/ze_api.h>
 #include <level_zero/ze_graph_profiling_ext.h>
 #include <level_zero/zet_api.h>
 #include <memory>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace L0 {
@@ -122,13 +125,73 @@ struct CommandList : _ze_command_list_handle_t, IContextObject {
     virtual ze_result_t checkCommandAppendCondition();
     virtual ze_result_t postAppend() { return ZE_RESULT_SUCCESS; }
     VPU::VPUEventCommand::KMDEventDataType *getEventSyncPointerFromHandle(ze_event_handle_t hEvent);
+
     template <typename Cmd, typename... Args>
-    ze_result_t appendCommand(Args... args);
+    ze_result_t appendCommand(Args &&...args) {
+        auto cmd = Cmd::create(std::forward<Args>(args)...);
+        if (cmd == nullptr) {
+            LOG_E("Command is NULL / failed to be initialized!");
+            return ZE_RESULT_ERROR_UNINITIALIZED;
+        }
+
+        if (!vpuJob->appendCommand(cmd)) {
+            LOG_E("Command(%#x) failed to push to list!", cmd->getCommandType());
+            return ZE_RESULT_ERROR_UNKNOWN;
+        }
+
+        LOG(CMDLIST,
+            "Successfully appended the command(%#x) to CommandList",
+            cmd->getCommandType());
+
+        return ZE_RESULT_SUCCESS;
+    }
+
     template <typename Cmd, typename... Args>
     ze_result_t appendCommandWithEvents(ze_event_handle_t hSignalEvent,
                                         uint32_t numWaitEvents,
                                         ze_event_handle_t *phWaitEvents,
-                                        Args... args);
+                                        Args &&...args) {
+        ze_result_t result = checkCommandAppendCondition();
+        if (result != ZE_RESULT_SUCCESS)
+            return result;
+
+        if (numWaitEvents > 0) {
+            if (phWaitEvents == nullptr) {
+                LOG_E("Invalid wait event input. phWaitEvents: %p, numWaitEvents: %u",
+                      phWaitEvents,
+                      numWaitEvents);
+                return ZE_RESULT_ERROR_INVALID_SIZE;
+            }
+
+            result = appendWaitOnEvents(numWaitEvents, phWaitEvents);
+            if (result != ZE_RESULT_SUCCESS) {
+                LOG_E("Failed to add %u wait on events.", numWaitEvents);
+                return result;
+            }
+        }
+
+        result = appendCommand<Cmd>(std::forward<Args>(args)...);
+        if (result != ZE_RESULT_SUCCESS)
+            return result;
+
+        if (hSignalEvent != nullptr) {
+            result = appendSignalEvent(hSignalEvent);
+            if (result != ZE_RESULT_SUCCESS) {
+                LOG_E("Failed to append signal event command (handle: %p, error: %#x).",
+                      hSignalEvent,
+                      result);
+                return result;
+            }
+        }
+
+        LOG(CMDLIST,
+            "Successfully appended the command with hSignal(%p), %u wait events(%p).",
+            hSignalEvent,
+            numWaitEvents,
+            phWaitEvents);
+
+        return postAppend();
+    }
 
     Context *pContext = nullptr;
     bool isMutable = false;
@@ -137,4 +200,5 @@ struct CommandList : _ze_command_list_handle_t, IContextObject {
     std::vector<VPU::VPUBufferObject *> tracedInternalBos;
     std::unordered_map<uint64_t, uint64_t> commandIdMap;
 };
+
 } // namespace L0

@@ -24,13 +24,14 @@ namespace VPU {
 
 class NullOsInterfaceImp : public OsInterface {
   public:
-    static OsInterface &getInstance();
+    static OsInterface *getInstance();
     static bool isNullDeviceRequested();
+    static bool configureNullDevice();
 
     int osiOpen(const char *pathname, int flags, mode_t mode) override;
     int osiClose(int fd) override;
     int osiFcntl(int fd, int cmd) override;
-    int osiIoctl(int fd, unsigned long request, void *arg) override;
+    int osiIoctl(int fd, unsigned int request, void *arg) override;
 
     size_t osiGetSystemPageSize() override;
     void *osiMmap(void *addr, size_t size, int prot, int flags, int fd, off_t offset) override;

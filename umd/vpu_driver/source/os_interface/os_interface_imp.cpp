@@ -29,9 +29,9 @@
 
 namespace VPU {
 
-OsInterface &OsInterfaceImp::getInstance() {
+OsInterface *OsInterfaceImp::getInstance() {
     static OsInterfaceImp instance;
-    return instance;
+    return &instance;
 }
 
 int OsInterfaceImp::osiOpen(const char *pathname, int flags, mode_t mode) {
@@ -68,7 +68,7 @@ int OsInterfaceImp::osiFcntl(int fd, int cmd) {
     return fcntl(fd, cmd);
 }
 
-int OsInterfaceImp::osiIoctl(int fd, unsigned long request, void *args) {
+int OsInterfaceImp::osiIoctl(int fd, unsigned int request, void *args) {
     return ioctl(fd, request, args);
 }
 
@@ -78,7 +78,7 @@ size_t OsInterfaceImp::osiGetSystemPageSize() {
 
 std::string OsInterfaceImp::osiReadFile(const std::filesystem::path &path, size_t maxReadSize) {
     std::string out(maxReadSize + 1, 0);
-    int fd = ::open(path.c_str(), O_CLOEXEC, S_IRUSR | S_IRGRP);
+    int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
     if (fd == -1) {
         LOG_E("Failed to open %s, errno: %u (%s)", path.c_str(), errno, strerror(errno));
         return "";
@@ -194,21 +194,21 @@ class OsFileImp : public OsFile {
         if (!setOffsetAtZero())
             return false;
 
-        size_t at = 0;
-        while (at < size) {
-            off_t off = ::write(fd, static_cast<const uint8_t *>(in) + at, size - at);
-            if (off == -1) {
+        size_t offset = 0;
+        size_t remaining = size;
+        while (remaining > 0) {
+            ssize_t written = ::write(fd, static_cast<const uint8_t *>(in) + offset, remaining);
+            if (written == -1) {
                 LOG_E("Failed to write, errno: %u (%s)", errno, strerror(errno));
                 return false;
             }
 
-            at += static_cast<size_t>(off);
+            offset += static_cast<size_t>(written);
+            remaining -= static_cast<size_t>(written);
         }
 
-        fileSize = at;
-        if (at != size)
-            return false;
-        return true;
+        fileSize = offset;
+        return remaining == 0;
     }
 
     void *mmap() override {

@@ -15,29 +15,79 @@
 #include "npu_driver_compiler.h"
 #include "umd_common.hpp"
 #include "vcl_symbols.hpp"
+#include "vpu_driver/source/device/hw_info.hpp"
+#include "vpu_driver/source/device/vpu_37xx/vpu_hw_37xx.hpp"
+#include "vpu_driver/source/device/vpu_40xx/vpu_hw_40xx.hpp"
+#include "vpu_driver/source/device/vpu_device.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
+#include <bitset>
 #include <memory>
 #include <string.h>
 #include <utility>
 
 namespace L0 {
 
-static int compilerPlatform;
 static vcl_compiler_properties_t compilerProperties;
 
-bool Compiler::compilerInit(int compilerPlatformType) {
+static vcl_platform_t getCompilerPlatform(uint32_t deviceId) {
+    switch (deviceId) {
+    case PCI_DEVICE_ID_MTL:
+    case PCI_DEVICE_ID_ARL:
+        return VCL_PLATFORM_VPU3720;
+    case PCI_DEVICE_ID_LNL:
+        return VCL_PLATFORM_VPU4000;
+    default:
+        return VCL_PLATFORM_UNKNOWN;
+    }
+}
+
+static bool isNextApiAvailable() {
+    vcl_version_info_t compVer = {};
+    vcl_version_info_t profVer = {};
+    vcl_result_t ret = Vcl::sym().getVersion(&compVer, &profVer);
+    if (ret != VCL_RESULT_SUCCESS)
+        return false;
+
+    if (compVer.major != VCL_COMPILER_VERSION_MAJOR_NEXT)
+        return false;
+
+    return true;
+}
+
+vcl_result_t Compiler::compilerCreate(const VPU::VPUHwInfo &hwInfo,
+                                      vcl_compiler_handle_t &compiler,
+                                      vcl_log_handle_t &logHandle) {
+    if (isNextApiAvailable()) {
+        vcl_compiler_desc_next_t compilerDesc = {};
+        compilerDesc.version.major = VCL_COMPILER_VERSION_MAJOR;
+        compilerDesc.version.minor = VCL_COMPILER_VERSION_MINOR;
+        compilerDesc.debugLevel = cidLogLevel;
+
+        vcl_device_desc_t deviceDesc = {};
+        deviceDesc.size = sizeof(vcl_device_desc_t);
+        deviceDesc.deviceID = hwInfo.deviceId;
+        deviceDesc.revision = hwInfo.deviceRevision;
+        deviceDesc.tileCount = static_cast<uint32_t>(std::bitset<32>(hwInfo.tileConfig).count());
+
+        return Vcl::sym().compilerCreate(&compilerDesc, &deviceDesc, &compiler, &logHandle);
+    } else {
+        vcl_compiler_desc_legacy_t compilerDesc = {};
+        compilerDesc.platform = getCompilerPlatform(hwInfo.deviceId);
+        compilerDesc.debug_level = cidLogLevel;
+
+        return Vcl::sym().compilerCreateLegacy(compilerDesc, &compiler, &logHandle);
+    }
+}
+
+bool Compiler::compilerInit(VPU::VPUDevice *vpuDevice) {
     if (!Vcl::sym().ok())
         return false;
 
-    vcl_compiler_desc_t compilerDesc = {};
     vcl_compiler_handle_t compiler = nullptr;
     vcl_log_handle_t logHandle = nullptr;
-
-    compilerDesc.platform = static_cast<vcl_platform_t>(compilerPlatformType);
-    compilerDesc.debug_level = cidLogLevel;
-
-    auto ret = Vcl::sym().compilerCreate(compilerDesc, &compiler, &logHandle);
+    vcl_result_t ret = compilerCreate(vpuDevice->getHwInfo(), compiler, logHandle);
     if (ret) {
         LOG_E("Failed to create compiler! Result:%x", ret);
         return false;
@@ -49,8 +99,8 @@ bool Compiler::compilerInit(int compilerPlatformType) {
         Vcl::sym().compilerDestroy(compiler);
         return false;
     }
+
     Vcl::sym().compilerDestroy(compiler);
-    compilerPlatform = compilerPlatformType;
     return true;
 }
 
@@ -193,16 +243,7 @@ bool Compiler::getCompiledBlob(VPU::VPUDeviceContext *ctx,
     if (!Vcl::sym().ok())
         return false;
 
-    vcl_result_t ret = VCL_RESULT_SUCCESS;
-
-    vcl_compiler_handle_t compiler = NULL;
-    vcl_log_handle_t logHandle = NULL;
-    vcl_compiler_desc_t compilerDesc = {};
-
-    compilerDesc.platform = static_cast<vcl_platform_t>(compilerPlatform);
-    compilerDesc.debug_level = cidLogLevel;
-
-    if (!checkVersion(VCL_COMPILER_VERSION_MAJOR)) {
+    if (!isApiComatible()) {
         LOG_E("Compiler version mismatch! Version expected:%d.%d, current:%d.%d",
               VCL_COMPILER_VERSION_MAJOR,
               VCL_COMPILER_VERSION_MINOR,
@@ -216,7 +257,9 @@ bool Compiler::getCompiledBlob(VPU::VPUDeviceContext *ctx,
         return false;
     }
 
-    ret = Vcl::sym().compilerCreate(compilerDesc, &compiler, &logHandle);
+    vcl_compiler_handle_t compiler = NULL;
+    vcl_log_handle_t logHandle = NULL;
+    auto ret = compilerCreate(ctx->getDeviceCapabilities(), compiler, logHandle);
     if (ret != VCL_RESULT_SUCCESS) {
         copyCompilerLog(logHandle, logBuffer);
         logBuffer += "\nNPU Driver reports a failure from vclCompilerCreate, return code: " +
@@ -256,8 +299,9 @@ uint16_t Compiler::getCompilerVersionMinor() {
     return compilerProperties.version.minor;
 }
 
-bool Compiler::checkVersion(uint16_t major) {
-    if (compilerProperties.version.major == major)
+bool Compiler::isApiComatible() {
+    if (compilerProperties.version.major == VCL_COMPILER_VERSION_MAJOR_LEGACY ||
+        compilerProperties.version.major == VCL_COMPILER_VERSION_MAJOR_NEXT)
         return true;
     return false;
 }

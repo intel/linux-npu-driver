@@ -46,7 +46,7 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
     static std::unique_ptr<ElfParser> getElfParser(VPU::VPUDeviceContext *ctx,
                                                    const std::unique_ptr<BlobContainer> &blob,
                                                    std::string &logBuffer);
-    static elf::VersionsProvider getElfVer(int arch);
+    static elf::VersionsProvider getElfVer(uint32_t deviceId);
 
     bool getArgumentProperties(std::vector<ze_graph_argument_properties_3_t> &props) const;
     bool getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &args) const;
@@ -75,7 +75,8 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
                            const std::vector<std::pair<const void *, uint32_t>> &inputs,
                            const std::vector<std::pair<const void *, uint32_t>> &outputs,
                            const std::pair<const void *, uint32_t> &profilingPtr,
-                           std::vector<VPU::VPUBufferObject *> &bos);
+                           std::vector<std::shared_ptr<VPU::VPUBufferObject>> &bos);
+    std::shared_ptr<VPU::VPUBufferObject> findBuffer(const void *ptr);
 
   private:
     VPU::VPUDeviceContext *ctx;

@@ -12,22 +12,16 @@
 
 #include "api/vpu_jsm_job_cmd_api.h"
 #include "api/vpu_nnrt_api_40xx.h"
-#include "npu_driver_compiler.h"
 #include "vpu_driver/source/command/vpu_copy_command.hpp"
 #include "vpu_driver/source/device/hw_info.hpp"
 
 namespace VPU {
-class VPUDeviceContext;
 struct VPUDescriptor;
 
-static bool getCopyCommandDescriptor40xx(VPUDeviceContext *ctx,
-                                         const void *src,
-                                         void *dst,
-                                         size_t size,
-                                         VPUDescriptor &desc) {
-    return VPUCopyCommand::fillDescriptor<vpu_cmd_copy_descriptor_40xx_t>(ctx,
-                                                                          src,
-                                                                          dst,
+static bool
+getCopyCommandDescriptor40xx(uint64_t srcAddr, uint64_t dstAddr, size_t size, VPUDescriptor &desc) {
+    return VPUCopyCommand::fillDescriptor<vpu_cmd_copy_descriptor_40xx_t>(srcAddr,
+                                                                          dstAddr,
                                                                           size,
                                                                           desc);
 }
@@ -36,12 +30,10 @@ static void printCopyDescriptor40xx(void *desc, vpu_cmd_header_t *cmd) {
     VPUCopyCommand::printCopyDesc<vpu_cmd_copy_descriptor_40xx_t>(desc, cmd);
 }
 
-struct VPUHwInfo vpuHwInfo40xx = {.compilerPlatform = VCL_PLATFORM_VPU4000,
-                                  .platformName = "40xx",
+struct VPUHwInfo vpuHwInfo40xx = {.platformName = "40xx",
                                   .npuArch = NPU40XX,
                                   .physicalEUSimdWidth = 4096,
                                   .nExecUnits = 12288,
-                                  .numSubslicesPerSlice = 6,
                                   .tileFuseMask = 0x3F,
                                   .timerResolution = PERF_FREQUENCY_DEFAULT_HZ / 2,
                                   .fwMappedInferenceVersion = VPU_NNRT_40XX_API_VER,

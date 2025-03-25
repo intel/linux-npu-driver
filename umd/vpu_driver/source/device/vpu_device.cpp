@@ -35,14 +35,12 @@ bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
 
         hwInfo = getHwInfoByDeviceId(deviceId);
         hwInfo.deviceId = deviceId;
-        hwInfo.deviceRevision = drvApi->getDeviceParam<uint32_t>(DRM_IVPU_PARAM_DEVICE_REVISION);
+        hwInfo.deviceRevision = drvApi->getDeviceParam<uint16_t>(DRM_IVPU_PARAM_DEVICE_REVISION);
         hwInfo.maxHardwareContexts = drvApi->getDeviceParam<uint32_t>(DRM_IVPU_PARAM_NUM_CONTEXTS);
         hwInfo.coreClockRate = drvApi->getDeviceParam<uint32_t>(DRM_IVPU_PARAM_CORE_CLOCK_RATE);
         hwInfo.platformType = drvApi->getDeviceParam<uint32_t>(DRM_IVPU_PARAM_PLATFORM_TYPE);
-        hwInfo.baseLowAddress = drvApi->getDeviceParam(DRM_IVPU_PARAM_CONTEXT_BASE_ADDRESS);
         hwInfo.fwMappedInferenceVersion =
             drvApi->getDeviceParam(DRM_IVPU_PARAM_FW_API_VERSION, hwInfo.fwMappedInferenceIndex);
-        LOG(DEVICE, "Base address of device is %#lx", hwInfo.baseLowAddress);
 
         uint32_t tileConfigParam = drvApi->getDeviceParam<uint32_t>(DRM_IVPU_PARAM_TILE_CONFIG);
         hwInfo.tileConfig = ~tileConfigParam & hwInfo.tileFuseMask;
@@ -207,14 +205,14 @@ bool VPUDevice::initializeMetricGroups(VPUDriverApi *drvApi) {
             LOG(METRIC, "component: %s", counterInfo.component.c_str());
             LOG(METRIC, "units: %s", counterInfo.units.c_str());
 
-            groupInfo.counterInfo.push_back(counterInfo);
+            groupInfo.counterInfo.push_back(std::move(counterInfo));
 
             counter_desc = reinterpret_cast<vpu_jsm_metric_counter_descriptor *>(
                 reinterpret_cast<uint64_t>(counter_desc) +
                 counter_desc->next_metric_counter_info_offset);
         }
 
-        groupsInfo.push_back(groupInfo);
+        groupsInfo.push_back(std::move(groupInfo));
 
         if (group_desc->next_metric_group_info_offset) {
             group_desc = reinterpret_cast<vpu_jsm_metric_group_descriptor *>(

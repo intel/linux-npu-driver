@@ -54,6 +54,7 @@ MetricQueryPool::MetricQueryPool(Context *pContext,
     L0_THROW_WHEN(pQueryPoolBuffer == nullptr,
                   "Failed to allocate buffer object for metric query pool",
                   ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY);
+    memset(pQueryPoolBuffer->getBasePointer(), 0, bufferSize);
 }
 
 MetricQueryPool::~MetricQueryPool() {

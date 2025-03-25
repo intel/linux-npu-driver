@@ -18,6 +18,7 @@
 #include "level_zero_driver/source/cmdlist.hpp"
 #include "level_zero_driver/source/context.hpp"
 #include "level_zero_driver/source/device.hpp"
+#include "level_zero_driver/source/event.hpp"
 #include "level_zero_driver/source/ext/graph.hpp"
 #include "level_zero_driver/source/ext/profiling_data.hpp"
 #include "level_zero_driver/source/ext/query_network.hpp"

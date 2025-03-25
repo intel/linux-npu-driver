@@ -1,15 +1,18 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
+// IWYU pragma: no_include "perfetto.h"
+
 #include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
 
 #include "vpu_driver/source/os_interface/os_interface.hpp"
+#include "vpu_driver/source/os_interface/vpu_driver_ioctl_trace.hpp"
+#include "vpu_driver/source/utilities/trace_perfetto.hpp" // IWYU pragma: keep
 
-#include <drm/drm.h>
 #include <exception>
 #include <fcntl.h>
 #include <memory>
@@ -18,6 +21,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
+#include <uapi/drm/drm.h>
 #include <uapi/drm/ivpu_accel.h>
 #include <unistd.h>
 #include <utility>
@@ -41,65 +45,22 @@ VPUDriverApi::VPUDriverApi(VPUDriverApi &&v)
     v.vpuFd = -1;
 }
 
-static const char *ioctl_str(unsigned long r) {
-    switch (r) {
-        CASE_RETURN_STR(DRM_IOCTL_VERSION);
-        CASE_RETURN_STR(DRM_IOCTL_GEM_CLOSE);
-        CASE_RETURN_STR(DRM_IOCTL_PRIME_HANDLE_TO_FD);
-        CASE_RETURN_STR(DRM_IOCTL_PRIME_FD_TO_HANDLE);
-        CASE_RETURN_STR(DRM_IOCTL_IVPU_GET_PARAM);
-        CASE_RETURN_STR(DRM_IOCTL_IVPU_SET_PARAM);
-        CASE_RETURN_STR(DRM_IOCTL_IVPU_BO_CREATE);
-        CASE_RETURN_STR(DRM_IOCTL_IVPU_BO_INFO);
-        CASE_RETURN_STR(DRM_IOCTL_IVPU_SUBMIT);
-        CASE_RETURN_STR(DRM_IOCTL_IVPU_BO_WAIT);
-        CASE_RETURN_STR(DRM_IOCTL_IVPU_METRIC_STREAMER_START);
-        CASE_RETURN_STR(DRM_IOCTL_IVPU_METRIC_STREAMER_STOP);
-        CASE_RETURN_STR(DRM_IOCTL_IVPU_METRIC_STREAMER_GET_DATA);
-        CASE_RETURN_STR(DRM_IOCTL_IVPU_METRIC_STREAMER_GET_INFO);
-        CASE_RETURN_STR(DRM_IOCTL_IVPU_CMDQ_CREATE);
-        CASE_RETURN_STR(DRM_IOCTL_IVPU_CMDQ_DESTROY);
-        CASE_RETURN_STR(DRM_IOCTL_IVPU_CMDQ_SUBMIT);
-
-        CASE_RETURN_STR(DRM_IVPU_PARAM_DEVICE_ID);
-        CASE_RETURN_STR(DRM_IVPU_PARAM_DEVICE_REVISION);
-        CASE_RETURN_STR(DRM_IVPU_PARAM_PLATFORM_TYPE);
-        CASE_RETURN_STR(DRM_IVPU_PARAM_CORE_CLOCK_RATE);
-        CASE_RETURN_STR(DRM_IVPU_PARAM_NUM_CONTEXTS);
-        CASE_RETURN_STR(DRM_IVPU_PARAM_CONTEXT_BASE_ADDRESS);
-        CASE_RETURN_STR(DRM_IVPU_PARAM_CONTEXT_PRIORITY);
-        CASE_RETURN_STR(DRM_IVPU_PARAM_CONTEXT_ID);
-        CASE_RETURN_STR(DRM_IVPU_PARAM_FW_API_VERSION);
-        CASE_RETURN_STR(DRM_IVPU_PARAM_ENGINE_HEARTBEAT);
-        CASE_RETURN_STR(DRM_IVPU_PARAM_UNIQUE_INFERENCE_ID);
-        CASE_RETURN_STR(DRM_IVPU_PARAM_TILE_CONFIG);
-        CASE_RETURN_STR(DRM_IVPU_PARAM_SKU);
-        CASE_RETURN_STR(DRM_IVPU_PARAM_CAPABILITIES);
-    default:
-        return "?";
-    };
-}
-
-int VPUDriverApi::doIoctl(unsigned long request, void *arg) const {
+int VPUDriverApi::doIoctl(unsigned int request, void *arg) const {
     if (vpuFd < 0 || arg == nullptr) {
         LOG_E("Invalid arguments (vpuFd:%d, arg:%p)", vpuFd, arg);
         return -EINVAL;
     }
 
-    if (request == DRM_IOCTL_IVPU_GET_PARAM || request == DRM_IOCTL_IVPU_SET_PARAM) {
-        uint32_t p = static_cast<drm_ivpu_param *>(arg)->param;
-        LOG(IOCTL, "%s::%s", ioctl_str(request), ioctl_str(p));
-    } else {
-        LOG(IOCTL, "%s", ioctl_str(request));
-    }
-
+    TRACE_EVENT("SYS", perfetto::StaticString{driver_ioctl_request_str(request)});
+    LOG(IOCTL, "ioctl(%s)..", driver_ioctl_trace(vpuFd, request, arg).c_str());
     int ret;
     do {
         ret = osInfc.osiIoctl(vpuFd, request, arg);
     } while (ret == -1 && (errno == -EAGAIN || errno == -EINTR));
 
+    LOG(IOCTL, "ioctl(%s) = %i", driver_ioctl_trace(vpuFd, request, arg).c_str(), ret);
     if (ret != 0)
-        LOG(IOCTL, "IOCTL ERRNO=%d, STRERROR=\"%s\"", errno, strerror(errno));
+        LOG(IOCTL, "ioctl -> errno:%d, strerror:\"%s\"", errno, strerror(errno));
 
     return ret;
 }
@@ -115,7 +76,8 @@ std::unique_ptr<VPUDriverApi> VPUDriverApi::openDriverApi(std::string devPath,
 }
 
 bool VPUDriverApi::openDevice() {
-    vpuFd = osInfc.osiOpen(devPath.c_str(), (O_RDWR | O_CLOEXEC), S_IRUSR | S_IWUSR);
+    TRACE_EVENT("SYS", "open");
+    vpuFd = osInfc.osiOpen(devPath.c_str(), (O_RDWR | O_CLOEXEC), 0);
     if (vpuFd < 0)
         LOG(FSYS, "Failed to open '%s'", devPath.c_str());
     return vpuFd >= 0;
@@ -123,6 +85,7 @@ bool VPUDriverApi::openDevice() {
 
 bool VPUDriverApi::closeDevice() {
     int ret = 0;
+    TRACE_EVENT("SYS", "close");
 
     if (vpuFd > 0)
         ret = osInfc.osiClose(vpuFd);
@@ -216,16 +179,26 @@ bool VPUDriverApi::checkDeviceCapability(uint32_t index) const {
     arg.param = DRM_IVPU_PARAM_CAPABILITIES;
     arg.index = index;
     if (doIoctl(DRM_IOCTL_IVPU_GET_PARAM, &arg)) {
-        LOG_W("Capability does not exist, index: %#x, errno: %d", index, errno);
+        LOG(MISC,
+            "Capability does not exist, index: %s (%#x), errno: %d",
+            driver_struct_param_cap_index_str(index),
+            index,
+            errno);
         return false;
     }
 
     if (arg.value == 0) {
-        LOG_W("Capability from index: %#x is not set", index);
+        LOG(MISC,
+            "Capability from index: %s (%#x) is not set",
+            driver_struct_param_cap_index_str(index),
+            index);
         return false;
     }
 
-    LOG(MISC, "Capability from index: %#x is set", index);
+    LOG(MISC,
+        "Capability from index: %s (%#x) is set",
+        driver_struct_param_cap_index_str(index),
+        index);
     return true;
 }
 
@@ -351,6 +324,7 @@ int VPUDriverApi::importBuffer(int32_t fd, uint32_t flags, uint32_t &handle) con
 }
 
 void *VPUDriverApi::mmap(size_t size, off_t offset) const {
+    TRACE_EVENT("SYS", "mmap");
     void *ptr = osInfc.osiMmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, vpuFd, offset);
     if (ptr == MAP_FAILED) {
         LOG_E("Failed to mmap the memory using offset received from KMD");
@@ -361,6 +335,7 @@ void *VPUDriverApi::mmap(size_t size, off_t offset) const {
 }
 
 int VPUDriverApi::unmap(void *ptr, size_t size) const {
+    TRACE_EVENT("SYS", "munmap");
     return osInfc.osiMunmap(ptr, size);
 }
 

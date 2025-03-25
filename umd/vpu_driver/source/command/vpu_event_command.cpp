@@ -7,7 +7,6 @@
 
 #include "vpu_driver/source/command/vpu_event_command.hpp"
 
-#include "umd_common.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
@@ -51,7 +50,7 @@ VPUEventCommand::VPUEventCommand(VPUDeviceContext *ctx,
     cmd.header.type = cmdType;
     cmd.header.size = sizeof(vpu_cmd_fence_t);
     cmd.value = eventState;
-    cmd.offset = safe_cast<uint64_t>(ctx->getBufferVPUAddress(eventHeapPtr));
+    cmd.offset = ctx->getBufferVPUAddress(eventHeapPtr);
     command.emplace<vpu_cmd_fence_t>(cmd);
     appendAssociateBufferObject(ctx, eventHeapPtr);
 }

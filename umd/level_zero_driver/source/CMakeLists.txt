@@ -9,12 +9,10 @@ set(TARGET_NAME_L0_DRV level_zero_driver)
 add_library(${TARGET_NAME_L0_DRV} STATIC)
 set_property(TARGET ${TARGET_NAME_L0_DRV} PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-find_package(OpenSSL REQUIRED)
 target_link_libraries(${TARGET_NAME_L0_DRV}
     fw_vpu_api_headers
     vpu_driver
     vpux_elf
-    OpenSSL::SSL
 )
 
 string(TIMESTAMP UNIX_SECONDS %s UTC)
@@ -66,4 +64,8 @@ target_sources(${TARGET_NAME_L0_DRV} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/profiling_data.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/query_network.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/query_network.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ext/sha1/sha1.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/ext/sha1/sha1.h
 )
+
+target_include_directories(${TARGET_NAME_L0_DRV} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/ext/sha1)

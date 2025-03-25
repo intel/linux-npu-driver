@@ -33,7 +33,7 @@ class OsInterface {
     virtual int osiOpen(const char *pathname, int flags, mode_t mode) = 0;
     virtual int osiClose(int fd) = 0;
     virtual int osiFcntl(int fd, int cmd) = 0;
-    virtual int osiIoctl(int fd, unsigned long request, void *arg) = 0;
+    virtual int osiIoctl(int fd, unsigned int request, void *arg) = 0;
 
     virtual size_t osiGetSystemPageSize() = 0;
 
@@ -52,6 +52,6 @@ class OsInterface {
     virtual bool osiFileRemove(const std::filesystem::path &path) = 0;
 };
 
-OsInterface &getOsInstance();
+OsInterface *getOsInstance();
 
 } // namespace VPU

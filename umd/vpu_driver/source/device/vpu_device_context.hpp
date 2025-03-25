@@ -16,12 +16,14 @@
 #include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
 #include "vpu_driver/source/utilities/stats.hpp"
 
+#include <algorithm>
 #include <bitset>
 #include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <utility>
+#include <vector>
 
 namespace VPU {
 struct VPUDescriptor;
@@ -36,7 +38,7 @@ class VPUDeviceContext {
 
     inline void *
     createMemAlloc(size_t size, VPUBufferObject::Type type, VPUBufferObject::Location loc) {
-        VPUBufferObject *bo = createBufferObject(size, type, loc);
+        auto bo = createBufferObject(size, type, loc);
         if (bo == nullptr)
             return nullptr;
         MemoryStatistics::get().snapshot();
@@ -55,6 +57,7 @@ class VPUDeviceContext {
      */
     bool freeMemAlloc(void *ptr);
 
+    std::shared_ptr<VPUBufferObject> findBufferObject(const void *ptr) const;
     /**
        Find a buffer object and return.
        @param ptr[in]: A pointer to find object.
@@ -71,7 +74,8 @@ class VPUDeviceContext {
      * Returns a VPU device address assigned to BufferObject
      */
     uint64_t getBufferVPUAddress(const void *ptr) const;
-
+    std::shared_ptr<VPUBufferObject> createUntrackedBufferObject(size_t size,
+                                                                 VPUBufferObject::Type range);
     /**
        Allocates VPUBufferObject for internal usage of driver.
        @param size[in]: Size of the buffer.
@@ -79,7 +83,7 @@ class VPUDeviceContext {
        @return pointer to buffer object
      */
     VPUBufferObject *createInternalBufferObject(size_t size, VPUBufferObject::Type type);
-    VPUBufferObject *importBufferObject(VPUBufferObject::Location type, int32_t fd);
+    std::shared_ptr<VPUBufferObject> importBufferObject(VPUBufferObject::Location type, int32_t fd);
     int getFd() const { return drvApi->getFd(); }
 
     /**
@@ -92,12 +96,7 @@ class VPUDeviceContext {
      */
     inline uint32_t getPciDevId() const { return hwInfo->deviceId; }
 
-    /**
-     * Return platform for compilation
-     */
-    inline int getCompilerPlatform() const { return hwInfo->compilerPlatform; }
-
-    uint32_t getDeviceRevision() const { return hwInfo->deviceRevision; }
+    uint16_t getDeviceRevision() const { return hwInfo->deviceRevision; }
 
     uint32_t getNumSlices() const {
         return static_cast<uint32_t>(std::bitset<32>(hwInfo->tileConfig).count());
@@ -112,19 +111,43 @@ class VPUDeviceContext {
     /**
      * Return number of currently tracking buffer objects in the structure
      */
-    size_t getBuffersCount() const {
+    size_t getBuffersCount() {
+        size_t untrackedCount = 0;
         const std::lock_guard<std::mutex> lock(mtx);
-        return trackedBuffers.size();
+        for (auto &obj : untrackedBuffers) {
+            if (!obj.expired())
+                untrackedCount++;
+        }
+        return trackedBuffers.size() + untrackedCount;
     }
 
     /**
      * Return size of currently tracking buffer objects in the structure
      */
-    size_t getAllocatedSize() const {
+    size_t getAllocatedSize() {
         size_t size = 0;
+
+        const std::lock_guard<std::mutex> lock(mtx);
+        for (auto &obj : untrackedBuffers) {
+            auto bo = obj.lock();
+            if (bo)
+                size += bo->getAllocSize();
+        }
         for (const auto &buffer : trackedBuffers)
             size += buffer.second->getAllocSize();
+
         return size;
+    }
+
+    /**
+     * Removes expired buffer objects from untrackedBuffers vector
+     */
+    void removeExpiredInternalBuffers() {
+        const std::lock_guard<std::mutex> lock(mtx);
+        untrackedBuffers.erase(std::remove_if(untrackedBuffers.begin(),
+                                              untrackedBuffers.end(),
+                                              [](auto x) { return x.expired(); }),
+                               untrackedBuffers.end());
     }
 
     /**
@@ -132,7 +155,8 @@ class VPUDeviceContext {
      */
     bool getUniqueInferenceId(uint64_t &inferenceId);
 
-    bool getCopyCommandDescriptor(const void *src, void *dst, size_t size, VPUDescriptor &desc);
+    bool
+    getCopyCommandDescriptor(uint64_t srcAddr, uint64_t dstAddr, size_t size, VPUDescriptor &desc);
     void printCopyDescriptor(void *desc, vpu_cmd_header_t *cmd);
 
   private:
@@ -143,16 +167,16 @@ class VPUDeviceContext {
        @param location memory type being identified
        @return pointer to VPUBufferObject, on failure return nullptr
      */
-    VPUBufferObject *createBufferObject(size_t size,
-                                        VPUBufferObject::Type range,
-                                        VPUBufferObject::Location location);
+    std::shared_ptr<VPUBufferObject> createBufferObject(size_t size,
+                                                        VPUBufferObject::Type range,
+                                                        VPUBufferObject::Location location);
 
-  private:
     std::unique_ptr<VPUDriverApi> drvApi;
     VPUHwInfo *hwInfo;
 
-    std::map<const void *, std::unique_ptr<VPUBufferObject>, std::greater<const void *>>
+    std::map<const void *, std::shared_ptr<VPUBufferObject>, std::greater<const void *>>
         trackedBuffers;
+    std::vector<std::weak_ptr<VPUBufferObject>> untrackedBuffers;
     mutable std::mutex mtx;
 };
 

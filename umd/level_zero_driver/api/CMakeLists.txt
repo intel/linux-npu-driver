@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 #
 
-set(TARGET_NAME_L0 ze_intel_vpu)
+set(TARGET_NAME_L0 ze_intel_npu)
 add_library(${TARGET_NAME_L0} SHARED)
 
 target_sources(${TARGET_NAME_L0} PRIVATE
@@ -26,13 +26,8 @@ target_sources(${TARGET_NAME_L0} PRIVATE
 )
 target_link_libraries(${TARGET_NAME_L0} level_zero_driver)
 
-if (ENABLE_NPU_PERFETTO_BUILD)
-  target_sources(${TARGET_NAME_L0} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/trace/trace_perfetto.cpp)
-  target_link_libraries(${TARGET_NAME_L0} perfetto)
-  add_definitions(-DENABLE_NPU_PERFETTO_BUILD)
-endif()
-
 add_subdirectory(ext)
+add_subdirectory(prv)
 
 set_target_properties(${TARGET_NAME_L0} PROPERTIES
     FOLDER ${TARGET_NAME_L0}

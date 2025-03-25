@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -51,7 +51,7 @@ Device::Device(DriverHandle *driverHandle, std::unique_ptr<VPU::VPUDevice> devic
             std::vector<VPU::GroupInfo> metricGroupsInfo = vpuDevice->getMetricGroupsInfo();
             loadMetricGroupsInfo(metricGroupsInfo);
         }
-        if (!Compiler::compilerInit(vpuDevice->getHwInfo().compilerPlatform)) {
+        if (!Compiler::compilerInit(vpuDevice.get())) {
             LOG_W("Failed to initialize VPU compiler");
         }
     }
@@ -93,7 +93,10 @@ static std::optional<void *> handleExtensionProperty(void *pNext, const VPU::VPU
         ze_mutable_command_list_exp_properties_t *mutableCommandListProps =
             reinterpret_cast<ze_mutable_command_list_exp_properties_t *>(pNext);
         mutableCommandListProps->mutableCommandListFlags = 0;
-        mutableCommandListProps->mutableCommandFlags = ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT;
+        mutableCommandListProps->mutableCommandFlags =
+            static_cast<ze_mutable_command_exp_flags_t>(
+                ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT_DEPRECATED) |
+            ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS;
         return mutableCommandListProps->pNext;
     }
     default:
@@ -136,10 +139,10 @@ ze_result_t Device::getProperties(ze_device_properties_t *pDeviceProperties) {
 
     pDeviceProperties->maxHardwareContexts = hwInfo.maxHardwareContexts;
     pDeviceProperties->maxCommandQueuePriority = hwInfo.maxCommandQueuePriority;
-    pDeviceProperties->numThreadsPerEU = hwInfo.numThreadsPerEU;
+    pDeviceProperties->numThreadsPerEU = 1;
     pDeviceProperties->physicalEUSimdWidth = hwInfo.physicalEUSimdWidth;
     pDeviceProperties->numEUsPerSubslice = hwInfo.nExecUnits;
-    pDeviceProperties->numSubslicesPerSlice = hwInfo.numSubslicesPerSlice;
+    pDeviceProperties->numSubslicesPerSlice = 1;
     pDeviceProperties->numSlices =
         static_cast<uint32_t>(std::bitset<32>(hwInfo.tileConfig).count());
 
@@ -164,7 +167,6 @@ ze_result_t Device::getProperties(ze_device_properties_t *pDeviceProperties) {
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    LOG(DEVICE, "Returning device properties");
     return ZE_RESULT_SUCCESS;
 }
 
@@ -506,8 +508,7 @@ ze_result_t Device::getGlobalTimestamps(uint64_t *hostTimestamp, uint64_t *devic
     if (ret != ZE_RESULT_SUCCESS)
         return ret;
 
-    const auto &hwInfo = vpuDevice->getHwInfo();
-    *deviceTimestamp = (*ts) * (NS_IN_SEC / hwInfo.timerResolution);
+    *deviceTimestamp = *ts;
     auto timestampNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::steady_clock::now().time_since_epoch());
     *hostTimestamp = static_cast<uint64_t>(timestampNs.count());
@@ -573,7 +574,7 @@ void Device::loadMetricGroupsInfo(std::vector<VPU::GroupInfo> &metricGroupsInfo)
             allocationSize += Metric::getMetricValueSize(counter.valueType);
 
             auto pMetric = std::make_shared<Metric>(properties);
-            metrics.push_back(pMetric);
+            metrics.push_back(std::move(pMetric));
         }
 
         auto pMetricGroup = std::make_shared<MetricGroup>(groupProperties,
@@ -581,7 +582,7 @@ void Device::loadMetricGroupsInfo(std::vector<VPU::GroupInfo> &metricGroupsInfo)
                                                           metrics,
                                                           metricGroupInfo.groupIndex,
                                                           numberOfMetricGroups);
-        metricGroups.push_back(pMetricGroup);
+        metricGroups.push_back(std::move(pMetricGroup));
     }
 
     metricsLoaded = true;

@@ -18,6 +18,9 @@ if (ENABLE_INCLUDE_WHAT_YOU_USE)
     set(CMAKE_C_INCLUDE_WHAT_YOU_USE "${IWYU}")
     set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE "${IWYU}")
 endif()
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    add_compile_options(-Wno-unknown-warning-option -Wno-unknown-pragmas)
+endif()
 
 if (NOT UMD_LOGLEVEL)
   set(UMD_LOGLEVEL ERROR)
@@ -36,7 +39,8 @@ set(VPU_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Enable extra warning and -ftrapv that abort program on signed arithmetic overflow
 add_compile_options(-Winvalid-pch -Wconversion -Wuninitialized -ftrapv)
-add_compile_options(-fvisibility=hidden -fvisibility-inlines-hidden)
+add_compile_options(-fvisibility=hidden)
+add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>)
 
 # Project-wide include paths
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/vpu_driver/include")

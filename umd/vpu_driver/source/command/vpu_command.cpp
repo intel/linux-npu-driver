@@ -12,6 +12,7 @@
 
 #include "vpu_driver/include/umd_common.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <algorithm>
@@ -36,32 +37,39 @@ bool VPUCommand::copyDescriptor(VPUDeviceContext *ctx, void **desc) {
               descriptor->data.end(),
               *reinterpret_cast<uint8_t **>(desc));
 
-    *descriptor->commandOffset = safe_cast<uint64_t>(ctx->getBufferVPUAddress(*desc));
+    *descriptor->commandOffset = ctx->getBufferVPUAddress(*desc);
     *reinterpret_cast<uint8_t **>(desc) += getFwDataCacheAlign(descriptor->data.size());
 
     return true;
 }
 
 bool VPUCommand::appendAssociateBufferObject(VPUDeviceContext *ctx, const void *assocPtr) {
-    VPUBufferObject *bo = ctx->findBuffer(assocPtr);
+    auto bo = ctx->findBufferObject(assocPtr);
     if (bo == nullptr) {
         LOG_E("Failed to find a pointer %p associated with VPUCommand", assocPtr);
         return false;
     }
 
-    appendAssociateBufferObject(bo);
+    appendAssociateBufferObject(std::move(bo));
     return true;
 }
 
 void VPUCommand::appendAssociateBufferObject(
-    const std::vector<VPUBufferObject *> &bufferObjectsInput) {
+    const std::vector<std::shared_ptr<VPUBufferObject>> &bufferObjectsInput) {
     for (auto &bo : bufferObjectsInput) {
         appendAssociateBufferObject(bo);
     }
 }
 
-void VPUCommand::appendAssociateBufferObject(VPUBufferObject *bo) {
-    auto it = std::find(bufferObjects.begin(), bufferObjects.end(), bo);
+void VPUCommand::appendAssociateBufferObject(VPUDeviceContext *ctx, VPUBufferObject *bo) {
+    auto boAsSharedPtr = ctx->findBufferObject(bo->getBasePointer());
+    appendAssociateBufferObject(std::move(boAsSharedPtr));
+}
+
+void VPUCommand::appendAssociateBufferObject(const std::shared_ptr<VPUBufferObject> bo) {
+    auto it = std::find_if(bufferObjects.begin(), bufferObjects.end(), [&](auto &b) -> bool {
+        return b.get() == bo.get();
+    });
     if (it == bufferObjects.end()) {
         bufferObjects.emplace_back(bo);
     }

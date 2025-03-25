@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -11,9 +11,9 @@
 #include <memory>
 #include <perfetto.h>
 
-PERFETTO_DEFINE_CATEGORIES(perfetto::Category("API").SetDescription("Intel NPU UMD"));
-
-namespace L0 {
+PERFETTO_DEFINE_CATEGORIES(
+    perfetto::Category("API").SetDescription("Level Zero APIs traces to Intel NPU UMD"),
+    perfetto::Category("SYS").SetDescription("Linux system calls used by Intel NPU UMD"));
 
 class TracePerfetto {
   public:
@@ -30,19 +30,17 @@ class TracePerfetto {
     bool enable = false;
 };
 
-} // namespace L0
-
 #else
 
-#define PERFETTO_TRACK_EVENT_STATIC_STORAGE()
+#define TRACE_EVENT(...) \
+    do {                 \
+    } while (0)
 #define TRACE_EVENT_BEGIN(...) \
     do {                       \
     } while (0)
 #define TRACE_EVENT_END(...) \
     do {                     \
     } while (0)
-
-namespace L0 {
 
 class TracePerfetto {
   public:
@@ -55,5 +53,4 @@ class TracePerfetto {
     TracePerfetto &operator=(const TracePerfetto &) = delete;
 };
 
-} // namespace L0
 #endif

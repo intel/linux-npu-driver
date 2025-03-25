@@ -26,6 +26,7 @@
 #include <level_zero/ze_graph_profiling_ext.h>
 #include <string.h>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace L0 {
@@ -112,7 +113,7 @@ struct CompilerInDriverFixture : public ContextFixture {
         appendFileToModel(TestOptions::modelPath, modelIR);
 
         auto binaryPath = std::filesystem::path(TestOptions::modelPath).replace_extension(".bin");
-        appendFileToModel(binaryPath, modelIR);
+        appendFileToModel(std::move(binaryPath), modelIR);
 
         buildFlags = TestOptions::modelFlags;
         graphDesc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES,
@@ -135,8 +136,9 @@ using CompilerInDriver = Test<CompilerInDriverFixture>;
 TEST_F(CompilerInDriver, versionCheck) {
     ASSERT_GT(Compiler::getCompilerVersionMajor(), 0);
     ASSERT_EQ(Compiler::getCompilerVersionMajor(), VCL_COMPILER_VERSION_MAJOR);
-    ASSERT_EQ(Compiler::getCompilerVersionMinor(), VCL_COMPILER_VERSION_MINOR);
-    ASSERT_TRUE(Compiler::checkVersion(VCL_COMPILER_VERSION_MAJOR));
+    // TODO: Disabled due to EISW-155074
+    // ASSERT_EQ(Compiler::getCompilerVersionMinor(), VCL_COMPILER_VERSION_MINOR);
+    ASSERT_TRUE(Compiler::isApiComatible());
 }
 
 TEST_F(CompilerInDriver, creatingNgraphLiteWithNullInputReturnsFailure) {

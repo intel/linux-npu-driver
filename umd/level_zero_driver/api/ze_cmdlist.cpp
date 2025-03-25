@@ -13,6 +13,7 @@
 #include "level_zero_driver/include/l0_exception.hpp"
 #include "level_zero_driver/source/cmdlist.hpp"
 #include "level_zero_driver/source/context.hpp"
+#include "level_zero_driver/source/event.hpp"
 #include "level_zero_driver/source/immediate_cmdlist.hpp"
 
 #include <level_zero/ze_api.h>
@@ -90,7 +91,7 @@ ze_result_t zeCommandListCreateImmediate(ze_context_handle_t hContext,
     L0_HANDLE_EXCEPTION(ret,
                         ImmediateCommandList::create(hContext, hDevice, altdesc, phCommandList));
 
-    trace_zeCommandListCreateImmediate(hContext, hDevice, altdesc, phCommandList);
+    trace_zeCommandListCreateImmediate(ret, hContext, hDevice, altdesc, phCommandList);
     return ret;
 }
 
