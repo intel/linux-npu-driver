@@ -21,7 +21,7 @@
  * Minor version changes when API backward compatibility is preserved.
  * Resets to 0 if Major version is incremented.
  */
-#define VPU_JSM_JOB_CMD_API_VER_MINOR 8
+#define VPU_JSM_JOB_CMD_API_VER_MINOR 9
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
@@ -65,9 +65,9 @@
  */
 enum vpu_cmd_type {
     VPU_CMD_UNKNOWN = 0x0000,
-    VPU_CMD_NOP = 0x0001,
 
-    /** Implemented by both Copy and Compute Engine */
+    /** Currently supported commands. */
+    VPU_CMD_NOP = 0x0001,
     VPU_CMD_TIMESTAMP = 0x0100,
     VPU_CMD_FENCE_WAIT = 0x0101,
     VPU_CMD_FENCE_SIGNAL = 0x0102,
@@ -75,19 +75,15 @@ enum vpu_cmd_type {
     VPU_CMD_METRIC_QUERY_BEGIN = 0x0104,
     VPU_CMD_METRIC_QUERY_END = 0x0105,
     VPU_CMD_MEMORY_FILL = 0x0202,
-
-    /** Implemented by Copy Engine */
-    VPU_CMD_COPY_SYSTEM_TO_LOCAL = 0x0200,
-    VPU_CMD_COPY_LOCAL_TO_SYSTEM = 0x0201,
-    VPU_CMD_COPY_SYSTEM_TO_SYSTEM = 0x0203,
-
-    /** Implemented by Compute Engine */
     VPU_CMD_JIT_MAPPED_INFERENCE_EXECUTE = 0x0301,
     VPU_CMD_COPY_LOCAL_TO_LOCAL = 0x0302,
     VPU_CMD_CLEAR_BUFFER = 0x0303,
     VPU_CMD_INFERENCE_EXECUTE = 0x0306,
 
     /** Deprecated commands. Do not reuse IDs */
+    VPU_CMD_COPY_SYSTEM_TO_LOCAL = 0x0200,
+    VPU_CMD_COPY_LOCAL_TO_SYSTEM = 0x0201,
+    VPU_CMD_COPY_SYSTEM_TO_SYSTEM = 0x0203,
     VPU_CMD_DXIL_DEPRECATED = 0x0300,
     VPU_CMD_OV_BLOB_INITIALIZE_DEPRECATED = 0x0304,
     VPU_CMD_OV_BLOB_EXECUTE_DEPRECATED = 0x0305,
@@ -180,7 +176,7 @@ typedef struct vpu_cmd_resource_descriptor_table {
  * immediately after the memory allocated for any
  * descriptor.
  *
- * @see VPU_CMD_COPY_SYSTEM_TO_SYSTEM
+ * @see VPU_CMD_COPY_LOCAL_TO_LOCAL
  */
 typedef struct vpu_cmd_copy_descriptor_37xx {
     uint64_t reserved_0[2]; /**< Unused */
@@ -194,7 +190,7 @@ typedef struct vpu_cmd_copy_descriptor_37xx {
  * @brief Copy command descriptor on VPU 40xx or later
  * Note VPU 40xx does not have a LOCAL memory
  *
- * @see VPU_CMD_COPY_SYSTEM_TO_SYSTEM
+ * @see VPU_CMD_COPY_LOCAL_TO_LOCAL
  */
 typedef struct vpu_cmd_copy_descriptor_40xx {
     uint64_t reserved_0[3];  /**< Unused */
@@ -249,10 +245,7 @@ typedef struct vpu_cmd_header {
 /**
  * @brief Copy command format
  *
- * @see VPU_CMD_COPY_SYSTEM_TO_LOCAL
- * @see VPU_CMD_COPY_LOCAL_TO_SYSTEM
- * @see VPU_CMD_COPY_SYSTEM_TO_SYSTEM
- * @see VPU_CMD_COPY_SYSTEM_TO_SYSTEM
+ * @see VPU_CMD_COPY_LOCAL_TO_LOCAL
  */
 typedef struct vpu_cmd_copy_buffer {
     vpu_cmd_header_t header;
