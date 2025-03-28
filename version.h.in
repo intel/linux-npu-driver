@@ -9,4 +9,4 @@
 
 #cmakedefine BUILD_VERSION "${BUILD_VERSION}"
 
-const char vpu_drv_version_str[] = "NPU version: " BUILD_VERSION;
+const char vpu_drv_version_str[] = BUILD_VERSION;
