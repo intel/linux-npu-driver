@@ -13,9 +13,11 @@
 
 namespace VPU {
 
-OsInterface &getOsInstance() {
-    if (VPU::NullOsInterfaceImp::isNullDeviceRequested()) {
+OsInterface *getOsInstance() {
+    if (NullOsInterfaceImp::isNullDeviceRequested()) {
         LOG(DEVICE, "NULL OS interface set.");
+        if (!NullOsInterfaceImp::configureNullDevice())
+            return nullptr;
         return NullOsInterfaceImp::getInstance();
     } else {
         LOG(DEVICE, "OS interface set.");

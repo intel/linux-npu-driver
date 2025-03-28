@@ -32,7 +32,10 @@ namespace L0 {
 struct Context;
 
 struct CommandQueue : _ze_command_queue_handle_t, IContextObject {
-    CommandQueue(Context *context, std::unique_ptr<VPU::VPUDeviceQueue> queue);
+    enum class CommandQueueMode : uint32_t { DEFAULT, SYNCHRONOUS };
+    CommandQueue(Context *context,
+                 std::unique_ptr<VPU::VPUDeviceQueue> queue,
+                 CommandQueueMode mode = CommandQueueMode::DEFAULT);
 
     static ze_result_t create(ze_context_handle_t hContext,
                               ze_device_handle_t hDevice,
@@ -63,6 +66,7 @@ struct CommandQueue : _ze_command_queue_handle_t, IContextObject {
     std::vector<std::shared_ptr<VPU::VPUJob>> trackedJobs;
     std::shared_mutex fenceMutex;
     std::unordered_map<Fence *, std::unique_ptr<Fence>> fences;
+    CommandQueueMode queueMode;
 };
 
 } // namespace L0

@@ -10,7 +10,7 @@ if(SKIP_UNIT_TESTS)
   return()
 endif()
 
-set(TARGET_NAME ze_intel_vpu_tests)
+set(TARGET_NAME ze_intel_npu_tests)
 
 add_executable(${TARGET_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
 target_link_libraries(

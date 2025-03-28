@@ -112,7 +112,7 @@ TEST_F(SingleDeviceTest, givenCallToDevicePropertiesThenBasicPropertiesCorrectly
     EXPECT_EQ(l0DevProps.maxCommandQueuePriority, hwInfo.maxCommandQueuePriority);
 
     // Number of threads per EU.
-    EXPECT_EQ(l0DevProps.numThreadsPerEU, hwInfo.numThreadsPerEU);
+    EXPECT_EQ(l0DevProps.numThreadsPerEU, 1);
 
     // Physical EU SIMD width.
     EXPECT_EQ(l0DevProps.physicalEUSimdWidth, hwInfo.physicalEUSimdWidth);
@@ -121,7 +121,7 @@ TEST_F(SingleDeviceTest, givenCallToDevicePropertiesThenBasicPropertiesCorrectly
     EXPECT_EQ(l0DevProps.numEUsPerSubslice, hwInfo.nExecUnits);
 
     // Number of sub-slices per slice.
-    EXPECT_EQ(l0DevProps.numSubslicesPerSlice, hwInfo.numSubslicesPerSlice);
+    EXPECT_EQ(l0DevProps.numSubslicesPerSlice, 1);
 
     // Number of slices.
     EXPECT_EQ(l0DevProps.numSlices, 2u);

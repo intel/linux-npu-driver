@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -11,7 +11,7 @@
 
 #include "level_zero_driver/api/ext/ze_graph.hpp"
 #include "level_zero_driver/api/ext/ze_queue.hpp"
-#include "level_zero_driver/api/trace/trace_perfetto.hpp"
+#include "level_zero_driver/api/prv/zex_driver.hpp"
 #include "level_zero_driver/api/trace/trace_ze_api.hpp"
 #include "level_zero_driver/api/trace/trace_ze_api_ddi.hpp"
 #include "level_zero_driver/include/l0_exception.hpp"
@@ -20,6 +20,7 @@
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <array>
+#include <dlfcn.h>
 #include <level_zero/ze_api.h>
 #include <level_zero/ze_command_queue_npu_ext.h>
 #include <level_zero/ze_ddi.h>
@@ -27,17 +28,22 @@
 #include <level_zero/ze_graph_profiling_ext.h>
 #include <string.h>
 
-PERFETTO_TRACK_EVENT_STATIC_STORAGE();
-
 namespace L0 {
-[[maybe_unused]] static TracePerfetto trace_perfetto;
 
 ze_result_t zeInit(ze_init_flags_t flags) {
     trace_zeInit(flags);
     ze_result_t ret;
 
+    void *handle = dlopen("libze_intel_vpu.so.1", RTLD_NOLOAD | RTLD_LAZY);
+    if (handle != nullptr) {
+        dlclose(handle);
+        LOG_E("Skip loading libze_intel_npu.so.1 because libze_intel_vpu.so.1 is installed");
+        ret = ZE_RESULT_ERROR_UNINITIALIZED;
+        goto exit;
+    }
     L0_HANDLE_EXCEPTION(ret, L0::init(flags));
 
+exit:
     trace_zeInit(ret, flags);
     return ret;
 }
@@ -59,7 +65,7 @@ zeInitDrivers(uint32_t *pCount, ze_driver_handle_t *phDrivers, ze_init_driver_ty
 
     L0_HANDLE_EXCEPTION(ret, L0::initDrivers(pCount, phDrivers, desc));
 
-    trace_zeInitDrivers(pCount, phDrivers, desc);
+    trace_zeInitDrivers(ret, pCount, phDrivers, desc);
     return ret;
 }
 
@@ -119,7 +125,7 @@ ze_result_t zeDriverGetExtensionProperties(ze_driver_handle_t hDriver,
     std::array<ze_driver_extension_properties_t, 11> supportedExts = {{
         {ZE_GRAPH_EXT_NAME, ZE_GRAPH_EXT_VERSION_CURRENT},
         {ZE_PROFILING_DATA_EXT_NAME, ZE_PROFILING_DATA_EXT_VERSION_1_0},
-        {ZE_MUTABLE_COMMAND_LIST_EXP_NAME, ZE_MUTABLE_COMMAND_LIST_EXP_VERSION_1_0},
+        {ZE_MUTABLE_COMMAND_LIST_EXP_NAME, ZE_MUTABLE_COMMAND_LIST_EXP_VERSION_1_1},
         {ZE_COMMAND_QUEUE_NPU_EXT_NAME, ZE_COMMAND_QUEUE_NPU_EXT_VERSION_1_0},
         {"ZE_extension_graph_1_2", ZE_GRAPH_EXT_VERSION_1_2},
         {"ZE_extension_graph_1_3", ZE_GRAPH_EXT_VERSION_1_3},
@@ -170,7 +176,7 @@ ze_result_t zeDriverGetExtensionFunctionAddress(ze_driver_handle_t hDriver,
                                                 const char *name,
                                                 void **ppFunctionAddress) {
     trace_zeDriverGetExtensionFunctionAddress(hDriver, name, ppFunctionAddress);
-    ze_result_t ret;
+    ze_result_t ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
 
     if (hDriver == nullptr) {
         ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
@@ -193,7 +199,6 @@ ze_result_t zeDriverGetExtensionFunctionAddress(ze_driver_handle_t hDriver,
         table.pfnDeviceGetProfilingDataProperties = L0::zeDeviceGetProfilingDataProperties;
         table.pfnProfilingLogGetString = L0::zeGraphProfilingLogGetString;
         *ppFunctionAddress = reinterpret_cast<void *>(&table);
-        LOG(DRIVER, "ret = DDI table for extension: %s", name);
         ret = ZE_RESULT_SUCCESS;
         goto exit;
     }
@@ -203,7 +208,6 @@ ze_result_t zeDriverGetExtensionFunctionAddress(ze_driver_handle_t hDriver,
 
         table.pfnSetWorkloadType = L0::zeCommandQueueSetWorkloadType;
         *ppFunctionAddress = reinterpret_cast<void *>(&table);
-        LOG(DRIVER, "ret = DDI table for extension: %s", name);
         ret = ZE_RESULT_SUCCESS;
         goto exit;
     }
@@ -252,14 +256,24 @@ ze_result_t zeDriverGetExtensionFunctionAddress(ze_driver_handle_t hDriver,
 
     if (strstr(name, ZE_GRAPH_EXT_NAME) != nullptr) {
         *ppFunctionAddress = reinterpret_cast<void *>(&table);
-        LOG(DRIVER, "ret = DDI table for extension: %s", name);
         ret = ZE_RESULT_SUCCESS;
         goto exit;
     }
 
-    LOG_E("The name of extension is unknown: %s", name);
-    ret = ZE_RESULT_ERROR_UNKNOWN;
+#define CHECK_PRIVATE_FUNCTION(function)                                 \
+    {                                                                    \
+        if (strcmp(name, #function) == 0) {                              \
+            *ppFunctionAddress = reinterpret_cast<void *>(function);     \
+            ret = ZE_RESULT_SUCCESS;                                     \
+            goto exit;                                                   \
+        }                                                                \
+    }
 
+    CHECK_PRIVATE_FUNCTION(zexDiskCacheSetSize);
+    CHECK_PRIVATE_FUNCTION(zexDiskCacheGetSize);
+    CHECK_PRIVATE_FUNCTION(zexDiskCacheGetDirectory);
+
+    LOG_E("Driver Function Extension with %s name does not exist", name);
 exit:
     trace_zeDriverGetExtensionFunctionAddress(ret, hDriver, name, ppFunctionAddress);
     return ret;

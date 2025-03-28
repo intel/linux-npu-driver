@@ -7,6 +7,7 @@
 
 #include "graph_utilities.hpp"
 #include "umd_test.h"
+
 #include <functional>
 #include <gtest/gtest.h>
 
@@ -53,7 +54,7 @@ class MultiContext : public Context, public ::testing::WithParamInterface<uint32
             auto scopedContext = zeScope::contextCreate(zeDriver, contextDesc, ret);
             ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
 
-            ctxs.push_back(scopedContext);
+            ctxs.push_back(std::move(scopedContext));
         }
     }
 
@@ -185,7 +186,7 @@ class MultiContextGraph : public Context,
             auto scopedContext = zeScope::contextCreate(zeDriver, contextDesc, ret);
             ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
 
-            ctxs.push_back(scopedContext);
+            ctxs.push_back(std::move(scopedContext));
         }
     }
 

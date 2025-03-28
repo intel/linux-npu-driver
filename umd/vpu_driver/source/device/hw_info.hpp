@@ -7,10 +7,10 @@
 
 #pragma once
 
-#include "vpu_driver/source/command/vpu_command.hpp"
-#include "vpu_driver/source/device/vpu_37xx/vpu_hw_37xx.hpp"
 #include <stdint.h>
 
+#include "vpu_driver/source/command/vpu_command.hpp"
+#include "vpu_driver/source/device/vpu_37xx/vpu_hw_37xx.hpp"
 #include "vpu_driver/source/device/vpu_40xx/vpu_hw_40xx.hpp"
 
 #include <array>
@@ -26,23 +26,20 @@ namespace VPU {
 
 enum NPUArch { NPUUNKNOWN = 0, NPU37XX, NPU40XX };
 
-using GetCopyCommand = bool(VPUDeviceContext *, const void *, void *, size_t, VPUDescriptor &);
+using GetCopyCommand = bool(uint64_t, uint64_t, size_t, VPUDescriptor &);
 using PrintCopyDescriptor = void(void *, vpu_cmd_header_t *);
 
 struct VPUHwInfo {
     uint32_t deviceId = 0u;
-    int compilerPlatform = -1;
     char platformName[32];
     NPUArch npuArch = NPUUNKNOWN;
-    uint32_t deviceRevision = 0u;
+    uint16_t deviceRevision = UINT16_MAX;
     uint32_t subdeviceId = 0u;
     uint32_t coreClockRate = 0u;
     uint32_t maxHardwareContexts = 1;
     uint32_t maxCommandQueuePriority = 2;
-    uint32_t numThreadsPerEU = 1;
     uint32_t physicalEUSimdWidth = 0u;
     uint32_t nExecUnits = 0u;
-    uint32_t numSubslicesPerSlice = 0u;
     uint32_t platformType = 0u;
     uint32_t tileFuseMask = 0u;
     /* Each set bit in tileConfig represents enabled tile */
@@ -50,8 +47,6 @@ struct VPUHwInfo {
     uint64_t timerResolution = PERF_FREQUENCY_DEFAULT_HZ;
 
     char name[256] = "Intel(R) AI Boost";
-
-    uint64_t baseLowAddress = 0;
 
     uint32_t extraDmaDescriptorSize = 0;
     uint64_t fwMappedInferenceVersion = 0;

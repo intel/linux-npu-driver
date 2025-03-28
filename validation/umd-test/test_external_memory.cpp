@@ -84,7 +84,7 @@ TEST_P(ExternalMemory, AllocDeviceMemory) {
     EXPECT_EQ(pMemAllocProperties.type, ZE_MEMORY_TYPE_DEVICE);
     EXPECT_GT(pMemAllocProperties.id, 0u);
     EXPECT_EQ(pMemAllocProperties.pageSize, size);
-    EXPECT_EQ(lseek(externalExportFdDesc.fd, 0, SEEK_END), ALLIGN_TO_PAGE(size));
+    EXPECT_EQ(lseek(externalExportFdDesc.fd, 0, SEEK_END), ALIGN_TO_PAGE(size));
     lseek(externalExportFdDesc.fd, 0, SEEK_CUR);
 
     /* mmap memory and check pattern */
@@ -116,7 +116,7 @@ TEST_P(ExternalMemory, AllocHostMemory) {
     EXPECT_EQ(pMemAllocProperties.type, ZE_MEMORY_TYPE_HOST);
     EXPECT_GT(pMemAllocProperties.id, 0u);
     EXPECT_EQ(pMemAllocProperties.pageSize, size);
-    EXPECT_EQ(lseek(externalExportFdDesc.fd, 0, SEEK_END), ALLIGN_TO_PAGE(size));
+    EXPECT_EQ(lseek(externalExportFdDesc.fd, 0, SEEK_END), ALIGN_TO_PAGE(size));
     lseek(externalExportFdDesc.fd, 0, SEEK_CUR);
 
     /* mmap memory and check pattern */
@@ -154,7 +154,7 @@ TEST_P(ExternalMemory, AllocSharedMemory) {
     EXPECT_EQ(pMemAllocProperties.type, ZE_MEMORY_TYPE_SHARED);
     EXPECT_GT(pMemAllocProperties.id, 0u);
     EXPECT_EQ(pMemAllocProperties.pageSize, size);
-    EXPECT_EQ(lseek(externalExportFdDesc.fd, 0, SEEK_END), ALLIGN_TO_PAGE(size));
+    EXPECT_EQ(lseek(externalExportFdDesc.fd, 0, SEEK_END), ALIGN_TO_PAGE(size));
     lseek(externalExportFdDesc.fd, 0, SEEK_CUR);
 
     /* mmap memory and check pattern */

@@ -13,11 +13,14 @@
 #include "level_zero/ze_graph_ext.h"
 #include "level_zero_driver/source/ext/blob_container.hpp"
 #include "level_zero_driver/source/ext/disk_cache.hpp"
+#include "level_zero_driver/source/ext/hash_function.hpp"
 #include "vpu_driver/unit_tests/mocks/gmock_os_interface_imp.hpp"
 
+#include <cstring>
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace L0 {
 
@@ -105,6 +108,24 @@ TEST_F(DiskCacheTest, HitCache) {
     EXPECT_NE(blob, nullptr);
     EXPECT_EQ(blob->ptr, mmapPtr.get());
     EXPECT_EQ(blob->size, fileSize);
+}
+
+class HashSha1Test : public testing::TestWithParam<std::pair<const char *, const char *>> {};
+
+INSTANTIATE_TEST_SUITE_P(,
+                         HashSha1Test,
+                         ::testing::ValuesIn(std::vector<std::pair<const char *, const char *>>{
+                             {"abc", "a9993e364706816aba3e25717850c26c9cd0d89d"},
+                             {"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
+                              "84983e441c3bd26ebaae4aa1f95129e5e54670f1"},
+                         }));
+
+TEST_P(HashSha1Test, ComputeHash) {
+    auto [input, expected] = GetParam();
+
+    HashSha1 sha1;
+    sha1.update(reinterpret_cast<const uint8_t *>(input), strlen(input));
+    ASSERT_EQ(expected, sha1.final());
 }
 
 } // namespace L0

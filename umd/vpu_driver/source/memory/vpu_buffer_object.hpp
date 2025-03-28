@@ -41,14 +41,14 @@ class VPUBufferObject {
         ExternalShared = 0x8008,
     };
 
-    static std::unique_ptr<VPUBufferObject>
+    static std::shared_ptr<VPUBufferObject>
     create(const VPUDriverApi &drvApi, Location type, Type range, size_t size);
 
     /**
      * @brief Import Buffer from file descriptor
      *
      */
-    static std::unique_ptr<VPUBufferObject>
+    static std::shared_ptr<VPUBufferObject>
     importFromFd(const VPUDriverApi &drvApi, Location type, int32_t fd);
 
     VPUBufferObject(const VPUDriverApi &drvApi,
@@ -121,6 +121,17 @@ class VPUBufferObject {
       Returns buffer object's VPU address.
      */
     uint64_t getVPUAddr() const { return vpuAddr; }
+
+    /**
+       Returns VPU address related to ptr in host address space.
+     */
+    uint64_t getVPUAddr(const void *ptr) const {
+        if (!isInRange(ptr))
+            return 0;
+        const uint64_t offset =
+            reinterpret_cast<uint64_t>(ptr) - reinterpret_cast<uint64_t>(basePtr);
+        return vpuAddr + offset;
+    }
 
     /**
        Copy data to the allocated buffer.

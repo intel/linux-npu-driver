@@ -1,4 +1,4 @@
-# Copyright 2022-2023 Intel Corporation.
+# Copyright 2022-2024 Intel Corporation.
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -9,6 +9,11 @@
 # This software and the related documents are provided as is, with no express
 # or implied warranties, other than those that are expressly stated in
 # the License.
+
+# The libnpu_elf.a is picked up from compiler package, nothing to do
+if (TARGET vpux_elf)
+  return()
+endif()
 
 # Below function is required by vpux_elf
 function(enable_warnings_as_errors TARGET_NAME)

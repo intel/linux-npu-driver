@@ -5,12 +5,13 @@
  *
  */
 
+#include "drm_helpers.h"
+#include "file_helpers.h"
+#include "kmd_test.h"
+
 #include <grp.h>
 #include <string.h>
 #include <thread>
-
-#include "kmd_test.h"
-#include "drm_helpers.h"
 
 class Device : public KmdTest {
   public:
@@ -34,14 +35,10 @@ TEST_F(Device, Open) {
 }
 
 static bool isChromeOs() {
-    VpuFile osRelease("/etc/os-release");
-    std::vector<std::string> contents;
-    osRelease.getlines(contents);
-    for (auto &line : contents) {
-        if (line.find("chromiumos") != std::string::npos)
-            return true;
-    }
-    return false;
+    std::string os_release;
+
+    read_file("/etc/os-release", os_release);
+    return os_release.find("chromiumos") != std::string::npos;
 }
 
 TEST_F(Device, GroupOwnership) {
@@ -110,6 +107,30 @@ TEST_F(Device, GetDeviceParams) {
     EXPECT_EQ(get_param(DRM_IVPU_PARAM_FW_API_VERSION, &value), 0);
 }
 
+TEST_F(Device, ResetComputeEngine) {
+    bool hws = is_hws_enabled();
+    SKIP_NO_DEBUGFS("reset_engine");
+
+    if (hws) {
+        SKIP_NO_DEBUGFS("resume_engine");
+    }
+
+    ASSERT_EQ(write_debugfs_file("reset_engine", ENGINE_COMPUTE), 0);
+
+    if (hws) {
+        ASSERT_EQ(write_debugfs_file("resume_engine", ENGINE_COMPUTE), 0);
+    }
+}
+
+// Failed with patchset KMD. Requires:
+// c613ba134 accel/ivpu: Fix reset_engine debugfs file logic
+TEST_F(Device, DISABLED_ResetInvalidEngine) {
+    SKIP_NO_DEBUGFS("reset_engine");
+
+    ASSERT_EQ(write_debugfs_file("reset_engine", 3), -1);
+    ASSERT_EQ(errno, EINVAL);
+}
+
 TEST_F(Device, Heartbeat_ComputeEngine) {
     uint64_t hb;
 
@@ -144,10 +165,10 @@ TEST_F(Device, HeartbeatPerf) {
 }
 
 TEST_F(Device, HeartbeatPerf4Threads) {
-    std::vector<std::unique_ptr<std::thread>> threads;
+    std::vector<std::unique_ptr<test_app::thread>> threads;
     static const int THREAD_COUNT = 4;
     for (int i = 0; i < THREAD_COUNT; i++) {
-        threads.push_back(std::make_unique<std::thread>(&Device::Heartbeat, this, i));
+        threads.push_back(std::make_unique<test_app::thread>(&Device::Heartbeat, this, i));
     }
 
     for (int i = 0; i < THREAD_COUNT; i++) {

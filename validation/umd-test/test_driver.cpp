@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -56,7 +56,7 @@ TEST_F(Driver, GetExtensionProperties) {
         if (extName.find(ZE_GRAPH_EXT_NAME) != std::string::npos && v.version == GRAPH_EXT_VERSION)
             has_graph_extension = true;
         if (extName == ZE_MUTABLE_COMMAND_LIST_EXP_NAME &&
-            v.version == ZE_MUTABLE_COMMAND_LIST_EXP_VERSION_1_0)
+            v.version == ZE_MUTABLE_COMMAND_LIST_EXP_VERSION_1_1)
             has_mutable_cmdlist_extension = true;
         if (extName == COMMAND_QUEUE_EXT_NAME && v.version == COMMAND_QUEUE_NPU_EXT_VERSION)
             has_cmd_queue_extension = true;

@@ -70,7 +70,7 @@ void PrintTo(const ze_result_t &result, std::ostream *os);
 #define KB (1024llu)
 #define MB (1024llu * 1024)
 
-#define ALLIGN_TO_PAGE(x) __ALIGN_KERNEL((x), (UmdTest::PAGE_SIZE))
+#define ALIGN_TO_PAGE(x) __ALIGN_KERNEL((x), UmdTest::pageSize)
 
 inline std::string memSizeToStr(uint64_t size) {
     std::string str;
@@ -135,7 +135,7 @@ class UmdTest : public ::testing::Test {
      */
     static int saveFile(const std::string &filePath, void *dataIn, size_t inputSize);
 
-    static constexpr int PAGE_SIZE = 4096;
+    static constexpr int pageSize = 4096;
 
     uint32_t computeGrpOrdinalGpu = std::numeric_limits<uint32_t>::max();
     uint32_t copyGrpOrdinalGpu = std::numeric_limits<uint32_t>::max();

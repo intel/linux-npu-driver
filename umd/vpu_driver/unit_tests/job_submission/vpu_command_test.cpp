@@ -51,7 +51,7 @@ TEST_F(VPUCommandTest, timestampCommandShouldReturnExpectedProperties) {
     VPUBufferObject *bo = ctx->findBuffer(mem);
     ASSERT_NE(bo, nullptr);
     EXPECT_EQ(tsCmd.getAssociateBufferObjects().size(), 1u);
-    EXPECT_EQ(tsCmd.getAssociateBufferObjects().at(0), bo);
+    EXPECT_EQ(tsCmd.getAssociateBufferObjects().at(0).get(), bo);
 
     // Compare command stream return value in byte wise.
     vpu_cmd_timestamp_t expKMDTsCmd = {};
@@ -70,8 +70,12 @@ TEST_F(VPUCommandTest, copyCommandShouldReturnExpectedProperties) {
     void *dstPtr = ctx->createSharedMemAlloc(sizeof(uint64_t));
 
     // Copy command.
-    std::shared_ptr<VPUCommand> copyCmd =
-        VPUCopyCommand::create(ctx, srcPtr, dstPtr, sizeof(uint64_t));
+    std::shared_ptr<VPUCommand> copyCmd = VPUCopyCommand::create(ctx,
+                                                                 srcPtr,
+                                                                 ctx->findBufferObject(srcPtr),
+                                                                 dstPtr,
+                                                                 ctx->findBufferObject(dstPtr),
+                                                                 sizeof(uint64_t));
     ASSERT_NE(copyCmd, nullptr);
 
     EXPECT_EQ(VPU_CMD_COPY_LOCAL_TO_LOCAL, copyCmd->getCommandType());
@@ -82,10 +86,10 @@ TEST_F(VPUCommandTest, copyCommandShouldReturnExpectedProperties) {
     ASSERT_EQ(copyCmdAssocVec.size(), 2u);
     VPUBufferObject *bo = ctx->findBuffer(srcPtr);
     ASSERT_NE(bo, nullptr);
-    EXPECT_EQ(copyCmdAssocVec.at(0), bo);
+    EXPECT_EQ(copyCmdAssocVec.at(0).get(), bo);
     bo = ctx->findBuffer(dstPtr);
     ASSERT_NE(bo, nullptr);
-    EXPECT_EQ(copyCmdAssocVec.at(1), bo);
+    EXPECT_EQ(copyCmdAssocVec.at(1).get(), bo);
 
     // Compare command stream return value in byte wise.
     vpu_cmd_copy_buffer_t

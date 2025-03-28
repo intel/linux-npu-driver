@@ -5,8 +5,7 @@
  *
  */
 
-#include <openssl/evp.h>
-#include <openssl/sha.h>
+#include "sha1.h"
 
 #include <array>
 #include <charconv>
@@ -15,28 +14,24 @@
 
 class HashSha1 {
   public:
-    HashSha1()
-        : pEvpMdCtx(EVP_MD_CTX_create(), &EVP_MD_CTX_free) {
-        EVP_DigestInit_ex(pEvpMdCtx.get(), EVP_sha1(), nullptr);
-    }
+    HashSha1() { SHA1Init(&context); }
 
-    void update(const uint8_t *data, size_t size) { EVP_DigestUpdate(pEvpMdCtx.get(), data, size); }
+    void update(const uint8_t *data, size_t size) { SHA1Update(&context, data, size); }
 
     std::string final() {
-        std::array<uint8_t, SHA_DIGEST_LENGTH> value;
-        EVP_DigestFinal_ex(pEvpMdCtx.get(), value.data(), nullptr);
+        std::array<uint8_t, SHA1_DIGEST_LENGTH> value;
+        SHA1Final(value.data(), &context);
 
+        static const char *hexChars = "0123456789abcdef";
         constexpr auto byteToHexLetters = 2;
-        std::string str(SHA_DIGEST_LENGTH * byteToHexLetters, '0');
+        std::string str(SHA1_DIGEST_LENGTH * byteToHexLetters, '0');
         for (size_t i = 0; i < value.size(); i++) {
-            std::to_chars(&str[i * byteToHexLetters],
-                          &str[i * byteToHexLetters + byteToHexLetters],
-                          value[i],
-                          16);
+            str[byteToHexLetters * i] = hexChars[value[i] >> 4];
+            str[byteToHexLetters * i + 1] = hexChars[value[i] & 0xf];
         }
         return str;
     }
 
   private:
-    std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> pEvpMdCtx;
+    SHA1_CTX context;
 };

@@ -11,7 +11,7 @@
 #include <getopt.h>
 
 namespace test_vars {
-bool test_with_gpu;
+bool forceGpu;
 bool disable_metrics;
 bool forceDmaHeap;
 bool initialization_tests;
@@ -36,8 +36,15 @@ static void forceDmaHeap(const char *) {
         test_app::append_positive_filter("*DmaHeap.*");
 }
 
+static void forceGpu(const char *) {
+    test_vars::forceGpu = true;
+    if (::testing::GTEST_FLAG(filter).find("Gpu") == std::string::npos)
+        test_app::append_positive_filter("*Gpu*");
+}
+
 static void forceAllTests(const char *) {
     test_vars::forceDmaHeap = true;
+    test_vars::forceGpu = true;
 }
 
 static void forceSyncTimeout(const char *arg) {
@@ -46,7 +53,7 @@ static void forceSyncTimeout(const char *arg) {
 
 const char *helpMsg = "  -c/--config [CONFIGURATION_PATH]\n"
                       "       Test configuration file in yaml format\n"
-                      "  -G/--test_with_gpu\n"
+                      "  -G/--gpu\n"
                       "       Enable testing with loaded GPU L0\n"
                       "  -M/--disable_metrics\n"
                       "       Disabling metrics. No metric test will be run\n"
@@ -74,7 +81,7 @@ int main(int argc, char **argv) {
 
     test_app::ArgumentMap args = {
         {'c', {"config", required_argument, [](auto) {}}},
-        {'G', {"test_with_gpu", no_argument, [](auto) { test_vars::test_with_gpu = true; }}},
+        {'G', {"gpu", no_argument, &forceGpu}},
         {'M', {"disable_metrics", no_argument, &disableMetrics}},
         {'R', {"dma-heap", no_argument, &forceDmaHeap}},
         {'T', {"sync_timeout", required_argument, &forceSyncTimeout}},

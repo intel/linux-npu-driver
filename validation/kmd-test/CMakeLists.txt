@@ -20,5 +20,5 @@ add_executable(${PROJECT_NAME}
 
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/linux/include/uapi")
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Werror)
-target_link_libraries(${PROJECT_NAME} udev test_app_lib fw_vpu_api_headers)
+target_link_libraries(${PROJECT_NAME} PRIVATE test_app_lib fw_vpu_api_headers)
 install(TARGETS ${PROJECT_NAME} COMPONENT validation-npu)

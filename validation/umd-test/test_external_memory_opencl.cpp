@@ -30,8 +30,8 @@ using ExternalMemoryOpenCL = UmdTest;
 // +------------+                +--------------------------+            +------------+
 //
 TEST_F(ExternalMemoryOpenCL, NpuToGpu) {
-    if (!isVPU37xx()) {
-        SKIP_("BuffersImport test is supported on MTL platform only");
+    if (!isVPU37xx() && !isVPU40xx()) {
+        SKIP_("BuffersImport test is supported on MTL and LNL platforms only");
     }
 
     const size_t size = 1024u;

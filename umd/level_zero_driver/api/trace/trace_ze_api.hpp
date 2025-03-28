@@ -9,8 +9,8 @@
 
 #pragma once
 
-#include "trace_perfetto.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
+#include "vpu_driver/source/utilities/trace_perfetto.hpp"
 
 #include <iostream>
 #include <level_zero/ze_api.h>

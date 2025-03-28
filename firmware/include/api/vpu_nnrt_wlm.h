@@ -327,11 +327,14 @@ static_assert(offsetof(VpuNNRTConfig, logaddr_dma_hwp) % 8 == 0, "Alignment erro
 /**
  * VpuBarrierConfiguration contains the information needed to program a barrier.
  */
-struct VPU_ALIGNED_STRUCT(4) VpuBarrierConfiguration {
-    uint8_t producerCount;
-    uint8_t producerInterruptEnabled;
-    uint8_t consumerCount;
-    uint8_t consumerInterruptEnabled;
+union VPU_ALIGNED_STRUCT(4) VpuBarrierConfiguration {
+    struct {
+        uint8_t producerCount;
+        uint8_t producerInterruptEnabled;
+        uint8_t consumerCount;
+        uint8_t consumerInterruptEnabled;
+    } ;
+    uint32_t whole;
 };
 static_assert(sizeof(VpuBarrierConfiguration) == 4, "VpuBarrierConfiguration size != 4");
 
@@ -430,8 +433,18 @@ struct VPU_ALIGNED_STRUCT(32) VpuManagedMappedInference {
      * Stride in barrier configuration array between consecutive physical barriers.
      */
     uint32_t barrier_configuration_stride;
+    /**
+     * Additional information for inference processing.
+     */
+    union {
+        uint8_t inference_feature_cfg;
+        struct {
+            uint8_t disable_dma_sw_fifo : 1;
+            uint8_t reserved : 7; // Reserved for future use.
+        } inference_feature_cfg_bf;
+    } inference_feature_cfg;
 
-    uint8_t pad1_[236];
+    uint8_t pad1_[235];
 
     /*
      * bootstrap_workitems_count contains the number of work items at the beginning

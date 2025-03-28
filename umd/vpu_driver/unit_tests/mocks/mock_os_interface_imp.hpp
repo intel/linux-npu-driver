@@ -37,8 +37,7 @@ class MockOsInterfaceImp : public OsInterface {
 
     unsigned long ioctlLastCommand = 0;
     int fd = 3;
-    const uint64_t deviceLowBaseAddress = 0xc000'0000;
-    uint64_t deviceAddress = deviceLowBaseAddress;
+    uint64_t deviceAddress = 0xc000'0000;
     uint64_t unique_id = 0;
 
     int32_t kmdApiVersionMajor = 1;
@@ -57,7 +56,7 @@ class MockOsInterfaceImp : public OsInterface {
     int osiOpen(const char *pathname, int flags, mode_t mode) override;
     int osiClose(int fildes) override;
     int osiFcntl(int fd, int cmd) override;
-    int osiIoctl(int fd, unsigned long request, void *args) override;
+    int osiIoctl(int fd, unsigned int request, void *args) override;
 
     size_t osiGetSystemPageSize() override;
 

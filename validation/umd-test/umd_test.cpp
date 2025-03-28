@@ -85,7 +85,7 @@ void UmdTest::SetUp() {
     zeContext = scopedContext.get();
     CommandQueueGroupSetUpNpu(zeDevice);
 
-    if (test_vars::test_with_gpu) {
+    if (test_vars::forceGpu) {
         zeDriverGpu = testEnv->getDriverGpu();
         zeDeviceGpu = testEnv->getDeviceGpu();
         scopedContextGpu = zeScope::contextCreate(zeDriverGpu, contextDesc, ret);
@@ -168,10 +168,11 @@ bool UmdTest::isHwsModeEnabled() {
 
 TEST(Umd, ZeDevTypeStr) {
     Environment *testEnv = Environment::getInstance();
-    EXPECT_NE(testEnv->zeDevTypeStr((ze_device_type_t)0), nullptr);
+    // NOLINTBEGIN
     EXPECT_NE(testEnv->zeDevTypeStr((ze_device_type_t)0), nullptr);
     EXPECT_NE(testEnv->zeDevTypeStr((ze_device_type_t)-1), nullptr);
     EXPECT_NE(testEnv->zeDevTypeStr((ze_device_type_t)(ZE_DEVICE_TYPE_MCA + 1)), nullptr);
+    // NOLINTEND
     EXPECT_NE(testEnv->zeDevTypeStr(ZE_DEVICE_TYPE_VPU), nullptr);
     EXPECT_NE(testEnv->zeDevTypeStr(ZE_DEVICE_TYPE_VPU), "Unknown");
     TRACE_STR(testEnv->zeDevTypeStr(ZE_DEVICE_TYPE_VPU));

@@ -8,9 +8,11 @@
 #include "context.hpp"
 
 #include "device.hpp"
+#include "driver.hpp"
 #include "driver_handle.hpp"
 #include "event.hpp"
 #include "level_zero_driver/include/l0_exception.hpp"
+#include "level_zero_driver/source/ext/disk_cache.hpp"
 #include "metric.hpp"
 #include "metric_query.hpp"
 #include "metric_streamer.hpp"
@@ -173,18 +175,28 @@ ze_result_t Context::metricStreamerOpen(zet_device_handle_t hDevice,
 
 ze_result_t Context::queryContextMemory(ze_graph_memory_query_type_t type,
                                         ze_graph_memory_query_t *query) {
-    if (type != ZE_GRAPH_QUERY_MEMORY_DDR) {
+    switch (type) {
+    case ZE_GRAPH_QUERY_MEMORY_DDR: {
+        struct sysinfo info = {};
+        if (sysinfo(&info) < 0) {
+            LOG_E("Failed to get total ram using sysinfo, errno: %i, str: %s",
+                  errno,
+                  strerror(errno));
+        } else {
+            query->total = info.totalram * info.mem_unit;
+        }
+        query->allocated = ctx->getAllocatedSize();
+    } break;
+    case ZE_GRAPH_QUERY_MEMORY_DRIVER_CACHE:
+    case ZE_GRAPH_QUERY_MEMORY_PROGRAM_CACHE: {
+        auto &diskCache = Driver::getInstance()->getDiskCache();
+        query->allocated = diskCache.getCacheSize();
+        query->total = diskCache.getMaxSize();
+    } break;
+    default:
         LOG_E("Unsupported type");
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
-
-    struct sysinfo info = {};
-    if (sysinfo(&info) < 0) {
-        LOG_E("Failed to get total ram using sysinfo, errno: %i, str: %s", errno, strerror(errno));
-    } else {
-        query->total = info.totalram * info.mem_unit;
-    }
-    query->allocated = ctx->getAllocatedSize();
 
     return ZE_RESULT_SUCCESS;
 }

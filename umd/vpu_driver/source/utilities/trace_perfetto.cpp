@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -14,7 +14,9 @@
 #include <string>
 #include <vector>
 
-namespace L0 {
+PERFETTO_TRACK_EVENT_STATIC_STORAGE();
+
+[[maybe_unused]] static TracePerfetto trace_perfetto;
 
 TracePerfetto::TracePerfetto() {
     const char *env = getenv("ZE_INTEL_NPU_LOGPERFETTO");
@@ -29,6 +31,7 @@ TracePerfetto::TracePerfetto() {
         perfetto::protos::gen::TrackEventConfig track_event_cfg;
         track_event_cfg.add_disabled_categories("*");
         track_event_cfg.add_enabled_categories("API");
+        track_event_cfg.add_enabled_categories("SYS");
 
         perfetto::TraceConfig cfg;
         cfg.add_buffers()->set_size_kb(64 * 1024);
@@ -54,5 +57,3 @@ TracePerfetto::~TracePerfetto() {
     out.write(&trace_data[0], (long)trace_data.size());
     out.close();
 }
-
-} // namespace L0

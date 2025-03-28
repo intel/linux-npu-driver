@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -13,7 +13,6 @@
 #include "api/vpu_jsm_job_cmd_api.h"
 #include "umd_common.hpp"
 #include "vpu_driver/source/command/vpu_command.hpp"
-#include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <any>
@@ -21,17 +20,22 @@
 #include <vector>
 
 namespace VPU {
+class VPUBufferObject;
+class VPUDeviceContext;
 
 class VPUCopyCommand : public VPUCommand {
   public:
-    VPUCopyCommand(VPUDeviceContext *ctx,
-                   const void *srcPtr,
-                   void *dstPtr,
+    VPUCopyCommand(const std::shared_ptr<VPUBufferObject> srcBo,
+                   std::shared_ptr<VPUBufferObject> dstBo,
                    size_t size,
                    VPUDescriptor &descriptor);
 
-    static std::shared_ptr<VPUCopyCommand>
-    create(VPUDeviceContext *ctx, const void *srcPtr, void *dstPtr, size_t size);
+    static std::shared_ptr<VPUCopyCommand> create(VPUDeviceContext *ctx,
+                                                  const void *srcPtr,
+                                                  const std::shared_ptr<VPUBufferObject> srcBo,
+                                                  void *dstPtr,
+                                                  std::shared_ptr<VPUBufferObject> dstBo,
+                                                  size_t size);
 
     const vpu_cmd_header_t *getHeader() const {
         return reinterpret_cast<const vpu_cmd_header_t *>(
@@ -39,38 +43,40 @@ class VPUCopyCommand : public VPUCommand {
     }
 
     template <class T>
-    static bool fillDescriptor(VPUDeviceContext *ctx,
-                               const void *srcPtr,
-                               void *dstPtr,
-                               size_t size,
-                               VPUDescriptor &descriptor) {
-        if (ctx == nullptr) {
-            LOG_E("Passed context as nullptr");
-            return false;
-        }
+    static bool
+    fillDescriptor(uint64_t srcAddr, uint64_t dstAddr, size_t size, VPUDescriptor &descriptor) {
+        static constexpr uint32_t COPY_SIZE_LIMIT = (16 << 20) - 1;
 
-        descriptor.data.resize(sizeof(T), 0);
-
-        T *copyDescPtr = reinterpret_cast<T *>(descriptor.data.data());
-        copyDescPtr->src_address = ctx->getBufferVPUAddress(srcPtr);
-        if (copyDescPtr->src_address == 0) {
+        if (srcAddr == 0 || dstAddr == 0) {
             LOG_E("Failed to get vpu address for copy descriptor");
             return false;
         }
 
-        copyDescPtr->dst_address = ctx->getBufferVPUAddress(dstPtr);
-        if (copyDescPtr->dst_address == 0) {
-            LOG_E("Failed to get vpu address for copy descriptor");
-            return false;
+        descriptor.numDescriptors =
+            safe_cast<uint32_t>((size + COPY_SIZE_LIMIT - 1) / COPY_SIZE_LIMIT);
+        descriptor.data.resize(sizeof(T) * descriptor.numDescriptors, 0);
+
+        T *copyDescs = reinterpret_cast<T *>(descriptor.data.data());
+        size_t sizeLeft = size;
+        for (size_t i = 0; i < descriptor.numDescriptors; i++) {
+            copyDescs[i].src_address = srcAddr;
+            copyDescs[i].dst_address = dstAddr;
+            if (sizeLeft < COPY_SIZE_LIMIT) {
+                copyDescs[i].size = safe_cast<uint32_t>(sizeLeft);
+            } else {
+                copyDescs[i].size = COPY_SIZE_LIMIT;
+                sizeLeft -= COPY_SIZE_LIMIT;
+            }
+
+            LOG(MISC,
+                "Updated copy descriptor: src_address = %#lx,  dst_address  = %#lx, size = %#x",
+                copyDescs[i].src_address,
+                copyDescs[i].dst_address,
+                copyDescs[i].size);
+
+            srcAddr += COPY_SIZE_LIMIT;
+            dstAddr += COPY_SIZE_LIMIT;
         }
-
-        copyDescPtr->size = safe_cast<uint32_t>(size);
-
-        LOG(MISC,
-            "Updated copy descriptor: src_address = %#lx,  dst_address  = %#lx, size = %#x",
-            copyDescPtr->src_address,
-            copyDescPtr->dst_address,
-            copyDescPtr->size);
 
         return true;
     }

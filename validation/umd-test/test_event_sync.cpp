@@ -93,7 +93,7 @@ struct EventSync : public UmdTest {
 
     ze_event_pool_handle_t eventPool = nullptr;
 
-    static const size_t allocSize = PAGE_SIZE;
+    static const size_t allocSize = pageSize;
     static const uint8_t testPattern = 0xCD;
 
   private:
@@ -402,7 +402,7 @@ TEST_F(EventSync, AppendCopyAndBarrierThenSynchronizeWithEvent) {
     ASSERT_EQ(createEvent(eventPool, 2, &event2), ZE_RESULT_SUCCESS);
 
     ze_event_handle_t waitEvents[] = {event0, event1};
-    const size_t allocSize = PAGE_SIZE;
+    const size_t allocSize = pageSize;
     auto srcMem = AllocHostMemory(allocSize);
     auto destMem = AllocSharedMemory(allocSize);
     ASSERT_TRUE(srcMem) << "Failed to allocate source memory";

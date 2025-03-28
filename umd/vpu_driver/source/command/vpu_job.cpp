@@ -144,7 +144,7 @@ bool VPUJob::appendCommand(std::shared_ptr<VPUCommand> cmd) {
         return true;
     }
 
-    commands.push_back(cmd);
+    commands.push_back(std::move(cmd));
     return true;
 }
 

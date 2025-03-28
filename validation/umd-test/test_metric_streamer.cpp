@@ -146,11 +146,16 @@ class MetricStreamer : public UmdTest, public ::testing::WithParamInterface<metr
         std::vector<zet_metric_group_handle_t> groups(count);
         ASSERT_EQ(zetMetricGroupGet(zeDevice, &count, groups.data()), ZE_RESULT_SUCCESS);
 
+        std::transform(name.begin(), name.end(), name.begin(), ::tolower);
         for (const auto &group : groups) {
             zet_metric_group_properties_t prop = {};
             prop.stype = ZET_STRUCTURE_TYPE_METRIC_GROUP_PROPERTIES;
 
             ASSERT_EQ(zetMetricGroupGetProperties(group, &prop), ZE_RESULT_SUCCESS);
+            // always operate on lowercase names to make comparison case insensitive
+            for (char *p = prop.name; *p; ++p) {
+                *p = tolower(*p);
+            }
 
             if (name != prop.name) {
                 continue;

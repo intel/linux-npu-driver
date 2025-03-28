@@ -14,6 +14,7 @@
 #include "level_zero_driver/source/cmdlist.hpp"
 #include "level_zero_driver/source/context.hpp"
 #include "level_zero_driver/source/device.hpp"
+#include "level_zero_driver/source/event.hpp"
 #include "level_zero_driver/source/metric.hpp"
 #include "level_zero_driver/source/metric_query.hpp"
 #include "level_zero_driver/source/metric_streamer.hpp"

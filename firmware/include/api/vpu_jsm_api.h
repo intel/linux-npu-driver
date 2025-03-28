@@ -22,7 +22,7 @@
 /*
  * Minor version changes when API backward compatibility is preserved.
  */
-#define VPU_JSM_API_VER_MINOR 27
+#define VPU_JSM_API_VER_MINOR 29
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
@@ -53,8 +53,7 @@
  * Engine indexes.
  */
 #define VPU_ENGINE_COMPUTE 0
-#define VPU_ENGINE_COPY 1
-#define VPU_ENGINE_NB 2
+#define VPU_ENGINE_NB 1
 
 /*
  * VPU status values.
@@ -809,12 +808,22 @@ struct vpu_jsm_metric_streamer_update {
     /** Metric group mask that identifies metric streamer instance. */
     uint64_t metric_group_mask;
     /**
-     * Address and size of the buffer where the VPU will write metric data. If
-     * the buffer address is 0 or same as the currently used buffer the VPU will
-     * continue writing metric data to the current buffer. In this case the
-     * buffer size is ignored and the size of the current buffer is unchanged.
-     * If the address is non-zero and differs from the current buffer address the
-     * VPU will immediately switch data collection to the new buffer.
+     * Address and size of the buffer where the VPU will write metric data.
+     * This member dictates how the update operation should perform:
+     * 1. client needs information about the number of collected samples and the
+     *   amount of data written to the current buffer
+     * 2. client wants to switch to a new buffer
+     *
+     * Case 1. is identified by the buffer address being 0 or the same as the
+     * currently used buffer address. In this case the buffer size is ignored and
+     * the size of the current buffer is unchanged. The VPU will return an update
+     * in the vpu_jsm_metric_streamer_done structure. The internal writing position
+     * into the buffer is not changed.
+     *
+     * Case 2. is identified by the address being non-zero and differs from the
+     * current buffer address. The VPU will immediately switch data collection to
+     * the new buffer. Then the VPU will return an update in the
+     * vpu_jsm_metric_streamer_done structure.
      */
     uint64_t buffer_addr;
     uint64_t buffer_size;
@@ -959,6 +968,7 @@ struct vpu_ipc_msg_payload_hws_priority_band_setup {
     /*
      * Default quantum in 100ns units for scheduling across processes
      * within a priority band
+     * Minimum value supported by NPU is 1ms (10000 in 100ns units).
      */
     uint32_t process_quantum[VPU_HWS_NUM_PRIORITY_BANDS];
     /*
@@ -1051,7 +1061,10 @@ struct vpu_ipc_msg_payload_hws_set_context_sched_properties {
     int32_t in_process_priority;
     /* Zero padding / Reserved */
     uint32_t reserved_1;
-    /* Context quantum relative to other contexts of same priority in the same process */
+    /*
+     * Context quantum relative to other contexts of same priority in the same process
+     * Minimum value supported by NPU is 1ms (10000 in 100ns units).
+     */
     uint64_t context_quantum;
     /* Grace period when preempting context of the same priority within the same process */
     uint64_t grace_period_same_priority;

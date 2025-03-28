@@ -84,6 +84,7 @@ struct Context : _ze_context_handle_t {
     }
 
     void removeObject(IContextObject *obj) {
+        ctx->removeExpiredInternalBuffers();
         std::lock_guard<std::mutex> lock(mutex);
         objects.erase(obj);
     }

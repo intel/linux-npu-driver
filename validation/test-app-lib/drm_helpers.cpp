@@ -4,19 +4,18 @@
  * SPDX-License-Identifier: MIT
  *
  */
+#include "drm_helpers.h"
+
 #include <chrono>
 #include <fcntl.h>
 #include <filesystem>
-#include <libudev.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <thread>
-#include <unistd.h>
-
 #include <uapi/drm/ivpu_accel.h>
-#include "drm_helpers.h"
+#include <unistd.h>
 
 #define ACCEL_MAJOR 261
 #define ACCEL_MAX_MINORS 64

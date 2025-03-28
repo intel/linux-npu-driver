@@ -1,4 +1,4 @@
-# Copyright 2022-2024 Intel Corporation.
+# Copyright 2022-2025 Intel Corporation.
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -30,23 +30,44 @@ set(THREADING "TBB" CACHE STRING "Build OpenVINO with specific THREADING option"
 set(OPENVINO_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/build")
 file(MAKE_DIRECTORY ${OPENVINO_BINARY_DIR})
 
-ExternalProject_Add(
-  openvino_build
-  DOWNLOAD_COMMAND ""
-  DEPENDS openvino_source
-  SOURCE_DIR ${OPENVINO_SOURCE_DIR}
-  BINARY_DIR ${OPENVINO_BINARY_DIR}
-  INSTALL_DIR ${OPENVINO_PACKAGE_DIR}
-  CMAKE_ARGS
-    ${COMMON_CMAKE_ARGS}
+set(OPENVINO_CMAKE_ARGS
     -DCMAKE_BUILD_TYPE=Release
     -DCMAKE_INSTALL_PREFIX=${OPENVINO_PACKAGE_DIR}
-    -DENABLE_PYTHON=OFF
     -DENABLE_NCC_STYLE=OFF
     -DENABLE_CLANG_FORMAT=OFF
     -DENABLE_CPPLINT=OFF
     -DENABLE_INTEL_NPU_PROTOPIPE=ON
     -DTHREADING=${THREADING})
+set(OPENVINO_BUILD_DEPS openvino_source)
+set(BUILD_GENAI OFF)
+
+if (NOT ${LINUX_SYSTEM_NAME} STREQUAL "cros_sdk")
+  set(BUILD_GENAI ON)
+  set(VENV ${OPENVINO_BINARY_DIR}/venv)
+  set(PIP ${OPENVINO_BINARY_DIR}/venv/bin/pip)
+  set(WHEELS_DIR ${OPENVINO_BINARY_DIR}/wheels)
+  add_custom_target(create_venv ALL
+                    COMMAND python3 -m venv ${VENV})
+  add_custom_target(requirements_install ALL
+                    COMMAND ${PIP} install -U setuptools
+                    COMMAND ${PIP} install -r ${OPENVINO_SOURCE_DIR}/src/bindings/python/wheel/requirements-dev.txt
+                    DEPENDS create_venv openvino_source)
+  list(APPEND OPENVINO_BUILD_DEPS requirements_install)
+  list(APPEND OPENVINO_CMAKE_ARGS -DENABLE_WHEEL=ON -DPython3_EXECUTABLE=${VENV}/bin/python)
+else()
+  list(APPEND OPENVINO_CMAKE_ARGS -DENABLE_PYTHON=OFF)
+endif()
+
+ExternalProject_Add(
+  openvino_build
+  DOWNLOAD_COMMAND ""
+  DEPENDS ${OPENVINO_BUILD_DEPS}
+  SOURCE_DIR ${OPENVINO_SOURCE_DIR}
+  BINARY_DIR ${OPENVINO_BINARY_DIR}
+  INSTALL_DIR ${OPENVINO_PACKAGE_DIR}
+  CMAKE_ARGS
+    ${COMMON_CMAKE_ARGS}
+    ${OPENVINO_CMAKE_ARGS})
 
 # manually add an interface library for OpenVino so umd tests can link with it
 add_library(openvino_library INTERFACE)
@@ -54,6 +75,23 @@ add_dependencies(openvino_library openvino_build)
 target_include_directories(openvino_library INTERFACE ${OPENVINO_PACKAGE_DIR}/runtime/include)
 target_link_libraries(openvino_library INTERFACE ${OPENVINO_PACKAGE_DIR}/runtime/lib/intel64/libopenvino.so)
 add_library(openvino::runtime ALIAS openvino_library)
+
+if (${BUILD_GENAI})
+  set(GENAI_SOURCE_DIR "${CMAKE_BINARY_DIR}/third_party/openvino.genai")
+  ExternalProject_Add(
+    genai_build
+    DEPENDS openvino_build
+    GIT_REPOSITORY https://github.com/openvinotoolkit/openvino.genai
+    GIT_TAG ${GENAI_REVISION}
+    SOURCE_DIR ${GENAI_SOURCE_DIR}
+    UPDATE_DISCONNECTED TRUE
+    PATCH_COMMAND ""
+    CONFIGURE_COMMAND ""
+    INSTALL_COMMAND ""
+    BUILD_COMMAND ${PIP} wheel --verbose --wheel-dir ${WHEELS_DIR} ./thirdparty/openvino_tokenizers/[transformers] --find-links ${WHEELS_DIR} &&
+                  ${PIP} wheel --verbose --wheel-dir ${WHEELS_DIR} . --find-links ${WHEELS_DIR}
+    BUILD_IN_SOURCE ON)
+endif()
 
 ### OpenCV ###
 set(OPENCV_SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/src/opencv")
@@ -141,7 +179,7 @@ set(OPENVINO_LIBRARY_DIR ${OPENVINO_BINARY_RELEASE_DIR} PARENT_SCOPE)
 set(OPENCV_LIBRARY_DIR "${OPENCV_BINARY_DIR}/lib" PARENT_SCOPE)
 
 add_custom_target(
-  openvino_package ALL
+  copy_to_openvino_package ALL
   COMMAND
     cp -d ${OPENCV_BINARY_DIR}/setup_vars.sh ${OPENCV_PACKAGE_DIR}/setupvars.sh &&
     cp -d ${SAMPLES_APPS_BUILD_DIR}/intel64/benchmark_app ${SAMPLES_APPS_PACKAGE_DIR}/ &&
@@ -151,9 +189,33 @@ add_custom_target(
     git -C ${OPENCV_SOURCE_DIR} rev-list --max-count=1 HEAD > ${OPENVINO_PACKAGE_DIR}/opencv_sha &&
     git -C ${OPENVINO_SOURCE_DIR} rev-list --max-count=1 HEAD > ${OPENVINO_PACKAGE_DIR}/openvino_sha &&
     echo ${OPENVINO_PACKAGE_NAME} > ${OPENVINO_PACKAGE_DIR}/build_version &&
-    echo `git -C ${OPENVINO_SOURCE_DIR} rev-parse HEAD` `git -C ${OPENVINO_SOURCE_DIR} config --local --get remote.origin.url` > ${OPENVINO_PACKAGE_DIR}/manifest.txt &&
+    echo `git -C ${OPENVINO_SOURCE_DIR} rev-parse HEAD` `git -C ${OPENVINO_SOURCE_DIR} config --local --get remote.origin.url` > ${OPENVINO_PACKAGE_DIR}/manifest.txt
+  DEPENDS openvino_build opencv_build sample_apps_build single_image_test_build)
+
+set(OPENVINO_PACKAGE_DEPS copy_to_openvino_package)
+
+if (${BUILD_GENAI})
+  set(WHEELS_PACKAGE_DIR "${OPENVINO_PACKAGE_DIR}/wheels")
+  file(MAKE_DIRECTORY ${WHEELS_PACKAGE_DIR})
+  set(GENAI_TOOLS_PACKAGE_DIR ${OPENVINO_PACKAGE_DIR}/genai_tools)
+  file(MAKE_DIRECTORY ${GENAI_TOOLS_PACKAGE_DIR})
+  add_custom_target(
+    copy_wheels_to_openvino_package ALL
+    COMMAND
+      cp -d ${WHEELS_DIR}/openvino-*_x86_64.whl ${WHEELS_PACKAGE_DIR}/ &&
+      cp -d ${WHEELS_DIR}/openvino_genai-*_x86_64.whl ${WHEELS_PACKAGE_DIR}/ &&
+      cp -d ${WHEELS_DIR}/openvino_tokenizers-*-py3-none-linux_x86_64.whl ${WHEELS_PACKAGE_DIR}/ &&
+      cp -dr ${GENAI_SOURCE_DIR}/tools/llm_bench ${GENAI_TOOLS_PACKAGE_DIR}/
+    DEPENDS
+      genai_build)
+  list(APPEND OPENVINO_PACKAGE_DEPS copy_wheels_to_openvino_package)
+endif()
+
+add_custom_target(
+  openvino_package ALL
+  COMMAND
     tar -C ${OPENVINO_PACKAGE_DIR} -czf ${CMAKE_BINARY_DIR}/${OPENVINO_PACKAGE_NAME}.tar.gz .
-  DEPENDS openvino_build opencv_build sample_apps_build single_image_test_build
+  DEPENDS ${OPENVINO_PACKAGE_DEPS}
   BYPRODUCTS ${CMAKE_BINARY_DIR}/${OPENVINO_PACKAGE_NAME}.tar.gz)
 
 install(
@@ -200,3 +262,16 @@ install(DIRECTORY ${OPENCV_BINARY_DIR}/lib/
         PATTERN "libopencv_imgproc.so*"
         PATTERN "libopencv_video.so*"
         PATTERN "python3" EXCLUDE)
+
+if (${BUILD_GENAI})
+  install(DIRECTORY ${WHEELS_DIR}/
+          COMPONENT openvino-npu
+          DESTINATION ${VALIDATION_INSTALL_DATADIR}/wheels
+          FILES_MATCHING
+          PATTERN "openvino-*_x86_64.whl"
+          PATTERN "openvino_genai-*_x86_64.whl"
+          PATTERN "openvino_tokenizers-*-py3-none-linux_x86_64.whl")
+  install(DIRECTORY ${GENAI_SOURCE_DIR}/tools/llm_bench
+          COMPONENT openvino-npu
+          DESTINATION ${VALIDATION_INSTALL_DATADIR}/genai_tools)
+endif()

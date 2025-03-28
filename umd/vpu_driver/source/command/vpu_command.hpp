@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -14,6 +14,7 @@
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <any>
+#include <memory>
 #include <optional>
 #include <unordered_map>
 #include <utility>
@@ -28,6 +29,7 @@ class VPUBufferObject;
 struct VPUDescriptor {
     std::vector<char> data = {};
     uint64_t *commandOffset = nullptr;
+    uint32_t numDescriptors = 0;
 };
 
 class VPUCommand {
@@ -69,7 +71,7 @@ class VPUCommand {
 
     size_t getDescriptorSize() const { return descriptor ? descriptor->data.size() : 0; }
 
-    const std::vector<VPUBufferObject *> &getAssociateBufferObjects() const {
+    const std::vector<std::shared_ptr<VPUBufferObject>> &getAssociateBufferObjects() const {
         return bufferObjects;
     }
 
@@ -94,8 +96,10 @@ class VPUCommand {
 
   protected:
     bool appendAssociateBufferObject(VPUDeviceContext *ctx, const void *assocPtr);
-    void appendAssociateBufferObject(const std::vector<VPUBufferObject *> &bufferObjectsInput);
-    void appendAssociateBufferObject(VPUBufferObject *bo);
+    void appendAssociateBufferObject(
+        const std::vector<std::shared_ptr<VPUBufferObject>> &bufferObjectsInput);
+    void appendAssociateBufferObject(VPUDeviceContext *ctx, VPUBufferObject *bo);
+    void appendAssociateBufferObject(const std::shared_ptr<VPUBufferObject> bo);
     void eraseAssociatedBufferObjects(size_t pos);
 
     void setDescriptor(VPUDescriptor &&d) { descriptor = std::move(d); }
@@ -107,7 +111,7 @@ class VPUCommand {
 
   private:
     ScheduleType sType;
-    std::vector<VPUBufferObject *> bufferObjects = {};
+    std::vector<std::shared_ptr<VPUBufferObject>> bufferObjects = {};
     std::optional<VPUDescriptor> descriptor = {};
 };
 } // namespace VPU

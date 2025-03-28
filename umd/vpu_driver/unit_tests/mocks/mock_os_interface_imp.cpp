@@ -17,8 +17,8 @@
 #include <api/vpu_jsm_api.h>
 #include <cstdlib>
 #include <cstring>
-#include <drm/drm.h>
 #include <errno.h>
+#include <uapi/drm/drm.h>
 #include <uapi/drm/ivpu_accel.h>
 
 namespace VPU {
@@ -48,8 +48,8 @@ int MockOsInterfaceImp::osiFcntl(int fd, int cmd) {
     return -1;
 }
 
-int MockOsInterfaceImp::osiIoctl(int fd, unsigned long request, void *data) {
-    LOG(UTEST, "Cnt = %i, IOCTL = %#lx", callCntIoctl, request);
+int MockOsInterfaceImp::osiIoctl(int fd, unsigned int request, void *data) {
+    LOG(UTEST, "Cnt = %i, IOCTL = %#x", callCntIoctl, request);
     // Increase call count.
     callCntIoctl++;
 
@@ -85,9 +85,6 @@ int MockOsInterfaceImp::osiIoctl(int fd, unsigned long request, void *data) {
             break;
         case DRM_IVPU_PARAM_NUM_CONTEXTS:
             args->value = 64ULL;
-            break;
-        case DRM_IVPU_PARAM_CONTEXT_BASE_ADDRESS:
-            args->value = deviceLowBaseAddress;
             break;
         case DRM_IVPU_PARAM_CAPABILITIES:
             if (args->index == DRM_IVPU_CAP_METRIC_STREAMER) {

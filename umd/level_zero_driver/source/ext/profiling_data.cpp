@@ -39,6 +39,7 @@ GraphProfilingPool::GraphProfilingPool(VPU::VPUDeviceContext *ctx,
     L0_THROW_WHEN(poolBuffer == nullptr,
                   "Failed to allocate buffer object for profiling pool",
                   ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY);
+    memset(poolBuffer->getBasePointer(), 0, poolSize);
 }
 
 GraphProfilingPool::~GraphProfilingPool() {

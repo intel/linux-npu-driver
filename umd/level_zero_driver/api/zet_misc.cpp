@@ -214,6 +214,169 @@ exit:
     trace_zetGetTracerExpProcAddrTable(ret, version, pDdiTable);
     return ret;
 }
+
+ZE_APIEXPORT ze_result_t ZE_APICALL
+zetGetMetricDecoderExpProcAddrTable(ze_api_version_t version,
+                                    zet_metric_decoder_exp_dditable_t *pDdiTable) {
+    trace_zetGetMetricDecoderExpProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
+
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    pDdiTable->pfnCreateExp = nullptr;
+    pDdiTable->pfnDestroyExp = nullptr;
+    pDdiTable->pfnGetDecodableMetricsExp = nullptr;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zetGetMetricDecoderExpProcAddrTable(ret, version, pDdiTable);
+    return ret;
+}
+
+ZE_APIEXPORT ze_result_t ZE_APICALL
+zetGetMetricTracerExpProcAddrTable(ze_api_version_t version,
+                                   zet_metric_tracer_exp_dditable_t *pDdiTable) {
+    trace_zetGetMetricTracerExpProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
+
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    pDdiTable->pfnCreateExp = nullptr;
+    pDdiTable->pfnDestroyExp = nullptr;
+    pDdiTable->pfnEnableExp = nullptr;
+    pDdiTable->pfnDisableExp = nullptr;
+    pDdiTable->pfnReadDataExp = nullptr;
+    pDdiTable->pfnDecodeExp = nullptr;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zetGetMetricTracerExpProcAddrTable(ret, version, pDdiTable);
+    return ret;
+}
+
+ZE_APIEXPORT ze_result_t ZE_APICALL
+zetGetMetricProgrammableExpProcAddrTable(ze_api_version_t version,
+                                         zet_metric_programmable_exp_dditable_t *pDdiTable) {
+    trace_zetGetMetricProgrammableExpProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
+
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    pDdiTable->pfnGetExp = nullptr;
+    pDdiTable->pfnGetPropertiesExp = nullptr;
+    pDdiTable->pfnGetParamInfoExp = nullptr;
+    pDdiTable->pfnGetParamValueInfoExp = nullptr;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zetGetMetricProgrammableExpProcAddrTable(ret, version, pDdiTable);
+    return ret;
+}
+
+ZE_APIEXPORT ze_result_t ZE_APICALL
+zetGetDeviceExpProcAddrTable(ze_api_version_t version, zet_device_exp_dditable_t *pDdiTable) {
+    trace_zetGetDeviceExpProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
+
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    pDdiTable->pfnGetConcurrentMetricGroupsExp = nullptr;
+    pDdiTable->pfnCreateMetricGroupsFromMetricsExp = nullptr;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zetGetDeviceExpProcAddrTable(ret, version, pDdiTable);
+    return ret;
+}
+
+ZE_APIEXPORT ze_result_t ZE_APICALL
+zetGetMetricExpProcAddrTable(ze_api_version_t version, zet_metric_exp_dditable_t *pDdiTable) {
+    trace_zetGetMetricExpProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
+
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    pDdiTable->pfnCreateFromProgrammableExp2 = nullptr;
+    pDdiTable->pfnCreateFromProgrammableExp = nullptr;
+    pDdiTable->pfnDestroyExp = nullptr;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zetGetMetricExpProcAddrTable(ret, version, pDdiTable);
+    return ret;
+}
+
+ZE_APIEXPORT ze_result_t ZE_APICALL
+zetGetMetricGroupExpProcAddrTable(ze_api_version_t version,
+                                  zet_metric_group_exp_dditable_t *pDdiTable) {
+    trace_zetGetMetricGroupExpProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
+
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    pDdiTable->pfnCreateExp = nullptr;
+    pDdiTable->pfnCalculateMultipleMetricValuesExp = nullptr;
+    pDdiTable->pfnGetGlobalTimestampsExp = nullptr;
+    pDdiTable->pfnGetExportDataExp = nullptr;
+    pDdiTable->pfnCalculateMetricExportDataExp = nullptr;
+    pDdiTable->pfnAddMetricExp = nullptr;
+    pDdiTable->pfnRemoveMetricExp = nullptr;
+    pDdiTable->pfnCloseExp = nullptr;
+    pDdiTable->pfnDestroyExp = nullptr;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zetGetMetricGroupExpProcAddrTable(ret, version, pDdiTable);
+    return ret;
+}
 }
 
 namespace L0 {

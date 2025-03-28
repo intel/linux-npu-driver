@@ -6,6 +6,12 @@
 #ifndef VPU_NCE_HW_40XX_H
 #define VPU_NCE_HW_40XX_H
 
+#ifdef __cplusplus__
+#include <cstdint>
+#else
+#include <stdint.h>
+#endif
+
 namespace nn_public {
 
 #pragma pack(push, 1)

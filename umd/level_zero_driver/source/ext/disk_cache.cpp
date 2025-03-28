@@ -57,14 +57,6 @@ static size_t getCacheMaxSize() {
     return 1 * GB;
 }
 
-static size_t getCacheSize(VPU::OsInterface &osInfc, std::filesystem::path &cachePath) {
-    size_t size = 0;
-    osInfc.osiScanDir(cachePath, [&size](const char *name, struct stat &stat) {
-        size += static_cast<size_t>(stat.st_size);
-    });
-    return size;
-}
-
 DiskCache::DiskCache(VPU::OsInterface &osInfc)
     : osInfc(osInfc)
     , cachePath()
@@ -83,6 +75,19 @@ DiskCache::DiskCache(VPU::OsInterface &osInfc)
 
     maxSize = getCacheMaxSize();
     LOG(CACHE, "Cache is initialized, path: %s, max size: %lu", cachePath.c_str(), maxSize);
+}
+
+size_t DiskCache::getCacheSize() {
+    if (cachePath.empty()) {
+        LOG_W("Cache path is empty, disabling cache");
+        return 0;
+    }
+
+    size_t size = 0;
+    osInfc.osiScanDir(cachePath, [&size](const char *name, struct stat &stat) {
+        size += static_cast<size_t>(stat.st_size);
+    });
+    return size;
 }
 
 DiskCache::Key DiskCache::computeKey(const ze_graph_desc_2_t &desc) {
@@ -161,10 +166,10 @@ removeLeastUsedFiles(VPU::OsInterface &osInfc, std::filesystem::path &cachePath,
 }
 
 void DiskCache::setBlob(const Key &key, const std::unique_ptr<BlobContainer> &blob) {
-    if (blob == nullptr || cachePath.empty())
+    if (blob == nullptr || cachePath.empty() || blob->size > maxSize)
         return;
 
-    size_t cacheSize = getCacheSize(osInfc, cachePath);
+    size_t cacheSize = getCacheSize();
     if (cacheSize + blob->size > maxSize) {
         cacheSize -= removeLeastUsedFiles(osInfc, cachePath, cacheSize + blob->size - maxSize);
     }

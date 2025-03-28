@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -9,6 +9,7 @@
 #include "ze_memory.hpp"
 
 #include <gtest/gtest.h>
+#include <level_zero/ze_intel_npu_uuid.h>
 
 static void assertNotInitialized() {
     uint32_t numDrivers = 1;
@@ -126,4 +127,40 @@ TEST_P(InitFlagsTest, CallzeInitThenzeInitDriversThenExecuteCopyCommand) {
     executeCopyCommand(drivers[0]);
 }
 
-INSTANTIATE_TEST_SUITE_P(zeInitDrivers, InitFlagsTest, testing::Values(0, ZE_INIT_FLAG_VPU_ONLY));
+TEST_P(InitFlagsTest, CallzeInitThenExecuteCopyCommand) {
+    if (!test_vars::initialization_tests)
+        SKIP_("The test is skipped because --initialization_tests flag is missing");
+
+    assertNotInitialized();
+
+    ASSERT_EQ(zeInit(GetParam()), ZE_RESULT_SUCCESS);
+
+    uint32_t numDrivers = 0;
+    ASSERT_EQ(zeDriverGet(&numDrivers, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_GT(numDrivers, 0);
+
+    std::vector<ze_driver_handle_t> drivers(numDrivers);
+    ASSERT_EQ(zeDriverGet(&numDrivers, &drivers[0]), ZE_RESULT_SUCCESS);
+
+    ze_driver_handle_t driver = nullptr;
+    ze_driver_uuid_t uuid = ze_intel_npu_driver_uuid;
+    for (uint32_t i = 0; i < numDrivers; i++) {
+        ze_driver_properties_t properties = {
+            .stype = ZE_STRUCTURE_TYPE_DRIVER_PROPERTIES,
+            .pNext = nullptr,
+            .uuid = {},
+            .driverVersion = 0,
+        };
+        ASSERT_EQ(zeDriverGetProperties(drivers[i], &properties), ZE_RESULT_SUCCESS);
+        if (memcmp(&properties.uuid, &uuid, sizeof(uuid)) == 0) {
+            driver = drivers[0];
+            break;
+        }
+    }
+
+    ASSERT_NE(driver, nullptr);
+
+    executeCopyCommand(driver);
+}
+
+INSTANTIATE_TEST_SUITE_P(zeInit, InitFlagsTest, testing::Values(0, ZE_INIT_FLAG_VPU_ONLY));

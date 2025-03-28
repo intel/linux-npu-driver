@@ -25,7 +25,7 @@ VPUInferenceExecute::VPUInferenceExecute(
     const std::vector<std::pair<const void *, uint32_t>> &outputs,
     const std::pair<void *, uint32_t> &profiling,
     uint64_t inferenceId,
-    std::vector<VPUBufferObject *> bos,
+    std::vector<std::shared_ptr<VPUBufferObject>> &bos,
     size_t argumentPosition)
     : parser(parser)
     , hpi(hpi)
@@ -54,7 +54,7 @@ VPUInferenceExecute::create(std::shared_ptr<L0::ElfParser> parser,
                             const std::vector<std::pair<const void *, uint32_t>> &outputPtrs,
                             const std::pair<void *, uint32_t> &profilingPtr,
                             uint64_t inferenceId,
-                            std::vector<VPUBufferObject *> bos) {
+                            std::vector<std::shared_ptr<VPUBufferObject>> &bos) {
     size_t inputOutputBoPosition = bos.size();
     if (!parser->applyInputOutputs(cmdHpi, inputPtrs, outputPtrs, profilingPtr, bos)) {
         LOG_E("Failed to apply arguments to elf executor");
@@ -67,7 +67,7 @@ VPUInferenceExecute::create(std::shared_ptr<L0::ElfParser> parser,
                                                  outputPtrs,
                                                  profilingPtr,
                                                  inferenceId,
-                                                 std::move(bos),
+                                                 bos,
                                                  inputOutputBoPosition);
 }
 
@@ -98,7 +98,7 @@ bool VPUInferenceExecute::setUpdates(const ArgumentUpdatesMap &updatesMap) {
 bool VPUInferenceExecute::update(VPUCommandBuffer *commandBuffer) {
     cmdNeedsUpdate = false;
 
-    std::vector<VPUBufferObject *> newArgBos;
+    std::vector<std::shared_ptr<VPUBufferObject>> newArgBos;
     if (!parser->applyInputOutputs(hpi, inputs, outputs, profiling, newArgBos)) {
         return false;
     }

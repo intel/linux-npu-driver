@@ -79,7 +79,7 @@ ze_result_t Context::importMemory(VPU::VPUBufferObject::Location type, int32_t f
     if (!getDeviceContext()->getDeviceCapabilities().primeBuffersCapability)
         return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
 
-    VPU::VPUBufferObject *bo = ctx->importBufferObject(type, fd);
+    auto bo = ctx->importBufferObject(type, fd);
     if (bo == nullptr) {
         LOG_E("Failed to import buffer");
         return ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY;

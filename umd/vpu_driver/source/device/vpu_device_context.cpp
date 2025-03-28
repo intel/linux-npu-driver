@@ -14,7 +14,6 @@
 
 #include <exception>
 #include <memory>
-#include <string.h>
 #include <uapi/drm/ivpu_accel.h>
 
 namespace VPU {
@@ -40,8 +39,9 @@ VPUBufferObject::Type convertDmaToShaveRange(VPUBufferObject::Type type) {
     return type;
 }
 
-VPUBufferObject *VPUDeviceContext::importBufferObject(VPUBufferObject::Location type, int32_t fd) {
-    std::unique_ptr<VPUBufferObject> bo = VPUBufferObject::importFromFd(*drvApi, type, fd);
+std::shared_ptr<VPUBufferObject>
+VPUDeviceContext::importBufferObject(VPUBufferObject::Location type, int32_t fd) {
+    auto bo = VPUBufferObject::importFromFd(*drvApi, type, fd);
     if (bo == nullptr) {
         LOG_E("Failed to import VPUBufferObject from file descriptor");
         return nullptr;
@@ -55,16 +55,17 @@ VPUBufferObject *VPUDeviceContext::importBufferObject(VPUBufferObject::Location 
         return nullptr;
     }
     LOG(DEVICE, "Buffer object %p successfully imported and added to trackedBuffers", &it->second);
-    return it->second.get();
+    return it->second;
 }
 
-VPUBufferObject *VPUDeviceContext::createBufferObject(size_t size,
-                                                      VPUBufferObject::Type type,
-                                                      VPUBufferObject::Location loc) {
+std::shared_ptr<VPUBufferObject>
+VPUDeviceContext::createBufferObject(size_t size,
+                                     VPUBufferObject::Type type,
+                                     VPUBufferObject::Location loc) {
     if (!hwInfo->dmaMemoryRangeCapability && (static_cast<uint32_t>(type) & DRM_IVPU_BO_DMA_MEM))
         type = convertDmaToShaveRange(type);
 
-    std::unique_ptr<VPUBufferObject> bo = VPUBufferObject::create(*drvApi, loc, type, size);
+    auto bo = VPUBufferObject::create(*drvApi, loc, type, size);
     if (bo == nullptr) {
         LOG_E("Failed to create VPUBufferObject");
         return nullptr;
@@ -82,7 +83,7 @@ VPUBufferObject *VPUDeviceContext::createBufferObject(size_t size,
         LOG_E("Failed to add buffer object to trackedBuffers");
         return nullptr;
     }
-    return it->second.get();
+    return it->second;
 }
 
 bool VPUDeviceContext::freeMemAlloc(void *ptr) {
@@ -120,7 +121,7 @@ bool VPUDeviceContext::freeMemAlloc(VPUBufferObject *bo) {
     return true;
 }
 
-VPUBufferObject *VPUDeviceContext::findBuffer(const void *ptr) const {
+std::shared_ptr<VPUBufferObject> VPUDeviceContext::findBufferObject(const void *ptr) const {
     if (ptr == nullptr) {
         LOG_E("ptr passed is nullptr!");
         return nullptr;
@@ -139,17 +140,25 @@ VPUBufferObject *VPUDeviceContext::findBuffer(const void *ptr) const {
         return nullptr;
     }
 
+    return bo;
+}
+
+VPUBufferObject *VPUDeviceContext::findBuffer(const void *ptr) const {
+    auto bo = findBufferObject(ptr);
+    if (bo == nullptr) {
+        return nullptr;
+    }
     return bo.get();
 }
 
-VPUBufferObject *VPUDeviceContext::createInternalBufferObject(size_t size,
-                                                              VPUBufferObject::Type range) {
+std::shared_ptr<VPUBufferObject>
+VPUDeviceContext::createUntrackedBufferObject(size_t size, VPUBufferObject::Type range) {
     if (size == 0) {
         LOG_E("Invalid size - %lu", size);
         return nullptr;
     }
 
-    VPUBufferObject *bo = createBufferObject(size, range, VPUBufferObject::Location::Internal);
+    auto bo = VPUBufferObject::create(*drvApi, VPUBufferObject::Location::Internal, range, size);
     if (bo == nullptr) {
         LOG_E("Failed to allocate shared memory, size = %lu, type = %i",
               size,
@@ -157,12 +166,24 @@ VPUBufferObject *VPUDeviceContext::createInternalBufferObject(size_t size,
         return nullptr;
     }
 
-    if (!(range == VPUBufferObject::Type::UncachedShave ||
-          range == VPUBufferObject::Type::UncachedFw)) {
-        memset(bo->getBasePointer(), 0, bo->getAllocSize());
-    }
-
+    const std::lock_guard<std::mutex> lock(mtx);
+    untrackedBuffers.emplace_back(bo);
     return bo;
+}
+
+VPUBufferObject *VPUDeviceContext::createInternalBufferObject(size_t size,
+                                                              VPUBufferObject::Type range) {
+    auto bo = createUntrackedBufferObject(size, range);
+    if (bo == nullptr) {
+        return nullptr;
+    }
+    const std::lock_guard<std::mutex> lock(mtx);
+    auto [it, success] = trackedBuffers.try_emplace(bo->getBasePointer(), std::move(bo));
+    if (!success) {
+        LOG_E("Failed to add internal buffer object to trackedBuffers");
+        return nullptr;
+    }
+    return it->second.get();
 }
 
 size_t VPUDeviceContext::getPageAlignedSize(size_t reqSize) {
@@ -183,8 +204,8 @@ uint64_t VPUDeviceContext::getBufferVPUAddress(const void *ptr) const {
     return bo->getVPUAddr() + offset;
 }
 
-bool VPUDeviceContext::getCopyCommandDescriptor(const void *src,
-                                                void *dst,
+bool VPUDeviceContext::getCopyCommandDescriptor(uint64_t srcAddr,
+                                                uint64_t dstAddr,
                                                 size_t size,
                                                 VPUDescriptor &desc) {
     if (hwInfo->getCopyCommand == nullptr) {
@@ -192,7 +213,7 @@ bool VPUDeviceContext::getCopyCommandDescriptor(const void *src,
         return false;
     }
 
-    return hwInfo->getCopyCommand(this, src, dst, size, desc);
+    return hwInfo->getCopyCommand(srcAddr, dstAddr, size, desc);
 }
 
 void VPUDeviceContext::printCopyDescriptor(void *desc, vpu_cmd_header_t *cmd) {

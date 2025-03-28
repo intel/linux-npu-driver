@@ -26,6 +26,7 @@ To safe_cast(From x) {
                   "safe_cast From floating point type is not supported");
     static_assert(!std::is_floating_point_v<To>,
                   "safe_cast To floating point type is not supported");
+    static_assert(!std::is_same_v<To, From>, "safe_cast is not required for same type");
 
     if constexpr (std::is_signed_v<From> && std::is_signed_v<To>) {
         if constexpr (sizeof(From) > sizeof(To)) {

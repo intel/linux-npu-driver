@@ -5,11 +5,11 @@
  *
  */
 
+#include "frame_counter.hpp"
 #include "graph_utilities.hpp"
 #include "umd_dma_heap_system.hpp"
 
 #include <chrono>
-#include <drm/drm.h>
 #include <future>
 #include <level_zero/ze_api.h>
 #include <stdexcept>
@@ -323,7 +323,7 @@ class CompilerInDriverBmpUsingDmaHeap : public CompilerInDriverLongBmp {
                it should consit image loaded above
              */
             graph->setArgumentValue(argIndex++, scopedImportedMemory.get());
-            importedGraphInput.push_back(scopedImportedMemory);
+            importedGraphInput.push_back(std::move(scopedImportedMemory));
         }
 
         graph->allocateOutputArguments(MemType::SHARED_MEMORY);
@@ -377,6 +377,7 @@ TEST_P(CompilerInDriverBmpUsingDmaHeap, CompileInitExecuteUsingPrimeBufferInput)
     if (ret != ZE_RESULT_SUCCESS) {        \
         EXPECT_EQ(ret, ZE_RESULT_SUCCESS); \
         stats.status = ret;                \
+        stats.counter.stopTimer();         \
         return stats;                      \
     }
 
@@ -390,22 +391,18 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
         std::string modelName;
         std::shared_ptr<Graph> graph;
 
-        uint32_t time = 0;
+        uint32_t execTimeSec = 0;
         uint32_t targetFps = 0;
         double fpsDeviation = 0;
         ze_command_queue_priority_t priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL;
         ze_command_queue_workload_type_t workloadType = ZE_WORKLOAD_TYPE_FORCE_UINT32;
         size_t delayInUs = 0;
+        size_t parallelReqs = 0;
     };
 
     struct InferenceStats {
         ze_result_t status = ZE_RESULT_SUCCESS;
-        int totalFrames = 0;
-        int droppedFrames = 0;
-        double realFPS = 0;
-        double minExecTimePerFrame = DBL_MAX;
-        double avgExecTimePerFrame = 0;
-        double maxExecTimePerFrame = 0;
+        FrameCounter counter;
     };
 
     std::vector<LocalInference> testInferences = {};
@@ -421,42 +418,34 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
         for (auto &model : modelsSet) {
             LocalInference inference(model);
 
-            if (model["target_fps"].IsDefined())
-                inference.targetFps = model["target_fps"].as<uint32_t>();
-            else
-                inference.targetFps = 30;
-
-            if (model["exec_time_in_secs"].IsDefined())
-                inference.time = model["exec_time_in_secs"].as<uint32_t>();
-            else
-                inference.time = 3;
+            inference.targetFps = model["target_fps"].as<uint32_t>(30);
+            inference.execTimeSec = model["exec_time_in_secs"].as<uint32_t>(3);
+            inference.delayInUs = model["delay_in_us"].as<size_t>(0);
+            inference.fpsDeviation = model["fps_deviation"].as<double>(0);
+            inference.parallelReqs = model["parallel_reqs"].as<size_t>(1);
+            ASSERT_GT(inference.parallelReqs, 0) << "parallel_reqs field has to be greater than 0";
 
             if (model["priority"].IsDefined() && model["priority"].as<std::string>().size())
                 inference.priority = toZePriority(model["priority"].as<std::string>());
 
-            if (model["delay_in_us"].IsDefined())
-                inference.delayInUs = model["delay_in_us"].as<size_t>();
-
             if (model["workload_type"].IsDefined() &&
                 model["workload_type"].as<std::string>().size()) {
-                if (model["workload_type"].as<std::string>().compare("default") == 0)
+                const auto &workloadType = model["workload_type"].as<std::string>();
+                if (workloadType == "default") {
                     inference.workloadType = ZE_WORKLOAD_TYPE_DEFAULT;
-                else if (model["workload_type"].as<std::string>().compare("background") == 0)
+                } else if (workloadType == "background") {
                     inference.workloadType = ZE_WORKLOAD_TYPE_BACKGROUND;
-                else
+                } else {
                     FAIL() << "Unsupported workload type in configuration";
+                }
             }
-
-            if (model["fps_deviation"].IsDefined())
-                inference.fpsDeviation = model["fps_deviation"].as<double>();
 
             std::shared_ptr<Graph> graph =
                 Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, model);
 
             inference.graph = std::move(graph);
-
             inference.modelName = model["path"].as<std::string>();
-            testInferences.push_back(inference);
+            testInferences.push_back(std::move(inference));
         }
     }
 
@@ -483,106 +472,72 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
         BREAK_ON_FAIL(ret, stats);
         auto queue = scopedQueue.get();
 
-        auto scopedList = zeScope::commandListCreate(zeContext, zeDevice, cmdListDesc, ret);
-        BREAK_ON_FAIL(ret, stats);
-        auto list = scopedList.get();
-
         inference.graph->allocateArguments(MemType::SHARED_MEMORY);
-
         inference.graph->copyInputData();
-
-        ret = zeGraphDDITableExt->pfnAppendGraphInitialize(list,
-                                                           inference.graph->handle,
-                                                           nullptr,
-                                                           0,
-                                                           nullptr);
+        ret = zeGraphDDITableExt->pfnGraphInitialize(inference.graph->handle);
         BREAK_ON_FAIL(ret, stats);
 
-        ret = zeCommandListClose(list);
-        BREAK_ON_FAIL(ret, stats);
+        std::vector<std::unique_ptr<InferenceRequest>> inferReqs;
+        for (size_t i = 0; i < inference.parallelReqs; i++) {
+            if (i > 0) {
+                inference.graph->allocateArguments(MemType::SHARED_MEMORY);
+                inference.graph->copyInputData();
+            }
+            inferReqs.push_back(inference.graph->newInferRequestUsingQueue(queue));
+        }
 
-        ret = zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr);
-        BREAK_ON_FAIL(ret, stats);
-
-        ret = zeCommandQueueSynchronize(queue, graphSyncTimeout);
-        BREAK_ON_FAIL(ret, stats);
-
-        /*For the case when config request workload type all inferences are started
-          as background, the requested workload will be set after first inference loop
+        /*
+         * For the case when config request workload type all inferences are started
+         * as background, the requested workload will be set after first inference loop
          */
         if (workloadType != ZE_WORKLOAD_TYPE_FORCE_UINT32) {
             ret = zeCommandQueueDDITableExt->pfnSetWorkloadType(queue, ZE_WORKLOAD_TYPE_BACKGROUND);
             BREAK_ON_FAIL(ret, stats);
-            ret = zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr);
+
+            ret = inferReqs[0]->runAsync();
             BREAK_ON_FAIL(ret, stats);
 
-            ret = zeCommandQueueSynchronize(queue, graphSyncTimeout);
+            ret = inferReqs[0]->wait(UINT64_MAX);
             BREAK_ON_FAIL(ret, stats);
         }
 
-        ret = zeCommandListReset(list);
-        BREAK_ON_FAIL(ret, stats);
-
-        ret = zeGraphDDITableExt->pfnAppendGraphExecute(list,
-                                                        inference.graph->handle,
-                                                        nullptr,
-                                                        nullptr,
-                                                        0,
-                                                        nullptr);
-        BREAK_ON_FAIL(ret, stats);
-
-        ret = zeCommandListClose(list);
-        BREAK_ON_FAIL(ret, stats);
-
         std::this_thread::sleep_for(std::chrono::microseconds(inference.delayInUs));
 
-        auto endInferenceTime =
-            std::chrono::steady_clock::now() + std::chrono::seconds(inference.time);
-        double summaryInferenceTimeMs = 0;
-        auto frameTargetTimeUs = std::chrono::microseconds(1000000 / inference.targetFps);
-        auto nextFrameStartPoint = std::chrono::steady_clock::now() + std::chrono::microseconds(5);
+        stats.counter.startTimer(inference.execTimeSec, inference.targetFps);
+        for (size_t i = 1; i < inferReqs.size(); i++) {
+            ret = inferReqs[i]->runAsync();
+            BREAK_ON_FAIL(ret, stats);
+        }
 
-        while (std::chrono::steady_clock::now() < endInferenceTime) {
-            auto frameBeginIncludingWait = std::chrono::steady_clock::now();
-            while (std::chrono::steady_clock::now() < nextFrameStartPoint)
-                std::this_thread::yield();
+        size_t inferReqIndex = 0;
+        while (!stats.counter.isTimeout()) {
+            stats.counter.delayNextFrame();
 
-            auto frameBegin = std::chrono::steady_clock::now();
-            ret = zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr);
+            ret = inferReqs[inferReqIndex]->runAsync();
             BREAK_ON_FAIL(ret, stats);
 
-            ret = zeCommandQueueSynchronize(
-                queue,
-                std::chrono::nanoseconds(std::chrono::seconds(inference.time)).count());
+            inferReqIndex++;
+            inferReqIndex = inferReqIndex >= inferReqs.size() ? 0 : inferReqIndex;
+
+            ret = inferReqs[inferReqIndex]->wait(UINT64_MAX);
             BREAK_ON_FAIL(ret, stats);
+
             if (workloadType != ZE_WORKLOAD_TYPE_FORCE_UINT32) {
                 ret = zeCommandQueueDDITableExt->pfnSetWorkloadType(queue, workloadType);
                 BREAK_ON_FAIL(ret, stats);
                 workloadType = ZE_WORKLOAD_TYPE_FORCE_UINT32;
             }
-            nextFrameStartPoint = frameBegin + frameTargetTimeUs;
 
-            std::chrono::duration<double, std::milli> durationMs =
-                std::chrono::steady_clock::now() - frameBeginIncludingWait;
-            summaryInferenceTimeMs += durationMs.count();
-
-            durationMs = std::chrono::steady_clock::now() - frameBegin;
-            stats.minExecTimePerFrame = std::min(stats.minExecTimePerFrame, durationMs.count());
-            stats.avgExecTimePerFrame += durationMs.count();
-            stats.maxExecTimePerFrame = std::max(stats.maxExecTimePerFrame, durationMs.count());
-
-            stats.totalFrames++;
-
-            if (inference.graph->classIndexes.size()) {
+            // TODO: Add multiple inference request output validation
+            if (inference.parallelReqs == 1 && inference.graph->classIndexes.size()) {
                 inference.graph->checkResults();
                 inference.graph->clearOutput();
             }
-        }
-        stats.realFPS = 1000 * stats.totalFrames / summaryInferenceTimeMs;
-        int targetFrames = inference.targetFps * inference.time;
-        stats.droppedFrames = std::max(targetFrames - stats.totalFrames, 0);
-        stats.avgExecTimePerFrame /= stats.totalFrames;
 
+            stats.counter.recordFrame(inferReqs[inferReqIndex]->latencyMs);
+        }
+
+        stats.counter.stopTimer();
         return stats;
     };
 };
@@ -612,31 +567,32 @@ TEST_P(CompilerInDriverMultiInference, Pipeline) {
         InferenceStats stats = results[i].get();
 
         PRINTF("----------------------------------------------------\n");
-        PRINTF("Model:                %s \n", testInferences[i].modelName.c_str());
+        PRINTF("Model:                %s\n", testInferences[i].modelName.c_str());
         if (stats.status == ZE_RESULT_SUCCESS)
-            PRINTF("Status:               SUCCESS \n");
+            PRINTF("Status:               SUCCESS\n");
         else
-            PRINTF("Status:               FAIL (%#x) \n", stats.status);
-        PRINTF("FramesExecuted:       %d \n", stats.totalFrames);
-        PRINTF("FramesDropped:        %d \n", stats.droppedFrames);
-        PRINTF("CalculatedFPS:        %f \n", stats.realFPS);
-        PRINTF("MinFrameExecTime[ms]: %f \n", stats.minExecTimePerFrame);
-        PRINTF("AvgFrameExecTime[ms]: %f \n", stats.avgExecTimePerFrame);
-        PRINTF("MaxFrameExecTime[ms]: %f \n", stats.maxExecTimePerFrame);
+            PRINTF("Status:               FAIL (%#x)\n", stats.status);
+        PRINTF("FramesExecuted:       %lu\n", stats.counter.frameCount);
+        PRINTF("FramesDropped:        %lu\n", stats.counter.frameDrops);
+        PRINTF("CalculatedFPS:        %f\n", stats.counter.fps);
+        PRINTF("ExecutionTime[ms]:    %f\n", stats.counter.totalTimeMs);
+        PRINTF("MinFrameExecTime[ms]: %f\n", stats.counter.frameMinMs);
+        PRINTF("AvgFrameExecTime[ms]: %f\n", stats.counter.frameAvgMs);
+        PRINTF("MaxFrameExecTime[ms]: %f\n", stats.counter.frameMaxMs);
 
         /*If defined acceptance criteraia for fps rate*/
         if (testInferences[i].fpsDeviation) {
             const double minFPS =
                 testInferences[i].targetFps * (1 - testInferences[i].fpsDeviation);
-            EXPECT_GE(static_cast<double>(stats.realFPS), minFPS);
+            EXPECT_GE(static_cast<double>(stats.counter.fps), minFPS);
         }
 
         if (testInferences[i].workloadType == ZE_WORKLOAD_TYPE_DEFAULT) {
-            defaultFPSInferencesRate.first += stats.realFPS;
+            defaultFPSInferencesRate.first += stats.counter.fps;
             defaultFPSInferencesRate.second++;
         }
         if (testInferences[i].workloadType == ZE_WORKLOAD_TYPE_BACKGROUND) {
-            backgroundFPSInferencesRate.first += stats.realFPS;
+            backgroundFPSInferencesRate.first += stats.counter.fps;
             backgroundFPSInferencesRate.second++;
         }
     }

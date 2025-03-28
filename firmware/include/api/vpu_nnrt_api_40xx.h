@@ -33,6 +33,12 @@
  *
  * API changelog
  * -------------
+ * 11.7:
+ *   - Added VpuManagedMappedInference::inference_feature_cfg to allow the passing
+ *     of additional information.
+ *     Added disable_dma_sw_fifo_ to allow skipping the use of DMA SW FIFO
+ *     when it is not required by an inference.
+ *
  * 11.6:
  *   - Added VpuWorkItem::next_workitem_idx to allow a linked list of work items to be enqueued.
  *
@@ -42,7 +48,7 @@
  *     to allow runtime to efficiently fill barrier FIFOs.
  */
 #define VPU_NNRT_40XX_API_VER_MAJOR 11
-#define VPU_NNRT_40XX_API_VER_MINOR 6
+#define VPU_NNRT_40XX_API_VER_MINOR 7
 #define VPU_NNRT_40XX_API_VER_PATCH 0
 #define VPU_NNRT_40XX_API_VER ((VPU_NNRT_40XX_API_VER_MAJOR << 16) | VPU_NNRT_40XX_API_VER_MINOR)
 
@@ -133,7 +139,8 @@ struct VPU_ALIGNED_STRUCT(8) VpuTaskBarrierDependency {
     uint64_t wait_mask_lo_;
     uint64_t post_mask_hi_;
     uint64_t post_mask_lo_;
-    uint8_t reserved_[8];
+    uint8_t deprecated_[2]; // Deprecated member, do not reuse until next API major version update
+    uint8_t pad_[6];
 };
 
 static_assert(sizeof(VpuTaskBarrierDependency) == 40, "VpuTaskBarrierDependency size != 40");
@@ -152,10 +159,11 @@ struct VPU_ALIGNED_STRUCT(32) VpuDPUInvariant {
     VpuDPUInvariantRegisters registers_;
     VpuTaskBarrierDependency barriers_;
     VpuTaskSchedulingBarrierConfig barriers_sched_;
-    uint8_t reserved_[8];
+    uint8_t deprecated0_[8]; // Deprecated member, do not reuse until next API major version update
     uint16_t variant_count_;
     uint8_t cluster_;
-    uint8_t pad_[5];
+    uint8_t deprecated1_[2]; // Deprecated member, do not reuse until next API major version update
+    uint8_t pad_[3];
 };
 
 static_assert(sizeof(VpuDPUInvariant) == 352, "VpuDPUInvariant size != 352");
@@ -167,7 +175,8 @@ struct VPU_ALIGNED_STRUCT(32) VpuDPUVariant {
     VpuDPUVariantRegisters registers_;
     VpuPtr<VpuDPUInvariant> invariant_;
     uint32_t invariant_index_;
-    uint8_t pad_[20];
+    uint8_t deprecated_[13]; // Deprecated member, do not reuse until next API major version update
+    uint8_t pad_[7];
 };
 
 static_assert(sizeof(VpuDPUVariant) == 224, "VpuDPUVariant size != 224");
@@ -176,7 +185,7 @@ static_assert(offsetof(VpuDPUVariant, invariant_index_) % 4 == 0, "Alignment err
 
 struct VPU_ALIGNED_STRUCT(4) VpuResourceRequirements {
     uint32_t nn_slice_length_;
-    uint8_t reserved_[6];
+    uint8_t deprecated_[6]; // Deprecated member, do not reuse until next API major version update
     uint8_t nn_slice_count_;
     uint8_t nn_barriers_;
 };
@@ -199,7 +208,7 @@ struct VPU_ALIGNED_STRUCT(8) VpuActKernelRange {
     VpuPtr<actKernelEntryFunction> kernel_entry;
     VpuPtr<void> text_window_base;
     uint32_t code_size;
-    uint8_t reserved_[4];
+    uint8_t deprecated_[4]; // Deprecated member, do not reuse until next API major version update
     uint32_t kernel_invo_count;
     uint8_t pad1_[4];
 };
@@ -214,7 +223,7 @@ struct VPU_ALIGNED_STRUCT(32) VpuActKernelInvocation {
     VpuPtr<void> perf_packet_out;
     VpuTaskBarrierDependency barriers;
     VpuTaskSchedulingBarrierConfig barriers_sched;
-    uint8_t reserved_[4];
+    uint8_t deprecated_[4]; // Deprecated member, do not reuse until next API major version update
     uint32_t invo_tile;
     uint32_t kernel_range_index;
     uint32_t next_aki_wl_addr;

@@ -10,7 +10,6 @@
 #include <stdint.h>
 
 #include "compiler.hpp"
-#include "compiler_common.hpp"
 #include "level_zero/ze_api.h"
 #include "level_zero/ze_graph_ext.h"
 #include "level_zero_driver/source/context.hpp"
@@ -39,7 +38,7 @@ ze_result_t QueryNetwork::create(ze_context_handle_t hContext,
         return ZE_RESULT_ERROR_UNSUPPORTED_ENUMERATION;
     }
 
-    if (!Compiler::checkVersion(VCL_COMPILER_VERSION_MAJOR)) {
+    if (!Compiler::isApiComatible()) {
         LOG_E("Compiler version mismatch! Version expected:%d.%d, current:%d.%d",
               VCL_COMPILER_VERSION_MAJOR,
               VCL_COMPILER_VERSION_MINOR,
@@ -54,14 +53,9 @@ ze_result_t QueryNetwork::create(ze_context_handle_t hContext,
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 
-    vcl_compiler_desc_t compilerDesc = {};
-    compilerDesc.platform = static_cast<vcl_platform_t>(pCtx->getCompilerPlatform());
-    compilerDesc.debug_level = cidLogLevel;
-
     vcl_compiler_handle_t compiler = NULL;
     vcl_log_handle_t logHandle = NULL;
-
-    vcl_result_t ret = Vcl::sym().compilerCreate(compilerDesc, &compiler, &logHandle);
+    vcl_result_t ret = Compiler::compilerCreate(pCtx->getDeviceCapabilities(), compiler, logHandle);
     if (ret != VCL_RESULT_SUCCESS) {
         LOG_E("Failed to create compiler! Result:%x", ret);
         return ZE_RESULT_ERROR_UNKNOWN;

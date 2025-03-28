@@ -313,7 +313,7 @@ Graph::getDeviceGraphProperties2(ze_device_handle_t hDevice,
     uint32_t runtimeVer = static_cast<uint32_t>(hwInfo.fwMappedInferenceVersion);
     pDeviceGraphProperties2->runtimeVersion = toVersion<ze_graph_version_info_t>(runtimeVer);
 
-    elf::VersionsProvider elfVer = ElfParser::getElfVer(hwInfo.compilerPlatform);
+    elf::VersionsProvider elfVer = ElfParser::getElfVer(hwInfo.deviceId);
     pDeviceGraphProperties2->elfVersion = {elfVer.getLibraryELFVersion().getMajor(),
                                            elfVer.getLibraryELFVersion().getMinor(),
                                            elfVer.getLibraryELFVersion().getPatch()};
@@ -365,9 +365,10 @@ addOptionToBuildFlags(std::string_view key, std::string_view value, std::string 
 void Graph::addDeviceConfigToBuildFlags() {
     // Stepping and max_tiles are not supported in versions < 5.3
     if (Compiler::getCompilerVersionMajor() > 5 ||
-        (Compiler::getCompilerVersionMajor() == 5 && Compiler::getCompilerVersionMinor() >= 3)) {
+        (Compiler::getCompilerVersionMajor() == 5 && Compiler::getCompilerVersionMinor() >= 3) ||
+        Compiler::getCompilerVersionMajor() < 7) {
         if (buildFlags.find("STEPPING") == std::string::npos) {
-            uint32_t deviceRevision = ctx->getDeviceRevision();
+            uint16_t deviceRevision = ctx->getDeviceRevision();
             addOptionToBuildFlags("NPU_STEPPING", std::to_string(deviceRevision), buildFlags);
         }
 

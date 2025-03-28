@@ -99,7 +99,12 @@ TEST_F(VPUJobTest, createJobWithCopyCommands) {
 
     auto job = std::make_unique<VPUJob>(ctx);
     for (int i = 0; i < cmdCount; i++)
-        EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx, srcPtr, destPtr, 4096)));
+        EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx,
+                                                              srcPtr,
+                                                              ctx->findBufferObject(srcPtr),
+                                                              destPtr,
+                                                              ctx->findBufferObject(destPtr),
+                                                              4096)));
     EXPECT_TRUE(job->closeCommands());
 
     EXPECT_EQ(1u, job->getCommandBuffers().size());
@@ -125,7 +130,12 @@ TEST_F(VPUJobTest, createJobWithDifferentTypesOfCommandExpectSuccess) {
 
     auto job = std::make_unique<VPUJob>(ctx);
     EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx, tsHeap)));
-    EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx, shareMem, shareMem, allocSize)));
+    EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx,
+                                                          shareMem,
+                                                          ctx->findBufferObject(shareMem),
+                                                          shareMem,
+                                                          ctx->findBufferObject(shareMem),
+                                                          allocSize)));
 
     // Add internal events because of engine switch
     VPUEventCommand::KMDEventDataType *eventPtr =
@@ -133,11 +143,21 @@ TEST_F(VPUJobTest, createJobWithDifferentTypesOfCommandExpectSuccess) {
 
     // VPUEventWaitCommand is forward type
     EXPECT_TRUE(job->appendCommand(VPUEventWaitCommand::create(ctx, eventPtr)));
-    EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx, hostMem, shareMem, allocSize)));
+    EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx,
+                                                          hostMem,
+                                                          ctx->findBufferObject(hostMem),
+                                                          shareMem,
+                                                          ctx->findBufferObject(shareMem),
+                                                          allocSize)));
     EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx, tsHeap)));
 
     // Add internal events because of engine switch
-    EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx, shareMem, shareMem, allocSize)));
+    EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx,
+                                                          shareMem,
+                                                          ctx->findBufferObject(shareMem),
+                                                          shareMem,
+                                                          ctx->findBufferObject(shareMem),
+                                                          allocSize)));
     EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx, tsHeap)));
 
     EXPECT_TRUE(job->closeCommands());

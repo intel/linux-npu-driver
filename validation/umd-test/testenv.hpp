@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023-2024 Intel Corporation
+ * Copyright (C) 2023-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -17,7 +17,7 @@
 #include <yaml-cpp/yaml.h>
 
 namespace test_vars {
-extern bool test_with_gpu;
+extern bool forceGpu;
 extern bool disable_metrics;
 extern bool initialization_tests;
 extern uint32_t globalSyncTimeoutMs;
@@ -52,7 +52,7 @@ class Environment : public ::testing::Environment {
     }
 
     void SetUp() {
-        if (test_vars::test_with_gpu) {
+        if (test_vars::forceGpu) {
             config = configWithGpu;
             PRINTF("Testing with GPU L0.\n");
             PRINTF("Disabling metrics (ZET_ENABLE_METRICS=%d) (EISW-131452).\n",
@@ -80,13 +80,17 @@ class Environment : public ::testing::Environment {
         EXPECT_EQ(setenv("ZE_ENABLE_PARAMETER_VALIDATION", "1", 0), 0);
         */
 
-        ASSERT_EQ(zeInit(0), ZE_RESULT_SUCCESS); // 0 - ZE_INIT_ALL_DRIVER_TYPES_ENABLED
-
         uint32_t drvCount = 0u;
-        ASSERT_EQ(zeDriverGet(&drvCount, nullptr), ZE_RESULT_SUCCESS);
+        ze_init_driver_type_desc_t initDriverDesc{
+            .stype = ZE_STRUCTURE_TYPE_INIT_DRIVER_TYPE_DESC,
+            .pNext = nullptr,
+            .flags = UINT32_MAX, // UINT32_MAX - all driver types requested
+        };
+        ASSERT_EQ(zeInitDrivers(&drvCount, nullptr, &initDriverDesc), ZE_RESULT_SUCCESS);
+        ASSERT_GT(drvCount, 0);
 
         std::vector<ze_driver_handle_t> drivers(drvCount);
-        ASSERT_EQ(zeDriverGet(&drvCount, drivers.data()), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(zeInitDrivers(&drvCount, &drivers[0], &initDriverDesc), ZE_RESULT_SUCCESS);
 
         for (const auto &driver : drivers) {
             uint32_t devCount = 0u;
@@ -128,7 +132,7 @@ class Environment : public ::testing::Environment {
         ASSERT_NE(zeDevice, nullptr) << "Failed to initialize Device";
         ASSERT_GT(maxMemAllocSize, 0);
 
-        if (test_vars::test_with_gpu) {
+        if (test_vars::forceGpu) {
             ASSERT_NE(zeDriverGpu, nullptr) << "Failed to initialize Driver GPU L0";
             ASSERT_NE(zeDeviceGpu, nullptr) << "Failed to initialize Device GPU L0";
         }

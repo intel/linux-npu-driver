@@ -601,4 +601,162 @@ exit:
     trace_zesGetTemperatureProcAddrTable(ret, version, pDdiTable);
     return ret;
 }
+
+ZE_APIEXPORT ze_result_t ZE_APICALL
+zesGetDeviceExpProcAddrTable(ze_api_version_t version, zes_device_exp_dditable_t *pDdiTable) {
+    trace_zesGetDeviceExpProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
+
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    pDdiTable->pfnEnumEnabledVFExp = nullptr;
+    pDdiTable->pfnGetSubDevicePropertiesExp = nullptr;
+    pDdiTable->pfnEnumActiveVFExp = nullptr;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zesGetDeviceExpProcAddrTable(ret, version, pDdiTable);
+    return ret;
+}
+
+ZE_APIEXPORT ze_result_t ZE_APICALL
+zesGetDriverExpProcAddrTable(ze_api_version_t version, zes_driver_exp_dditable_t *pDdiTable) {
+    trace_zesGetDriverExpProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
+
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    pDdiTable->pfnGetDeviceByUuidExp = nullptr;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zesGetDriverExpProcAddrTable(ret, version, pDdiTable);
+    return ret;
+}
+
+ZE_APIEXPORT ze_result_t ZE_APICALL
+zesGetFirmwareExpProcAddrTable(ze_api_version_t version, zes_firmware_exp_dditable_t *pDdiTable) {
+    trace_zesGetFirmwareExpProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
+
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    pDdiTable->pfnGetSecurityVersionExp = nullptr;
+    pDdiTable->pfnSetSecurityVersionExp = nullptr;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zesGetFirmwareExpProcAddrTable(ret, version, pDdiTable);
+    return ret;
+}
+
+ZE_APIEXPORT ze_result_t ZE_APICALL zesGetRasExpProcAddrTable(ze_api_version_t version,
+                                                              zes_ras_exp_dditable_t *pDdiTable) {
+    trace_zesGetRasExpProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
+
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    pDdiTable->pfnGetStateExp = nullptr;
+    pDdiTable->pfnClearStateExp = nullptr;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zesGetRasExpProcAddrTable(ret, version, pDdiTable);
+    return ret;
+}
+
+ZE_APIEXPORT ze_result_t ZE_APICALL
+zesGetVFManagementExpProcAddrTable(ze_api_version_t version,
+                                   zes_vf_management_exp_dditable_t *pDdiTable) {
+    trace_zesGetVFManagementExpProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
+
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    pDdiTable->pfnGetVFCapabilitiesExp = nullptr;
+    pDdiTable->pfnGetVFMemoryUtilizationExp2 = nullptr;
+    pDdiTable->pfnGetVFEngineUtilizationExp2 = nullptr;
+    pDdiTable->pfnGetVFPropertiesExp = nullptr;
+    pDdiTable->pfnGetVFMemoryUtilizationExp = nullptr;
+    pDdiTable->pfnGetVFEngineUtilizationExp = nullptr;
+    pDdiTable->pfnSetVFTelemetryModeExp = nullptr;
+    pDdiTable->pfnSetVFTelemetrySamplingIntervalExp = nullptr;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zesGetVFManagementExpProcAddrTable(ret, version, pDdiTable);
+    return ret;
+}
+
+ZE_APIEXPORT ze_result_t ZE_APICALL
+zesGetOverclockProcAddrTable(ze_api_version_t version, zes_overclock_dditable_t *pDdiTable) {
+    trace_zesGetOverclockProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
+
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    pDdiTable->pfnGetDomainProperties = nullptr;
+    pDdiTable->pfnGetDomainVFProperties = nullptr;
+    pDdiTable->pfnGetDomainControlProperties = nullptr;
+    pDdiTable->pfnGetControlCurrentValue = nullptr;
+    pDdiTable->pfnGetControlPendingValue = nullptr;
+    pDdiTable->pfnSetControlUserValue = nullptr;
+    pDdiTable->pfnGetControlState = nullptr;
+    pDdiTable->pfnGetVFPointValues = nullptr;
+    pDdiTable->pfnSetVFPointValues = nullptr;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zesGetOverclockProcAddrTable(ret, version, pDdiTable);
+    return ret;
+}
 }
