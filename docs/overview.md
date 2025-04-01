@@ -170,7 +170,7 @@ ls /dev/accel/accel0
 Install the required dependencies in Ubuntu:
 ```
 sudo apt update
-sudo apt install -y build-essential git git-lfs cmake libudev-dev libboost-all-dev libssl-dev libudev-dev
+sudo apt install -y build-essential git git-lfs cmake python3
 ```
 
 Commands to build the driver:
