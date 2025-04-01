@@ -37,8 +37,10 @@ endif()
 # TODO: Get rid of copying the headers if level-zero is installed
 set(LEVEL_ZERO_HEADERS_DIR "${CMAKE_BINARY_DIR}/include/level_zero")
 file(MAKE_DIRECTORY ${LEVEL_ZERO_HEADERS_DIR})
-file(GLOB LEVEL_ZERO_HEADERS
-    ${LevelZero_INCLUDE_DIRS}/*.h
-    ${LevelZero_INCLUDE_DIRS}/layers
-    ${LevelZero_INCLUDE_DIRS}/loader)
-file(COPY ${LEVEL_ZERO_HEADERS} DESTINATION ${LEVEL_ZERO_HEADERS_DIR})
+foreach(LevelZero_INCLUDE_DIR IN LISTS LevelZero_INCLUDE_DIRS)
+    file(GLOB LEVEL_ZERO_HEADERS
+        ${LevelZero_INCLUDE_DIR}/*.h
+        ${LevelZero_INCLUDE_DIR}/layers
+        ${LevelZero_INCLUDE_DIR}/loader)
+    file(COPY ${LEVEL_ZERO_HEADERS} DESTINATION ${LEVEL_ZERO_HEADERS_DIR})
+endforeach()
