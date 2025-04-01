@@ -62,9 +62,9 @@ if (TARGET opencv_core AND TARGET opencv_imgcodecs)
     target_compile_definitions(${PROJECT_NAME} PRIVATE UMD_TESTS_USE_OPENCV)
 endif()
 
-if (OpenCL_FOUND)
+if (TARGET OpenCL::OpenCL)
     target_sources(${PROJECT_NAME} PRIVATE test_external_memory_opencl.cpp)
-    target_link_libraries(${PROJECT_NAME} OpenCL)
+    target_link_libraries(${PROJECT_NAME} OpenCL::OpenCL)
 endif()
 
 target_compile_options(${PROJECT_NAME} PRIVATE -DVPU_GTEST_APP -Wall -Wextra -Werror)
