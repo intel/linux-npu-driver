@@ -15,6 +15,11 @@ if (TARGET vpux_elf)
   return()
 endif()
 
+# TODO: Detect empty directory and upgrade to warning then regardless
+if (USE_SYSTEM_LIBRARIES)
+  message(STATUS "USE_SYSTEM_LIBRARIES does not apply to vpux_elf; it must always be vendored.")
+endif()
+
 # Below function is required by vpux_elf
 function(enable_warnings_as_errors TARGET_NAME)
   target_compile_options(${TARGET_NAME} PRIVATE -Wall -Wextra -Werror)
