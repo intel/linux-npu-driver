@@ -1,6 +1,6 @@
 <!---
 
-Copyright (C) 2022-2024 Intel Corporation
+Copyright (C) 2022-2025 Intel Corporation
 
 SPDX-License-Identifier: MIT
 
@@ -39,7 +39,6 @@ You may obtain a copy of the license at: https://opensource.org/licenses/MIT
 ## See also
 
 * [Intel® OneApi Level Zero](https://github.com/oneapi-src/level-zero/)
-* [Intel® NPU Acceleration Library](https://intel.github.io/intel-npu-acceleration-library/)
 * [OpenVINO™](https://github.com/openvinotoolkit/openvino.git)
 * [OpenVINO™ AI Plugins for GIMP](https://github.com/intel/openvino-ai-plugins-gimp)
 * [Canonical brings GenAI to GIMP 3.0 with Intel® OpenVINO™ AI Plugins](https://discourse.ubuntu.com/t/canonical-brings-genai-to-gimp-3-0-with-intel-openvino-ai-plugins/54799)
