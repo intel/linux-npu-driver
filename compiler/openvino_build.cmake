@@ -35,6 +35,7 @@ set(OPENVINO_CMAKE_ARGS
     -DCMAKE_INSTALL_PREFIX=${OPENVINO_PACKAGE_DIR}
     -DENABLE_NCC_STYLE=OFF
     -DENABLE_CLANG_FORMAT=OFF
+    -DENABLE_CLANG_TIDY=OFF
     -DENABLE_CPPLINT=OFF
     -DENABLE_INTEL_NPU_PROTOPIPE=ON
     -DTHREADING=${THREADING})
@@ -91,6 +92,40 @@ if (${BUILD_GENAI})
     BUILD_COMMAND ${PIP} wheel --verbose --wheel-dir ${WHEELS_DIR} ./thirdparty/openvino_tokenizers/[transformers] --find-links ${WHEELS_DIR} &&
                   ${PIP} wheel --verbose --wheel-dir ${WHEELS_DIR} . --find-links ${WHEELS_DIR}
     BUILD_IN_SOURCE ON)
+endif()
+
+if (ENABLE_ONNXRUNTIME_PACKAGE)
+    set(ONNXRUNTIME_SOURCE_DIR "${CMAKE_BINARY_DIR}/third_party/onnxruntime")
+    ExternalProject_Add(
+        onnxruntime_build
+        GIT_REPOSITORY https://github.com/microsoft/onnxruntime.git
+        GIT_TAG ${ONNXRUNTIME_REVISION}
+        DEPENDS openvino_build
+        SOURCE_DIR ${ONNXRUNTIME_SOURCE_DIR}
+        UPDATE_DISCONNECTED TRUE
+        PATCH_COMMAND ""
+        CONFIGURE_COMMAND ""
+        INSTALL_COMMAND ""
+        BUILD_COMMAND env OpenVINO_DIR=${OPENVINO_BINARY_DIR} ${ONNXRUNTIME_SOURCE_DIR}/build.sh --use_openvino --skip_tests --parallel --config ${CMAKE_BUILD_TYPE} --cmake_extra_defines "CMAKE_CXX_FLAGS='-Wno-error=redundant-move -Wno-error=free-nonheap-object'"
+        BUILD_IN_SOURCE ON)
+
+    set(ONNXRUNTIME_PACKAGE_DIR "${CMAKE_BINARY_DIR}/third_party/onnxruntime-package")
+    set(ONNXRUNTIME_PACKAGE_NAME "onnxruntime-${TARGET_DISTRO}-${ONNXRUNTIME_REVISION}-${BUILD_NUMBER}")
+    add_custom_target(onnxruntime_package ALL
+                      COMMAND
+                          mkdir -p ${ONNXRUNTIME_PACKAGE_DIR}/bin &&
+                          mkdir -p ${ONNXRUNTIME_PACKAGE_DIR}/lib &&
+                          cp ${ONNXRUNTIME_SOURCE_DIR}/build/Linux/${CMAKE_BUILD_TYPE}/libonnxruntime_providers_openvino.so ${ONNXRUNTIME_PACKAGE_DIR}/lib/ &&
+                          cp ${ONNXRUNTIME_SOURCE_DIR}/build/Linux/${CMAKE_BUILD_TYPE}/libonnxruntime_providers_shared.so ${ONNXRUNTIME_PACKAGE_DIR}/lib/ &&
+                          cp ${ONNXRUNTIME_SOURCE_DIR}/build/Linux/${CMAKE_BUILD_TYPE}/onnxruntime_perf_test ${ONNXRUNTIME_PACKAGE_DIR}/bin/ &&
+                          tar -C ${ONNXRUNTIME_PACKAGE_DIR} -czf ${CMAKE_BINARY_DIR}/${ONNXRUNTIME_PACKAGE_NAME}.tar.gz .
+                      DEPENDS onnxruntime_build
+                      BYPRODUCTS ${CMAKE_BINARY_DIR}/${ONNXRUNTIME_PACKAGE_NAME}.tar.gz)
+    install(
+      FILES ${CMAKE_BINARY_DIR}/${ONNXRUNTIME_PACKAGE_NAME}.tar.gz
+      DESTINATION .
+      COMPONENT openvino_standalone_package
+      EXCLUDE_FROM_ALL)
 endif()
 
 ### OpenCV ###
