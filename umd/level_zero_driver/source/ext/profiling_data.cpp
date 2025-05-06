@@ -11,7 +11,6 @@
 #include "level_zero/ze_api.h"
 #include "level_zero_driver/include/l0_exception.hpp"
 #include "umd_common.hpp"
-#include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
@@ -24,37 +23,34 @@ namespace L0 {
 
 static thread_local std::string lastErrorMsg = {};
 
-GraphProfilingPool::GraphProfilingPool(VPU::VPUDeviceContext *ctx,
-                                       const uint32_t size,
+GraphProfilingPool::GraphProfilingPool(const uint32_t size,
                                        const uint32_t count,
                                        const BlobContainer *blob,
+                                       std::shared_ptr<VPU::VPUBufferObject> profilingMemory,
                                        std::function<void(GraphProfilingPool *)> destroyCb)
-    : ctx(ctx)
-    , querySize(size)
+    : querySize(size)
+    , poolBuffer(std::move(profilingMemory))
     , blob(blob)
     , queries(count)
     , destroyCb(std::move(destroyCb)) {
-    size_t poolSize = queries.size() * getFwDataCacheAlign(querySize);
-    poolBuffer = ctx->createInternalBufferObject(poolSize, VPU::VPUBufferObject::Type::CachedDma);
-    L0_THROW_WHEN(poolBuffer == nullptr,
-                  "Failed to allocate buffer object for profiling pool",
+    L0_THROW_WHEN(!poolBuffer,
+                  "No buffer object for profiling pool",
+                  ZE_RESULT_ERROR_INVALID_NULL_POINTER);
+    L0_THROW_WHEN(poolBuffer->getAllocSize() < (queries.size() * getFwDataCacheAlign(querySize)),
+                  "Buffer object for profiling pool too small",
                   ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY);
-    memset(poolBuffer->getBasePointer(), 0, poolSize);
-}
-
-GraphProfilingPool::~GraphProfilingPool() {
-    if (poolBuffer != nullptr && !ctx->freeMemAlloc(poolBuffer)) {
-        LOG_W("GraphProfilingPool memory failed to be free'd");
-    }
+    memset(poolBuffer->getBasePointer(), 0, poolBuffer->getAllocSize());
 }
 
 GraphProfilingQuery::GraphProfilingQuery(const BlobContainer *blob,
                                          const uint32_t size,
                                          void *pData,
+                                         std::shared_ptr<VPU::VPUBufferObject> profilingMemoryBo,
                                          std::function<void()> &&destroyCb)
     : size(size)
     , data(pData)
     , blob(blob)
+    , profilingBo(std::move(profilingMemoryBo))
     , destroyCb(std::move(destroyCb)) {}
 
 ze_result_t
@@ -77,9 +73,11 @@ GraphProfilingPool::createProfilingQuery(const uint32_t index,
 
     auto *dataPtr = poolBuffer->getBasePointer() + (index * getFwDataCacheAlign(querySize));
     queries[index] =
-        std::make_unique<GraphProfilingQuery>(blob, querySize, dataPtr, [this, index]() {
-            queries[index].reset();
-        });
+        std::make_unique<GraphProfilingQuery>(blob,
+                                              querySize,
+                                              dataPtr,
+                                              poolBuffer,
+                                              [this, index]() { queries[index].reset(); });
     *phProfilingQuery = queries[index].get();
     LOG(GRAPH, "GraphProfilingQuery created - %p", *phProfilingQuery);
     return ZE_RESULT_SUCCESS;

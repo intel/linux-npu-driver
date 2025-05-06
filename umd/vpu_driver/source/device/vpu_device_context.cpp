@@ -92,7 +92,7 @@ bool VPUDeviceContext::freeMemAlloc(void *ptr) {
         return false;
     }
 
-    auto *bo = findBuffer(ptr);
+    auto bo = findBufferObject(ptr);
     if (bo == nullptr || bo->getBasePointer() != ptr) {
         LOG_E("Pointer is not tracked or not a based pointer is passed");
         return false;
@@ -100,16 +100,20 @@ bool VPUDeviceContext::freeMemAlloc(void *ptr) {
 
     bo->allowDeleteExternalHandle();
 
-    return freeMemAlloc(bo);
+    return freeMemAlloc(std::move(bo));
 }
 
-bool VPUDeviceContext::freeMemAlloc(VPUBufferObject *bo) {
+bool VPUDeviceContext::freeMemAlloc(std::shared_ptr<VPUBufferObject> bo) {
     if (bo == nullptr) {
         LOG_E("VPUBufferObject is nullptr");
         return false;
     }
 
-    LOG(DEVICE, "Free BO: %p, cpu: %p, vpu: %#lx", bo, bo->getBasePointer(), bo->getVPUAddr());
+    LOG(DEVICE,
+        "Free BO: %p, cpu: %p, vpu: %#lx",
+        bo.get(),
+        bo->getBasePointer(),
+        bo->getVPUAddr());
 
     const std::lock_guard<std::mutex> lock(mtx);
     if (trackedBuffers.erase(bo->getBasePointer()) == 0) {
@@ -143,20 +147,15 @@ std::shared_ptr<VPUBufferObject> VPUDeviceContext::findBufferObject(const void *
     return bo;
 }
 
-VPUBufferObject *VPUDeviceContext::findBuffer(const void *ptr) const {
-    auto bo = findBufferObject(ptr);
-    if (bo == nullptr) {
-        return nullptr;
-    }
-    return bo.get();
-}
-
 std::shared_ptr<VPUBufferObject>
 VPUDeviceContext::createUntrackedBufferObject(size_t size, VPUBufferObject::Type range) {
     if (size == 0) {
         LOG_E("Invalid size - %lu", size);
         return nullptr;
     }
+
+    if (!hwInfo->dmaMemoryRangeCapability && (static_cast<uint32_t>(range) & DRM_IVPU_BO_DMA_MEM))
+        range = convertDmaToShaveRange(range);
 
     auto bo = VPUBufferObject::create(*drvApi, VPUBufferObject::Location::Internal, range, size);
     if (bo == nullptr) {
@@ -171,37 +170,9 @@ VPUDeviceContext::createUntrackedBufferObject(size_t size, VPUBufferObject::Type
     return bo;
 }
 
-VPUBufferObject *VPUDeviceContext::createInternalBufferObject(size_t size,
-                                                              VPUBufferObject::Type range) {
-    auto bo = createUntrackedBufferObject(size, range);
-    if (bo == nullptr) {
-        return nullptr;
-    }
-    const std::lock_guard<std::mutex> lock(mtx);
-    auto [it, success] = trackedBuffers.try_emplace(bo->getBasePointer(), std::move(bo));
-    if (!success) {
-        LOG_E("Failed to add internal buffer object to trackedBuffers");
-        return nullptr;
-    }
-    return it->second.get();
-}
-
 size_t VPUDeviceContext::getPageAlignedSize(size_t reqSize) {
     size_t pageSize = drvApi->getPageSize();
     return ALIGN(reqSize, pageSize);
-}
-
-uint64_t VPUDeviceContext::getBufferVPUAddress(const void *ptr) const {
-    auto bo = findBuffer(ptr);
-    if (bo == nullptr)
-        return 0;
-
-    uint64_t offset =
-        reinterpret_cast<uint64_t>(ptr) - reinterpret_cast<uint64_t>(bo->getBasePointer());
-
-    LOG(DEVICE, "CPU address %p mapped to VPU address %#lx", ptr, bo->getVPUAddr() + offset);
-
-    return bo->getVPUAddr() + offset;
 }
 
 bool VPUDeviceContext::getCopyCommandDescriptor(uint64_t srcAddr,

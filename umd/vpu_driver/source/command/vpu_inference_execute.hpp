@@ -24,7 +24,8 @@ class HostParsedInference;
 
 namespace L0 {
 class ElfParser;
-}
+struct GraphProfilingQuery;
+} // namespace L0
 
 namespace VPU {
 
@@ -37,7 +38,7 @@ class VPUInferenceExecute : public VPUCommand {
                         std::shared_ptr<elf::HostParsedInference> &hpi,
                         const std::vector<std::pair<const void *, uint32_t>> &inputs,
                         const std::vector<std::pair<const void *, uint32_t>> &outputs,
-                        const std::pair<void *, uint32_t> &profiling,
+                        L0::GraphProfilingQuery *profilingQuery,
                         uint64_t inferenceId,
                         std::vector<std::shared_ptr<VPUBufferObject>> &bos,
                         size_t argBosPosition);
@@ -51,7 +52,7 @@ class VPUInferenceExecute : public VPUCommand {
            std::shared_ptr<elf::HostParsedInference> &hpi,
            const std::vector<std::pair<const void *, uint32_t>> &inputs,
            const std::vector<std::pair<const void *, uint32_t>> &outputs,
-           const std::pair<void *, uint32_t> &profiling,
+           L0::GraphProfilingQuery *profilingQuery,
            uint64_t inferenceId,
            std::vector<std::shared_ptr<VPUBufferObject>> &bos);
 
@@ -68,7 +69,7 @@ class VPUInferenceExecute : public VPUCommand {
     std::shared_ptr<elf::HostParsedInference> hpi;
     std::vector<std::pair<const void *, uint32_t>> inputs;
     std::vector<std::pair<const void *, uint32_t>> outputs;
-    std::pair<void *, uint32_t> profiling;
+    L0::GraphProfilingQuery *profilingQuery;
 
     std::vector<uint32_t> argHandles;
     const size_t argBoPosition = 0;

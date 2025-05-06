@@ -49,7 +49,7 @@ class VPUDeviceContext {
        Free memory within tracking structure and unmap in memory.
        @return true when the pointer is free'd in memory, false otherwise.
      */
-    bool freeMemAlloc(VPUBufferObject *bo);
+    bool freeMemAlloc(std::shared_ptr<VPUBufferObject> bo);
 
     /**
        Free memory within tracking structure and unmap in memory.
@@ -58,31 +58,14 @@ class VPUDeviceContext {
     bool freeMemAlloc(void *ptr);
 
     std::shared_ptr<VPUBufferObject> findBufferObject(const void *ptr) const;
-    /**
-       Find a buffer object and return.
-       @param ptr[in]: A pointer to find object.
-       @return : Found VPUBufferObject, nullptr otherwise.
-     */
-    VPUBufferObject *findBuffer(const void *ptr) const;
 
     /**
      * Returns page aligned size.
      */
     size_t getPageAlignedSize(size_t size);
 
-    /**
-     * Returns a VPU device address assigned to BufferObject
-     */
-    uint64_t getBufferVPUAddress(const void *ptr) const;
     std::shared_ptr<VPUBufferObject> createUntrackedBufferObject(size_t size,
                                                                  VPUBufferObject::Type range);
-    /**
-       Allocates VPUBufferObject for internal usage of driver.
-       @param size[in]: Size of the buffer.
-       @param type[in]: Type of buffer range.
-       @return pointer to buffer object
-     */
-    VPUBufferObject *createInternalBufferObject(size_t size, VPUBufferObject::Type type);
     std::shared_ptr<VPUBufferObject> importBufferObject(VPUBufferObject::Location type, int32_t fd);
     int getFd() const { return drvApi->getFd(); }
 

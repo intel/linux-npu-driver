@@ -16,6 +16,7 @@
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <algorithm>
+#include <memory>
 #include <sys/types.h>
 #include <vector>
 
@@ -24,12 +25,7 @@ namespace VPU {
 VPUCommand::VPUCommand(ScheduleType schType)
     : sType(schType) {}
 
-bool VPUCommand::copyDescriptor(VPUDeviceContext *ctx, void **desc) {
-    if (ctx == nullptr) {
-        LOG_E("Invalid context");
-        return false;
-    }
-
+bool VPUCommand::copyDescriptor(void **desc, std::shared_ptr<VPUBufferObject> bo) {
     if (!descriptor.has_value())
         return true;
 
@@ -37,7 +33,7 @@ bool VPUCommand::copyDescriptor(VPUDeviceContext *ctx, void **desc) {
               descriptor->data.end(),
               *reinterpret_cast<uint8_t **>(desc));
 
-    *descriptor->commandOffset = ctx->getBufferVPUAddress(*desc);
+    *descriptor->commandOffset = bo->getVPUAddr(*desc);
     *reinterpret_cast<uint8_t **>(desc) += getFwDataCacheAlign(descriptor->data.size());
 
     return true;

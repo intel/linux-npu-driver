@@ -20,6 +20,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace VPU;
@@ -43,17 +44,17 @@ struct DeviceContextTest : public ::testing::Test {
     }
 
     void checkOffsets(std::vector<std::shared_ptr<VPUCommand>> &commands,
-                      VPUBufferObject *descBuffer) {
+                      std::shared_ptr<VPUBufferObject> descBuffer) {
         void *descTail = nullptr;
         size_t expDescOffset = 0;
-        if (descBuffer) {
+        if (descBuffer.get()) {
             descTail = descBuffer->getBasePointer();
-            expDescOffset = getOffset(ctx->getBufferVPUAddress(descTail),
+            expDescOffset = getOffset(descBuffer->getVPUAddr(descTail),
                                       cmdBufferHeader.descriptor_heap_base_address);
         }
 
         for (auto &cmd : commands) {
-            EXPECT_TRUE(cmd->copyDescriptor(ctx, &descTail));
+            EXPECT_TRUE(cmd->copyDescriptor(&descTail, descBuffer));
 
             uint64_t offset = UINT64_MAX;
             uint64_t vpuAddr = UINT64_MAX;
@@ -87,121 +88,114 @@ struct DeviceContextTest : public ::testing::Test {
 };
 
 TEST_F(DeviceContextTest, createAndFreeDeviceMemoryExpectSuccess) {
-    auto ptr = ctx->createDeviceMemAlloc(allocSize);
-    EXPECT_NE(nullptr, ptr);
+    auto bo = ctx->createDeviceMemAlloc(allocSize);
+    EXPECT_NE(nullptr, bo);
     EXPECT_EQ(1u, ctx->getBuffersCount());
-    EXPECT_TRUE(ctx->freeMemAlloc(ptr));
+    EXPECT_TRUE(ctx->freeMemAlloc(bo->getBasePointer()));
 }
 
 TEST_F(DeviceContextTest, createAndFreeHostMemoryExpectSuccess) {
-    auto ptr = ctx->createHostMemAlloc(allocSize);
-    EXPECT_NE(nullptr, ptr);
+    auto bo = ctx->createHostMemAlloc(allocSize);
+    EXPECT_NE(nullptr, bo);
     EXPECT_EQ(1u, ctx->getBuffersCount());
-    EXPECT_TRUE(ctx->freeMemAlloc(ptr));
+    EXPECT_TRUE(ctx->freeMemAlloc(bo->getBasePointer()));
 }
 
 TEST_F(DeviceContextTest, freeDeviceMemoryUsingNonBasePointerExpectFail) {
-    auto ptr1 = ctx->createDeviceMemAlloc(allocSize);
-    EXPECT_NE(nullptr, ptr1);
+    auto bo = ctx->createDeviceMemAlloc(allocSize);
+    EXPECT_NE(nullptr, bo);
     EXPECT_EQ(1u, ctx->getBuffersCount());
 
-    auto ptr_offset = (uint8_t *)ptr1 + 1000;
+    auto ptr_offset = reinterpret_cast<uint8_t *>(bo->getBasePointer()) + 1000;
     EXPECT_FALSE(ctx->freeMemAlloc(ptr_offset));
-    ptr_offset = (uint8_t *)ptr1 + (4 * 1024);
+    ptr_offset = reinterpret_cast<uint8_t *>(bo->getBasePointer()) + (4 * 1024);
     EXPECT_FALSE(ctx->freeMemAlloc(ptr_offset));
 
-    EXPECT_TRUE(ctx->freeMemAlloc(ptr1));
+    EXPECT_TRUE(ctx->freeMemAlloc(bo->getBasePointer()));
 }
 
 TEST_F(DeviceContextTest, createAndFreeDeviceMemoryInHighRangeExpectSuccess) {
-    auto ptr = ctx->createSharedMemAlloc(allocSize, VPUBufferObject::Type::CachedShave);
-    EXPECT_NE(nullptr, ptr);
+    auto bo = ctx->createSharedMemAlloc(allocSize, VPUBufferObject::Type::CachedShave);
+    EXPECT_NE(nullptr, bo);
     EXPECT_EQ(1u, ctx->getBuffersCount());
-    EXPECT_TRUE(ctx->freeMemAlloc(ptr));
+    EXPECT_TRUE(ctx->freeMemAlloc(bo->getBasePointer()));
 }
 
 TEST_F(DeviceContextTest, createAndFreeHostMemoryInHighRangeExpectSuccess) {
-    auto ptr = ctx->createHostMemAlloc(allocSize, VPUBufferObject::Type::CachedShave);
-    EXPECT_NE(nullptr, ptr);
+    auto bo = ctx->createHostMemAlloc(allocSize, VPUBufferObject::Type::CachedShave);
+    EXPECT_NE(nullptr, bo);
     EXPECT_EQ(1u, ctx->getBuffersCount());
-    EXPECT_TRUE(ctx->freeMemAlloc(ptr));
+    EXPECT_TRUE(ctx->freeMemAlloc(bo->getBasePointer()));
 }
 
 TEST_F(DeviceContextTest, createHostMemoryAndGetVPUAddressExpectSuccess) {
-    auto ptr = ctx->createHostMemAlloc(allocSize);
-    EXPECT_NE(nullptr, ptr);
+    auto bo = ctx->createHostMemAlloc(allocSize);
+    EXPECT_NE(nullptr, bo);
 
-    auto vpuAddr = ctx->getBufferVPUAddress(ptr);
+    auto vpuAddr = bo->getVPUAddr();
     EXPECT_NE(0u, vpuAddr);
 
-    auto ptrOffset = reinterpret_cast<uint8_t *>(ptr) + allocSize / 4;
-    EXPECT_EQ(vpuAddr + allocSize / 4, ctx->getBufferVPUAddress(ptrOffset));
+    auto ptrOffset = reinterpret_cast<uint8_t *>(bo->getBasePointer()) + allocSize / 4;
+    EXPECT_EQ(vpuAddr + allocSize / 4, bo->getVPUAddr(ptrOffset));
 
-    EXPECT_TRUE(ctx->freeMemAlloc(ptr));
+    EXPECT_TRUE(ctx->freeMemAlloc(bo->getBasePointer()));
 }
 
 TEST_F(DeviceContextTest, createDeviceMemoryAndGetVPUAddressExpectSuccess) {
-    auto ptr = ctx->createDeviceMemAlloc(allocSize);
-    EXPECT_NE(nullptr, ptr);
+    auto bo = ctx->createDeviceMemAlloc(allocSize);
+    EXPECT_NE(nullptr, bo);
 
-    auto vpuAddr = ctx->getBufferVPUAddress(ptr);
+    auto vpuAddr = bo->getVPUAddr();
     EXPECT_NE(0u, vpuAddr);
 
-    auto ptrOffset = reinterpret_cast<uint8_t *>(ptr) + allocSize / 4;
-    EXPECT_EQ(vpuAddr + allocSize / 4, ctx->getBufferVPUAddress(ptrOffset));
+    auto ptrOffset = reinterpret_cast<uint8_t *>(bo->getBasePointer()) + allocSize / 4;
+    EXPECT_EQ(vpuAddr + allocSize / 4, bo->getVPUAddr(ptrOffset));
 
-    EXPECT_TRUE(ctx->freeMemAlloc(ptr));
-}
-
-TEST_F(DeviceContextTest, getVPUAddressUsingNotTrackedBufferExpectFailure) {
-    EXPECT_EQ(0u, ctx->getBufferVPUAddress(nullptr));
-
-    uint64_t var = 0u;
-    EXPECT_EQ(0u, ctx->getBufferVPUAddress(&var));
+    EXPECT_TRUE(ctx->freeMemAlloc(bo->getBasePointer()));
 }
 
 TEST_F(DeviceContextTest,
        allocatingHeapAndUsingWithinHeapMemoryForTimestampCommandReturnsSuccessful) {
     // Allocate Memory of 4 * 64bit
     size_t tsAllocSize = 4 * sizeof(uint64_t);
-    auto timestampPtr1 = ctx->createSharedMemAlloc(tsAllocSize);
-    auto timestampPtr2 = ctx->createSharedMemAlloc(tsAllocSize);
+    auto timestamp1Bo = ctx->createSharedMemAlloc(tsAllocSize);
+    auto timestamp2Bo = ctx->createSharedMemAlloc(tsAllocSize);
 
-    uint64_t *timestamp11 = reinterpret_cast<uint64_t *>(timestampPtr1);
+    uint64_t *timestamp11 = reinterpret_cast<uint64_t *>(timestamp1Bo->getBasePointer());
     uint64_t *timestamp12 = timestamp11 + 1;
     uint64_t *timestamp13 = timestamp11 + 2;
     uint64_t *timestamp14 = timestamp11 + 3;
 
-    uint64_t *timestamp21 = reinterpret_cast<uint64_t *>(timestampPtr2);
+    uint64_t *timestamp21 = reinterpret_cast<uint64_t *>(timestamp2Bo->getBasePointer());
     uint64_t *timestamp22 = timestamp21 + 1;
     uint64_t *timestamp23 = timestamp21 + 2;
 
     // Creating and appending commands to commandlist
     std::vector<std::shared_ptr<VPUCommand>> commands;
 
-    commands.emplace_back(VPUTimeStampCommand::create(ctx, timestamp11));
+    commands.emplace_back(VPUTimeStampCommand::create(timestamp11, timestamp1Bo));
     ASSERT_NE(commands.back(), nullptr);
 
-    commands.emplace_back(VPUTimeStampCommand::create(ctx, timestamp12));
+    commands.emplace_back(VPUTimeStampCommand::create(timestamp12, timestamp1Bo));
     ASSERT_NE(commands.back(), nullptr);
 
-    commands.emplace_back(VPUTimeStampCommand::create(ctx, timestamp13));
+    commands.emplace_back(VPUTimeStampCommand::create(timestamp13, timestamp1Bo));
     ASSERT_NE(commands.back(), nullptr);
 
-    commands.emplace_back(VPUTimeStampCommand::create(ctx, timestamp14));
+    commands.emplace_back(VPUTimeStampCommand::create(timestamp14, std::move(timestamp1Bo)));
     ASSERT_NE(commands.back(), nullptr);
 
-    commands.emplace_back(VPUTimeStampCommand::create(ctx, timestamp22));
+    commands.emplace_back(VPUTimeStampCommand::create(timestamp22, timestamp2Bo));
     ASSERT_NE(commands.back(), nullptr);
 
-    commands.emplace_back(VPUTimeStampCommand::create(ctx, timestamp23));
+    commands.emplace_back(VPUTimeStampCommand::create(timestamp23, std::move(timestamp2Bo)));
     ASSERT_NE(commands.back(), nullptr);
 
     EXPECT_EQ(commands.size(), 6u);
     checkOffsets(commands, nullptr);
 
-    EXPECT_TRUE(ctx->freeMemAlloc(timestampPtr1));
-    EXPECT_TRUE(ctx->freeMemAlloc(timestampPtr2));
+    EXPECT_TRUE(ctx->freeMemAlloc(timestamp11));
+    EXPECT_TRUE(ctx->freeMemAlloc(timestamp21));
 }
 
 TEST_F(DeviceContextTest, createTimestampAndCopyCommandListToCheckCommandsOffset) {
@@ -220,32 +214,35 @@ TEST_F(DeviceContextTest, createTimestampAndCopyCommandListToCheckCommandsOffset
     // Append commands to commandlist vector
     std::vector<std::shared_ptr<VPUCommand>> commands;
 
-    commands.emplace_back(VPUTimeStampCommand::create(ctx, (uint64_t *)timestamp1));
+    commands.emplace_back(
+        VPUTimeStampCommand::create(reinterpret_cast<uint64_t *>(timestamp1->getBasePointer()),
+                                    timestamp1));
     ASSERT_NE(commands.back(), nullptr);
 
     commands.emplace_back(VPUCopyCommand::create(ctx,
+                                                 copy1->getBasePointer(),
                                                  copy1,
-                                                 ctx->findBufferObject(copy1),
+                                                 dest1->getBasePointer(),
                                                  dest1,
-                                                 ctx->findBufferObject(dest1),
                                                  allocSize));
     ASSERT_NE(commands.back(), nullptr);
 
-    commands.emplace_back(VPUTimeStampCommand::create(ctx, (uint64_t *)timestamp2));
+    commands.emplace_back(
+        VPUTimeStampCommand::create(reinterpret_cast<uint64_t *>(timestamp2->getBasePointer()),
+                                    timestamp2));
     ASSERT_NE(commands.back(), nullptr);
     EXPECT_EQ(commands.size(), 3u);
 
     // replicating functionality from commandqueueExecuteCommandLists
-    auto descBuffer = ctx->createInternalBufferObject(allocSize, VPUBufferObject::Type::CachedFw);
+    auto descBuffer = ctx->createUntrackedBufferObject(allocSize, VPUBufferObject::Type::CachedFw);
     ASSERT_NE(descBuffer, nullptr);
 
-    checkOffsets(commands, descBuffer);
+    checkOffsets(commands, std::move(descBuffer));
 
-    EXPECT_TRUE(ctx->freeMemAlloc(descBuffer));
-    EXPECT_TRUE(ctx->freeMemAlloc(timestamp1));
-    EXPECT_TRUE(ctx->freeMemAlloc(timestamp2));
-    EXPECT_TRUE(ctx->freeMemAlloc(copy1));
-    EXPECT_TRUE(ctx->freeMemAlloc(dest1));
+    EXPECT_TRUE(ctx->freeMemAlloc(timestamp1->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(timestamp2->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(copy1->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(dest1->getBasePointer()));
 }
 
 TEST_F(DeviceContextTest,
@@ -262,35 +259,34 @@ TEST_F(DeviceContextTest,
     auto timestamp1 = ctx->createSharedMemAlloc(allocSize);
     auto copy1 = ctx->createSharedMemAlloc(allocSize);
     auto dest1 = ctx->createSharedMemAlloc(allocSize);
-    auto timestamp2 = ctx->createSharedMemAlloc(allocSize);
 
     // Append commands to commandlist vector
     std::vector<std::shared_ptr<VPUCommand>> commands;
 
-    commands.emplace_back(VPUTimeStampCommand::create(ctx, (uint64_t *)timestamp1));
+    commands.emplace_back(
+        VPUTimeStampCommand::create(reinterpret_cast<uint64_t *>(timestamp1->getBasePointer()),
+                                    timestamp1));
     ASSERT_NE(commands.back(), nullptr);
 
     commands.emplace_back(VPUCopyCommand::create(ctx,
+                                                 copy1->getBasePointer(),
                                                  copy1,
-                                                 ctx->findBufferObject(copy1),
+                                                 dest1->getBasePointer(),
                                                  dest1,
-                                                 ctx->findBufferObject(dest1),
                                                  allocSize));
     ASSERT_NE(commands.back(), nullptr);
 
     EXPECT_EQ(commands.size(), 2u);
 
     // replicating functionality from commandqueueExecuteCommandLists
-    auto descBuffer = ctx->createInternalBufferObject(allocSize, VPUBufferObject::Type::CachedFw);
+    auto descBuffer = ctx->createUntrackedBufferObject(allocSize, VPUBufferObject::Type::CachedFw);
     ASSERT_NE(descBuffer, nullptr);
 
-    checkOffsets(commands, descBuffer);
+    checkOffsets(commands, std::move(descBuffer));
 
-    EXPECT_TRUE(ctx->freeMemAlloc(descBuffer));
-    EXPECT_TRUE(ctx->freeMemAlloc(timestamp1));
-    EXPECT_TRUE(ctx->freeMemAlloc(timestamp2));
-    EXPECT_TRUE(ctx->freeMemAlloc(copy1));
-    EXPECT_TRUE(ctx->freeMemAlloc(dest1));
+    EXPECT_TRUE(ctx->freeMemAlloc(timestamp1->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(copy1->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(dest1->getBasePointer()));
 }
 
 TEST_F(DeviceContextTest, createMemAndAppendCommandListNotInOrderOffsetReturnsCorrectly) {
@@ -311,33 +307,36 @@ TEST_F(DeviceContextTest, createMemAndAppendCommandListNotInOrderOffsetReturnsCo
     // Append commands to commandlist vector
     std::vector<std::shared_ptr<VPUCommand>> commands;
 
-    commands.emplace_back(VPUTimeStampCommand::create(ctx, (uint64_t *)timestamp1));
+    commands.emplace_back(
+        VPUTimeStampCommand::create(reinterpret_cast<uint64_t *>(timestamp1->getBasePointer()),
+                                    timestamp1));
     ASSERT_NE(commands.back(), nullptr);
 
     commands.emplace_back(VPUCopyCommand::create(ctx,
+                                                 copy1->getBasePointer(),
                                                  copy1,
-                                                 ctx->findBufferObject(copy1),
+                                                 dest1->getBasePointer(),
                                                  dest1,
-                                                 ctx->findBufferObject(dest1),
                                                  allocSize));
     ASSERT_NE(commands.back(), nullptr);
 
-    commands.emplace_back(VPUTimeStampCommand::create(ctx, (uint64_t *)timestamp2));
+    commands.emplace_back(
+        VPUTimeStampCommand::create(reinterpret_cast<uint64_t *>(timestamp2->getBasePointer()),
+                                    timestamp2));
     ASSERT_NE(commands.back(), nullptr);
 
     EXPECT_EQ(commands.size(), 3u);
 
     // replicating functionality from commandqueueExecuteCommandLists
-    auto descBuffer = ctx->createInternalBufferObject(allocSize, VPUBufferObject::Type::CachedFw);
+    auto descBuffer = ctx->createUntrackedBufferObject(allocSize, VPUBufferObject::Type::CachedFw);
     ASSERT_NE(descBuffer, nullptr);
 
-    checkOffsets(commands, descBuffer);
+    checkOffsets(commands, std::move(descBuffer));
 
-    EXPECT_TRUE(ctx->freeMemAlloc(descBuffer));
-    EXPECT_TRUE(ctx->freeMemAlloc(timestamp1));
-    EXPECT_TRUE(ctx->freeMemAlloc(timestamp2));
-    EXPECT_TRUE(ctx->freeMemAlloc(copy1));
-    EXPECT_TRUE(ctx->freeMemAlloc(dest1));
+    EXPECT_TRUE(ctx->freeMemAlloc(timestamp1->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(timestamp2->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(copy1->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(dest1->getBasePointer()));
 }
 
 TEST_F(DeviceContextTest, createMemAndAppendLargeCommandListOffsetReturnsCorrectly) {
@@ -360,106 +359,112 @@ TEST_F(DeviceContextTest, createMemAndAppendLargeCommandListOffsetReturnsCorrect
     // Append commands to commandlist vector
     std::vector<std::shared_ptr<VPUCommand>> commands;
 
-    commands.emplace_back(VPUTimeStampCommand::create(ctx, (uint64_t *)timestamp1));
+    commands.emplace_back(
+        VPUTimeStampCommand::create(reinterpret_cast<uint64_t *>(timestamp1->getBasePointer()),
+                                    timestamp1));
     ASSERT_NE(commands.back(), nullptr);
 
     commands.emplace_back(VPUCopyCommand::create(ctx,
+                                                 copy1->getBasePointer(),
                                                  copy1,
-                                                 ctx->findBufferObject(copy1),
+                                                 dest1->getBasePointer(),
                                                  dest1,
-                                                 ctx->findBufferObject(dest1),
                                                  allocSize));
     ASSERT_NE(commands.back(), nullptr);
 
-    commands.emplace_back(VPUTimeStampCommand::create(ctx, (uint64_t *)timestamp2));
+    commands.emplace_back(
+        VPUTimeStampCommand::create(reinterpret_cast<uint64_t *>(timestamp2->getBasePointer()),
+                                    timestamp2));
     ASSERT_NE(commands.back(), nullptr);
 
     commands.emplace_back(VPUCopyCommand::create(ctx,
+                                                 copy2->getBasePointer(),
                                                  copy2,
-                                                 ctx->findBufferObject(copy2),
+                                                 dest2->getBasePointer(),
                                                  dest2,
-                                                 ctx->findBufferObject(dest2),
                                                  allocSize));
     ASSERT_NE(commands.back(), nullptr);
 
     commands.emplace_back(VPUCopyCommand::create(ctx,
+                                                 copy3->getBasePointer(),
                                                  copy3,
-                                                 ctx->findBufferObject(copy3),
+                                                 dest3->getBasePointer(),
                                                  dest3,
-                                                 ctx->findBufferObject(dest3),
                                                  allocSize));
     ASSERT_NE(commands.back(), nullptr);
 
-    commands.emplace_back(VPUTimeStampCommand::create(ctx, (uint64_t *)timestamp3));
+    commands.emplace_back(
+        VPUTimeStampCommand::create(reinterpret_cast<uint64_t *>(timestamp3->getBasePointer()),
+                                    timestamp3));
     ASSERT_NE(commands.back(), nullptr);
 
-    commands.emplace_back(VPUTimeStampCommand::create(ctx, (uint64_t *)timestamp4));
+    commands.emplace_back(
+        VPUTimeStampCommand::create(reinterpret_cast<uint64_t *>(timestamp4->getBasePointer()),
+                                    timestamp4));
     ASSERT_NE(commands.back(), nullptr);
     EXPECT_EQ(commands.size(), 7u);
 
     // replicating functionality from commandqueueExecuteCommandLists
-    auto descBuffer = ctx->createInternalBufferObject(allocSize, VPUBufferObject::Type::CachedFw);
+    auto descBuffer = ctx->createUntrackedBufferObject(allocSize, VPUBufferObject::Type::CachedFw);
     ASSERT_NE(descBuffer, nullptr);
 
-    checkOffsets(commands, descBuffer);
+    checkOffsets(commands, std::move(descBuffer));
 
-    EXPECT_TRUE(ctx->freeMemAlloc(descBuffer));
-    EXPECT_TRUE(ctx->freeMemAlloc(timestamp1));
-    EXPECT_TRUE(ctx->freeMemAlloc(timestamp2));
-    EXPECT_TRUE(ctx->freeMemAlloc(timestamp3));
-    EXPECT_TRUE(ctx->freeMemAlloc(timestamp4));
-    EXPECT_TRUE(ctx->freeMemAlloc(copy1));
-    EXPECT_TRUE(ctx->freeMemAlloc(copy2));
-    EXPECT_TRUE(ctx->freeMemAlloc(copy3));
-    EXPECT_TRUE(ctx->freeMemAlloc(dest1));
-    EXPECT_TRUE(ctx->freeMemAlloc(dest2));
-    EXPECT_TRUE(ctx->freeMemAlloc(dest3));
+    EXPECT_TRUE(ctx->freeMemAlloc(timestamp1->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(timestamp2->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(timestamp3->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(timestamp4->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(copy1->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(copy2->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(copy3->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(dest1->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(dest2->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(dest3->getBasePointer()));
 }
 
 TEST_F(DeviceContextTest, bufferBoundaryShouldProperlyCheckedByDeviceContext) {
-    void *ptr = ctx->createSharedMemAlloc(allocSize);
-    uint8_t *checkPtr = (uint8_t *)ptr;
+    auto bo = ctx->createSharedMemAlloc(allocSize);
+    uint8_t *checkPtr = reinterpret_cast<uint8_t *>(bo->getBasePointer());
 
     // A pointer at 0 offset.
-    EXPECT_NE(nullptr, ctx->findBuffer(checkPtr));
+    EXPECT_NE(nullptr, ctx->findBufferObject(checkPtr));
 
     // A pointer within the 4KB range.
     checkPtr += 10;
-    EXPECT_NE(nullptr, ctx->findBuffer(checkPtr));
+    EXPECT_NE(nullptr, ctx->findBufferObject(checkPtr));
 
     // A pointer outside of the range.
-    checkPtr = reinterpret_cast<uint8_t *>(ptr) + (4 * 1024) + 1;
-    EXPECT_EQ(nullptr, ctx->findBuffer(checkPtr));
+    checkPtr = reinterpret_cast<uint8_t *>(checkPtr) + (4 * 1024) + 1;
+    EXPECT_EQ(nullptr, ctx->findBufferObject(checkPtr));
 
-    // Free memory
-    EXPECT_TRUE(ctx->freeMemAlloc(ptr));
+    EXPECT_TRUE(ctx->freeMemAlloc(bo->getBasePointer()));
 }
 
 TEST_F(DeviceContextTest, givenPointerDeviceContextReturnsProperValidity) {
     // nullptr is none-valid.
-    EXPECT_FALSE(ctx->findBuffer(nullptr));
+    EXPECT_FALSE(ctx->findBufferObject(nullptr));
 
     // non-null yet invalid pointer.
     void *nonNullPtr = (void *)0x04;
-    EXPECT_FALSE(ctx->findBuffer(nonNullPtr));
+    EXPECT_FALSE(ctx->findBufferObject(nonNullPtr));
 
     // Dynamically allocated memory is not available to the VPU device.
     uint8_t *dynamicAlloc = new uint8_t[100];
-    EXPECT_FALSE(ctx->findBuffer(dynamicAlloc));
+    EXPECT_FALSE(ctx->findBufferObject(dynamicAlloc));
     delete[] dynamicAlloc;
 
     // Local variables are not valid to VPU device.
     uint64_t localVar = 0;
-    EXPECT_FALSE(ctx->findBuffer(&localVar));
+    EXPECT_FALSE(ctx->findBufferObject(&localVar));
 
     // Static / Global variables are not valid to VPU device.
     static uint64_t memTestGlobalVar;
-    EXPECT_FALSE(ctx->findBuffer(&memTestGlobalVar));
+    EXPECT_FALSE(ctx->findBufferObject(&memTestGlobalVar));
 
     // Allocated memory is valid and visible to VPU device.
-    void *allocPtr = ctx->createSharedMemAlloc(allocSize);
-    EXPECT_TRUE(ctx->findBuffer(allocPtr));
-    EXPECT_TRUE(ctx->freeMemAlloc(allocPtr));
+    auto allocBo = ctx->createSharedMemAlloc(allocSize);
+    EXPECT_TRUE(ctx->findBufferObject(allocBo->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(allocBo->getBasePointer()));
 }
 
 TEST_F(DeviceContextTest, memoryMangerReturnsPageAlignedSize) {
@@ -478,22 +483,21 @@ TEST_F(DeviceContextTest, memoryMangerReturnsPageAlignedSize) {
 
 TEST_F(DeviceContextTest, implictlyAllocatedCopyCommandMemoryShouldBeDeallocated) {
     // Direct memory allocation
-    void *hostSrcPtr = ctx->createHostMemAlloc(4096u);
-    void *hostDestPtr = ctx->createHostMemAlloc(4096u);
-    ASSERT_NE(nullptr, hostSrcPtr);
-    ASSERT_NE(nullptr, hostDestPtr);
+    auto hostSrcBo = ctx->createHostMemAlloc(4096u);
+    auto hostDestBo = ctx->createHostMemAlloc(4096u);
+    ASSERT_NE(nullptr, hostSrcBo);
+    ASSERT_NE(nullptr, hostDestBo);
 
     // Copy command will internally create a descriptor buffer
     // which will be deallocated from VPUCopyCommand's destructor.
     auto cpCmd = VPUCopyCommand::create(ctx,
-                                        hostSrcPtr,
-                                        ctx->findBufferObject(hostSrcPtr),
-                                        hostDestPtr,
-                                        ctx->findBufferObject(hostDestPtr),
+                                        hostSrcBo->getBasePointer(),
+                                        hostSrcBo,
+                                        hostDestBo->getBasePointer(),
+                                        hostDestBo,
                                         4096);
     EXPECT_NE(cpCmd, nullptr);
 
-    // Deallocate explictly allocated memory.
-    EXPECT_TRUE(ctx->freeMemAlloc(hostSrcPtr));
-    EXPECT_TRUE(ctx->freeMemAlloc(hostDestPtr));
+    EXPECT_TRUE(ctx->freeMemAlloc(hostSrcBo->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(hostDestBo->getBasePointer()));
 }

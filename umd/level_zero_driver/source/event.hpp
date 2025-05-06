@@ -20,6 +20,7 @@
 #include <vector>
 
 namespace VPU {
+class VPUBufferObject;
 class VPUDeviceContext;
 class VPUJob;
 } // namespace VPU
@@ -32,6 +33,7 @@ struct Event : _ze_event_handle_t, IContextObject {
   public:
     Event(VPU::VPUDeviceContext *ctx,
           VPU::VPUEventCommand::KMDEventDataType *ptr,
+          const std::shared_ptr<VPU::VPUBufferObject> eventBaseBo,
           uint64_t vpuAddr,
           std::function<void()> &&destroyCb);
     ~Event() = default;
@@ -46,6 +48,7 @@ struct Event : _ze_event_handle_t, IContextObject {
     ze_result_t reset();
 
     inline VPU::VPUEventCommand::KMDEventDataType *getSyncPointer() const { return eventState; }
+    const std::shared_ptr<VPU::VPUBufferObject> getAssociatedBo() const;
 
     void associateJob(std::weak_ptr<VPU::VPUJob> job) { associatedJobs.push_back(std::move(job)); }
     void setMetricTrackData(uint64_t groupMask, size_t dataSize) {
@@ -59,6 +62,7 @@ struct Event : _ze_event_handle_t, IContextObject {
 
     VPU::VPUDeviceContext *pDevCtx = nullptr;
     VPU::VPUEventCommand::KMDEventDataType *eventState = nullptr;
+    const std::shared_ptr<VPU::VPUBufferObject> eventBase;
     uint64_t eventVpuAddr = 0;
     std::function<void()> destroyCb;
     std::vector<std::weak_ptr<VPU::VPUJob>> associatedJobs;

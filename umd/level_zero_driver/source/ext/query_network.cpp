@@ -13,7 +13,6 @@
 #include "level_zero/ze_api.h"
 #include "level_zero/ze_graph_ext.h"
 #include "level_zero_driver/source/context.hpp"
-#include "vcl_symbols.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
@@ -25,9 +24,6 @@ ze_result_t QueryNetwork::create(ze_context_handle_t hContext,
                                  ze_device_handle_t hDevice,
                                  const ze_graph_desc_2_t *desc,
                                  ze_graph_query_network_handle_t *phGraphQueryNetwork) {
-    if (!Vcl::sym().ok())
-        return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
-
     if (desc->stype != ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES) {
         LOG_E("Invalid structure type");
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
@@ -38,12 +34,7 @@ ze_result_t QueryNetwork::create(ze_context_handle_t hContext,
         return ZE_RESULT_ERROR_UNSUPPORTED_ENUMERATION;
     }
 
-    if (!Compiler::isApiComatible()) {
-        LOG_E("Compiler version mismatch! Version expected:%d.%d, current:%d.%d",
-              VCL_COMPILER_VERSION_MAJOR,
-              VCL_COMPILER_VERSION_MINOR,
-              Compiler::getCompilerVersionMajor(),
-              Compiler::getCompilerVersionMinor());
+    if (!Compiler::isVclCompilerApiCompatible()) {
         return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
     }
 
@@ -55,10 +46,10 @@ ze_result_t QueryNetwork::create(ze_context_handle_t hContext,
 
     vcl_compiler_handle_t compiler = NULL;
     vcl_log_handle_t logHandle = NULL;
-    vcl_result_t ret = Compiler::compilerCreate(pCtx->getDeviceCapabilities(), compiler, logHandle);
-    if (ret != VCL_RESULT_SUCCESS) {
-        LOG_E("Failed to create compiler! Result:%x", ret);
-        return ZE_RESULT_ERROR_UNKNOWN;
+    ze_result_t ret = Compiler::compilerCreate(pCtx->getDeviceCapabilities(), compiler, logHandle);
+    if (ret != ZE_RESULT_SUCCESS) {
+        LOG_E("Failed to create compiler! Result:%#x", ret);
+        return ret;
     }
 
     vcl_query_handle_t query = nullptr;
@@ -67,10 +58,10 @@ ze_result_t QueryNetwork::create(ze_context_handle_t hContext,
     queryDesc.modelIRSize = desc->inputSize;
     queryDesc.options = desc->pBuildFlags;
     queryDesc.optionsSize = strlen(desc->pBuildFlags);
-    ret = Vcl::sym().queryNetworkCreate(compiler, queryDesc, &query);
-    if (ret != VCL_RESULT_SUCCESS) {
-        LOG_E("Failed to create query network! Result:%x", ret);
-        return ZE_RESULT_ERROR_UNKNOWN;
+    ret = Compiler::queryNetworkCreate(compiler, queryDesc, &query);
+    if (ret != ZE_RESULT_SUCCESS) {
+        LOG_E("Failed to create query network! Result:%#x", ret);
+        return ret;
     }
 
     auto *queryNetwork = new QueryNetwork(compiler, query);
@@ -84,22 +75,20 @@ ze_result_t QueryNetwork::create(ze_context_handle_t hContext,
 }
 
 ze_result_t QueryNetwork::destroy() {
-    Vcl::sym().queryNetworkDestroy(query);
-    Vcl::sym().compilerDestroy(compiler);
+    Compiler::queryNetworkDestroy(query);
+    Compiler::compilerDestroy(compiler);
     delete this;
 
     return ZE_RESULT_SUCCESS;
 }
 
 ze_result_t QueryNetwork::getSupportedLayers(size_t *pSize, char *pSupportedLayers) {
-    vcl_result_t ret =
-        Vcl::sym().queryNetwork(query, reinterpret_cast<uint8_t *>(pSupportedLayers), pSize);
-    if (ret != VCL_RESULT_SUCCESS) {
-        LOG_E("Failed to execute vclQueryNetwork, ret: %x", ret);
-        return ZE_RESULT_ERROR_UNKNOWN;
-    }
+    ze_result_t ret =
+        Compiler::queryNetwork(query, reinterpret_cast<uint8_t *>(pSupportedLayers), pSize);
+    if (ret != ZE_RESULT_SUCCESS)
+        LOG_E("Failed to execute vclQueryNetwork, ret: %#x", ret);
 
-    return ZE_RESULT_SUCCESS;
+    return ret;
 }
 
 } // namespace L0

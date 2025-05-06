@@ -22,6 +22,10 @@
 #include <utility>
 #include <vector>
 
+#ifdef ZLIB
+#include <zlib.h>
+#endif
+
 namespace L0 {
 
 class DiskCacheNegTest : public ::testing::Test {
@@ -93,10 +97,18 @@ TEST_F(DiskCacheTest, MissCacheInvalidFileSize) {
 }
 
 TEST_F(DiskCacheTest, HitCache) {
-    constexpr size_t fileSize = 64;
+    // blob size + checksum
+    constexpr size_t fileSize = 64 + HashSha1::DigestLength;
 
     auto osFile = std::make_unique<VPU::GMockOsFileImp>();
     auto mmapPtr = std::make_unique<uint8_t[]>(fileSize);
+
+    uint64_t checksumOffset = fileSize - HashSha1::DigestLength;
+    auto *checksumPtr = reinterpret_cast<HashSha1::DigestType>(mmapPtr.get() + checksumOffset);
+
+    auto checksum = HashSha1::getDigest(mmapPtr.get(), checksumOffset);
+    memcpy(checksumPtr, checksum.data(), checksum.size());
+
     EXPECT_CALL(*osFile, size).WillRepeatedly(::testing::Return(fileSize));
     EXPECT_CALL(*osFile, mmap).WillRepeatedly(::testing::Return(mmapPtr.get()));
 

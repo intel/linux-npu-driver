@@ -9,37 +9,43 @@
 
 #include <cstdint>
 
-#include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
+
+#include <utility>
 
 namespace VPU {
 
-std::shared_ptr<VPUTimeStampCommand> VPUTimeStampCommand::create(VPUDeviceContext *ctx,
-                                                                 uint64_t *dstPtr) {
-    if (!ctx) {
-        LOG_E("Context is nullptr in Timestamp command");
+std::shared_ptr<VPUTimeStampCommand>
+VPUTimeStampCommand::create(uint64_t *dstPtr,
+                            std::shared_ptr<VPUBufferObject> dstBo,
+                            uint32_t type) {
+    if (!dstBo) {
+        LOG_E("nullptr in Timestamp command arguments");
         return nullptr;
     }
 
-    if (ctx->findBuffer(dstPtr) == nullptr) {
-        LOG_E("Pointer %p is not allocated within context %p", dstPtr, ctx);
+    if (!dstBo->isInRange(reinterpret_cast<void *>(dstPtr))) {
+        LOG_E("Pointer %p is not allocated within buffer", dstPtr);
+
         return nullptr;
     }
 
-    return std::make_shared<VPUTimeStampCommand>(ctx, dstPtr);
+    return std::make_shared<VPUTimeStampCommand>(type, dstBo->getVPUAddr(dstPtr), std::move(dstBo));
 }
 
-VPUTimeStampCommand::VPUTimeStampCommand(VPUDeviceContext *ctx, uint64_t *dstPtr)
+VPUTimeStampCommand::VPUTimeStampCommand(uint32_t type,
+                                         uint64_t dstVPUAddr,
+                                         std::shared_ptr<VPUBufferObject> dstBo)
     : VPUCommand() {
     vpu_cmd_timestamp_t cmd = {};
 
     cmd.header.type = VPU_CMD_TIMESTAMP;
     cmd.header.size = sizeof(vpu_cmd_timestamp_t);
-    cmd.timestamp_address = 0u;
-    cmd.timestamp_address = ctx->getBufferVPUAddress(dstPtr);
-    cmd.type = ctx->getFwTimestampType();
+    cmd.timestamp_address = dstVPUAddr;
+    cmd.type = type;
     command.emplace<vpu_cmd_timestamp_t>(cmd);
-    appendAssociateBufferObject(ctx, dstPtr);
+    appendAssociateBufferObject(std::move(dstBo));
     LOG(VPU_CMD, "Timestamp Command successfully created!");
 }
 

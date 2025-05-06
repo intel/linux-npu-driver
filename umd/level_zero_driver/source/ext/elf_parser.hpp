@@ -8,6 +8,7 @@
 #pragma once
 
 #include <cstdint>
+#include <stddef.h>
 
 #include "interface_parser.hpp"
 #include "level_zero/ze_graph_ext.h"
@@ -34,6 +35,7 @@ class VPUInferenceExecute;
 namespace L0 {
 
 class BlobContainer;
+struct GraphProfilingQuery;
 
 class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser> {
   public:
@@ -55,26 +57,26 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
     std::shared_ptr<VPU::VPUInferenceExecute>
     createInferenceExecuteCommand(const std::vector<std::pair<const void *, uint32_t>> &inputPtrs,
                                   const std::vector<std::pair<const void *, uint32_t>> &outputPtrs,
-                                  const std::pair<void *, uint32_t> &profilingPtr);
+                                  GraphProfilingQuery *profilingQuery);
 
     ze_result_t parse(std::vector<ze_graph_argument_properties_3_t> &argumentProperties,
                       std::vector<ze_graph_argument_metadata_t> &argumentMetadata,
                       uint32_t &profilingOutputSize) override;
 
     ze_result_t initialize() override;
+    std::shared_ptr<VPU::VPUBufferObject> allocateInternal(size_t size) override;
 
     std::shared_ptr<VPU::VPUCommand> allocateInitCommand(VPU::VPUDeviceContext *ctx) override;
 
     std::shared_ptr<VPU::VPUCommand>
-    allocateExecuteCommand(VPU::VPUDeviceContext *ctx,
-                           const std::vector<std::pair<const void *, uint32_t>> &inputArgs,
+    allocateExecuteCommand(const std::vector<std::pair<const void *, uint32_t>> &inputArgs,
                            const std::vector<std::pair<const void *, uint32_t>> &outputArgs,
-                           const std::pair<void *, uint32_t> &profilingPtr) override;
+                           GraphProfilingQuery *profilingQuery) override;
 
     bool applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &hpi,
                            const std::vector<std::pair<const void *, uint32_t>> &inputs,
                            const std::vector<std::pair<const void *, uint32_t>> &outputs,
-                           const std::pair<const void *, uint32_t> &profilingPtr,
+                           GraphProfilingQuery *profilingQuery,
                            std::vector<std::shared_ptr<VPU::VPUBufferObject>> &bos);
     std::shared_ptr<VPU::VPUBufferObject> findBuffer(const void *ptr);
 

@@ -22,14 +22,20 @@
 #include <level_zero/ze_api.h>
 #include <thread>
 
+namespace VPU {
+class VPUBufferObject;
+}
+
 namespace L0 {
 
 Event::Event(VPU::VPUDeviceContext *ctx,
              VPU::VPUEventCommand::KMDEventDataType *ptr,
+             const std::shared_ptr<VPU::VPUBufferObject> eventBaseBo,
              uint64_t vpuAddr,
              std::function<void()> &&destroyCb)
     : pDevCtx(ctx)
     , eventState(ptr)
+    , eventBase(std::move(eventBaseBo))
     , eventVpuAddr(vpuAddr)
     , destroyCb(std::move(destroyCb)) {
     setEventState(VPU::VPUEventCommand::STATE_EVENT_INITIAL);
@@ -133,6 +139,10 @@ ze_result_t Event::reset() {
 void Event::setEventState(VPU::VPUEventCommand::KMDEventDataType state) {
     *eventState = state;
     LOG(EVENT, "Event state set to: %#lx", state);
+}
+
+const std::shared_ptr<VPU::VPUBufferObject> Event::getAssociatedBo() const {
+    return eventBase;
 }
 
 } // namespace L0

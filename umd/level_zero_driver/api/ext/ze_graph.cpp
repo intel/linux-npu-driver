@@ -776,4 +776,147 @@ exit:
     return ret;
 }
 
+ze_result_t ZE_APICALL zeGraphCompilerGetSupportedOptions(ze_device_handle_t hDevice,
+                                                          ze_npu_options_type_t type,
+                                                          size_t *pSize,
+                                                          char *pSupportedOptions) {
+    trace_zeGraphCompilerGetSupportedOptions(type, pSize, pSupportedOptions);
+    ze_result_t ret = ZE_RESULT_SUCCESS;
+    if (hDevice == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+
+    if (pSize == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
+
+    ret = translateHandle(ZEL_HANDLE_DEVICE, hDevice);
+    if (ret != ZE_RESULT_SUCCESS) {
+        goto exit;
+    }
+
+    L0_HANDLE_EXCEPTION(ret, Graph::getSupportedOptions(hDevice, type, pSize, pSupportedOptions));
+
+exit:
+    trace_zeGraphCompilerGetSupportedOptions(ret, type, pSize, pSupportedOptions);
+    return ret;
+}
+
+ze_result_t ZE_APICALL zeGraphCompilerIsOptionSupported(ze_device_handle_t hDevice,
+                                                        ze_npu_options_type_t type,
+                                                        const char *pOption,
+                                                        const char *pValue) {
+    trace_zeGraphCompilerIsOptionSupported(type, pOption, pValue);
+    ze_result_t ret = ZE_RESULT_SUCCESS;
+    if (hDevice == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+
+    if (pOption == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
+
+    ret = translateHandle(ZEL_HANDLE_DEVICE, hDevice);
+    if (ret != ZE_RESULT_SUCCESS) {
+        goto exit;
+    }
+
+    L0_HANDLE_EXCEPTION(ret, Graph::isOptionSupported(hDevice, type, pOption, pValue));
+
+exit:
+    trace_zeGraphCompilerIsOptionSupported(ret, type, pOption, pValue);
+    return ret;
+}
+
+ze_result_t ZE_APICALL zeGraphCreate3(ze_context_handle_t hContext,
+                                      ze_device_handle_t hDevice,
+                                      const ze_graph_desc_2_t *desc,
+                                      ze_graph_handle_t *phGraph,
+                                      ze_graph_build_log_handle_t *phGraphBuildLog) {
+    trace_zeGraphCreate3(hContext, hDevice, desc, phGraph, phGraphBuildLog);
+    ze_result_t ret;
+
+    if (hDevice == nullptr || hContext == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+
+    ret = translateHandle(ZEL_HANDLE_CONTEXT, hContext);
+    if (ret != ZE_RESULT_SUCCESS) {
+        goto exit;
+    }
+
+    ret = translateHandle(ZEL_HANDLE_DEVICE, hDevice);
+    if (ret != ZE_RESULT_SUCCESS) {
+        goto exit;
+    }
+
+    L0_HANDLE_EXCEPTION(ret, L0::Graph::create(hContext, hDevice, desc, phGraph, phGraphBuildLog));
+
+exit:
+    trace_zeGraphCreate3(ret, hContext, hDevice, desc, phGraph, phGraphBuildLog);
+    return ret;
+}
+
+ze_result_t ZE_APICALL zeGraphBuildLogGetString2(ze_graph_build_log_handle_t hGraphBuildLog,
+                                                 uint32_t *pSize,
+                                                 char *pBuildLog) {
+    trace_zeGraphBuildLogGetString2(hGraphBuildLog, pSize, pBuildLog);
+    ze_result_t ret;
+
+    if (hGraphBuildLog == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+
+    L0_HANDLE_EXCEPTION(
+        ret,
+        L0::GraphBuildLog::fromHandle(hGraphBuildLog)->getLogString(pSize, pBuildLog));
+
+exit:
+    trace_zeGraphBuildLogGetString2(ret, hGraphBuildLog, pSize, pBuildLog);
+    return ret;
+}
+
+ze_result_t ZE_APICALL zeGraphBuildLogDestroy(ze_graph_build_log_handle_t hGraphBuildLog) {
+    trace_zeGraphBuildLogDestroy(hGraphBuildLog);
+    ze_result_t ret;
+
+    if (hGraphBuildLog == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+
+    L0_HANDLE_EXCEPTION(ret, L0::GraphBuildLog::fromHandle(hGraphBuildLog)->destroy());
+
+exit:
+    trace_zeGraphBuildLogDestroy(ret, hGraphBuildLog);
+    return ret;
+}
+
+ze_result_t ZE_APICALL zeGraphGetProperties3(ze_graph_handle_t hGraph,
+                                             ze_graph_properties_3_t *pGraphProperties) {
+    trace_zeGraphGetProperties3(hGraph, pGraphProperties);
+    ze_result_t ret;
+
+    if (hGraph == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+
+    if (pGraphProperties == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
+
+    L0_HANDLE_EXCEPTION(ret, L0::Graph::fromHandle(hGraph)->getProperties3(pGraphProperties));
+
+exit:
+    trace_zeGraphGetProperties3(ret, hGraph, pGraphProperties);
+    return ret;
+}
 } // namespace L0

@@ -15,6 +15,7 @@
 #include "level_zero_driver/include/l0_handler.hpp"
 #include "vpu_driver/source/command/vpu_event_command.hpp"
 #include "vpu_driver/source/command/vpu_job.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <limits>
@@ -117,7 +118,9 @@ ze_result_t ImmediateCommandList::appendSignalEvent(ze_event_handle_t hEvent) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
 
-    ze_result_t result = appendCommand<VPU::VPUEventSignalCommand>(ctx, evSyncPtr);
+    ze_result_t result =
+        appendCommand<VPU::VPUEventSignalCommand>(evSyncPtr, ctx->findBufferObject(evSyncPtr));
+
     if (result != ZE_RESULT_SUCCESS)
         return result;
 
@@ -147,7 +150,9 @@ ze_result_t ImmediateCommandList::appendWaitOnEvents(uint32_t numEvents,
             return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
         }
 
-        ze_result_t result = appendCommand<VPU::VPUEventWaitCommand>(ctx, evSyncPtr);
+        ze_result_t result =
+            appendCommand<VPU::VPUEventWaitCommand>(evSyncPtr, ctx->findBufferObject(evSyncPtr));
+
         if (result != ZE_RESULT_SUCCESS)
             return result;
 

@@ -16,5 +16,5 @@ target_sources(${TARGET_NAME} PRIVATE
 if (ENABLE_NPU_PERFETTO_BUILD)
   target_sources(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/trace_perfetto.cpp)
   target_link_libraries(${TARGET_NAME} perfetto)
-  target_compile_definitions(${TARGET_NAME} PRIVATE ENABLE_NPU_PERFETTO_BUILD=1)
+  target_compile_definitions(${TARGET_NAME} PUBLIC ENABLE_NPU_PERFETTO_BUILD=1)
 endif()

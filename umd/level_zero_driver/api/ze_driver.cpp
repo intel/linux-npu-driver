@@ -28,16 +28,22 @@
 #include <level_zero/ze_graph_profiling_ext.h>
 #include <string.h>
 
+#ifdef ANDROID
+#define LIB_ZE_INTEL_VPU_NAME "libze_intel_vpu.so"
+#else
+#define LIB_ZE_INTEL_VPU_NAME "libze_intel_vpu.so.1"
+#endif
+
 namespace L0 {
 
 ze_result_t zeInit(ze_init_flags_t flags) {
     trace_zeInit(flags);
     ze_result_t ret;
 
-    void *handle = dlopen("libze_intel_vpu.so.1", RTLD_NOLOAD | RTLD_LAZY);
+    void *handle = dlopen(LIB_ZE_INTEL_VPU_NAME, RTLD_NOLOAD | RTLD_LAZY);
     if (handle != nullptr) {
         dlclose(handle);
-        LOG_E("Skip loading libze_intel_npu.so.1 because libze_intel_vpu.so.1 is installed");
+        LOG_E("Skip loading libze_intel_npu.so.* because libze_intel_vpu.so.* is installed");
         ret = ZE_RESULT_ERROR_UNINITIALIZED;
         goto exit;
     }
@@ -254,19 +260,29 @@ ze_result_t zeDriverGetExtensionFunctionAddress(ze_driver_handle_t hDriver,
     table.pfnGetProperties2 = L0::zeGraphGetProperties2;
     table.pfnGraphInitialize = L0::zeGraphInitialize;
 
+    // version 1.11
+    table.pfnCompilerGetSupportedOptions = L0::zeGraphCompilerGetSupportedOptions;
+    table.pfnCompilerIsOptionSupported = L0::zeGraphCompilerIsOptionSupported;
+
+    // version 1.12
+    table.pfnCreate3 = L0::zeGraphCreate3;
+    table.pfnGetProperties3 = L0::zeGraphGetProperties3;
+    table.pfnBuildLogGetString2 = L0::zeGraphBuildLogGetString2;
+    table.pfnBuildLogDestroy = L0::zeGraphBuildLogDestroy;
+
     if (strstr(name, ZE_GRAPH_EXT_NAME) != nullptr) {
         *ppFunctionAddress = reinterpret_cast<void *>(&table);
         ret = ZE_RESULT_SUCCESS;
         goto exit;
     }
 
-#define CHECK_PRIVATE_FUNCTION(function)                                 \
-    {                                                                    \
-        if (strcmp(name, #function) == 0) {                              \
-            *ppFunctionAddress = reinterpret_cast<void *>(function);     \
-            ret = ZE_RESULT_SUCCESS;                                     \
-            goto exit;                                                   \
-        }                                                                \
+#define CHECK_PRIVATE_FUNCTION(function)                             \
+    {                                                                \
+        if (strcmp(name, #function) == 0) {                          \
+            *ppFunctionAddress = reinterpret_cast<void *>(function); \
+            ret = ZE_RESULT_SUCCESS;                                 \
+            goto exit;                                               \
+        }                                                            \
     }
 
     CHECK_PRIVATE_FUNCTION(zexDiskCacheSetSize);

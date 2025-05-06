@@ -31,7 +31,6 @@ namespace L0 {
 
 struct EventPool : _ze_event_pool_handle_t, IContextObject {
     EventPool(Context *pContext, const ze_event_pool_desc_t *desc);
-    ~EventPool();
 
     inline ze_event_pool_handle_t toHandle() { return this; }
     static EventPool *fromHandle(ze_event_pool_handle_t handle) {
@@ -48,12 +47,13 @@ struct EventPool : _ze_event_pool_handle_t, IContextObject {
     ze_result_t createEvent(const ze_event_desc_t *desc, ze_event_handle_t *phEvent);
 
     VPU::VPUEventCommand::KMDEventDataType *getEventCpuAddress(uint32_t index);
+    const std::shared_ptr<VPU::VPUBufferObject> &getEventBase() { return pEventPool; }
     bool freeEvent(uint32_t index);
 
   private:
     Context *pContext = nullptr;
     VPU::VPUDeviceContext *ctx = nullptr;
-    VPU::VPUBufferObject *pEventPool = nullptr;
+    std::shared_ptr<VPU::VPUBufferObject> pEventPool = nullptr;
     std::vector<std::unique_ptr<Event>> events;
 };
 

@@ -39,7 +39,6 @@ namespace L0 {
 
 struct CommandList : _ze_command_list_handle_t, IContextObject {
     CommandList(Context *pContext, bool isMutable);
-    virtual ~CommandList();
 
     static ze_result_t create(ze_context_handle_t hContext,
                               ze_device_handle_t hDevice,
@@ -66,11 +65,15 @@ struct CommandList : _ze_command_list_handle_t, IContextObject {
                                  ze_event_handle_t hEvent,
                                  uint32_t numWaitEvents,
                                  ze_event_handle_t *phWaitEvents);
+    ze_result_t appendWriteGlobalTimestamp(std::shared_ptr<VPU::VPUBufferObject> timestampBo,
+                                           ze_event_handle_t hSignalEvent,
+                                           uint32_t numWaitEvents,
+                                           ze_event_handle_t *phWaitEvents);
+
     ze_result_t appendWriteGlobalTimestamp(uint64_t *dstptr,
                                            ze_event_handle_t hSignalEvent,
                                            uint32_t numWaitEvents,
-                                           ze_event_handle_t *phWaitEvents,
-                                           bool skipDmaCopy = false);
+                                           ze_event_handle_t *phWaitEvents);
     ze_result_t appendGraphInitialize(ze_graph_handle_t hGraph,
                                       ze_event_handle_t hSignalEvent,
                                       uint32_t numWaitEvents,

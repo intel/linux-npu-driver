@@ -17,7 +17,6 @@
 
 namespace VPU {
 class VPUBufferObject;
-class VPUDeviceContext;
 } // namespace VPU
 
 struct _ze_graph_profiling_query_handle_t {};
@@ -32,6 +31,7 @@ struct GraphProfilingQuery : _ze_graph_profiling_query_handle_t {
     GraphProfilingQuery(const BlobContainer *blob,
                         const uint32_t size,
                         void *queryPtrInput,
+                        std::shared_ptr<VPU::VPUBufferObject> profilingMemoryBo,
                         std::function<void()> &&destroyCb);
 
     ze_result_t destroy();
@@ -43,23 +43,25 @@ struct GraphProfilingQuery : _ze_graph_profiling_query_handle_t {
         return static_cast<GraphProfilingQuery *>(handle);
     }
 
-    inline void *getQueryPtr() const { return data; }
+    inline uint8_t *getQueryPtr() const { return static_cast<uint8_t *>(data); }
+    inline std::shared_ptr<VPU::VPUBufferObject> getBo() { return profilingBo; }
+    inline uint32_t getSize() { return size; }
 
   private:
     uint32_t size = 0u;
     void *data = nullptr;
     const BlobContainer *blob;
+    std::shared_ptr<VPU::VPUBufferObject> profilingBo;
     std::function<void()> destroyCb;
 };
 
 struct GraphProfilingPool : _ze_graph_profiling_pool_handle_t {
   public:
-    GraphProfilingPool(VPU::VPUDeviceContext *ctx,
-                       const uint32_t size,
+    GraphProfilingPool(const uint32_t size,
                        const uint32_t count,
                        const BlobContainer *blob,
+                       std::shared_ptr<VPU::VPUBufferObject> profilingMemory,
                        std::function<void(GraphProfilingPool *)> destroyCb);
-    ~GraphProfilingPool();
 
     ze_result_t destroy();
     ze_result_t createProfilingQuery(const uint32_t index,
@@ -71,9 +73,8 @@ struct GraphProfilingPool : _ze_graph_profiling_pool_handle_t {
     }
 
   private:
-    VPU::VPUDeviceContext *ctx = nullptr;
     uint32_t querySize = 0u;
-    VPU::VPUBufferObject *poolBuffer = nullptr;
+    std::shared_ptr<VPU::VPUBufferObject> poolBuffer = nullptr;
     const BlobContainer *blob;
 
     std::vector<std::unique_ptr<GraphProfilingQuery>> queries;

@@ -42,34 +42,30 @@ static size_t getMetricQueryDataOffset(const size_t index, MetricGroup &group) {
 }
 
 MetricQueryPool::MetricQueryPool(Context *pContext,
-                                 MetricGroup *metricGroupInput,
+                                 MetricGroup &metricGroupInput,
                                  const size_t poolSize)
     : pContext(pContext)
     , ctx(pContext->getDeviceContext())
     , metricGroup(metricGroupInput)
     , metricQueries(poolSize) {
-    size_t bufferSize = getMetricQueryAddrTableOffset(poolSize, *metricGroup);
+    size_t bufferSize = getMetricQueryAddrTableOffset(poolSize, metricGroup);
     pQueryPoolBuffer =
-        ctx->createInternalBufferObject(bufferSize, VPU::VPUBufferObject::Type::CachedFw);
+        ctx->createUntrackedBufferObject(bufferSize, VPU::VPUBufferObject::Type::CachedFw);
     L0_THROW_WHEN(pQueryPoolBuffer == nullptr,
                   "Failed to allocate buffer object for metric query pool",
                   ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY);
     memset(pQueryPoolBuffer->getBasePointer(), 0, bufferSize);
 }
 
-MetricQueryPool::~MetricQueryPool() {
-    if (pQueryPoolBuffer != nullptr && !ctx->freeMemAlloc(pQueryPoolBuffer)) {
-        LOG_W("MetricQueryPool memory failed to be free'd");
-    }
-}
-
 MetricQuery::MetricQuery(MetricGroup &metricGroupInput,
                          uint64_t *addressTablePtr,
                          uint64_t *dataPtr,
+                         std::shared_ptr<VPU::VPUBufferObject> poolBo,
                          std::function<void()> &&destroyCb)
     : metricGroup(metricGroupInput)
     , addrTablePtr(addressTablePtr)
     , dataPtr(dataPtr)
+    , metricPoolBo(std::move(poolBo))
     , destroyCb(std::move(destroyCb)) {
     metricGroupMask = 0x1 << metricGroup.getGroupIndex();
     LOG(METRIC,
@@ -89,8 +85,9 @@ ze_result_t MetricQueryPool::createMetricQuery(uint32_t index,
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    if (!metricGroup->isActivated()) {
-        LOG_E("MetricGroup (%p) is not activated! Please activate metric group first", metricGroup);
+    if (!metricGroup.isActivated()) {
+        LOG_E("MetricGroup (%p) is not activated! Please activate metric group first",
+              &metricGroup);
         return ZE_RESULT_ERROR_DEPENDENCY_UNAVAILABLE;
     }
 
@@ -105,15 +102,17 @@ ze_result_t MetricQueryPool::createMetricQuery(uint32_t index,
     }
 
     uint64_t *addressTablePtr = reinterpret_cast<uint64_t *>(
-        pQueryPoolBuffer->getBasePointer() + getMetricQueryAddrTableOffset(index, *metricGroup));
+        pQueryPoolBuffer->getBasePointer() + getMetricQueryAddrTableOffset(index, metricGroup));
     uint64_t *dataPtr = reinterpret_cast<uint64_t *>(pQueryPoolBuffer->getBasePointer() +
-                                                     getMetricQueryDataOffset(index, *metricGroup));
-    addressTablePtr[metricGroup->getGroupIndex()] = ctx->getBufferVPUAddress(dataPtr);
-
+                                                     getMetricQueryDataOffset(index, metricGroup));
+    addressTablePtr[metricGroup.getGroupIndex()] = pQueryPoolBuffer->getVPUAddr(dataPtr);
     metricQueries[index] =
-        std::make_unique<MetricQuery>(*metricGroup, addressTablePtr, dataPtr, [this, index]() {
-            metricQueries[index].reset();
-        });
+        std::make_unique<MetricQuery>(metricGroup,
+                                      addressTablePtr,
+                                      dataPtr,
+                                      pQueryPoolBuffer,
+                                      [this, index]() { metricQueries[index].reset(); });
+
     *phMetricQuery = metricQueries[index].get();
     LOG(METRIC, "MetricQuery created - %p", *phMetricQuery);
 
