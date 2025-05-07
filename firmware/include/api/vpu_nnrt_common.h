@@ -36,6 +36,16 @@
 
 namespace nn_public {
 
+// base resources
+constexpr uint32_t VPU_MAX_TILES = 6;
+constexpr uint32_t VPU_BARRIERS_PER_GROUP = 16;
+constexpr uint32_t VPU_DPU_PER_TILE = 1;
+constexpr uint32_t VPU_SNN_PER_TILE = VPU_DPU_PER_TILE;
+constexpr uint32_t VPU_SNN_TOTAL = VPU_SNN_PER_TILE * VPU_MAX_TILES;
+constexpr uint32_t VPU_AS_PER_TILE = 2;
+constexpr uint32_t VPU_AS_TOTAL = VPU_AS_PER_TILE * VPU_MAX_TILES;
+constexpr uint32_t VPU_MAX_DMA_ENGINES = 2;
+
 #pragma pack(push, 1)
 
 template <typename T>
@@ -57,13 +67,6 @@ struct VPU_ALIGNED_STRUCT(8) VpuTaskReference {
 
     T &at(uint32_t index, int64_t offset = 0) { return (reinterpret_cast<T *>(address + offset))[index]; }
     const T &at(uint32_t index, int64_t offset = 0) const { return (reinterpret_cast<T *>(address + offset))[index]; }
-
-    template <class TD>
-    VpuTaskReference &operator=(TD fixedVector) {
-        address = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(fixedVector.data())) - fixedVector.apertureOffset();
-        count = static_cast<uint64_t>(fixedVector.size());
-        return *this;
-    }
 };
 
 static_assert(sizeof(VpuTaskReference<uint32_t>) == 40, "VpuTaskReference size != 40");

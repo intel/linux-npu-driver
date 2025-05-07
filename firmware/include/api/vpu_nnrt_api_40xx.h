@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (c) 2022-2024, Intel Corporation.
+ * Copyright (c) 2022-2025, Intel Corporation.
  */
 
 #ifndef VPU_NNRT_API_40XX_H
@@ -33,6 +33,17 @@
  *
  * API changelog
  * -------------
+ * 11.9:
+ *   - Added VpuManagedMappedInference::model_identifier to enable the compiler to assign a unique identifier
+ *     to an inference.
+ *
+ * 11.8.1:
+ *   - Added VpuActKernelInvocation::invo_index to track the ID of enqueued ActShave workloads.
+ *
+ * 11.8
+ *   - Added support for shave sub_unit selection for work items to allow compiler to specify
+ *     (if it wants to) which shave is to execute a work item.
+ *
  * 11.7:
  *   - Added VpuManagedMappedInference::inference_feature_cfg to allow the passing
  *     of additional information.
@@ -48,8 +59,8 @@
  *     to allow runtime to efficiently fill barrier FIFOs.
  */
 #define VPU_NNRT_40XX_API_VER_MAJOR 11
-#define VPU_NNRT_40XX_API_VER_MINOR 7
-#define VPU_NNRT_40XX_API_VER_PATCH 0
+#define VPU_NNRT_40XX_API_VER_MINOR 9
+#define VPU_NNRT_40XX_API_VER_PATCH 2
 #define VPU_NNRT_40XX_API_VER ((VPU_NNRT_40XX_API_VER_MAJOR << 16) | VPU_NNRT_40XX_API_VER_MINOR)
 
 /* Index in the API version table, same for all HW generations */
@@ -62,9 +73,22 @@
  *
  * If a change preserves backwards compatibility then VPU_ACT_RT_VER_MINOR
  * should be incremented. It resets to 0 when the major version is incremented.
+ *
+ * Act Runtime changelog:
+ * ----------------------
+ * 1.10:
+ *   - Support for executing shave tasks directly from DDR (expects two FIFO pushes
+ *     with the full 32 bit AKI address and NW_PAGE is already correct)
+ *
+ * 1.9:
+ *   - Add NVL clock gating support
+ *
+ * 1.8:
+ *   - Support Shave Shutdown control message
+ *
  */
 #define VPU_ACT_RT_VER_MAJOR 1
-#define VPU_ACT_RT_VER_MINOR 8
+#define VPU_ACT_RT_VER_MINOR 10
 #define VPU_ACT_RT_VER_PATCH 0
 #define VPU_ACT_RT_VER ((VPU_ACT_RT_VER_MAJOR << 16) | VPU_ACT_RT_VER_MINOR)
 
@@ -223,7 +247,7 @@ struct VPU_ALIGNED_STRUCT(32) VpuActKernelInvocation {
     VpuPtr<void> perf_packet_out;
     VpuTaskBarrierDependency barriers;
     VpuTaskSchedulingBarrierConfig barriers_sched;
-    uint8_t deprecated_[4]; // Deprecated member, do not reuse until next API major version update
+    uint32_t invo_index;
     uint32_t invo_tile;
     uint32_t kernel_range_index;
     uint32_t next_aki_wl_addr;

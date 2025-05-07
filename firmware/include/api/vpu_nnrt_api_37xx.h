@@ -130,15 +130,6 @@ struct VPU_ALIGNED_STRUCT(8) VpuTaskReference {
 
     T &at(uint32_t index, int64_t offset = 0) { return (reinterpret_cast<T *>(address + offset))[index]; }
     const T &at(uint32_t index, int64_t offset = 0) const { return (reinterpret_cast<T *>(address + offset))[index]; }
-
-    template <class TD>
-    VpuTaskReference &operator=(TD fixedVector) {
-        // If fixedVector has a bridge aperture offset remove it to store the address in the
-        // PIOVA aperture as the offset can change.
-        address = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(fixedVector.data())) - fixedVector.apertureOffset();
-        count = static_cast<uint64_t>(fixedVector.size());
-        return *this;
-    }
 };
 
 static_assert(sizeof(VpuTaskReference<uint32_t>) == 40, "VpuTaskReference size != 40");

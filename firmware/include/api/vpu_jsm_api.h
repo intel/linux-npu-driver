@@ -22,7 +22,7 @@
 /*
  * Minor version changes when API backward compatibility is preserved.
  */
-#define VPU_JSM_API_VER_MINOR 29
+#define VPU_JSM_API_VER_MINOR 31
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
@@ -71,9 +71,12 @@
 #define VPU_JSM_STATUS_MVNCI_OUT_OF_RESOURCES 0xAU
 #define VPU_JSM_STATUS_MVNCI_NOT_IMPLEMENTED 0xBU
 #define VPU_JSM_STATUS_MVNCI_INTERNAL_ERROR 0xCU
-/* Job status returned when the job was preempted mid-inference */
+/* @deprecated (use VPU_JSM_STATUS_PREEMPTED_MID_COMMAND instead) */
 #define VPU_JSM_STATUS_PREEMPTED_MID_INFERENCE 0xDU
+/* Job status returned when the job was preempted mid-command */
+#define VPU_JSM_STATUS_PREEMPTED_MID_COMMAND 0xDU
 #define VPU_JSM_STATUS_MVNCI_CONTEXT_VIOLATION_HW 0xEU
+#define VPU_JSM_STATUS_MVNCI_PREEMPTION_TIMED_OUT 0xFU
 
 /*
  * Host <-> VPU IPC channels.

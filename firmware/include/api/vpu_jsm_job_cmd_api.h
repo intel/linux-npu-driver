@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (c) 2021-2024, Intel Corporation.
+ * Copyright (c) 2021-2025, Intel Corporation.
  */
 
 /**
@@ -21,12 +21,12 @@
  * Minor version changes when API backward compatibility is preserved.
  * Resets to 0 if Major version is incremented.
  */
-#define VPU_JSM_JOB_CMD_API_VER_MINOR 9
+#define VPU_JSM_JOB_CMD_API_VER_MINOR 11
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
  */
-#define VPU_JSM_JOB_CMD_API_VER_PATCH 1
+#define VPU_JSM_JOB_CMD_API_VER_PATCH 3
 
 /*
  * Index in the API version table
@@ -52,9 +52,6 @@
 /** Fence value size, in bytes. */
 #define VPU_FENCE_SIZE 8
 
-/** Max number of inference variants in VPU_CMD_INFERENCE_EXECUTE command. */
-#define VPU_INFERENCE_EXECUTE_ARRAY_SIZE 6U
-
 /** Minimum size of inference execute command, in bytes. */
 #define VPU_INFERENCE_EXECUTE_CMD_MIN_SIZE 32U
 
@@ -75,9 +72,8 @@ enum vpu_cmd_type {
     VPU_CMD_METRIC_QUERY_BEGIN = 0x0104,
     VPU_CMD_METRIC_QUERY_END = 0x0105,
     VPU_CMD_MEMORY_FILL = 0x0202,
-    VPU_CMD_JIT_MAPPED_INFERENCE_EXECUTE = 0x0301,
     VPU_CMD_COPY_LOCAL_TO_LOCAL = 0x0302,
-    VPU_CMD_CLEAR_BUFFER = 0x0303,
+    VPU_CMD_COPY = 0x0302,
     VPU_CMD_INFERENCE_EXECUTE = 0x0306,
 
     /** Deprecated commands. Do not reuse IDs */
@@ -85,6 +81,8 @@ enum vpu_cmd_type {
     VPU_CMD_COPY_LOCAL_TO_SYSTEM = 0x0201,
     VPU_CMD_COPY_SYSTEM_TO_SYSTEM = 0x0203,
     VPU_CMD_DXIL_DEPRECATED = 0x0300,
+    VPU_CMD_JIT_MAPPED_INFERENCE_EXECUTE_DEPRECATED = 0x0301,
+    VPU_CMD_CLEAR_BUFFER_DEPRECATED = 0x0303,
     VPU_CMD_OV_BLOB_INITIALIZE_DEPRECATED = 0x0304,
     VPU_CMD_OV_BLOB_EXECUTE_DEPRECATED = 0x0305,
     VPU_CMD_DXIL_COPY_DEPRECATED = 0x0307
@@ -161,7 +159,6 @@ typedef struct vpu_cmd_resource_descriptor_table {
 
 /**
  * @brief Copy command descriptor on VPU 37xx
- * Note VPU 37xx does not have a LOCAL memory
  *
  * NOTE: Due to the presence of optional fields
  * unused in copy commands context, this copy
@@ -176,7 +173,7 @@ typedef struct vpu_cmd_resource_descriptor_table {
  * immediately after the memory allocated for any
  * descriptor.
  *
- * @see VPU_CMD_COPY_LOCAL_TO_LOCAL
+ * @see VPU_CMD_COPY
  */
 typedef struct vpu_cmd_copy_descriptor_37xx {
     uint64_t reserved_0[2]; /**< Unused */
@@ -188,9 +185,8 @@ typedef struct vpu_cmd_copy_descriptor_37xx {
 
 /**
  * @brief Copy command descriptor on VPU 40xx or later
- * Note VPU 40xx does not have a LOCAL memory
  *
- * @see VPU_CMD_COPY_LOCAL_TO_LOCAL
+ * @see VPU_CMD_COPY
  */
 typedef struct vpu_cmd_copy_descriptor_40xx {
     uint64_t reserved_0[3];  /**< Unused */
@@ -245,7 +241,7 @@ typedef struct vpu_cmd_header {
 /**
  * @brief Copy command format
  *
- * @see VPU_CMD_COPY_LOCAL_TO_LOCAL
+ * @see VPU_CMD_COPY
  */
 typedef struct vpu_cmd_copy_buffer {
     vpu_cmd_header_t header;
@@ -288,38 +284,18 @@ typedef struct vpu_cmd_memory_fill {
     uint32_t reserved_1;
 } vpu_cmd_memory_fill_t;
 
-typedef struct vpu_cmd_inference_entry {
-    /** Virtual address and size of the host mapped inference */
-    vpu_cmd_resource_descriptor_t host_mapped_inference;
-    /** Reserved */
-    uint64_t reserved_0;
-} vpu_cmd_inference_entry_t;
-
 /**
  * @brief Execute parsed inference
  * @see VPU_CMD_INFERENCE_EXECUTE
  */
 typedef struct vpu_cmd_inference_execute {
     vpu_cmd_header_t header;
-    /**
-     * Number of inferences in the inference array.
-     * For backward compatibility reason, VPU behaviour upon processing this command
-     * is the following:
-     *   - If inference_count == 0
-     *     - interpret below union as host_mapped_inference object.
-     *   - If inference_count != 0
-     *     - interpret below union as inference array, of size defined by
-     *       inference_count value.
-     */
-    uint32_t inference_count;
+    /** Reserved */
+    uint32_t reserved_0;
     /** Unique identifier for the host mapped inference */
     uint64_t inference_id;
-    union {
-        /** Singleton inference object for backward compatibility */
-        vpu_cmd_resource_descriptor_t host_mapped_inference;
-        /** Array of inference objects */
-        vpu_cmd_inference_entry_t inferences[VPU_INFERENCE_EXECUTE_ARRAY_SIZE];
-    };
+    /** Virtual address and size of the host mapped inference */
+    vpu_cmd_resource_descriptor_t host_mapped_inference;
 } vpu_cmd_inference_execute_t;
 
 /**
@@ -391,56 +367,6 @@ typedef struct vpu_cmd_metric_query {
      */
     uint64_t metric_data_address;
 } vpu_cmd_metric_query_t;
-
-/**
- * @brief Clear buffer command structure
- * @see VPU_CMD_CLEAR_BUFFER
- */
-typedef struct vpu_cmd_clear_buffer {
-    vpu_cmd_header_t header;
-    uint32_t reserved_0;     /**< Reserved */
-    uint64_t start_address;  /**< Start address to clear, should be in VPU DDR */
-    uint64_t size;           /**< Size in bytes of memory buffer to clear */
-    uint32_t clear_value[4]; /**< Clear value, 4 bytes per channel */
-} vpu_cmd_clear_buffer_t;
-
-/**
- * @brief Address patch definition used in vpu_cmd_jit_mapped_inference_execute_t
- */
-typedef struct vpu_inference_address_patch {
-    /** Patch offset in the host parsed inference */
-    uint64_t host_parsed_inference_offset;
-    /** Offset in the descriptor heap to read the base address for the resource */
-    uint64_t descriptor_heap_offest;
-    /** Offset within the resource to compute the final address to be patched */
-    uint64_t resource_offset;
-    /** Address mask for patch. Note: Use lower 4 bytes for 4 bytes address*/
-    uint64_t address_mask;
-    /** Size of the patch in bytes, e.g., 4 for uint32_t, 8 for uint64_t */
-    uint32_t patch_size;
-    /** Reserved bytes */
-    uint32_t reserved_0;
-} vpu_inference_address_patch_t;
-
-/**
- * @brief JIT map and execute parsed inference
- * @see VPU_CMD_JIT_MAPPED_INFERENCE_EXECUTE
- */
-typedef struct vpu_cmd_jit_mapped_inference_execute {
-    vpu_cmd_header_t header;
-    /** Reserved */
-    uint32_t reserved_0;
-    /** Unique identifier for the host parsed inference */
-    uint64_t inference_id;
-    /** Virtual address and size of the host parsed inference */
-    vpu_cmd_resource_descriptor_t host_parsed_inference;
-    /** Virtual address and size of the descriptor heap */
-    vpu_cmd_resource_descriptor_t descriptor_heap;
-    /** Virtual address and size of the address patch buffer
-        Number of patchd can computed by
-        address_patch_buffer_size / sizeof(vpu_inference_address_patch_t) */
-    vpu_cmd_resource_descriptor_t address_patch_buffer;
-} vpu_cmd_jit_mapped_inference_execute_t;
 
 #pragma pack(pop)
 
