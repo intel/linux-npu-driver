@@ -101,10 +101,11 @@ class FenceSync : public Fence {
     zeScope::SharedPtr<ze_command_list_handle_t> scopedList = nullptr;
     ze_command_list_handle_t list = nullptr;
 
+#ifndef ANDROID
     // Functor for threaded use case of zeFenceHostSynchronize with a promise as parameter
     // umd-test will utilize std::thread to spawn a new thread with this functor to
     // perform zeFenceHostSynchronize with BLOCKING scenario (UINT64_MAX)
-    // While the std::promise is used to checked for the zeFenceHostSynchronize
+    // While the std::promise is used to check for the zeFenceHostSynchronize
     // result in the main thread with timeout.
     void threadedFenceHostSyncWrapper(std::promise<_ze_result_t> &&promise) {
         // This thread has to be killed instantly, otherwise SEGFAULT could happen
@@ -114,8 +115,10 @@ class FenceSync : public Fence {
         ASSERT_NE(nullptr, fence);
         promise.set_value(zeFenceHostSynchronize(fence, UINT64_MAX));
     }
+#endif
 };
 
+#ifndef ANDROID
 TEST_F(FenceSync, SynchronizeCommandListExecutionUsingFenceWithMaxUint64) {
     ASSERT_EQ(zeCommandListAppendWriteGlobalTimestamp(list, ts, nullptr, 0, nullptr),
               ZE_RESULT_SUCCESS);
@@ -155,6 +158,7 @@ TEST_F(FenceSync, SynchronizeCommandListExecutionUsingFenceWithMaxUint64) {
     EXPECT_EQ(zeFenceQueryStatus(fence), ZE_RESULT_SUCCESS);
     EXPECT_NE(*ts, 0llu) << "Timestamp should be different from 0";
 }
+#endif
 
 TEST_F(FenceSync, SynchronizeCommandListExecutionUsingFence) {
     ASSERT_EQ(zeCommandListAppendWriteGlobalTimestamp(list, ts, nullptr, 0, nullptr),

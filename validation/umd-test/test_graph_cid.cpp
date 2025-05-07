@@ -238,6 +238,7 @@ class CompilerInDriverLongBmp : public CompilerInDriverLongT,
         const YAML::Node node = GetParam();
 
         graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
+        ASSERT_NE(graph, nullptr);
 
         graph->allocateArguments(MemType::SHARED_MEMORY);
         graph->copyInputData();
@@ -284,8 +285,9 @@ class CompilerInDriverBmpUsingDmaHeap : public CompilerInDriverLongBmp {
         const YAML::Node node = GetParam();
 
         graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
+        ASSERT_NE(graph, nullptr);
 
-        if (graph->images.empty()) {
+        if (graph->imagePaths.empty()) {
             GTEST_FAIL() << "No image provided. Check the correctness of the fields used in the "
                             "configuration file.";
         }
@@ -607,57 +609,5 @@ TEST_P(CompilerInDriverMultiInference, Pipeline) {
         const double avgRateBackgroundInferences =
             backgroundFPSInferencesRate.first / backgroundFPSInferencesRate.second;
         EXPECT_GE(avgRateDefaultInferences, avgRateBackgroundInferences * 1.30);
-    }
-}
-
-using ModelCacheTest = CompilerInDriverLongT;
-
-int getNumFiles(const std::filesystem::path &dir) {
-    int numFiles = 0;
-    for ([[maybe_unused]] const auto &entry : std::filesystem::directory_iterator(dir)) {
-        numFiles++;
-    }
-    return numFiles;
-}
-
-std::string getBuildLog(graph_dditable_ext_t *graphDDI) {
-    uint32_t size = 0;
-    ze_result_t result = graphDDI->pfnBuildLogGetString(nullptr, &size, nullptr);
-    if (result != ZE_RESULT_SUCCESS)
-        return {};
-    std::string log(size - 1, 0);
-    result = graphDDI->pfnBuildLogGetString(nullptr, &size, log.data());
-    if (result != ZE_RESULT_SUCCESS)
-        return {};
-    return log;
-}
-
-TEST_F(ModelCacheTest, CheckIfModelIsCachedWithBuildLog) {
-    const char *home = getenv("HOME");
-    ASSERT_NE(home, nullptr);
-    std::filesystem::path cacheDir = std::filesystem::path(home) / ".cache/ze_intel_npu_cache";
-    std::error_code ec;
-    for (const auto &entry : std::filesystem::directory_iterator(cacheDir)) {
-        ASSERT_GE(std::filesystem::remove_all(entry, ec), 0);
-    }
-    ASSERT_EQ(getNumFiles(cacheDir), 0);
-
-    if (!Environment::getConfiguration("image_classification_imagenet").size())
-        GTEST_SKIP() << "No data to perform the test";
-
-    const std::vector<YAML::Node> nodes =
-        Environment::getConfiguration("image_classification_imagenet");
-    ASSERT_GT(nodes.size(), 1);
-
-    for (size_t i = 0; i < 2; i++) {
-        auto graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, nodes[i]);
-        ASSERT_EQ(getBuildLog(zeGraphDDITableExt),
-                  "ZE DynamicCaching cache_status_t: cache_status_t::stored\n");
-        ASSERT_EQ(getNumFiles(cacheDir), i + 1);
-        auto graph2 =
-            Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, nodes[i]);
-        ASSERT_EQ(getBuildLog(zeGraphDDITableExt),
-                  "ZE DynamicCaching cache_status_t: cache_status_t::found\n");
-        ASSERT_EQ(getNumFiles(cacheDir), i + 1);
     }
 }

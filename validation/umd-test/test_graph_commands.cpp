@@ -29,7 +29,21 @@ class CommandGraphBase : public UmdTest {
 
     void TearDown() override { UmdTest::TearDown(); }
 
-    void threadedCommandQueueSyncWrapper(std::promise<_ze_result_t> &&promise);
+#ifndef ANDROID
+    // Functor for threaded use case of zeCommandQueueSync with a promise as parameter
+    // umd-test will utilize std::thread to spawn a new thread with this functor to
+    // perform zeCommandQueueSynchronize with BLOCKING scenario (UINT64_MAX)
+    // While the std::promise is used to check for the zeCommandQueueSynchronize
+    // result in the main thread with timeout.
+    void threadedCommandQueueSyncWrapper(std::promise<_ze_result_t> &&promise) {
+        // This thread has to be killed instantly, otherwise SEGFAULT could happen
+        // if cancellation is DEFERRED post handleFailure()
+        pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+
+        ASSERT_NE(nullptr, queue);
+        promise.set_value(zeCommandQueueSynchronize(queue, UINT64_MAX));
+    }
+#endif
 
     ze_command_queue_desc_t cmdQueueDesc{.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
                                          .pNext = nullptr,
@@ -53,20 +67,6 @@ class CommandGraphBase : public UmdTest {
     zeScope::SharedPtr<ze_command_queue_handle_t> scopedQueue = nullptr;
     zeScope::SharedPtr<ze_command_list_handle_t> scopedList = nullptr;
 };
-
-// Functor for threaded use case of zeCommandQueueSync with a promise as parameter
-// umd-test will utilize std::thread to spawn a new thread with this functor to
-// perform zeCommandQueueSynchronize with BLOCKING scenario (UINT64_MAX)
-// While the std::promise is used to checked for the zeCommandQueueSynchronize
-// result in the main thread with timeout.
-void CommandGraphBase::threadedCommandQueueSyncWrapper(std::promise<_ze_result_t> &&promise) {
-    // This thread has to be killed instantly, otherwise SEGFAULT could happen
-    // if cancellation is DEFERRED post handleFailure()
-    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
-
-    ASSERT_NE(nullptr, queue);
-    promise.set_value(zeCommandQueueSynchronize(queue, UINT64_MAX));
-}
 
 class CommandGraphLong : public CommandGraphBase, public ::testing::WithParamInterface<YAML::Node> {
   protected:
@@ -140,6 +140,7 @@ TEST_P(CommandGraphLong, AppendGraphInitExecuteAndSynchronize) {
     graph->checkResults();
 }
 
+#ifndef ANDROID
 TEST_P(CommandGraphLong, AppendGraphInitExecuteAndThreadedSynchronize) {
     ASSERT_EQ(
         zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
@@ -191,6 +192,7 @@ TEST_P(CommandGraphLong, AppendGraphInitExecuteAndThreadedSynchronize) {
 
     graph->checkResults();
 }
+#endif
 
 TEST_P(CommandGraphLong, RunGraphInitOnly) {
     ASSERT_EQ(

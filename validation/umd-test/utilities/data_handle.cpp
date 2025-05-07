@@ -15,7 +15,7 @@
 namespace DataHandle {
 
 void generateRandomData(void *buffer, size_t size) {
-    std::mt19937 rd(std::random_device{}());
+    thread_local std::mt19937 rd(std::random_device{}());
     std::uniform_int_distribution<uint8_t> dist;
 
     auto *data = static_cast<uint8_t *>(buffer);
@@ -62,7 +62,7 @@ int loadImageFile(const std::string &filePath, std::vector<char> &dataOut) {
 }
 
 int writeFile(const std::string &filePath, void *dataIn, size_t inputSize) {
-    std::ofstream fileOutputStream(filePath, std::ios::out | std::ios::binary);
+    std::ofstream fileOutputStream(filePath, std::ios::out | std::ios::binary | std::ios::trunc);
     if (fileOutputStream.is_open()) {
         fileOutputStream.write((const char *)dataIn, inputSize);
 

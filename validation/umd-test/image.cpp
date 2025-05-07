@@ -11,10 +11,27 @@
 #include <opencv2/imgcodecs.hpp>
 
 struct Image::Impl {
-    Impl(const std::string &path) {
+    Impl(const std::string &path, bool layoutChw) {
+        // OpenCV loads data in BGR color format
         data = cv::imread(path);
         if (data.empty()) {
             throw "Failed to read image " + path;
+        }
+
+        // OpenCV loads data in HWC format
+        if (layoutChw) {
+            std::vector<cv::Mat1b> channels;
+            split(data, channels);
+
+            cv::Mat chwMat(data.size().height, data.size().width, CV_8UC3);
+            for (size_t chPos = 0; chPos < channels.size(); chPos++) {
+                for (size_t i = 0; i < channels[chPos].total(); i++) {
+                    chwMat.at<uchar>(i + chPos * channels[chPos].total()) =
+                        channels[chPos].at<uchar>(i);
+                }
+            }
+
+            chwMat.copyTo(data);
         }
     }
 
@@ -31,6 +48,7 @@ struct Image::Impl {
 
 #else
 #include "utilities/data_handle.h"
+
 #include <vector>
 
 struct __attribute__((packed)) BmpFileHeader {
@@ -55,11 +73,12 @@ struct __attribute__((packed)) BmpInfoHeader {
 };
 
 struct Image::Impl {
-    Impl(const std::string &path) {
+    Impl(const std::string &path, bool layoutChw) {
         if (DataHandle::loadFile(path, data) != 0) {
             throw "Failed to read image " + path;
         }
 
+        // The bmp image is in BGR format
         auto fileContentPtr = data.data();
 
         auto *bmpFileHeader = reinterpret_cast<const BmpFileHeader *>(fileContentPtr);
@@ -101,6 +120,19 @@ struct Image::Impl {
                 srcPtr -= stride;
             }
         }
+
+        if (layoutChw) {
+            std::vector<uint8_t> chw(height * width * channels, 0);
+            // Convert to CHW layout
+            char *dataPtr = reinterpret_cast<char *>(fileContentPtr + offset);
+            for (size_t i = 0; i < height * width; i++) {
+                for (size_t c = 0; c < channels; c++) {
+                    chw[i + height * width * c] = dataPtr[i * 3 + c];
+                }
+            }
+
+            data.insert(data.begin() + offset, chw.begin(), chw.end());
+        }
     }
 
     void *getPtr() { return &data[0] + offset; }
@@ -121,8 +153,8 @@ struct Image::Impl {
 
 #endif
 
-Image::Image(const std::string &path) {
-    impl = std::make_unique<Impl>(path);
+Image::Image(const std::string &path, bool layoutChw) {
+    impl = std::make_unique<Impl>(path, layoutChw);
 }
 
 Image::~Image() = default;

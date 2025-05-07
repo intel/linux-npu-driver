@@ -19,7 +19,7 @@
 namespace test_vars {
 extern bool forceGpu;
 extern bool disable_metrics;
-extern bool initialization_tests;
+extern bool forceZeInitTests;
 extern uint32_t globalSyncTimeoutMs;
 } // namespace test_vars
 
@@ -65,7 +65,7 @@ class Environment : public ::testing::Environment {
                    config.metricsEnable);
         }
 
-        if (test_vars::initialization_tests) {
+        if (test_vars::forceZeInitTests) {
             return;
         }
         if (test_vars::globalSyncTimeoutMs) {

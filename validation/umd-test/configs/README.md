@@ -157,13 +157,49 @@ multi_inference:
       parallel_reqs: 2
 ```
 
----
+## Section openvino
+Set of models used in OpenVINO test cases. Multiple input images can be defined in this section.
+
+The section fields:
+- **path:** path to XML file
+- **in:** input images for network
+- **class_index:** optional, expected image class indexes
+
+Example:
+```
+openvino:
+  - path: public/resnet-50-pytorch.xml
+    in: [ cat3.bmp, watch.bmp ]
+    class_index: [ 284, 826 ]
+  - path: public/mobilenet-v2.xml
+    in: [ cat3.bmp, watch.bmp ]
+    class_index: [ 284, 826 ]
+  - path: public/yolo-v4-tiny.xml
+    in: [ person.bmp ]
+```
+
+## Section driver\_cache
+This section is responsible for the set of models used in DriverCache* tests.
+
+The section fields:
+- **path:** path to XML file
+- **flags:** compilation flags passed directly to the compiler
+
+Example:
+```
+driver_cache:
+  - path: public/mobilenet-v2.xml
+    flags: --inputs_precisions="result.1:FP16" --inputs_layouts="result.1:NCHW" --outputs_precisions="473:FP16" --outputs_layouts="473:NC"
+  - path: public/mobilenet-v2.xml
+    flags: --inputs_precisions="result.1:FP16" --inputs_layouts="result.1:NCHW" --outputs_precisions="473:FP16" --outputs_layouts="473:NC" --config LOG_LEVEL="LOG_ERROR"
+```
 
 ## Section alloc
-
 This section is used in MemoryAllocation* tests. The user can specify the
-allocation size. The section fields:
- * **size_in_bytes:** the size used in test
+allocation size.
+
+The section fields:
+- **size_in_bytes:** the size used in test
 
 Example:
 ```
@@ -173,12 +209,13 @@ alloc:
 ```
 
 ## Section copy
-
 This section is used in MemoryExecution* tests. Test run a single copy
 operation using zeCommandListAppendMemoryCopy. User can specify the size of
-copy and the memory allocation type. The section fields:
- * **size_in_bytes**: the size used in copy command
- * **type:** the allocation type, allowed values: any combination of `device`,
+copy and the memory allocation type.
+
+The section fields:
+- **size_in_bytes**: the size used in copy command
+- **type:** the allocation type, allowed values: any combination of `device`,
  `shared` and `host` with `_to_` separator, ex. `host_to_host`,
  `shared_to_device`, `shared_to_host`. If not set, then `host_to_host` is used by default
 
@@ -191,18 +228,19 @@ copy:
     type: shared_to_shared
 ```
 
-## Section multi copy
-
+## Section multi\_copy
 This section is used in MultiMemoryExecution* test. It allows to specify the
 stream with copy command. The stream means a separate thread. This means that
-user can set multiple streams with different copy commands. The section fields:
- * **name:** the test name
- * **pipeline:** the list of streams
-   * **size_in_bytes:** the size of single copy command
-   * **type:** the allocation type, same as in "Section copy"
-   * **target_fps:** the frame per second limit set on stream
-   * **iteration_count:** number of copy command iteration
-   * **delay_in_us:** number of microseconds that delay the start of stream
+user can set multiple streams with different copy commands.
+
+The section fields:
+- **name:** the test name
+- **pipeline:** the list of streams
+  - **size_in_bytes:** the size of single copy command
+  - **type:** the allocation type, same as in "Section copy"
+  - **target_fps:** the frame per second limit set on stream
+  - **iteration_count:** number of copy command iteration
+  - **delay_in_us:** number of microseconds that delay the start of stream
 
 Example:
 ```

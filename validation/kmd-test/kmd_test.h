@@ -59,6 +59,8 @@
 #define SKIP_NO_DEBUGFS(fname)                            \
     if (!debugfs_is_available())                          \
         SKIP_("Debugfs not supported or mounted");        \
+    if (debugfs_is_locked_down())                         \
+        SKIP_("Debugfs is locked down");                  \
     if (!test_app::has_root_access())                     \
         SKIP_("Needs root privileges to access debugfs"); \
     if (!debugfs_file_exists(fname))                      \
@@ -83,6 +85,10 @@
 #define SKIP_NO_DMA_HEAP()        \
     if (!dma_heap_is_available()) \
     SKIP_("DMA heaps are not available")
+
+#define SKIP_PATCHSET() \
+    if (is_patchset())  \
+    SKIP_("Not supported by the upstream driver")
 
 #define EXPECT_BYTE_ARR_EQ(arr, size, value) EXPECT_PRED3(byte_array_eq, arr, size, value)
 
@@ -248,6 +254,7 @@ class KmdTest : public ::testing::Test {
 
     void check_api_version();
     bool api_version_lt(int major, int minor);
+    bool is_patchset();
 
     bool resume();
     bool wait_for_resume(int timeout_ms = PM_STATE_TIMEOUT_MS);
@@ -283,6 +290,14 @@ class KmdTest : public ::testing::Test {
 
         statfs("/sys/kernel/debug", &sfs);
         return sfs.f_type == DEBUGFS_MAGIC;
+    }
+
+    bool debugfs_is_locked_down() {
+        std::string lockdown_status;
+
+        if (read_file("/sys/kernel/security/lockdown", lockdown_status) != 0)
+            return false;
+        return lockdown_status.find("[none]") == std::string::npos;
     }
 
     bool dma_heap_is_available() { return file_exists("/dev/dma_heap/system"); }
