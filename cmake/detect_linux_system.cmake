@@ -11,6 +11,12 @@
 # the License.
 
 function(read_os_release ENTRY VAR_OUTPUT)
+  if (ANDROID)
+      if ("${ENTRY}" STREQUAL "ID")
+        set(${VAR_OUTPUT} "android" PARENT_SCOPE)
+      endif()
+      return()
+  endif()
   set(OS_RELEASE_PATH /etc/os-release)
   if (NOT EXISTS ${OS_RELEASE_PATH})
     return()
