@@ -35,7 +35,7 @@ typedef enum {
     DMA_JOB_FINISHED,            // Job finished
     DMA_JOB_ABORTED,             // Job has been aborted
     DMA_JOB_TIMEOUT,             // The waiting for the job completion has timed out
-    DMA_JOB_BLOCKED,             // Job blocked on barrier dependency that wont be lifted
+    DMA_JOB_NOT_FINISHED,        // Job has been interrupted before it could finish
     DMA_JOB_DISCARDED,           // Job was discarded due to error before it was started
     DMA_JOB_NACK,                // Job refused by the DMA HW
     DMA_JOB_STATUS_INVALID,      // Failed to get Job Status (DmaGetJobStatus)

@@ -38,11 +38,6 @@ CommandList::CommandList(Context *pContext, bool isMutable)
     , ctx(pContext->getDeviceContext())
     , vpuJob(std::make_shared<VPU::VPUJob>(ctx)) {}
 
-CommandList::~CommandList() {
-    for (auto &bo : tracedInternalBos)
-        ctx->freeMemAlloc(bo);
-}
-
 ze_result_t CommandList::create(ze_context_handle_t hContext,
                                 ze_device_handle_t hDevice,
                                 const ze_command_list_desc_t *desc,
@@ -119,11 +114,7 @@ ze_result_t CommandList::close() {
 }
 
 ze_result_t CommandList::reset() {
-    for (auto &bo : tracedInternalBos)
-        ctx->freeMemAlloc(bo);
-    tracedInternalBos.clear();
     vpuJob = std::make_shared<VPU::VPUJob>(ctx);
-
     return ZE_RESULT_SUCCESS;
 }
 
@@ -290,11 +281,24 @@ ze_result_t CommandList::appendMemoryFillAsCopyCmd(void *ptr,
                                                         size);
 }
 
+ze_result_t
+CommandList::appendWriteGlobalTimestamp(std::shared_ptr<VPU::VPUBufferObject> timestampBo,
+                                        ze_event_handle_t hSignalEvent,
+                                        uint32_t numWaitEvents,
+                                        ze_event_handle_t *phWaitEvents) {
+    return appendCommandWithEvents<VPU::VPUTimeStampCommand>(
+        hSignalEvent,
+        numWaitEvents,
+        phWaitEvents,
+        reinterpret_cast<uint64_t *>(timestampBo->getBasePointer()),
+        timestampBo,
+        ctx->getFwTimestampType());
+}
+
 ze_result_t CommandList::appendWriteGlobalTimestamp(uint64_t *dstptr,
                                                     ze_event_handle_t hSignalEvent,
                                                     uint32_t numWaitEvents,
-                                                    ze_event_handle_t *phWaitEvents,
-                                                    bool skipDmaCopy) {
+                                                    ze_event_handle_t *phWaitEvents) {
     if (dstptr == nullptr) {
         LOG_E("dstptr is NULL");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
@@ -306,27 +310,18 @@ ze_result_t CommandList::appendWriteGlobalTimestamp(uint64_t *dstptr,
         return ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY;
     }
 
-    if (skipDmaCopy) {
-        return appendCommandWithEvents<VPU::VPUTimeStampCommand>(
-            hSignalEvent,
-            numWaitEvents,
-            phWaitEvents,
-            ctx,
-            reinterpret_cast<uint64_t *>(dstBo->getBasePointer()));
-    }
     ze_result_t result = checkCommandAppendCondition();
     if (result != ZE_RESULT_SUCCESS)
         return result;
 
-    auto allignedBo =
-        ctx->createInternalBufferObject(sizeof(uint64_t), VPU::VPUBufferObject::Type::CachedFw);
+    auto alignedBo =
+        ctx->createUntrackedBufferObject(sizeof(uint64_t), VPU::VPUBufferObject::Type::CachedFw);
 
-    if (allignedBo == nullptr) {
+    if (alignedBo == nullptr) {
         LOG_E("Failed to allocate memory");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
-    memset(allignedBo->getBasePointer(), 0, sizeof(uint64_t));
-    tracedInternalBos.push_back(allignedBo);
+    memset(alignedBo->getBasePointer(), 0, sizeof(uint64_t));
 
     if (numWaitEvents > 0) {
         if (phWaitEvents == nullptr) {
@@ -344,16 +339,18 @@ ze_result_t CommandList::appendWriteGlobalTimestamp(uint64_t *dstptr,
     }
 
     result = appendCommand<VPU::VPUTimeStampCommand>(
-        ctx,
-        reinterpret_cast<uint64_t *>(allignedBo->getBasePointer()));
+        reinterpret_cast<uint64_t *>(alignedBo->getBasePointer()),
+        alignedBo,
+        ctx->getFwTimestampType());
+
     if (result != ZE_RESULT_SUCCESS)
         return result;
 
     result = appendCommand<VPU::VPUCopyCommand>(ctx,
-                                                allignedBo->getBasePointer(),
-                                                ctx->findBufferObject(allignedBo->getBasePointer()),
+                                                alignedBo->getBasePointer(),
+                                                alignedBo,
                                                 dstptr,
-                                                dstBo,
+                                                std::move(dstBo),
                                                 sizeof(uint64_t));
     if (result != ZE_RESULT_SUCCESS)
         return result;
@@ -463,17 +460,16 @@ ze_result_t CommandList::appendGraphExecute(ze_graph_handle_t hGraph,
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
 
-    void *profilingQueryPtr = nullptr;
+    GraphProfilingQuery *profilingQuery = nullptr;
     if (graph->getProfilingOutputSize()) {
-        auto *profilingQuery = GraphProfilingQuery::fromHandle(hProfilingQuery);
+        profilingQuery = GraphProfilingQuery::fromHandle(hProfilingQuery);
         if (!profilingQuery) {
             LOG_E("Invalid profiling query handle");
             return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
         }
-        profilingQueryPtr = profilingQuery->getQueryPtr();
     }
 
-    auto cmd = graph->allocateGraphExecuteCommand(ctx, profilingQueryPtr);
+    auto cmd = graph->allocateGraphExecuteCommand(profilingQuery);
     if (cmd == nullptr) {
         LOG_E("Graph-Execute Command failed to be initialized!");
         return ZE_RESULT_ERROR_UNINITIALIZED;
@@ -515,7 +511,7 @@ ze_result_t CommandList::appendSignalEvent(ze_event_handle_t hEvent) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
 
-    result = appendCommand<VPU::VPUEventSignalCommand>(ctx, evSyncPtr);
+    result = appendCommand<VPU::VPUEventSignalCommand>(evSyncPtr, event->getAssociatedBo());
     if (result != ZE_RESULT_SUCCESS)
         return result;
 
@@ -548,7 +544,7 @@ ze_result_t CommandList::appendWaitOnEvents(uint32_t numEvents, ze_event_handle_
             return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
         }
 
-        result = appendCommand<VPU::VPUEventWaitCommand>(ctx, evSyncPtr);
+        result = appendCommand<VPU::VPUEventWaitCommand>(evSyncPtr, event->getAssociatedBo());
         if (result != ZE_RESULT_SUCCESS)
             return result;
 
@@ -574,7 +570,7 @@ ze_result_t CommandList::appendEventReset(ze_event_handle_t hEvent) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
 
-    auto cmd = VPU::VPUEventResetCommand::create(ctx, evSyncPtr);
+    auto cmd = VPU::VPUEventResetCommand::create(evSyncPtr, event->getAssociatedBo());
     if (cmd == nullptr) {
         LOG_E("Failed to initialize reset event Command");
         return ZE_RESULT_ERROR_UNINITIALIZED;
@@ -607,9 +603,9 @@ ze_result_t CommandList::appendMetricQueryBegin(zet_metric_query_handle_t hMetri
         return ZE_RESULT_ERROR_DEPENDENCY_UNAVAILABLE;
     }
 
-    auto cmd = VPU::VPUQueryBeginCommand::create(ctx,
-                                                 metricQuery->getMetricGroupMask(),
-                                                 metricQuery->getMetricAddrPtr());
+    auto cmd = VPU::VPUQueryBeginCommand::create(metricQuery->getMetricGroupMask(),
+                                                 metricQuery->getMetricAddrPtr(),
+                                                 metricQuery->getBo());
     if (cmd == nullptr) {
         LOG_E("Failed to initialize metric query begin Command");
         return ZE_RESULT_ERROR_UNINITIALIZED;
@@ -644,9 +640,9 @@ ze_result_t CommandList::appendMetricQueryEnd(zet_metric_query_handle_t hMetricQ
     return appendCommandWithEvents<VPU::VPUQueryEndCommand>(hSignalEvent,
                                                             numWaitEvents,
                                                             phWaitEvents,
-                                                            ctx,
                                                             metricQuery->getMetricGroupMask(),
-                                                            metricQuery->getMetricAddrPtr());
+                                                            metricQuery->getMetricAddrPtr(),
+                                                            metricQuery->getBo());
 }
 
 ze_result_t CommandList::getNextCommandId(const ze_mutable_command_id_exp_desc_t *desc,

@@ -21,6 +21,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace VPU;
@@ -51,35 +52,33 @@ TEST_F(VPUJobTest, afterCloseCommandsCallAppendCommandReturnFalse) {
     auto job = std::make_unique<VPUJob>(ctx);
     EXPECT_TRUE(job->closeCommands());
 
-    void *mem = ctx->createSharedMemAlloc(sizeof(uint64_t));
-    uint64_t *tsHeap = reinterpret_cast<uint64_t *>(mem);
-
-    EXPECT_FALSE(job->appendCommand(VPUTimeStampCommand::create(ctx, tsHeap)));
-    EXPECT_TRUE(ctx->freeMemAlloc(mem));
+    auto bo = ctx->createSharedMemAlloc(sizeof(uint64_t));
+    uint64_t *tsHeap = reinterpret_cast<uint64_t *>(bo->getBasePointer());
+    EXPECT_TRUE(ctx->freeMemAlloc(bo->getBasePointer()));
+    EXPECT_FALSE(job->appendCommand(VPUTimeStampCommand::create(tsHeap, std::move(bo))));
 }
 
 TEST_F(VPUJobTest, createJobWithTimestampAndDoNotCloseItExpectNoCommandBuffers) {
     auto job = std::make_unique<VPUJob>(ctx);
 
-    void *mem = ctx->createSharedMemAlloc(sizeof(uint64_t));
-    uint64_t *tsHeap = reinterpret_cast<uint64_t *>(mem);
+    auto bo = ctx->createSharedMemAlloc(sizeof(uint64_t));
+    uint64_t *tsHeap = reinterpret_cast<uint64_t *>(bo->getBasePointer());
 
-    EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx, tsHeap)));
-    EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx, tsHeap)));
+    EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(tsHeap, bo)));
+    EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(tsHeap, bo)));
     EXPECT_EQ(0u, job->getCommandBuffers().size());
-
-    EXPECT_TRUE(ctx->freeMemAlloc(mem));
+    EXPECT_TRUE(ctx->freeMemAlloc(bo->getBasePointer()));
 }
 
 TEST_F(VPUJobTest, createJobWithTimestampCommands) {
     const int cmdCount = 4;
 
-    void *mem = ctx->createSharedMemAlloc(sizeof(uint64_t) * cmdCount);
-    uint64_t *tsHeap = reinterpret_cast<uint64_t *>(mem);
+    auto mem = ctx->createSharedMemAlloc(sizeof(uint64_t) * cmdCount);
+    uint64_t *tsHeap = reinterpret_cast<uint64_t *>(mem->getBasePointer());
 
     auto job = std::make_unique<VPUJob>(ctx);
     for (int i = 0; i < cmdCount; i++)
-        EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx, tsHeap++)));
+        EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(tsHeap++, mem)));
     EXPECT_TRUE(job->closeCommands());
 
     EXPECT_EQ(1u, job->getCommandBuffers().size());
@@ -88,22 +87,22 @@ TEST_F(VPUJobTest, createJobWithTimestampCommands) {
                   cmdBuffer->getBufferHandles().size());
     }
 
-    EXPECT_TRUE(ctx->freeMemAlloc(mem));
+    EXPECT_TRUE(ctx->freeMemAlloc(mem->getBasePointer()));
 }
 
 TEST_F(VPUJobTest, createJobWithCopyCommands) {
     int cmdCount = 3;
 
-    void *destPtr = ctx->createSharedMemAlloc(allocSize);
-    void *srcPtr = ctx->createHostMemAlloc(allocSize);
+    auto destBo = ctx->createSharedMemAlloc(allocSize);
+    auto srcBo = ctx->createHostMemAlloc(allocSize);
 
     auto job = std::make_unique<VPUJob>(ctx);
     for (int i = 0; i < cmdCount; i++)
         EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx,
-                                                              srcPtr,
-                                                              ctx->findBufferObject(srcPtr),
-                                                              destPtr,
-                                                              ctx->findBufferObject(destPtr),
+                                                              srcBo->getBasePointer(),
+                                                              srcBo,
+                                                              destBo->getBasePointer(),
+                                                              destBo,
                                                               4096)));
     EXPECT_TRUE(job->closeCommands());
 
@@ -113,52 +112,57 @@ TEST_F(VPUJobTest, createJobWithCopyCommands) {
                   cmdBuffer->getBufferHandles().size());
     }
 
-    EXPECT_TRUE(ctx->freeMemAlloc(srcPtr));
-    EXPECT_TRUE(ctx->freeMemAlloc(destPtr));
+    EXPECT_TRUE(ctx->freeMemAlloc(srcBo->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(destBo->getBasePointer()));
 }
 
 TEST_F(VPUJobTest, createJobWithDifferentTypesOfCommandExpectSuccess) {
-    VPUBufferObject *event =
-        ctx->createInternalBufferObject(sizeof(VPUEventCommand::KMDEventDataType),
-                                        VPU::VPUBufferObject::Type::CachedFw);
-    ASSERT_TRUE(event);
-    uint64_t *tsHeap = reinterpret_cast<uint64_t *>(ctx->createSharedMemAlloc(sizeof(uint64_t)));
+    auto eventBo = ctx->createUntrackedBufferObject(sizeof(VPUEventCommand::KMDEventDataType),
+                                                    VPU::VPUBufferObject::Type::CachedFw);
+    ASSERT_TRUE(eventBo);
+    auto tsHeap = ctx->createSharedMemAlloc(sizeof(uint64_t));
     ASSERT_NE(tsHeap, nullptr);
 
-    void *shareMem = ctx->createSharedMemAlloc(allocSize);
-    void *hostMem = ctx->createHostMemAlloc(allocSize);
+    auto shareMem = ctx->createSharedMemAlloc(allocSize);
+    auto hostMem = ctx->createHostMemAlloc(allocSize);
 
     auto job = std::make_unique<VPUJob>(ctx);
-    EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx, tsHeap)));
+    EXPECT_TRUE(job->appendCommand(
+        VPUTimeStampCommand::create(reinterpret_cast<uint64_t *>(tsHeap->getBasePointer()),
+                                    tsHeap)));
     EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx,
+                                                          shareMem->getBasePointer(),
                                                           shareMem,
-                                                          ctx->findBufferObject(shareMem),
+                                                          shareMem->getBasePointer(),
                                                           shareMem,
-                                                          ctx->findBufferObject(shareMem),
                                                           allocSize)));
 
     // Add internal events because of engine switch
     VPUEventCommand::KMDEventDataType *eventPtr =
-        reinterpret_cast<decltype(eventPtr)>(event->getBasePointer());
+        reinterpret_cast<decltype(eventPtr)>(eventBo->getBasePointer());
 
     // VPUEventWaitCommand is forward type
-    EXPECT_TRUE(job->appendCommand(VPUEventWaitCommand::create(ctx, eventPtr)));
+    EXPECT_TRUE(job->appendCommand(VPUEventWaitCommand::create(eventPtr, std::move(eventBo))));
     EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx,
+                                                          hostMem->getBasePointer(),
                                                           hostMem,
-                                                          ctx->findBufferObject(hostMem),
+                                                          shareMem->getBasePointer(),
                                                           shareMem,
-                                                          ctx->findBufferObject(shareMem),
                                                           allocSize)));
-    EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx, tsHeap)));
+    EXPECT_TRUE(job->appendCommand(
+        VPUTimeStampCommand::create(reinterpret_cast<uint64_t *>(tsHeap->getBasePointer()),
+                                    tsHeap)));
 
     // Add internal events because of engine switch
     EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx,
+                                                          shareMem->getBasePointer(),
                                                           shareMem,
-                                                          ctx->findBufferObject(shareMem),
+                                                          shareMem->getBasePointer(),
                                                           shareMem,
-                                                          ctx->findBufferObject(shareMem),
                                                           allocSize)));
-    EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx, tsHeap)));
+    EXPECT_TRUE(job->appendCommand(
+        VPUTimeStampCommand::create(reinterpret_cast<uint64_t *>(tsHeap->getBasePointer()),
+                                    tsHeap)));
 
     EXPECT_TRUE(job->closeCommands());
 
@@ -170,17 +174,18 @@ TEST_F(VPUJobTest, createJobWithDifferentTypesOfCommandExpectSuccess) {
                   cmdBuffer->getBufferHandles().size());
     }
 
-    EXPECT_TRUE(ctx->freeMemAlloc(hostMem));
-    EXPECT_TRUE(ctx->freeMemAlloc(shareMem));
-    EXPECT_TRUE(ctx->freeMemAlloc(tsHeap));
-    EXPECT_TRUE(ctx->freeMemAlloc(event));
+    EXPECT_TRUE(ctx->freeMemAlloc(hostMem->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(shareMem->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(tsHeap->getBasePointer()));
 }
 
 TEST_F(VPUJobTest, checkJobStatus) {
-    uint64_t *tsHeap = reinterpret_cast<uint64_t *>(ctx->createSharedMemAlloc(sizeof(uint64_t)));
+    auto tsHeap = ctx->createSharedMemAlloc(sizeof(uint64_t));
 
     auto job = std::make_unique<VPUJob>(ctx);
-    EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx, tsHeap)));
+    EXPECT_TRUE(job->appendCommand(
+        VPUTimeStampCommand::create(reinterpret_cast<uint64_t *>(tsHeap->getBasePointer()),
+                                    tsHeap)));
     EXPECT_TRUE(job->closeCommands());
 
     osInfc.mockFailNextJobWait();
@@ -194,5 +199,5 @@ TEST_F(VPUJobTest, checkJobStatus) {
     EXPECT_EQ(true, job->waitForCompletion(0));
     EXPECT_EQ(true, job->isSuccess());
 
-    EXPECT_TRUE(ctx->freeMemAlloc(tsHeap));
+    EXPECT_TRUE(ctx->freeMemAlloc(tsHeap->getBasePointer()));
 }

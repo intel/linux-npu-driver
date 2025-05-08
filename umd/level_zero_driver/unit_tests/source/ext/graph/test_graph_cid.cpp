@@ -134,11 +134,9 @@ struct CompilerInDriverFixture : public ContextFixture {
 using CompilerInDriver = Test<CompilerInDriverFixture>;
 
 TEST_F(CompilerInDriver, versionCheck) {
-    ASSERT_GT(Compiler::getCompilerVersionMajor(), 0);
-    ASSERT_EQ(Compiler::getCompilerVersionMajor(), VCL_COMPILER_VERSION_MAJOR);
-    // TODO: Disabled due to EISW-155074
-    // ASSERT_EQ(Compiler::getCompilerVersionMinor(), VCL_COMPILER_VERSION_MINOR);
-    ASSERT_TRUE(Compiler::isApiComatible());
+    EXPECT_EQ(Compiler::getVclCompilerApiVersion().major, VCL_COMPILER_VERSION_MAJOR);
+    EXPECT_EQ(Compiler::getVclCompilerApiVersion().minor, VCL_COMPILER_VERSION_MINOR);
+    EXPECT_TRUE(Compiler::isVclCompilerApiCompatible());
 }
 
 TEST_F(CompilerInDriver, creatingNgraphLiteWithNullInputReturnsFailure) {

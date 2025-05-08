@@ -7,42 +7,36 @@
 
 #include "vpu_driver/source/command/vpu_event_command.hpp"
 
-#include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 namespace VPU {
-class VPUBufferObject;
 
-std::shared_ptr<VPUEventCommand> VPUEventCommand::create(VPUDeviceContext *ctx,
-                                                         const ScheduleType sType,
-                                                         const vpu_cmd_type cmdType,
-                                                         KMDEventDataType *eventHeapPtr,
-                                                         const KMDEventDataType eventState) {
-    if (eventHeapPtr == nullptr) {
-        LOG_E("Failed to initialize %s Event cmd because eventHeapPtr is nullptr",
+std::shared_ptr<VPUEventCommand>
+VPUEventCommand::create(const ScheduleType sType,
+                        const vpu_cmd_type cmdType,
+                        KMDEventDataType *eventHeapPtr,
+                        std::shared_ptr<VPUBufferObject> eventHeapBo,
+                        const KMDEventDataType eventState) {
+    if (eventHeapPtr == nullptr || eventHeapBo == nullptr) {
+        LOG_E("Failed to initialize %s Event cmd because eventHeapPtr or eventHeapBo are nullptr",
               getEventCommandStr(cmdType, eventState));
         return nullptr;
     }
 
-    if (ctx == nullptr) {
-        LOG_E("Context is nullptr in Event command");
-        return nullptr;
-    }
-
-    VPUBufferObject *eventBuffer = ctx->findBuffer(eventHeapPtr);
-    if (eventBuffer == nullptr) {
-        LOG_E("Event pointer %p is not allocated within context %p", eventHeapPtr, ctx);
+    if (!eventHeapBo->isInRange(reinterpret_cast<void *>(eventHeapPtr))) {
+        LOG_E("Pointer %p is not allocated within buffer", eventHeapPtr);
         return nullptr;
     }
 
     LOG(VPU_CMD, "%s event ptr: %p", getEventCommandStr(cmdType, eventState), eventHeapPtr);
-    return std::make_shared<VPUEventCommand>(ctx, sType, cmdType, eventHeapPtr, eventState);
+    return std::make_shared<VPUEventCommand>(sType, cmdType, eventHeapPtr, eventHeapBo, eventState);
 }
 
-VPUEventCommand::VPUEventCommand(VPUDeviceContext *ctx,
-                                 const ScheduleType schType,
+VPUEventCommand::VPUEventCommand(const ScheduleType schType,
                                  const vpu_cmd_type cmdType,
                                  KMDEventDataType *eventHeapPtr,
+                                 std::shared_ptr<VPUBufferObject> eventHeapBo,
                                  const KMDEventDataType eventState)
     : VPUCommand(schType) {
     vpu_cmd_fence_t cmd = {};
@@ -50,9 +44,9 @@ VPUEventCommand::VPUEventCommand(VPUDeviceContext *ctx,
     cmd.header.type = cmdType;
     cmd.header.size = sizeof(vpu_cmd_fence_t);
     cmd.value = eventState;
-    cmd.offset = ctx->getBufferVPUAddress(eventHeapPtr);
+    cmd.offset = eventHeapBo->getVPUAddr(eventHeapPtr);
     command.emplace<vpu_cmd_fence_t>(cmd);
-    appendAssociateBufferObject(ctx, eventHeapPtr);
+    appendAssociateBufferObject(std::move(eventHeapBo));
 }
 
 const char *VPUEventCommand::getEventCommandStr(const vpu_cmd_type cmdType,

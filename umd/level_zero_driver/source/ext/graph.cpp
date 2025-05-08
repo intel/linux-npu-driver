@@ -23,7 +23,6 @@
 #include "umd_common.hpp"
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_device.hpp"
-#include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 #include "vpux_elf/utils/version.hpp"
 #include "vpux_hpi.hpp"
@@ -35,21 +34,44 @@
 #include <string_view>
 
 namespace L0 {
+static thread_local std::string lastFailLog;
 
-static thread_local std::string logString = {};
+GraphBuildLog::GraphBuildLog(Context *pCtx)
+    : pContext(pCtx){};
 
-Graph::Graph(Context *pCtx, const ze_graph_desc_2_t *pDesc)
+ze_result_t GraphBuildLog::getLogString(uint32_t *pSize, char *pBuildLog) {
+    if (pSize == nullptr) {
+        LOG_E("Input size pointer is NULL");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    if (pBuildLog == nullptr) {
+        *pSize = static_cast<uint32_t>(log.size() + 1);
+        return ZE_RESULT_SUCCESS;
+    }
+    *pSize = std::min(*pSize, static_cast<uint32_t>(log.size() + 1));
+    memcpy(pBuildLog, log.c_str(), *pSize);
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t GraphBuildLog::destroy() {
+    pContext->removeObject(this);
+    return ZE_RESULT_SUCCESS;
+}
+
+Graph::Graph(Context *pCtx, const ze_graph_desc_2_t *pDesc, std::string &log)
     : pContext(pCtx)
     , ctx(pCtx->getDeviceContext())
     , desc(*pDesc)
     , buildFlags(desc.pBuildFlags != nullptr ? desc.pBuildFlags : "") {
-    initialize();
+    initialize(log);
 }
 
 ze_result_t Graph::create(const ze_context_handle_t hContext,
                           const ze_device_handle_t hDevice,
                           const ze_graph_desc_2_t *pDesc,
-                          ze_graph_handle_t *phGraph) {
+                          ze_graph_handle_t *phGraph,
+                          ze_graph_build_log_handle_t *phGraphBuildLog) {
     if (pDesc == nullptr) {
         LOG_E("Invalid graph descriptor");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
@@ -65,17 +87,23 @@ ze_result_t Graph::create(const ze_context_handle_t hContext,
         LOG_E("Device Context failed to be retrieved");
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
-
+    lastFailLog.clear();
+    auto logObject = std::make_unique<GraphBuildLog>(Context::fromHandle(hContext));
+    auto &logBuffer = logObject->getBuffer();
+    if (phGraphBuildLog) {
+        *phGraphBuildLog = logObject->toHandle();
+        Context::fromHandle(hContext)->appendObject(std::move(logObject));
+    }
     try {
-        auto pGraph = std::make_unique<Graph>(Context::fromHandle(hContext), pDesc);
+        auto pGraph = std::make_unique<Graph>(Context::fromHandle(hContext), pDesc, logBuffer);
         *phGraph = pGraph.get();
         Context::fromHandle(hContext)->appendObject(std::move(pGraph));
 
         LOG(GRAPH, "Graph created - %p", *phGraph);
     } catch (const DriverError &err) {
+        lastFailLog = logBuffer;
         return err.result();
     }
-
     return ZE_RESULT_SUCCESS;
 }
 
@@ -141,6 +169,13 @@ ze_result_t Graph::getProperties2(ze_graph_properties_2_t *pGraphProperties) {
     pGraphProperties->numGraphArgs = safe_cast<uint32_t>(argumentProperties.size());
     pGraphProperties->initStageRequired = ZE_GRAPH_STAGE_INITIALIZE;
 
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t Graph::getProperties3(ze_graph_properties_3_t *pGraphProperties) {
+    pGraphProperties->numGraphArgs = safe_cast<uint32_t>(argumentProperties.size());
+    pGraphProperties->initStageRequired = ZE_GRAPH_STAGE_INITIALIZE;
+    pGraphProperties->flags = loadedFromCache ? ZE_GRAPH_PROPERTIES_FLAG_LOADED_FROM_CACHE : 0;
     return ZE_RESULT_SUCCESS;
 }
 
@@ -218,8 +253,8 @@ ze_result_t Graph::getArgumentMetadata(uint32_t argIndex,
 
 ze_result_t Graph::createProfilingPool(uint32_t count,
                                        ze_graph_profiling_pool_handle_t *phProfilingPool) {
-    if (ctx == nullptr) {
-        LOG_E("Context is nullptr!");
+    if (!parser) {
+        LOG_E("Graph object is not properly initialized!");
         return ZE_RESULT_ERROR_DEVICE_LOST;
     }
 
@@ -239,11 +274,13 @@ ze_result_t Graph::createProfilingPool(uint32_t count,
     }
 
     try {
+        auto profilingMemory =
+            parser->allocateInternal(getFwDataCacheAlign(profilingOutputSize) * count);
         auto profilingPool =
-            std::make_unique<GraphProfilingPool>(ctx,
-                                                 profilingOutputSize,
+            std::make_unique<GraphProfilingPool>(profilingOutputSize,
                                                  count,
                                                  blob.get(),
+                                                 std::move(profilingMemory),
                                                  [this](auto *x) { profilingPools.erase(x); });
         auto [it, success] = profilingPools.emplace(profilingPool.get(), std::move(profilingPool));
         L0_THROW_WHEN(!success,
@@ -282,7 +319,7 @@ ze_result_t Graph::getDeviceGraphProperties(ze_device_handle_t hDevice,
     pDeviceGraphProperties->graphFormatsSupported = ZE_GRAPH_FORMAT_NATIVE;
 
     vcl_compiler_properties_t vclProp = {};
-    if (Compiler::getCompilerProperties(&vclProp)) {
+    if (Compiler::getCompilerProperties(&vclProp) == ZE_RESULT_SUCCESS) {
         pDeviceGraphProperties->compilerVersion.major = vclProp.version.major;
         pDeviceGraphProperties->compilerVersion.minor = vclProp.version.minor;
         pDeviceGraphProperties->graphFormatsSupported = ZE_GRAPH_FORMAT_NGRAPH_LITE;
@@ -363,33 +400,16 @@ addOptionToBuildFlags(std::string_view key, std::string_view value, std::string 
 }
 
 void Graph::addDeviceConfigToBuildFlags() {
-    // Stepping and max_tiles are not supported in versions < 5.3
-    if (Compiler::getCompilerVersionMajor() > 5 ||
-        (Compiler::getCompilerVersionMajor() == 5 && Compiler::getCompilerVersionMinor() >= 3) ||
-        Compiler::getCompilerVersionMajor() < 7) {
-        if (buildFlags.find("STEPPING") == std::string::npos) {
-            uint16_t deviceRevision = ctx->getDeviceRevision();
-            addOptionToBuildFlags("NPU_STEPPING", std::to_string(deviceRevision), buildFlags);
-        }
-
-        if (buildFlags.find("MAX_TILES") == std::string::npos) {
-            uint32_t numSlices = ctx->getNumSlices();
-            addOptionToBuildFlags("NPU_MAX_TILES", std::to_string(numSlices), buildFlags);
-        }
-    }
-
     if (desc.flags & ZE_GRAPH_FLAG_ENABLE_PROFILING) {
         addOptionToBuildFlags("PERF_COUNT", "YES", buildFlags);
     }
 }
 
-void Graph::initialize() {
+void Graph::initialize(std::string &log) {
     L0_THROW_WHEN(desc.pInput == nullptr,
                   "Invalid input pointer",
                   ZE_RESULT_ERROR_INVALID_NULL_POINTER);
     L0_THROW_WHEN(desc.inputSize == 0, "Invalid size", ZE_RESULT_ERROR_INVALID_SIZE);
-
-    logString = "";
 
     DiskCache &cache = Driver::getInstance()->getDiskCache();
     DiskCache::Key key;
@@ -413,34 +433,41 @@ void Graph::initialize() {
         if (!(desc.flags & ZE_GRAPH_FLAG_DISABLE_CACHING)) {
             key = cache.computeKey(desc);
             blob = cache.getBlob(key);
-            logString = "ZE DynamicCaching cache_status_t: cache_status_t::found\n";
+            if (blob) {
+                log += "ZE DynamicCaching cache_status_t: cache_status_t::found\n";
+                /* Cache status is stored also in fail log due to back compatibility */
+                lastFailLog = "ZE DynamicCaching cache_status_t: cache_status_t::found\n";
+            }
         }
 
         if (blob == nullptr) {
-            if (!Compiler::getCompiledBlob(ctx, desc, blob, logString)) {
-                LOG_E("Failed to get compiled blob!");
-                throw DriverError(ZE_RESULT_ERROR_UNKNOWN);
+            loadedFromCache = false;
+            auto ret = Compiler::getCompiledBlob(ctx, desc, blob, log);
+            if (ret != ZE_RESULT_SUCCESS) {
+                LOG_E("Failed to get compiled blob! Result:%#x", ret);
+                throw DriverError(ret);
             }
 
             if (!(desc.flags & ZE_GRAPH_FLAG_DISABLE_CACHING)) {
                 cache.setBlob(key, blob);
-                logString = "ZE DynamicCaching cache_status_t: cache_status_t::stored\n";
+                log += "ZE DynamicCaching cache_status_t: cache_status_t::stored\n";
+                /* Cache status is stored also in fail log due to back compatibility */
+                lastFailLog = "ZE DynamicCaching cache_status_t: cache_status_t::stored\n";
             }
         }
-
         break;
     default:
         LOG_E("Graph desc (ze_graph_desc_2_t) format invalid.");
-        logString = "Graph desc (ze_graph_desc_2_t) format invalid.\n";
+        log += "[NPU_DRV] Graph desc (ze_graph_desc_2_t) format invalid.\n";
         throw DriverError(ZE_RESULT_ERROR_INVALID_ARGUMENT);
     }
 
     if (ElfParser::checkMagic(blob)) {
         LOG(GRAPH, "Detected Elf format");
-        parser = ElfParser::getElfParser(ctx, blob, logString);
+        parser = ElfParser::getElfParser(ctx, blob, log);
     } else {
         LOG_E("Failed to recognize blob format");
-        logString += "Failed to recognize native binary format\n";
+        log += "[NPU_DRV] Failed to recognize native binary format\n";
         throw DriverError(ZE_RESULT_ERROR_INVALID_ARGUMENT);
     }
 
@@ -469,12 +496,9 @@ std::shared_ptr<VPU::VPUCommand> Graph::allocateGraphInitCommand(VPU::VPUDeviceC
     return parser->allocateInitCommand(ctx);
 }
 
-std::shared_ptr<VPU::VPUCommand> Graph::allocateGraphExecuteCommand(VPU::VPUDeviceContext *ctx,
-                                                                    void *profilingQueryPtr) {
-    return parser->allocateExecuteCommand(ctx,
-                                          inputArgs,
-                                          outputArgs,
-                                          std::make_pair(profilingQueryPtr, profilingOutputSize));
+std::shared_ptr<VPU::VPUCommand>
+Graph::allocateGraphExecuteCommand(GraphProfilingQuery *profilingQuery) {
+    return parser->allocateExecuteCommand(inputArgs, outputArgs, profilingQuery);
 }
 
 ze_result_t Graph::getLogString(uint32_t *pSize, char *pBuildLog) {
@@ -483,20 +507,52 @@ ze_result_t Graph::getLogString(uint32_t *pSize, char *pBuildLog) {
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    if (*pSize == 0) {
-        *pSize = static_cast<uint32_t>(logString.size() + 1);
+    if (pBuildLog == nullptr) {
+        *pSize = static_cast<uint32_t>(lastFailLog.size() + 1);
         return ZE_RESULT_SUCCESS;
     }
 
-    if (pBuildLog == nullptr) {
-        LOG_E("Invalid pBuildLog pointer");
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
-    }
-
-    *pSize = std::min(*pSize, static_cast<uint32_t>(logString.size() + 1));
-    memcpy(pBuildLog, logString.c_str(), *pSize);
+    *pSize = std::min(*pSize, static_cast<uint32_t>(lastFailLog.size() + 1));
+    memcpy(pBuildLog, lastFailLog.c_str(), *pSize);
 
     return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t Graph::getSupportedOptions(ze_device_handle_t hDevice,
+                                       ze_npu_options_type_t type,
+                                       size_t *pSize,
+                                       char *pSupportedOptions) {
+    if (type == ZE_NPU_DRIVER_OPTIONS) {
+        *pSize = 0;
+        return ZE_RESULT_SUCCESS;
+    }
+
+    if (type == ZE_NPU_COMPILER_OPTIONS) {
+        Device *dev = Device::fromHandle(hDevice);
+        VPU::VPUDevice *vdev = dev->getVPUDevice();
+
+        return Compiler::getSupportedOptions(vdev, pSize, pSupportedOptions);
+    }
+
+    return ZE_RESULT_ERROR_INVALID_ENUMERATION;
+}
+
+ze_result_t Graph::isOptionSupported(ze_device_handle_t hDevice,
+                                     ze_npu_options_type_t type,
+                                     const char *pOption,
+                                     const char *pValue) {
+    if (type == ZE_NPU_DRIVER_OPTIONS) {
+        return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    }
+
+    if (type == ZE_NPU_COMPILER_OPTIONS) {
+        Device *dev = Device::fromHandle(hDevice);
+        VPU::VPUDevice *vdev = dev->getVPUDevice();
+
+        return Compiler::isOptionSupported(vdev, pOption, pValue);
+    }
+
+    return ZE_RESULT_ERROR_INVALID_ENUMERATION;
 }
 
 } // namespace L0

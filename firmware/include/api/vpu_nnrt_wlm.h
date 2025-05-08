@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (c) 2022-2023, Intel Corporation.
+ * Copyright (c) 2022-2025, Intel Corporation.
  */
 
 /**
@@ -88,8 +88,12 @@ struct VPU_ALIGNED_STRUCT(8) VpuWorkItem {
      * |-------------------------------------------------------------|
      * | DPU         | tile number        | n/a                      |
      * | DMA         | engine/CTRG number | 0: from DDR, 1: from CMX |
-     * | SHV         | tile number        | n/a                      |
+     * | SHV         | tile number        | see description below    |
      * ---------------------------------------------------------------
+     *
+     *  For Shave tasks a sub_unit of zero indicates that the compiler doesn't care
+     *  which shave executes a task. A non-zero value encodes the tile-local ID of the
+     *  shave to execute a task as (sub_unit - 1)
      */
     VpuTaskType type;
     uint8_t unit;
@@ -333,7 +337,7 @@ union VPU_ALIGNED_STRUCT(4) VpuBarrierConfiguration {
         uint8_t producerInterruptEnabled;
         uint8_t consumerCount;
         uint8_t consumerInterruptEnabled;
-    } ;
+    };
     uint32_t whole;
 };
 static_assert(sizeof(VpuBarrierConfiguration) == 4, "VpuBarrierConfiguration size != 4");
@@ -415,12 +419,16 @@ struct VPU_ALIGNED_STRUCT(32) VpuManagedMappedInference {
      * ALL_BARRIER_DMAS_SCHEDULED
      *   Compiler has inserted DMAs into the schedule for all barrier programming, the runtime should not
      *   program any barriers.
+     * ALL_BARRIER_DMAS_SCHEDULED_4K
+     *   The inference contains 4K barriers. Compiler has inserted DMAs into the
+     *   schedule for all barrier programming. The runtime should not program any barriers.
      */
     enum VpuBarrierProgrammingMode : uint8_t {
         LEGACY = 0,
         NO_BARRIER_DMAS_SCHEDULED,
         INITIAL_BARRIER_DMAS_SCHEDULED,
         ALL_BARRIER_DMAS_SCHEDULED,
+        ALL_BARRIER_DMAS_SCHEDULED_4K,
         UNKNOWN = 255
     };
     VpuBarrierProgrammingMode barrier_programming_mode;
@@ -443,9 +451,13 @@ struct VPU_ALIGNED_STRUCT(32) VpuManagedMappedInference {
             uint8_t reserved : 7; // Reserved for future use.
         } inference_feature_cfg_bf;
     } inference_feature_cfg;
-
-    uint8_t pad1_[235];
-
+    uint8_t pad1_[3];
+    /*
+     * Unique identifier for the compiled model, used for debugging and troubleshooting.
+     * Helps track and differentiate models during execution.
+     */
+    uint32_t model_identifier;
+    uint8_t pad2_[228];
     /*
      * bootstrap_workitems_count contains the number of work items at the beginning
      * of the VpuManagedMappedInference::work_items list that should be enqueued
@@ -455,7 +467,7 @@ struct VPU_ALIGNED_STRUCT(32) VpuManagedMappedInference {
      * enqueued by the play loop.
      */
     uint32_t bootstrap_workitems_count;
-    uint8_t pad2_[4];
+    uint8_t pad3_[4];
 };
 
 static_assert(sizeof(VpuManagedMappedInference) == 704, "VpuManagedMappedInference size != 704");
@@ -467,6 +479,8 @@ static_assert(offsetof(VpuManagedMappedInference, inference_info) % 8 == 0, "Ali
 static_assert(offsetof(VpuManagedMappedInference, barriers_configuration) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuManagedMappedInference, num_of_barrier_reprogrammings) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuManagedMappedInference, barrier_configuration_stride) % 4 == 0, "Alignment error");
+static_assert(offsetof(VpuManagedMappedInference, inference_feature_cfg) % 4 == 0, "Alignment error");
+static_assert(offsetof(VpuManagedMappedInference, model_identifier) % 4 == 0, "Alignment error");
 static_assert(offsetof(VpuManagedMappedInference, bootstrap_workitems_count) % 4 == 0, "Alignment error");
 
 #pragma pack(pop)

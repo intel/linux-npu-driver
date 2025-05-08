@@ -28,26 +28,47 @@ class VPUDeviceContext;
 } // namespace VPU
 
 struct _ze_graph_handle_t {};
+struct _ze_graph_build_log_handle_t {};
 
 namespace L0 {
 class IParser;
 struct Context;
 struct GraphProfilingPool;
+struct GraphProfilingQuery;
+
+struct GraphBuildLog : _ze_graph_build_log_handle_t, IContextObject {
+    GraphBuildLog(Context *pCtx);
+    static GraphBuildLog *fromHandle(ze_graph_build_log_handle_t handle) {
+        return static_cast<GraphBuildLog *>(handle);
+    }
+    ze_result_t destroy();
+
+    inline ze_graph_build_log_handle_t toHandle() { return this; }
+    ze_result_t getLogString(uint32_t *pSize, char *pBuildLog);
+    std::string &getBuffer() { return log; }
+
+  private:
+    Context *pContext;
+    std::string log;
+};
 
 struct Graph : _ze_graph_handle_t, IContextObject {
-    Graph(Context *pCtx, const ze_graph_desc_2_t *pDesc);
+    Graph(Context *pCtx, const ze_graph_desc_2_t *pDesc, std::string &log);
     ~Graph() = default;
 
     static ze_result_t create(const ze_context_handle_t hContext,
                               const ze_device_handle_t hDevice,
                               const ze_graph_desc_2_t *pDesc,
-                              ze_graph_handle_t *phGraph);
+                              ze_graph_handle_t *phGraph,
+                              ze_graph_build_log_handle_t *phGraphBuildLog = nullptr);
     ze_result_t destroy();
     ze_result_t getNativeBinary(size_t *pSize, uint8_t *pGraphNativeBinary);
     ze_result_t getNativeBinary2(size_t *pSize, const uint8_t **pGraphNativeBinary);
     ze_result_t setArgumentValue(uint32_t argIndex, const void *pArgValue);
     ze_result_t getProperties(ze_graph_properties_t *pGraphProperties);
     ze_result_t getProperties2(ze_graph_properties_2_t *pGraphProperties);
+    ze_result_t getProperties3(ze_graph_properties_3_t *pGraphProperties);
+
     ze_result_t getArgumentProperties(uint32_t argIndex,
                                       ze_graph_argument_properties_t *pGraphArgProps);
     ze_result_t getArgumentProperties2(uint32_t argIndex,
@@ -75,21 +96,30 @@ struct Graph : _ze_graph_handle_t, IContextObject {
     ze_result_t parserInitialize();
 
     std::shared_ptr<VPU::VPUCommand> allocateGraphInitCommand(VPU::VPUDeviceContext *ctx);
-    std::shared_ptr<VPU::VPUCommand> allocateGraphExecuteCommand(VPU::VPUDeviceContext *ctx,
-                                                                 void *profilingQueryPtr);
+    std::shared_ptr<VPU::VPUCommand>
+    allocateGraphExecuteCommand(GraphProfilingQuery *profilingQueryPtr);
 
     static ze_result_t getLogString(uint32_t *pSize, char *pBuildLog);
 
+    static ze_result_t getSupportedOptions(ze_device_handle_t hDevice,
+                                           ze_npu_options_type_t type,
+                                           size_t *pSize,
+                                           char *pSupportedOptions);
+    static ze_result_t isOptionSupported(ze_device_handle_t hDevice,
+                                         ze_npu_options_type_t type,
+                                         const char *pOption,
+                                         const char *pValue);
+
   private:
-    void initialize();
+    void initialize(std::string &log);
     void addDeviceConfigToBuildFlags();
 
     Context *pContext;
     VPU::VPUDeviceContext *ctx;
     ze_graph_desc_2_t desc;
     std::string buildFlags;
-
     std::unique_ptr<BlobContainer> blob;
+    bool loadedFromCache = true;
 
     std::vector<std::pair<const void *, uint32_t>> inputArgs;
     std::vector<std::pair<const void *, uint32_t>> outputArgs;

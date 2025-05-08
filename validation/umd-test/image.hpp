@@ -13,7 +13,8 @@
 #include <string>
 
 struct Image {
-    Image(const std::string &path);
+    // If layoutChw is false, the data is in HWC format. Otherwise, data is in CHW format
+    Image(const std::string &path, bool layoutChw);
     ~Image();
 
     void *getPtr();

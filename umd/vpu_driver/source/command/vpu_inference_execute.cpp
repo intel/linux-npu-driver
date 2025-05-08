@@ -23,7 +23,7 @@ VPUInferenceExecute::VPUInferenceExecute(
     std::shared_ptr<elf::HostParsedInference> &hpi,
     const std::vector<std::pair<const void *, uint32_t>> &inputs,
     const std::vector<std::pair<const void *, uint32_t>> &outputs,
-    const std::pair<void *, uint32_t> &profiling,
+    L0::GraphProfilingQuery *profilingQuery,
     uint64_t inferenceId,
     std::vector<std::shared_ptr<VPUBufferObject>> &bos,
     size_t argumentPosition)
@@ -31,7 +31,7 @@ VPUInferenceExecute::VPUInferenceExecute(
     , hpi(hpi)
     , inputs(inputs)
     , outputs(outputs)
-    , profiling(profiling)
+    , profilingQuery(profilingQuery)
     , argBoPosition(argumentPosition) {
     vpu_cmd_inference_execute_t cmd = {};
     cmd.header.type = VPU_CMD_INFERENCE_EXECUTE;
@@ -52,11 +52,11 @@ VPUInferenceExecute::create(std::shared_ptr<L0::ElfParser> parser,
                             std::shared_ptr<elf::HostParsedInference> &cmdHpi,
                             const std::vector<std::pair<const void *, uint32_t>> &inputPtrs,
                             const std::vector<std::pair<const void *, uint32_t>> &outputPtrs,
-                            const std::pair<void *, uint32_t> &profilingPtr,
+                            L0::GraphProfilingQuery *profilingQuery,
                             uint64_t inferenceId,
                             std::vector<std::shared_ptr<VPUBufferObject>> &bos) {
     size_t inputOutputBoPosition = bos.size();
-    if (!parser->applyInputOutputs(cmdHpi, inputPtrs, outputPtrs, profilingPtr, bos)) {
+    if (!parser->applyInputOutputs(cmdHpi, inputPtrs, outputPtrs, profilingQuery, bos)) {
         LOG_E("Failed to apply arguments to elf executor");
         return nullptr;
     }
@@ -65,7 +65,7 @@ VPUInferenceExecute::create(std::shared_ptr<L0::ElfParser> parser,
                                                  cmdHpi,
                                                  inputPtrs,
                                                  outputPtrs,
-                                                 profilingPtr,
+                                                 profilingQuery,
                                                  inferenceId,
                                                  bos,
                                                  inputOutputBoPosition);
@@ -99,7 +99,7 @@ bool VPUInferenceExecute::update(VPUCommandBuffer *commandBuffer) {
     cmdNeedsUpdate = false;
 
     std::vector<std::shared_ptr<VPUBufferObject>> newArgBos;
-    if (!parser->applyInputOutputs(hpi, inputs, outputs, profiling, newArgBos)) {
+    if (!parser->applyInputOutputs(hpi, inputs, outputs, profilingQuery, newArgBos)) {
         return false;
     }
 

@@ -14,7 +14,7 @@ namespace test_vars {
 bool forceGpu;
 bool disable_metrics;
 bool forceDmaHeap;
-bool initialization_tests;
+bool forceZeInitTests;
 uint32_t globalSyncTimeoutMs;
 } // namespace test_vars
 
@@ -51,6 +51,12 @@ static void forceSyncTimeout(const char *arg) {
     test_vars::globalSyncTimeoutMs = atoi(arg);
 }
 
+static void forceZeInitTests(const char *) {
+    test_vars::forceZeInitTests = true;
+    if (::testing::GTEST_FLAG(filter) == "*")
+        test_app::append_positive_filter("ZeInit*");
+}
+
 const char *helpMsg = "  -c/--config [CONFIGURATION_PATH]\n"
                       "       Test configuration file in yaml format\n"
                       "  -G/--gpu\n"
@@ -59,6 +65,8 @@ const char *helpMsg = "  -c/--config [CONFIGURATION_PATH]\n"
                       "       Disabling metrics. No metric test will be run\n"
                       "  -R/--dma-heap\n"
                       "       Run tests that requires /dev/dma_heap/system\n"
+                      "  -I/--ze-init-tests\n"
+                      "       Run tests that use zeInit and zeInitDrivers\n"
                       "  -T/--wait_timeout\n"
                       "       Change timeout used for synchronization operations [ms] \n"
                       "  -A/--all\n"
@@ -85,10 +93,7 @@ int main(int argc, char **argv) {
         {'M', {"disable_metrics", no_argument, &disableMetrics}},
         {'R', {"dma-heap", no_argument, &forceDmaHeap}},
         {'T', {"sync_timeout", required_argument, &forceSyncTimeout}},
-        {'I',
-         {"initialization_tests",
-          no_argument,
-          [](auto) { test_vars::initialization_tests = true; }}},
+        {'I', {"ze-init-tests", no_argument, &forceZeInitTests}},
         {'A', {"all", no_argument, &forceAllTests}},
     };
 

@@ -103,7 +103,7 @@ ze_result_t Context::getMemAllocProperties(const void *ptr,
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    auto bo = ctx->findBuffer(ptr);
+    auto bo = ctx->findBufferObject(ptr);
     if (bo == nullptr) {
         LOG(CONTEXT, "Pointer %p has not been allocated by Context %p", ptr, this);
         return ZE_RESULT_ERROR_NOT_AVAILABLE;
@@ -152,14 +152,14 @@ ze_result_t Context::getMemAddressRange(const void *ptr, void **basePtr, size_t 
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    auto bo = ctx->findBuffer(ptr);
+    auto bo = ctx->findBufferObject(ptr);
     if (bo == nullptr) {
         LOG(CONTEXT, "Pointer %p has not been allocated by Context %p", ptr, this);
         return ZE_RESULT_ERROR_NOT_AVAILABLE;
     }
 
     if (basePtr != nullptr) {
-        *basePtr = bo->getBasePointer();
+        *basePtr = reinterpret_cast<void *>(bo->getVPUAddr());
     }
 
     if (pSize != nullptr) {

@@ -77,7 +77,7 @@ class VPUCommand {
 
     inline bool isSynchronizeCommand() const { return sType == ScheduleType::Synchronize; }
 
-    bool copyDescriptor(VPUDeviceContext *ctx, void **desc);
+    bool copyDescriptor(void **desc, std::shared_ptr<VPUBufferObject> bo);
 
     using ArgumentUpdatesMap =
         std::unordered_map<uint32_t, const void *>; // key - argument index

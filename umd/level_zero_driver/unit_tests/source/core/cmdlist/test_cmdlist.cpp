@@ -88,9 +88,10 @@ TEST_F(CommandListTest, commandListIsIteratable) {
     EXPECT_EQ(ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY,
               cmdList->appendWriteGlobalTimestamp(&globalTS, nullptr, 0, nullptr));
 
-    auto ptrAlloc = (uint64_t *)ctx->createMemAlloc(4 * 1024,
-                                                    VPU::VPUBufferObject::Type::CachedFw,
-                                                    VPU::VPUBufferObject::Location::Shared);
+    auto ptrAlloc =
+        reinterpret_cast<uint64_t *>(ctx->createMemAlloc(4 * 1024,
+                                                         VPU::VPUBufferObject::Type::CachedFw,
+                                                         VPU::VPUBufferObject::Location::Shared));
     EXPECT_NE(nullptr, ptrAlloc);
 
     EXPECT_EQ(ZE_RESULT_SUCCESS,
@@ -134,9 +135,10 @@ TEST_F(CommandListTest, whenCalledCommandListResetCommandListVectorIsClearedSucc
     ASSERT_NE(nullptr, cmdList);
 
     // Alloc a 4KB device mem.
-    auto ptrAlloc = (uint64_t *)ctx->createMemAlloc(4 * 1024,
-                                                    VPU::VPUBufferObject::Type::CachedFw,
-                                                    VPU::VPUBufferObject::Location::Shared);
+    auto ptrAlloc =
+        reinterpret_cast<uint64_t *>(ctx->createMemAlloc(4 * 1024,
+                                                         VPU::VPUBufferObject::Type::CachedFw,
+                                                         VPU::VPUBufferObject::Location::Shared));
     EXPECT_NE(nullptr, ptrAlloc);
     EXPECT_EQ(ZE_RESULT_SUCCESS,
               cmdList->appendWriteGlobalTimestamp(ptrAlloc, nullptr, 0, nullptr));
@@ -196,8 +198,8 @@ struct CommandListCommitSizeTest : public CommandListTest {
         // Events
         ze_event_pool_desc_t evPoolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC,
                                            nullptr,
-                                           0,
-                                           ZE_EVENT_POOL_FLAG_HOST_VISIBLE};
+                                           ZE_EVENT_POOL_FLAG_HOST_VISIBLE,
+                                           0};
         evPoolDesc.count = 3;
         ASSERT_EQ(ZE_RESULT_SUCCESS,
                   L0::EventPool::create(context, &evPoolDesc, 1, &hDevice, &hEvPool));

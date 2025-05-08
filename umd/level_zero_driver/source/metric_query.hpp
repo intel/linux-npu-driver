@@ -31,11 +31,33 @@ struct _zet_metric_query_pool_handle_t {};
 struct _zet_metric_query_handle_t {};
 
 namespace L0 {
+struct MetricQuery;
+
+struct MetricQueryPool : _zet_metric_query_pool_handle_t, IContextObject {
+    MetricQueryPool(Context *pContext, MetricGroup &metricGroupInput, const size_t poolSizeInput);
+
+    inline zet_metric_query_pool_handle_t toHandle() { return this; }
+    static MetricQueryPool *fromHandle(zet_metric_query_pool_handle_t handle) {
+        return static_cast<MetricQueryPool *>(handle);
+    }
+
+    ze_result_t destroy();
+
+    ze_result_t createMetricQuery(uint32_t index, zet_metric_query_handle_t *phMetricQuery);
+
+  private:
+    Context *pContext = nullptr;
+    VPU::VPUDeviceContext *ctx = nullptr;
+    MetricGroup &metricGroup;
+    std::vector<std::unique_ptr<MetricQuery>> metricQueries;
+    std::shared_ptr<VPU::VPUBufferObject> pQueryPoolBuffer = nullptr;
+};
 
 struct MetricQuery : _zet_metric_query_handle_t {
     MetricQuery(MetricGroup &metricGroupInput,
                 uint64_t *addressTablePtr,
                 uint64_t *dataPtr,
+                std::shared_ptr<VPU::VPUBufferObject> poolBo,
                 std::function<void()> &&destroyCb);
     ~MetricQuery() = default;
 
@@ -52,36 +74,17 @@ struct MetricQuery : _zet_metric_query_handle_t {
     uint32_t getMetricGroupMask() const { return metricGroupMask; }
     uint64_t *getMetricAddrPtr() { return addrTablePtr; }
     bool isGroupActivated() const { return metricGroup.isActivated(); }
+    std::shared_ptr<VPU::VPUBufferObject> getBo() { return metricPoolBo; }
 
   protected:
     MetricGroup &metricGroup;
     uint64_t *addrTablePtr = nullptr;
     uint64_t *dataPtr = 0u;
+    std::shared_ptr<VPU::VPUBufferObject> metricPoolBo;
 
   private:
     uint32_t metricGroupMask = 0u;
     std::function<void()> destroyCb;
-};
-
-struct MetricQueryPool : _zet_metric_query_pool_handle_t, IContextObject {
-    MetricQueryPool(Context *pContext, MetricGroup *metricGroupInput, const size_t poolSizeInput);
-    ~MetricQueryPool();
-
-    inline zet_metric_query_pool_handle_t toHandle() { return this; }
-    static MetricQueryPool *fromHandle(zet_metric_query_pool_handle_t handle) {
-        return static_cast<MetricQueryPool *>(handle);
-    }
-
-    ze_result_t destroy();
-
-    ze_result_t createMetricQuery(uint32_t index, zet_metric_query_handle_t *phMetricQuery);
-
-  private:
-    Context *pContext = nullptr;
-    VPU::VPUDeviceContext *ctx = nullptr;
-    MetricGroup *metricGroup = nullptr;
-    std::vector<std::unique_ptr<MetricQuery>> metricQueries;
-    VPU::VPUBufferObject *pQueryPoolBuffer = nullptr;
 };
 
 } // namespace L0

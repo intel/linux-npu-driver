@@ -77,7 +77,7 @@ std::unique_ptr<VPUDriverApi> VPUDriverApi::openDriverApi(std::string devPath,
 
 bool VPUDriverApi::openDevice() {
     TRACE_EVENT("SYS", "open");
-    vpuFd = osInfc.osiOpen(devPath.c_str(), (O_RDWR | O_CLOEXEC), 0);
+    vpuFd = osInfc.osiOpen(devPath.c_str(), (O_RDWR | O_CLOEXEC | O_NOFOLLOW), 0);
     if (vpuFd < 0)
         LOG(FSYS, "Failed to open '%s'", devPath.c_str());
     return vpuFd >= 0;

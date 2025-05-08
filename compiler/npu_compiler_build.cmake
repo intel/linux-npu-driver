@@ -39,6 +39,7 @@ ExternalProject_Add(
       -D BUILD_SHARED_LIBS=OFF
       # CLANG_FORMAT and NCC_STYLE is set to OFF to avoid LLVMDemangle doubled target issue
       -D ENABLE_CLANG_FORMAT=OFF
+      -D ENABLE_CLANG_TIDY=OFF
       -D ENABLE_NCC_STYLE=OFF
       # Copied from "how_to_build_driver_compiler" document
       -D ENABLE_AUTO=OFF
@@ -87,7 +88,8 @@ ExternalProject_Add(
 add_dependencies(npu_compiler npu_compiler_build)
 
 # Extra command to prepare a standalone package with NPU compiler
-set(NPU_COMPILER_PACKAGE_NAME "npu-drv-compiler-${TARGET_DISTRO}-${NPU_COMPILER_TAG}-${BUILD_NUMBER}")
+string(REPLACE "/" "_" NPU_COMPILER_TAG_PACKAGE ${NPU_COMPILER_TAG})
+set(NPU_COMPILER_PACKAGE_NAME "npu-drv-compiler-${TARGET_DISTRO}-${NPU_COMPILER_TAG_PACKAGE}-${BUILD_NUMBER}")
 
 add_custom_target(npu_compiler_package
   COMMAND

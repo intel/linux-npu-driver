@@ -7,13 +7,13 @@
 
 #include "elf_parser.hpp"
 
-#include <cstddef>
 #include <cstdint>
 
 #include "blob_container.hpp"
 #include "level_zero/ze_api.h"
 #include "level_zero/ze_graph_ext.h"
 #include "level_zero_driver/include/l0_exception.hpp"
+#include "profiling_data.hpp"
 #include "umd_common.hpp"
 #include "vpu_driver/source/command/vpu_inference_execute.hpp"
 #include "vpu_driver/source/device/vpu_37xx/vpu_hw_37xx.hpp"
@@ -104,8 +104,8 @@ class DriverBufferManager : public elf::BufferManager {
             devAddress.vpu_addr(),
             devAddress.size());
         const std::lock_guard<std::mutex> lock(mtx);
-        if (tracedElfParserBuffers.erase(devAddress.cpu_addr()) == 0)
-            LOG_E("Failed to deallocate elf parser the memory");
+        if (devAddress.cpu_addr() && tracedElfParserBuffers.erase(devAddress.cpu_addr()) == 0)
+            LOG_E("Failed to deallocate elf parser memory");
     }
 
     void lock(elf::DeviceBuffer &devAddress) override {}
@@ -665,7 +665,7 @@ std::shared_ptr<VPU::VPUBufferObject> ElfParser::findBuffer(const void *ptr) {
 bool ElfParser::applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &cmdHpi,
                                   const std::vector<std::pair<const void *, uint32_t>> &inputPtrs,
                                   const std::vector<std::pair<const void *, uint32_t>> &outputPtrs,
-                                  const std::pair<const void *, uint32_t> &profilingPtr,
+                                  GraphProfilingQuery *profilingQuery,
                                   std::vector<std::shared_ptr<VPU::VPUBufferObject>> &bos) {
     auto getDeviceBuffers = [this, &bos](const std::vector<std::pair<const void *, uint32_t>> &ptrs,
                                          std::vector<elf::DeviceBuffer> &buffers) {
@@ -697,8 +697,18 @@ bool ElfParser::applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &cmd
         return false;
 
     std::vector<elf::DeviceBuffer> profilingDeviceBuffers;
-    if (profilingPtr.first != nullptr && !getDeviceBuffers({profilingPtr}, profilingDeviceBuffers))
-        return false;
+    if (profilingQuery) {
+        auto profilingBo = profilingQuery->getBo();
+        auto profilingMemPtr = profilingQuery->getQueryPtr();
+
+        if (!profilingMemPtr || !profilingBo)
+            return false;
+
+        bos.push_back(profilingBo);
+        profilingDeviceBuffers.emplace_back(profilingMemPtr,
+                                            profilingBo->getVPUAddr(profilingMemPtr),
+                                            profilingQuery->getSize());
+    }
 
     try {
         cmdHpi->applyInputOutput(inputDeviceBuffers, outputDeviceBuffers, profilingDeviceBuffers);
@@ -743,7 +753,7 @@ static void loadHostParsedInference(const std::shared_ptr<elf::HostParsedInferen
 std::shared_ptr<VPU::VPUInferenceExecute> ElfParser::createInferenceExecuteCommand(
     const std::vector<std::pair<const void *, uint32_t>> &inputPtrs,
     const std::vector<std::pair<const void *, uint32_t>> &outputPtrs,
-    const std::pair<void *, uint32_t> &profilingPtr) {
+    GraphProfilingQuery *profilingQuery) {
     uint64_t inferenceId = 0;
     if (!ctx->getUniqueInferenceId(inferenceId))
         return nullptr;
@@ -777,6 +787,9 @@ std::shared_ptr<VPU::VPUInferenceExecute> ElfParser::createInferenceExecuteComma
     bos.push_back(std::move(bo));
 
     for (const auto &buffer : cmdHpi->getAllocatedBuffers()) {
+        if (buffer.size() == 0)
+            continue;
+
         auto bo = findBuffer(buffer.cpu_addr());
         if (bo == nullptr) {
             LOG_E("Failed to find a buffer in tracked memory");
@@ -790,7 +803,7 @@ std::shared_ptr<VPU::VPUInferenceExecute> ElfParser::createInferenceExecuteComma
                                                 cmdHpi,
                                                 inputPtrs,
                                                 outputPtrs,
-                                                profilingPtr,
+                                                profilingQuery,
                                                 inferenceId,
                                                 bos);
     if (cmd == nullptr)
@@ -833,6 +846,16 @@ ze_result_t ElfParser::initialize() {
     return ZE_RESULT_ERROR_UNKNOWN;
 }
 
+std::shared_ptr<VPU::VPUBufferObject> ElfParser::allocateInternal(size_t size) {
+    auto driverBufferManager = reinterpret_cast<DriverBufferManager *>(bufferManager.get());
+    if (driverBufferManager == nullptr || !size)
+        return nullptr;
+    elf::BufferSpecs spec = {};
+    spec.size = size;
+    elf::DeviceBuffer buffer = driverBufferManager->allocate(spec);
+    return findBuffer(buffer.cpu_addr());
+}
+
 std::shared_ptr<VPU::VPUCommand> ElfParser::allocateInitCommand(VPU::VPUDeviceContext *ctx) {
     ze_result_t result = initialize();
     if (result != ZE_RESULT_SUCCESS)
@@ -842,13 +865,10 @@ std::shared_ptr<VPU::VPUCommand> ElfParser::allocateInitCommand(VPU::VPUDeviceCo
 }
 
 std::shared_ptr<VPU::VPUCommand>
-ElfParser::allocateExecuteCommand(VPU::VPUDeviceContext *ctx,
-                                  const std::vector<std::pair<const void *, uint32_t>> &inputArgs,
+ElfParser::allocateExecuteCommand(const std::vector<std::pair<const void *, uint32_t>> &inputArgs,
                                   const std::vector<std::pair<const void *, uint32_t>> &outputArgs,
-                                  const std::pair<void *, uint32_t> &profilingPtr) {
-    return createInferenceExecuteCommand(inputArgs,
-                                         outputArgs,
-                                         {profilingPtr.first, profilingPtr.second});
+                                  GraphProfilingQuery *profilingQuery) {
+    return createInferenceExecuteCommand(inputArgs, outputArgs, profilingQuery);
 }
 
 } // namespace L0

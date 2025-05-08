@@ -544,16 +544,6 @@ static_assert(sizeof(VpuDPUVariantRegisters) == 192, "VpuDPUVariantRegisters siz
 
 // HW related utility functions and enum values (enums correspond to HW register settings)
 
-// base resources
-constexpr uint32_t VPU_MAX_TILES = 6;
-constexpr uint32_t VPU_BARRIERS_PER_GROUP = 16;
-constexpr uint32_t VPU_DPU_PER_TILE = 1;
-constexpr uint32_t VPU_SNN_PER_TILE = VPU_DPU_PER_TILE;
-constexpr uint32_t VPU_SNN_TOTAL = VPU_SNN_PER_TILE * VPU_MAX_TILES;
-constexpr uint32_t VPU_AS_PER_TILE = 2;
-constexpr uint32_t VPU_AS_TOTAL = VPU_AS_PER_TILE * VPU_MAX_TILES;
-constexpr uint32_t VPU_MAX_DMA_ENGINES = 2;
-
 // NCE_DPU_HWP_CTRL dtype 2 bit field
 enum class VpuHWPStatMode : uint8_t {
     // odu_time_stat, idu_time_stat

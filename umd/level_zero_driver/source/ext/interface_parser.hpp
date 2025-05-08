@@ -11,11 +11,11 @@
 
 #include <level_zero/ze_api.h>
 #include <level_zero/ze_graph_ext.h>
+#include <memory>
 #include <vpux_hpi.hpp>
 
-#include <memory>
-
 namespace L0 {
+struct GraphProfilingQuery;
 
 class IParser {
   public:
@@ -25,11 +25,11 @@ class IParser {
                               uint32_t &size) = 0;
     virtual ze_result_t initialize() = 0;
     virtual std::shared_ptr<VPU::VPUCommand> allocateInitCommand(VPU::VPUDeviceContext *ctx) = 0;
+    virtual std::shared_ptr<VPU::VPUBufferObject> allocateInternal(size_t size) = 0;
     virtual std::shared_ptr<VPU::VPUCommand>
-    allocateExecuteCommand(VPU::VPUDeviceContext *ctx,
-                           const std::vector<std::pair<const void *, uint32_t>> &inputArgs,
+    allocateExecuteCommand(const std::vector<std::pair<const void *, uint32_t>> &inputArgs,
                            const std::vector<std::pair<const void *, uint32_t>> &outputArgs,
-                           const std::pair<void *, uint32_t> &profilingPtr) = 0;
+                           GraphProfilingQuery *profilingQuery) = 0;
 };
 
 } // namespace L0

@@ -14,10 +14,10 @@
 
 #include <any>
 #include <memory>
+#include <utility>
 
 namespace VPU {
-
-class VPUDeviceContext;
+class VPUBufferObject;
 
 class VPUEventCommand : public VPUCommand {
   public:
@@ -37,16 +37,16 @@ class VPUEventCommand : public VPUCommand {
     };
     static_assert(sizeof(JsmEventData) % 64 == 0, "JsmEventData is misaligned");
 
-    static std::shared_ptr<VPUEventCommand> create(VPUDeviceContext *ctx,
-                                                   const ScheduleType sType,
+    static std::shared_ptr<VPUEventCommand> create(const ScheduleType sType,
                                                    const vpu_cmd_type cmdType,
                                                    KMDEventDataType *eventHeapPtr,
+                                                   std::shared_ptr<VPUBufferObject> eventHeapBo,
                                                    const KMDEventDataType eventState);
 
-    VPUEventCommand(VPUDeviceContext *ctx,
-                    const ScheduleType sType,
+    VPUEventCommand(const ScheduleType sType,
                     const vpu_cmd_type cmdType,
                     KMDEventDataType *eventHeapPtr,
+                    std::shared_ptr<VPUBufferObject> eventHeapBo,
                     const KMDEventDataType eventState);
 
     const vpu_cmd_header_t *getHeader() const {
@@ -60,36 +60,36 @@ class VPUEventCommand : public VPUCommand {
 
 class VPUEventResetCommand : public VPUEventCommand {
   public:
-    static std::shared_ptr<VPUEventCommand> create(VPUDeviceContext *ctx,
-                                                   KMDEventDataType *eventHeapPtr) {
-        return VPUEventCommand::create(ctx,
-                                       ScheduleType::Generic,
+    static std::shared_ptr<VPUEventCommand> create(KMDEventDataType *eventHeapPtr,
+                                                   std::shared_ptr<VPUBufferObject> eventHeapBo) {
+        return VPUEventCommand::create(ScheduleType::Generic,
                                        VPU_CMD_FENCE_SIGNAL,
                                        eventHeapPtr,
+                                       std::move(eventHeapBo),
                                        VPUEventCommand::STATE_DEVICE_RESET);
     }
 };
 
 class VPUEventSignalCommand : public VPUEventCommand {
   public:
-    static std::shared_ptr<VPUEventCommand> create(VPUDeviceContext *ctx,
-                                                   KMDEventDataType *eventHeapPtr) {
-        return VPUEventCommand::create(ctx,
-                                       ScheduleType::Synchronize,
+    static std::shared_ptr<VPUEventCommand> create(KMDEventDataType *eventHeapPtr,
+                                                   std::shared_ptr<VPUBufferObject> eventHeapBo) {
+        return VPUEventCommand::create(ScheduleType::Synchronize,
                                        VPU_CMD_FENCE_SIGNAL,
                                        eventHeapPtr,
+                                       std::move(eventHeapBo),
                                        VPUEventCommand::STATE_DEVICE_SIGNAL);
     }
 };
 
 class VPUEventWaitCommand : public VPUEventCommand {
   public:
-    static std::shared_ptr<VPUEventCommand> create(VPUDeviceContext *ctx,
-                                                   KMDEventDataType *eventHeapPtr) {
-        return VPUEventCommand::create(ctx,
-                                       ScheduleType::Generic,
+    static std::shared_ptr<VPUEventCommand> create(KMDEventDataType *eventHeapPtr,
+                                                   std::shared_ptr<VPUBufferObject> eventHeapBo) {
+        return VPUEventCommand::create(ScheduleType::Generic,
                                        VPU_CMD_FENCE_WAIT,
                                        eventHeapPtr,
+                                       std::move(eventHeapBo),
                                        VPUEventCommand::STATE_WAIT);
     }
 };

@@ -25,23 +25,25 @@ class VPUDeviceContext;
 class VPUCommandBuffer {
   public:
     VPUCommandBuffer(VPUDeviceContext *ctx,
-                     VPUBufferObject *buffer,
+                     std::shared_ptr<VPUBufferObject> buffer,
                      const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
                      const std::vector<std::shared_ptr<VPUCommand>>::iterator &end);
-    ~VPUCommandBuffer();
 
     /**
      * Allocate and return VPUCommandBuffer
      * @param ctx[in]: Memory manager for device interaction
-     * @param cmds[in]: VPUCommands that VPUCommandBuffer will use
-     * @param targetEngine[in]: Submit a job to passed engine
+     * @param begin[in]: VPUCommands begin iterator
+     * @param begin[in]: VPUCommands end iterator
+     * @param fenceWait[in]: Wait fence for this Command Buffer or nullptr
+     * @param fenceBo[in]: Buffer object associated with fenceWait or nullptr
      * @return unique_ptr<VPUCommandBuffer> for success, nullptr for any allocation failures
      */
     static std::unique_ptr<VPUCommandBuffer>
     allocateCommandBuffer(VPUDeviceContext *ctx,
                           const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
                           const std::vector<std::shared_ptr<VPUCommand>>::iterator &end,
-                          VPUEventCommand::KMDEventDataType **fenceWait = nullptr);
+                          VPUEventCommand::KMDEventDataType **fenceWait,
+                          std::shared_ptr<VPUBufferObject> &fenceBo);
 
     /**
      * Return true if job is finished
@@ -105,8 +107,7 @@ class VPUCommandBuffer {
     /* Address CommandHeader has to be aligned to 64 bytes (FW cache line size) */
     struct CommandHeader {
         vpu_cmd_buffer_header header;
-        uint64_t reserved_0[2];
-        uint8_t contextSaveArea[VPU_CONTEXT_SAVE_AREA_SIZE];
+        uint8_t contextSaveArea[VPU_CONTEXT_SAVE_AREA_SIZE] __attribute__((aligned(64)));
         VPUEventCommand::KMDEventDataType fenceValue;
         uint64_t reserved_1[7];
         uint8_t commandList[0];
@@ -127,7 +128,7 @@ class VPUCommandBuffer {
 
   private:
     VPUDeviceContext *ctx;
-    VPUBufferObject *buffer;
+    std::shared_ptr<VPUBufferObject> buffer;
     uint32_t jobStatus;
     std::vector<std::shared_ptr<VPUCommand>>::iterator commandsBegin;
     std::vector<std::shared_ptr<VPUCommand>>::iterator commandsEnd;

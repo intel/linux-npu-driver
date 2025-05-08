@@ -27,10 +27,11 @@ class Command : public UmdTest {
         list = scopedListVec.back().get();
     }
 
+#ifndef ANDROID
     // Functor for threaded use case of zeCommandQueueSync with a promise as parameter
     // umd-test will utilize std::thread to spawn a new thread with this functor to
     // perform zeCommandQueueSynchronize with BLOCKING scenario (UINT64_MAX)
-    // While the std::promise is used to checked for the zeCommandQueueSynchronize
+    // While the std::promise is used to check for the zeCommandQueueSynchronize
     // result in the main thread with timeout.
     void threadedCommandQueueSyncWrapper(std::promise<_ze_result_t> &&promise) {
         // This thread has to be killed instantly, otherwise SEGFAULT could happen
@@ -40,6 +41,7 @@ class Command : public UmdTest {
         ASSERT_NE(nullptr, queue);
         promise.set_value(zeCommandQueueSynchronize(queue, UINT64_MAX));
     }
+#endif
 
     ze_command_queue_desc_t cmdQueueDesc{.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
                                          .pNext = nullptr,
@@ -144,6 +146,7 @@ TEST_F(Command, SynchronizeCommandWithTimeoutBeingZero) {
     EXPECT_TRUE(result == ZE_RESULT_SUCCESS || result == ZE_RESULT_NOT_READY);
 }
 
+#ifndef ANDROID
 TEST_F(Command, SynchronizeCommandWithTimeoutBeingMaxUint64) {
     auto mem = AllocSharedMemory(size);
     uint64_t *ts = static_cast<uint64_t *>(mem.get());
@@ -186,6 +189,7 @@ TEST_F(Command, SynchronizeCommandWithTimeoutBeingMaxUint64) {
     ASSERT_EQ(result, ZE_RESULT_SUCCESS) << "TIMEOUT from threadedCommandQueueSyncWrapper";
     ASSERT_EQ(zeCommandQueueSynchronize(queue, syncTimeout), ZE_RESULT_SUCCESS);
 }
+#endif
 
 TEST_F(Command, UseZeCommandQueueSynchronizeInLoop) {
     auto mem = AllocSharedMemory(sizeof(uint64_t));

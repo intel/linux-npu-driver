@@ -19,6 +19,7 @@
 #include <vector>
 
 namespace VPU {
+class VPUBufferObject;
 class VPUDeviceContext;
 
 class VPUJob {
@@ -89,7 +90,8 @@ class VPUJob {
 
     bool createCommandBuffer(const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
                              const std::vector<std::shared_ptr<VPUCommand>>::iterator &end,
-                             VPUEventCommand::KMDEventDataType **lastEvent);
+                             VPUEventCommand::KMDEventDataType **lastEvent,
+                             std::shared_ptr<VPUBufferObject> &lastEventBo);
 
     VPUDeviceContext *ctx = nullptr;
 

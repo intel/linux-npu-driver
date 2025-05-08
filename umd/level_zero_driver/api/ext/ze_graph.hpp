@@ -147,4 +147,28 @@ zeGraphProfilingLogGetString(ze_graph_profiling_query_handle_t hProfilingQuery,
                              uint32_t *pSize,
                              char *pProfilingLog);
 
+ze_result_t ZE_APICALL zeGraphCompilerGetSupportedOptions(ze_device_handle_t hDevice,
+                                                          ze_npu_options_type_t type,
+                                                          size_t *pSize,
+                                                          char *pSupportedOptions);
+
+ze_result_t ZE_APICALL zeGraphCompilerIsOptionSupported(ze_device_handle_t hDevice,
+                                                        ze_npu_options_type_t type,
+                                                        const char *pOption,
+                                                        const char *pValue);
+
+ze_result_t ZE_APICALL zeGraphCreate3(ze_context_handle_t hContext,
+                                      ze_device_handle_t hDevice,
+                                      const ze_graph_desc_2_t *desc,
+                                      ze_graph_handle_t *phGraph,
+                                      ze_graph_build_log_handle_t *phGraphBuildLog);
+
+ze_result_t ZE_APICALL zeGraphBuildLogGetString2(ze_graph_build_log_handle_t hGraphBuildLog,
+                                                 uint32_t *pSize,
+                                                 char *pBuildLog);
+
+ze_result_t ZE_APICALL zeGraphBuildLogDestroy(ze_graph_build_log_handle_t hGraphBuildLog);
+
+ze_result_t ZE_APICALL zeGraphGetProperties3(ze_graph_handle_t hGraph,
+                                             ze_graph_properties_3_t *pGraphProperties);
 } // namespace L0

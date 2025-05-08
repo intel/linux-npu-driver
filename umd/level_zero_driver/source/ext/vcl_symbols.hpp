@@ -15,56 +15,12 @@
 #include <memory>
 #include <string>
 
-// TODO: Macros with VCL_COMPILER_VERSION_MAJOR are tempoarilly added and can be removed after
-// compiler change is merged:
-// https://github.com/intel-innersource/applications.ai.vpu-accelerators.vpux-plugin/pull/13853
-#if VCL_COMPILER_VERSION_MAJOR == 7
-#define VCL_COMPILER_VERSION_MAJOR_LEGACY 6
-#define VCL_COMPILER_VERSION_MAJOR_NEXT VCL_COMPILER_VERSION_MAJOR
-
-typedef enum __vcl_platform_t {
-    VCL_PLATFORM_UNKNOWN = -1,
-    VCL_PLATFORM_VPU3700 = 0,
-    VCL_PLATFORM_VPU3720 = 1,
-    VCL_PLATFORM_VPU4000 = 2,
-} vcl_platform_t;
-
-typedef struct __vcl_compiler_desc_legacy_t {
-    vcl_platform_t platform;
-    vcl_log_level_t debug_level;
-} vcl_compiler_desc_legacy_t;
-
-using vcl_compiler_desc_next_t = vcl_compiler_desc_t;
-#else
-#define VCL_COMPILER_VERSION_MAJOR_LEGACY VCL_COMPILER_VERSION_MAJOR
-#define VCL_COMPILER_VERSION_MAJOR_NEXT 7
-
-typedef struct __vcl_device_desc_t {
-    uint64_t size;
-    uint32_t deviceID;
-    uint16_t revision;
-    uint32_t tileCount;
-} vcl_device_desc_t;
-
-typedef struct __vcl_compiler_desc_next_t {
-    vcl_version_info_t version;
-    vcl_log_level_t debugLevel;
-} vcl_compiler_desc_next_t;
-
-using vcl_compiler_desc_legacy_t = vcl_compiler_desc_t;
-
-vcl_result_t vclGetVersion(vcl_version_info_t *compilerVersion,
-                           vcl_version_info_t *profilingVersion);
-#endif
-
-vcl_result_t vclCompilerCreateLegacy(vcl_compiler_desc_legacy_t desc,
-                                     vcl_compiler_handle_t *compiler,
-                                     vcl_log_handle_t *logHandle);
-
-vcl_result_t vclCompilerCreateNext(vcl_compiler_desc_next_t *compilerDesc,
-                                   vcl_device_desc_t *deviceDesc,
-                                   vcl_compiler_handle_t *compiler,
-                                   vcl_log_handle_t *logHandle);
+// TODO: Remove below definitions after they are added to npu_driver_compiler.h
+vcl_result_t
+vclGetCompilerSupportedOptionsExp(vcl_compiler_handle_t compiler, char *result, uint64_t *size);
+vcl_result_t vclGetCompilerIsOptionSupportedExp(vcl_compiler_handle_t compiler,
+                                                const char *option,
+                                                const char *value);
 
 class Vcl {
   public:
@@ -92,6 +48,16 @@ class Vcl {
         return reinterpret_cast<T>(sym);
     }
 
+    template <typename T>
+    T getSymbolAddrOrNullptr(const char *name) {
+        void *sym = dlsym(handle.get(), name);
+        if (!sym) {
+            LOG_W("Failed to load %s symbol, error: %s", name, dlerror());
+            return nullptr;
+        }
+        return reinterpret_cast<T>(sym);
+    }
+
     Vcl() {
         std::string errorMsg;
         for (auto name : compilerNames) {
@@ -108,7 +74,6 @@ class Vcl {
         }
 
         compilerCreate = getSymbolAddr<decltype(compilerCreate)>("vclCompilerCreate");
-        compilerCreateLegacy = getSymbolAddr<decltype(compilerCreateLegacy)>("vclCompilerCreate");
         compilerDestroy = getSymbolAddr<decltype(compilerDestroy)>("vclCompilerDestroy");
         compilerGetProperties =
             getSymbolAddr<decltype(compilerGetProperties)>("vclCompilerGetProperties");
@@ -130,13 +95,17 @@ class Vcl {
         allocatedExecutableCreate =
             getSymbolAddr<decltype(allocatedExecutableCreate)>("vclAllocatedExecutableCreate");
         getVersion = getSymbolAddr<decltype(getVersion)>("vclGetVersion");
+        getCompilerSupportedOptions = getSymbolAddrOrNullptr<decltype(getCompilerSupportedOptions)>(
+            "vclGetCompilerSupportedOptions");
+        getCompilerIsOptionSupported =
+            getSymbolAddrOrNullptr<decltype(getCompilerIsOptionSupported)>(
+                "vclGetCompilerIsOptionSupported");
     }
 
     static void closeHandle(void *handle) noexcept { dlclose(handle); }
 
   public:
-    decltype(vclCompilerCreateNext) *compilerCreate = &missingSymbol;
-    decltype(vclCompilerCreateLegacy) *compilerCreateLegacy = &missingSymbol;
+    decltype(vclCompilerCreate) *compilerCreate = &missingSymbol;
     decltype(vclCompilerDestroy) *compilerDestroy = &missingSymbol;
     decltype(vclCompilerGetProperties) *compilerGetProperties = &missingSymbol;
     decltype(vclQueryNetworkCreate) *queryNetworkCreate = &missingSymbol;
@@ -152,11 +121,12 @@ class Vcl {
     decltype(vclLogHandleGetString) *logHandleGetString = &missingSymbol;
     decltype(vclAllocatedExecutableCreate) *allocatedExecutableCreate = &missingSymbol;
     decltype(vclGetVersion) *getVersion = &missingSymbol;
+    decltype(vclGetCompilerSupportedOptionsExp) *getCompilerSupportedOptions = nullptr;
+    decltype(vclGetCompilerIsOptionSupportedExp) *getCompilerIsOptionSupported = nullptr;
 
   private:
     using VclHandle = std::unique_ptr<void, decltype(&closeHandle)>;
     VclHandle handle = VclHandle(nullptr, nullptr);
 
-    std::array<const char *, 2> compilerNames = {"libnpu_driver_compiler.so",
-                                                 "libvpux_driver_compiler.so"};
+    std::array<const char *, 1> compilerNames = {"libnpu_driver_compiler.so"};
 };

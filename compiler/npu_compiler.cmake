@@ -1,4 +1,4 @@
-# Copyright 2022-2024 Intel Corporation.
+# Copyright 2022-2025 Intel Corporation.
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -15,7 +15,6 @@ if(NOT NPU_COMPILER_PACKAGE_DIR)
   if(ENABLE_NPU_COMPILER_BUILD)
     include(npu_compiler_build.cmake)
   else()
-    # TODO: Should be removed as driver should always be built with compiler
     message(WARNING "No NPU compiler provided, fallback to only include local copy of compiler headers")
     target_include_directories(npu_compiler INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     return()

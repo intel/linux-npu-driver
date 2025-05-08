@@ -65,6 +65,76 @@ TEST_F(GraphApiBase, CreateGraphReturnsCorrectError) {
               ZE_RESULT_ERROR_INVALID_SIZE);
 }
 
+TEST_F(GraphApiBase, GetDriverProperties) {
+    size_t size = 0;
+    EXPECT_EQ(zeGraphDDITableExt->pfnCompilerGetSupportedOptions(zeDevice,
+                                                                 ZE_NPU_DRIVER_OPTIONS,
+                                                                 &size,
+                                                                 nullptr),
+              ZE_RESULT_SUCCESS);
+
+    std::string options;
+    options.resize(size, '\0');
+
+    EXPECT_EQ(zeGraphDDITableExt->pfnCompilerGetSupportedOptions(zeDevice,
+                                                                 ZE_NPU_DRIVER_OPTIONS,
+                                                                 &size,
+                                                                 options.data()),
+              ZE_RESULT_SUCCESS);
+    TRACE("Driver supported options: %s\n", options.c_str());
+}
+
+// TODO: Enable test after compiler-in-driver with VCL API 7.2 is used
+TEST_F(GraphApiBase, DISABLED_GetCompilerProperties) {
+    size_t size = 0;
+    EXPECT_EQ(zeGraphDDITableExt->pfnCompilerGetSupportedOptions(zeDevice,
+                                                                 ZE_NPU_COMPILER_OPTIONS,
+                                                                 &size,
+                                                                 nullptr),
+              ZE_RESULT_SUCCESS);
+
+    std::string options;
+    options.resize(size, '\0');
+
+    EXPECT_EQ(zeGraphDDITableExt->pfnCompilerGetSupportedOptions(zeDevice,
+                                                                 ZE_NPU_COMPILER_OPTIONS,
+                                                                 &size,
+                                                                 options.data()),
+              ZE_RESULT_SUCCESS);
+    TRACE("Compiler supported options: %s\n", options.c_str());
+}
+
+// TODO: Enable test after compiler-in-driver with VCL API 7.2 is used
+TEST_F(GraphApiBase, DISABLED_IsCompilerOptionSupported) {
+    const char *option = "PERF_COUNT";
+    EXPECT_EQ(zeGraphDDITableExt->pfnCompilerIsOptionSupported(zeDevice,
+                                                               ZE_NPU_COMPILER_OPTIONS,
+                                                               option,
+                                                               nullptr),
+              ZE_RESULT_SUCCESS);
+
+    option = "LOG_LEVEL";
+    EXPECT_EQ(zeGraphDDITableExt->pfnCompilerIsOptionSupported(zeDevice,
+                                                               ZE_NPU_COMPILER_OPTIONS,
+                                                               option,
+                                                               nullptr),
+              ZE_RESULT_SUCCESS);
+
+    const char *logLevelValue = "LOG_INFO";
+    EXPECT_EQ(zeGraphDDITableExt->pfnCompilerIsOptionSupported(zeDevice,
+                                                               ZE_NPU_COMPILER_OPTIONS,
+                                                               option,
+                                                               logLevelValue),
+              ZE_RESULT_SUCCESS);
+
+    option = "NON_EXISTING";
+    EXPECT_EQ(zeGraphDDITableExt->pfnCompilerIsOptionSupported(zeDevice,
+                                                               ZE_NPU_COMPILER_OPTIONS,
+                                                               option,
+                                                               nullptr),
+              ZE_RESULT_ERROR_UNSUPPORTED_FEATURE);
+}
+
 class GraphApi : public GraphApiBase {
   protected:
     void SetUp() override {

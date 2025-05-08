@@ -104,7 +104,7 @@ ze_result_t Context::createMetricQueryPool(zet_device_handle_t hDevice,
     }
 
     try {
-        auto metricQueryPool = std::make_unique<MetricQueryPool>(this, metricGroup, desc->count);
+        auto metricQueryPool = std::make_unique<MetricQueryPool>(this, *metricGroup, desc->count);
         *phMetricQueryPool = metricQueryPool.get();
 
         this->appendObject(std::move(metricQueryPool));

@@ -19,6 +19,7 @@
 #include <charconv>
 #include <filesystem>
 #include <functional>
+#include <level_zero/ze_api.h>
 #include <level_zero/ze_graph_ext.h>
 #include <map>
 #include <memory>
@@ -54,7 +55,7 @@ static size_t getCacheMaxSize() {
         return val;
     }
     constexpr size_t GB = 1024 * 1024 * 1024;
-    return 1 * GB;
+    return 2 * GB;
 }
 
 DiskCache::DiskCache(VPU::OsInterface &osInfc)
@@ -98,7 +99,7 @@ DiskCache::Key DiskCache::computeKey(const ze_graph_desc_2_t &desc) {
     constexpr uint32_t driverVersion = DRIVER_VERSION;
     hash.update(reinterpret_cast<const uint8_t *>(&driverVersion), sizeof(driverVersion));
     vcl_compiler_properties_t vclProp = {};
-    if (Compiler::getCompilerProperties(&vclProp)) {
+    if (Compiler::getCompilerProperties(&vclProp) == ZE_RESULT_SUCCESS) {
         hash.update(reinterpret_cast<const uint8_t *>(vclProp.id), strlen(vclProp.id));
         hash.update(reinterpret_cast<const uint8_t *>(&vclProp.version), sizeof(vclProp.version));
         hash.update(reinterpret_cast<const uint8_t *>(&vclProp.supportedOpsets),
@@ -114,6 +115,17 @@ DiskCache::Key DiskCache::computeKey(const ze_graph_desc_2_t &desc) {
     return hash.final();
 }
 
+static bool validBlobChecksum(VPU::OsFile &file) {
+    uint8_t *filePtr = static_cast<uint8_t *>(file.mmap());
+    if (filePtr == nullptr)
+        return false;
+
+    uint64_t offsetSum = file.size() - HashSha1::DigestLength;
+    HashSha1::DigestType fileSum = reinterpret_cast<HashSha1::DigestType>(filePtr + offsetSum);
+    std::string computedSum = HashSha1::getDigest(filePtr, offsetSum);
+    return computedSum == std::string_view(fileSum, HashSha1::DigestLength);
+}
+
 std::unique_ptr<BlobContainer> DiskCache::getBlob(const Key &key) {
     if (cachePath.empty())
         return {};
@@ -124,6 +136,13 @@ std::unique_ptr<BlobContainer> DiskCache::getBlob(const Key &key) {
     auto file = osInfc.osiOpenWithSharedLock(dataPath, false);
     if (!file || file->size() == 0 || file->mmap() == nullptr) {
         LOG(CACHE, "Cache missed using %s key", filename.c_str());
+        return nullptr;
+    }
+
+    if (!validBlobChecksum(*file)) {
+        LOG(CACHE, "Cache missed using %s key: Incorrect checksum, removing it", filename.c_str());
+        /* Remove the file without setting exclusive lock comparing to "setBlob()" function */
+        osInfc.osiFileRemove(dataPath);
         return nullptr;
     }
 
@@ -169,9 +188,12 @@ void DiskCache::setBlob(const Key &key, const std::unique_ptr<BlobContainer> &bl
     if (blob == nullptr || cachePath.empty() || blob->size > maxSize)
         return;
 
+    // Add checksum after blob
+    size_t cachedBlobSize = blob->size + HashSha1::DigestLength;
+
     size_t cacheSize = getCacheSize();
-    if (cacheSize + blob->size > maxSize) {
-        cacheSize -= removeLeastUsedFiles(osInfc, cachePath, cacheSize + blob->size - maxSize);
+    if (cacheSize + cachedBlobSize > maxSize) {
+        cacheSize -= removeLeastUsedFiles(osInfc, cachePath, cacheSize + cachedBlobSize - maxSize);
     }
 
     std::filesystem::path dstPath = cachePath / key;
@@ -184,7 +206,13 @@ void DiskCache::setBlob(const Key &key, const std::unique_ptr<BlobContainer> &bl
         return;
     }
 
-    cacheSize += blob->size;
+    auto blobSum = HashSha1::getDigest(blob->ptr, blob->size);
+    if (!file->write(blobSum.data(), blobSum.size())) {
+        osInfc.osiFileRemove(dstPath);
+        return;
+    }
+
+    cacheSize += cachedBlobSize;
     LOG(CACHE,
         "Cache set %s key, data size: %lu, cache size: %lu",
         key.c_str(),

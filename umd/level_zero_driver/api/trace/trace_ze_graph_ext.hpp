@@ -1980,3 +1980,238 @@ inline void trace_zeGraphInitialize(ze_result_t ret, ze_graph_handle_t hGraph) {
     if (IS_API_EXT_TRACE())
         std::cerr << _trace_zeGraphInitialize(hGraph) + trace_ze_result_t(ret);
 }
+
+inline std::string _trace_zeGraphCompilerGetSupportedOptions(ze_npu_options_type_t type,
+                                                             size_t *pSize,
+                                                             char *pSupportedOptions) {
+    std::stringstream ss;
+    ss << std::hex << std::showbase;
+    ss << "NPU_LOG: [API_EXT] zeGraphCompilerGetSupportedOptions(";
+    ss << "type: " << type;
+    if (pSize == nullptr) {
+        ss << ", pSize: nullptr";
+    } else {
+        ss << ", pSize: " << *pSize;
+    }
+    if (pSupportedOptions == nullptr) {
+        ss << ", pSupportedOptions: nullptr";
+    } else {
+        ss << ", pSupportedOptions: " << pSupportedOptions;
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeGraphCompilerGetSupportedOptions(ze_npu_options_type_t type,
+                                                     size_t *pSize,
+                                                     char *pSupportedOptions) {
+    TRACE_EVENT_BEGIN("API", "zeGraphCompilerGetSupportedOptions");
+    if (IS_API_EXT_TRACE())
+        std::cerr << _trace_zeGraphCompilerGetSupportedOptions(type, pSize, pSupportedOptions) +
+                         "..\n";
+}
+
+inline void trace_zeGraphCompilerGetSupportedOptions(ze_result_t ret,
+                                                     ze_npu_options_type_t type,
+                                                     size_t *pSize,
+                                                     char *pSupportedOptions) {
+    TRACE_EVENT_END("API");
+    if (IS_API_EXT_TRACE())
+        std::cerr << _trace_zeGraphCompilerGetSupportedOptions(type, pSize, pSupportedOptions) +
+                         trace_ze_result_t(ret);
+}
+
+inline std::string _trace_zeGraphCompilerIsOptionSupported(ze_npu_options_type_t type,
+                                                           const char *pOption,
+                                                           const char *pValue) {
+    std::stringstream ss;
+    ss << std::hex << std::showbase;
+    ss << "NPU_LOG: [API_EXT] zeGraphCompilerIsOptionSupported(";
+    ss << "type: " << type;
+    if (pOption == nullptr) {
+        ss << ", pOption: nullptr";
+    } else {
+        ss << ", pOption: " << pOption;
+    }
+    if (pValue == nullptr) {
+        ss << ", pValue: nullptr";
+    } else {
+        ss << ", pValue: " << pValue;
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeGraphCompilerIsOptionSupported(ze_npu_options_type_t type,
+                                                   const char *pOption,
+                                                   const char *pValue) {
+    TRACE_EVENT_BEGIN("API", "zeGraphCompilerIsOptionSupported");
+    if (IS_API_EXT_TRACE())
+        std::cerr << _trace_zeGraphCompilerIsOptionSupported(type, pOption, pValue) + "..\n";
+}
+
+inline void trace_zeGraphCompilerIsOptionSupported(ze_result_t ret,
+                                                   ze_npu_options_type_t type,
+                                                   const char *pOption,
+                                                   const char *pValue) {
+    TRACE_EVENT_END("API");
+    if (IS_API_EXT_TRACE())
+        std::cerr << _trace_zeGraphCompilerIsOptionSupported(type, pOption, pValue) +
+                         trace_ze_result_t(ret);
+}
+
+inline std::string _trace_zeGraphCreate3(ze_context_handle_t hContext,
+                                         ze_device_handle_t hDevice,
+                                         const ze_graph_desc_2_t *desc,
+                                         ze_graph_handle_t *phGraph,
+                                         ze_graph_build_log_handle_t *phGraphBuildLog) {
+    std::stringstream ss;
+    ss << std::hex << std::showbase;
+    ss << "NPU_LOG: [API_EXT] zeGraphCreate3(";
+    ss << "hContext: " << hContext;
+    ss << ", hDevice: " << hDevice;
+    if (desc == nullptr) {
+        ss << ", desc: nullptr";
+    } else {
+        ss << ", desc {";
+        ss << "stype: " << desc->stype;
+        ss << ", pNext: " << desc->pNext;
+        ss << ", format: " << desc->format;
+        ss << ", inputSize: " << desc->inputSize;
+        if (desc->pInput == nullptr) {
+            ss << ", pInput: nullptr";
+        } else {
+            ss << ", pInput: " << *desc->pInput;
+        }
+        if (desc->pBuildFlags == nullptr) {
+            ss << ", pBuildFlags: nullptr";
+        } else {
+            ss << ", pBuildFlags: " << desc->pBuildFlags;
+        }
+        ss << ", flags: " << desc->flags;
+        ss << "}";
+    }
+    if (phGraph == nullptr) {
+        ss << ", phGraph: nullptr";
+    } else {
+        ss << ", phGraph: " << *phGraph;
+    }
+    if (phGraphBuildLog == nullptr) {
+        ss << ", phGraphBuildLog: nullptr";
+    } else {
+        ss << ", phGraphBuildLog: " << *phGraphBuildLog;
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeGraphCreate3(ze_context_handle_t hContext,
+                                 ze_device_handle_t hDevice,
+                                 const ze_graph_desc_2_t *desc,
+                                 ze_graph_handle_t *phGraph,
+                                 ze_graph_build_log_handle_t *phGraphBuildLog) {
+    TRACE_EVENT_BEGIN("API", "zeGraphCreate3");
+    if (IS_API_EXT_TRACE())
+        std::cerr << _trace_zeGraphCreate3(hContext, hDevice, desc, phGraph, phGraphBuildLog) +
+                         "..\n";
+}
+inline void trace_zeGraphCreate3(ze_result_t ret,
+                                 ze_context_handle_t hContext,
+                                 ze_device_handle_t hDevice,
+                                 const ze_graph_desc_2_t *desc,
+                                 ze_graph_handle_t *phGraph,
+                                 ze_graph_build_log_handle_t *phGraphBuildLog) {
+    TRACE_EVENT_END("API");
+    if (IS_API_EXT_TRACE())
+        std::cerr << _trace_zeGraphCreate3(hContext, hDevice, desc, phGraph, phGraphBuildLog) +
+                         trace_ze_result_t(ret);
+}
+
+inline std::string _trace_zeGraphBuildLogGetString2(ze_graph_build_log_handle_t hGraphBuildLog,
+                                                    uint32_t *pSize,
+                                                    char *pBuildLog) {
+    std::stringstream ss;
+    ss << std::hex << std::showbase;
+    ss << "NPU_LOG: [API_EXT] zeGraphBuildLogGetString2(";
+    ss << "hGraphBuildLog: " << hGraphBuildLog;
+    if (pSize == nullptr) {
+        ss << ", pSize: nullptr";
+    } else {
+        ss << ", pSize: " << *pSize;
+    }
+    if (pBuildLog == nullptr) {
+        ss << ", pBuildLog: nullptr";
+    } else {
+        ss << ", pBuildLog: " << pBuildLog;
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeGraphBuildLogGetString2(ze_graph_build_log_handle_t hGraphBuildLog,
+                                            uint32_t *pSize,
+                                            char *pBuildLog) {
+    TRACE_EVENT_BEGIN("API", "zeGraphBuildLogGetString2");
+    if (IS_API_EXT_TRACE())
+        std::cerr << _trace_zeGraphBuildLogGetString2(hGraphBuildLog, pSize, pBuildLog) + "..\n";
+}
+inline void trace_zeGraphBuildLogGetString2(ze_result_t ret,
+                                            ze_graph_build_log_handle_t hGraphBuildLog,
+                                            uint32_t *pSize,
+                                            char *pBuildLog) {
+    TRACE_EVENT_END("API");
+    if (IS_API_EXT_TRACE())
+        std::cerr << _trace_zeGraphBuildLogGetString2(hGraphBuildLog, pSize, pBuildLog) +
+                         trace_ze_result_t(ret);
+}
+
+inline std::string _trace_zeGraphBuildLogDestroy(ze_graph_build_log_handle_t hGraphBuildLog) {
+    std::stringstream ss;
+    ss << std::hex << std::showbase;
+    ss << "NPU_LOG: [API_EXT] zeGraphBuildLogDestroy(";
+    ss << "hGraphBuildLog: " << hGraphBuildLog;
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeGraphBuildLogDestroy(ze_graph_build_log_handle_t hGraphBuildLog) {
+    TRACE_EVENT_BEGIN("API", "zeGraphBuildLogDestroy");
+    if (IS_API_EXT_TRACE())
+        std::cerr << _trace_zeGraphBuildLogDestroy(hGraphBuildLog) + "..\n";
+}
+inline void trace_zeGraphBuildLogDestroy(ze_result_t ret,
+                                         ze_graph_build_log_handle_t hGraphBuildLog) {
+    TRACE_EVENT_END("API");
+    if (IS_API_EXT_TRACE())
+        std::cerr << _trace_zeGraphBuildLogDestroy(hGraphBuildLog) + trace_ze_result_t(ret);
+}
+
+inline std::string _trace_zeGraphGetProperties3(ze_graph_handle_t hGraph,
+                                                ze_graph_properties_3_t *pGraphProperties) {
+    std::stringstream ss;
+    ss << std::hex << std::showbase;
+    ss << "NPU_LOG: [API_EXT] zeGraphGetProperties3(";
+    ss << "hGraph: " << hGraph;
+    if (pGraphProperties == nullptr) {
+        ss << ", pGraphProperties: nullptr";
+    } else {
+        ss << ", pGraphProperties {";
+        ss << "stype: " << pGraphProperties->stype;
+        ss << ", pNext: " << pGraphProperties->pNext;
+        ss << ", numGraphArgs: " << pGraphProperties->numGraphArgs;
+        ss << ", initStageRequired: " << pGraphProperties->initStageRequired;
+        ss << ", flags: " << pGraphProperties->flags;
+        ss << "}";
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeGraphGetProperties3(ze_graph_handle_t hGraph,
+                                        ze_graph_properties_3_t *pGraphProperties) {
+    TRACE_EVENT_BEGIN("API", "zeGraphGetProperties3");
+    if (IS_API_EXT_TRACE())
+        std::cerr << _trace_zeGraphGetProperties3(hGraph, pGraphProperties) + "..\n";
+}
+inline void trace_zeGraphGetProperties3(ze_result_t ret,
+                                        ze_graph_handle_t hGraph,
+                                        ze_graph_properties_3_t *pGraphProperties) {
+    TRACE_EVENT_END("API");
+    if (IS_API_EXT_TRACE())
+        std::cerr << _trace_zeGraphGetProperties3(hGraph, pGraphProperties) +
+                         trace_ze_result_t(ret);
+}

@@ -13,6 +13,7 @@
 #include "vpu_driver/source/command/vpu_copy_command.hpp"
 #include "vpu_driver/source/command/vpu_job.hpp"
 #include "vpu_driver/source/command/vpu_ts_command.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
 
@@ -51,16 +52,16 @@ TEST_F(VPUJobTestForVPU40xx, jobCanGenerateSingleCopyBuffer) {
     ASSERT_EQ(ctx->getPciDevId(), 0x643e);
     int cmdCount = 3;
 
-    void *sharedMem = ctx->createSharedMemAlloc(allocSize);
-    void *hostMem = ctx->createHostMemAlloc(allocSize);
+    auto sharedMem = ctx->createSharedMemAlloc(allocSize);
+    auto hostMem = ctx->createHostMemAlloc(allocSize);
 
     auto job = std::make_unique<VPUJob>(ctx);
     for (int i = 0; i < cmdCount; i++)
         EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx,
+                                                              hostMem->getBasePointer(),
                                                               hostMem,
-                                                              ctx->findBufferObject(hostMem),
+                                                              sharedMem->getBasePointer(),
                                                               sharedMem,
-                                                              ctx->findBufferObject(sharedMem),
                                                               allocSize)));
     EXPECT_TRUE(job->closeCommands());
 
@@ -70,17 +71,17 @@ TEST_F(VPUJobTestForVPU40xx, jobCanGenerateSingleCopyBuffer) {
                   cmdBuffer->getBufferHandles().size());
     }
 
-    EXPECT_TRUE(ctx->freeMemAlloc(hostMem));
-    EXPECT_TRUE(ctx->freeMemAlloc(sharedMem));
+    EXPECT_TRUE(ctx->freeMemAlloc(hostMem->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(sharedMem->getBasePointer()));
 }
 
 TEST_F(VPUJobTestForVPU40xx, jobShouldProperlySaveAppendedCommands) {
     ASSERT_EQ(ctx->getPciDevId(), 0x643e);
 
-    uint64_t *tsHeap = reinterpret_cast<uint64_t *>(ctx->createSharedMemAlloc(sizeof(uint64_t)));
+    auto tsHeap = ctx->createSharedMemAlloc(sizeof(uint64_t));
     ASSERT_NE(tsHeap, nullptr);
-    void *sharedMem = ctx->createSharedMemAlloc(allocSize);
-    void *hostMem = ctx->createHostMemAlloc(allocSize);
+    auto sharedMem = ctx->createSharedMemAlloc(allocSize);
+    auto hostMem = ctx->createHostMemAlloc(allocSize);
 
     // allCmds store commands that are pushed to VPUJob
     std::vector<std::shared_ptr<VPUCommand>> allCmds = {};
@@ -90,22 +91,24 @@ TEST_F(VPUJobTestForVPU40xx, jobShouldProperlySaveAppendedCommands) {
     auto job = std::make_unique<VPUJob>(ctx);
 
     for (int i = 0; i < 3; i++)
-        EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx, tsHeap)));
+        EXPECT_TRUE(job->appendCommand(
+            VPUTimeStampCommand::create(reinterpret_cast<uint64_t *>(tsHeap->getBasePointer()),
+                                        tsHeap)));
 
     for (int i = 0; i < 3; i++)
         EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx,
+                                                              sharedMem->getBasePointer(),
                                                               sharedMem,
-                                                              ctx->findBufferObject(sharedMem),
+                                                              sharedMem->getBasePointer(),
                                                               sharedMem,
-                                                              ctx->findBufferObject(sharedMem),
                                                               allocSize)));
 
     for (int i = 0; i < 3; i++)
         EXPECT_TRUE(job->appendCommand(VPUCopyCommand::create(ctx,
+                                                              hostMem->getBasePointer(),
                                                               hostMem,
-                                                              ctx->findBufferObject(hostMem),
+                                                              sharedMem->getBasePointer(),
                                                               sharedMem,
-                                                              ctx->findBufferObject(sharedMem),
                                                               allocSize)));
 
     EXPECT_TRUE(job->closeCommands());
@@ -117,7 +120,7 @@ TEST_F(VPUJobTestForVPU40xx, jobShouldProperlySaveAppendedCommands) {
                   cmdBuffer->getBufferHandles().size());
     }
 
-    EXPECT_TRUE(ctx->freeMemAlloc(sharedMem));
-    EXPECT_TRUE(ctx->freeMemAlloc(hostMem));
-    EXPECT_TRUE(ctx->freeMemAlloc(tsHeap));
+    EXPECT_TRUE(ctx->freeMemAlloc(sharedMem->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(hostMem->getBasePointer()));
+    EXPECT_TRUE(ctx->freeMemAlloc(tsHeap->getBasePointer()));
 }

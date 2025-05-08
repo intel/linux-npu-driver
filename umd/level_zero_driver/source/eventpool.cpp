@@ -45,6 +45,9 @@ ze_result_t EventPool::create(ze_context_handle_t hContext,
         LOG_E("Invalid descriptor count");
         return ZE_RESULT_ERROR_INVALID_SIZE;
     }
+    if (!(desc->flags & ZE_EVENT_POOL_FLAG_HOST_VISIBLE)) {
+        LOG_W("Missed ZE_EVENT_POOL_FLAG_HOST_VISIBLE flag in event pool descriptor");
+    }
 
     try {
         Context *pContext = Context::fromHandle(hContext);
@@ -73,17 +76,11 @@ EventPool::EventPool(Context *pContext, const ze_event_pool_desc_t *desc)
     , pEventPool(nullptr)
     , events(desc->count) {
     pEventPool =
-        ctx->createInternalBufferObject(sizeof(VPU::VPUEventCommand::JsmEventData) * events.size(),
-                                        VPU::VPUBufferObject::Type::CachedFw);
+        ctx->createUntrackedBufferObject(sizeof(VPU::VPUEventCommand::JsmEventData) * events.size(),
+                                         VPU::VPUBufferObject::Type::CachedFw);
     L0_THROW_WHEN(pEventPool == nullptr,
                   "Failed to allocate buffer object for event pool",
                   ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY);
-}
-
-EventPool::~EventPool() {
-    if (pEventPool != nullptr) {
-        ctx->freeMemAlloc(pEventPool);
-    }
 }
 
 VPU::VPUEventCommand::KMDEventDataType *EventPool::getEventCpuAddress(uint32_t index) {
@@ -101,14 +98,6 @@ ze_result_t EventPool::createEvent(const ze_event_desc_t *desc, ze_event_handle_
         LOG_E("Invalid phEvent pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
-    if (desc->signal > 7) {
-        LOG_E("Invalid signal flags");
-        return ZE_RESULT_ERROR_INVALID_ENUMERATION;
-    }
-    if (desc->wait > 7) {
-        LOG_E("Invalid wait flags");
-        return ZE_RESULT_ERROR_INVALID_ENUMERATION;
-    }
 
     uint32_t index = desc->index;
     if (index >= events.size()) {
@@ -122,14 +111,15 @@ ze_result_t EventPool::createEvent(const ze_event_desc_t *desc, ze_event_handle_
 
     try {
         auto *eventPtr = getEventCpuAddress(index);
-        uint64_t vpuAddr = ctx->getBufferVPUAddress(eventPtr);
+        uint64_t vpuAddr = pEventPool->getVPUAddr(eventPtr);
         L0_THROW_WHEN(vpuAddr == 0,
                       "Failed to get VPU address from cpu pointer",
                       ZE_RESULT_ERROR_UNKNOWN);
 
-        events[index] = std::make_unique<Event>(ctx, eventPtr, vpuAddr, [this, index]() {
-            events[index].reset();
-        });
+        events[index] =
+            std::make_unique<Event>(ctx, eventPtr, getEventBase(), vpuAddr, [this, index]() {
+                events[index].reset();
+            });
         *phEvent = events[index].get();
 
         LOG(EVENT, "Event created - %p", *phEvent);

@@ -143,7 +143,7 @@ TEST_F(MemoryAllocation, GetMemAddressRangeWithMemInputExpectSuccess) {
     ASSERT_EQ(
         ZE_RESULT_SUCCESS,
         zeMemGetAddressRange(zeContext, static_cast<char *>(ptr) + size - 1, &basePtr, &pSize));
-    EXPECT_EQ(ptr, basePtr);
+    EXPECT_NE(basePtr, nullptr);
     EXPECT_EQ(size, pSize);
 }
 

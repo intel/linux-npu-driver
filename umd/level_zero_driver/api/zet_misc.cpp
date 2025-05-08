@@ -379,10 +379,16 @@ exit:
 }
 }
 
+#ifdef ANDROID
+#define LIB_ZE_LOADER_NAME "libze_loader.so"
+#else
+#define LIB_ZE_LOADER_NAME "libze_loader.so.1"
+#endif
+
 namespace L0 {
 
 void *getLoaderHandle() {
-    static void *loaderHandle = dlopen("libze_loader.so.1", RTLD_LAZY | RTLD_LOCAL);
+    static void *loaderHandle = dlopen(LIB_ZE_LOADER_NAME, RTLD_LAZY | RTLD_LOCAL);
     return loaderHandle;
 }
 

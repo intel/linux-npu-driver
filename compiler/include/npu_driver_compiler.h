@@ -23,7 +23,7 @@ extern "C" {
 #endif
 
 #define VCL_COMPILER_VERSION_MAJOR 7
-#define VCL_COMPILER_VERSION_MINOR 1
+#define VCL_COMPILER_VERSION_MINOR 3
 #define VCL_PROFILING_VERSION_MAJOR 2
 #define VCL_PROFILING_VERSION_MINOR 0
 
@@ -69,7 +69,7 @@ typedef struct __vcl_log_handle_t* vcl_log_handle_t;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// @brief Defines type of requested data.
-/// Must be in sync with _ze_graph_profiling_type_t
+/// Must be in sync with \b _ze_graph_profiling_type_t
 typedef enum __vcl_profiling_request_type_t {
     VCL_PROFILING_LAYER_LEVEL = 0x1,
     VCL_PROFILING_TASK_LEVEL = 0x2,
@@ -91,6 +91,7 @@ typedef struct __vcl_version_info_t {
 typedef enum __vcl_result_t {
     VCL_RESULT_SUCCESS = 0,                             ///< [Core] success
     VCL_RESULT_ERROR_OUT_OF_MEMORY = 0x70000002,        ///< [Core] insufficient memory to satisfy call
+    VCL_RESULT_ERROR_UNSUPPORTED_FEATURE = 0x78000003,  ///< [Validation] generic error code for unsupported features
     VCL_RESULT_ERROR_INVALID_ARGUMENT = 0x78000004,     ///< [Validation] generic error code for invalid arguments
     VCL_RESULT_ERROR_INVALID_NULL_HANDLE = 0x78000005,  ///< [Validation] handle argument is not valid
     VCL_RESULT_ERROR_IO = 0x78000006,                   ///< [Core] IO error
@@ -297,6 +298,17 @@ VCL_APIEXPORT vcl_result_t VCL_APICALL vclProfilingGetProperties(vcl_profiling_h
 /// @brief Retrieves error message from log handler.
 /// Handle is released automatically with related compiler or Profiler.
 VCL_APIEXPORT vcl_result_t VCL_APICALL vclLogHandleGetString(vcl_log_handle_t logHandle, size_t* logSize, char* log);
+
+///////////////////////////////////////////////////////////////////////////////
+/// @brief Retrieve the list of supported compiler options
+/// @attention Should be called twice, first time to retrieve data size, second time to get data.
+VCL_APIEXPORT vcl_result_t VCL_APICALL vclGetCompilerSupportedOptions(vcl_compiler_handle_t compiler, char* result,
+                                                                      uint64_t* size);
+
+///////////////////////////////////////////////////////////////////////////////
+/// @brief Verifies if a given config option (or option-value pair) is supported by the compiler
+VCL_APIEXPORT vcl_result_t VCL_APICALL vclGetCompilerIsOptionSupported(vcl_compiler_handle_t compiler,
+                                                                       const char* option, const char* value);
 
 #if defined(__cplusplus)
 }  // extern "C"

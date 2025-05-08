@@ -12,6 +12,7 @@
 #include "vpu_driver/source/command/vpu_ts_command.hpp"
 #include "vpu_driver/source/device/metric_info.hpp"
 #include "vpu_driver/source/device/vpu_command_queue.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
 
@@ -38,11 +39,13 @@ TEST_F(VPUDeviceTest, jobSubmissionTriggersIoctls) {
 
     EXPECT_FALSE(queue->submit(nullptr));
 
-    uint64_t *tsDest = static_cast<uint64_t *>(ctx->createSharedMemAlloc(4096));
+    auto tsDest = ctx->createSharedMemAlloc(4096);
     ASSERT_NE(nullptr, tsDest);
 
     auto job = std::make_unique<VPUJob>(ctx.get());
-    EXPECT_TRUE(job->appendCommand(VPUTimeStampCommand::create(ctx.get(), tsDest)));
+    EXPECT_TRUE(job->appendCommand(
+        VPUTimeStampCommand::create(reinterpret_cast<uint64_t *>(tsDest->getBasePointer()),
+                                    tsDest)));
     EXPECT_TRUE(job->closeCommands());
 
     // Without pinning this test won't pass
@@ -53,7 +56,7 @@ TEST_F(VPUDeviceTest, jobSubmissionTriggersIoctls) {
     // * submitJob calls SUBMIT
     EXPECT_EQ(5u, osInfc.callCntIoctl);
 
-    EXPECT_TRUE(ctx->freeMemAlloc(static_cast<void *>(tsDest)));
+    EXPECT_TRUE(ctx->freeMemAlloc(tsDest->getBasePointer()));
 }
 
 TEST_F(VPUDeviceTest, givenCallIsConnectedReportsDeviceConnectionStatus) {

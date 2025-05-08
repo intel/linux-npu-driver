@@ -15,13 +15,15 @@
 #include <memory>
 
 namespace VPU {
-class VPUDeviceContext;
+class VPUBufferObject;
 
 class VPUTimeStampCommand : public VPUCommand {
   public:
-    VPUTimeStampCommand(VPUDeviceContext *ctx, uint64_t *dstPtr);
+    VPUTimeStampCommand(uint32_t type, uint64_t dstVPUAddr, std::shared_ptr<VPUBufferObject> dstBo);
 
-    static std::shared_ptr<VPUTimeStampCommand> create(VPUDeviceContext *ctx, uint64_t *dstPtr);
+    static std::shared_ptr<VPUTimeStampCommand>
+    create(uint64_t *dstPtr, std::shared_ptr<VPUBufferObject> dstBo, uint32_t type = 0);
+
     const vpu_cmd_header_t *getHeader() const {
         return reinterpret_cast<const vpu_cmd_header_t *>(
             std::any_cast<vpu_cmd_timestamp_t>(&command));

@@ -13,19 +13,17 @@
 
 #include <any>
 #include <memory>
+#include <utility>
 
 namespace VPU {
-class VPUDeviceContext;
+class VPUBufferObject;
 
 class VPUQueryCommand : public VPUCommand {
-  public:
-    static uint64_t getMetricDataAddress(VPUDeviceContext *ctx, void *dataAddress);
-
   protected:
-    VPUQueryCommand(VPUDeviceContext *ctx,
-                    vpu_cmd_type cmdType,
+    VPUQueryCommand(vpu_cmd_type cmdType,
                     uint32_t groupMask,
                     void *dataAddress,
+                    std::shared_ptr<VPUBufferObject> bo,
                     uint64_t metricDataAddress);
     const vpu_cmd_header_t *getHeader() const {
         return reinterpret_cast<const vpu_cmd_header_t *>(
@@ -38,34 +36,34 @@ class VPUQueryCommand : public VPUCommand {
 
 class VPUQueryBeginCommand : public VPUQueryCommand {
   public:
-    VPUQueryBeginCommand(VPUDeviceContext *ctx,
-                         uint32_t groupMask,
+    VPUQueryBeginCommand(uint32_t groupMask,
                          void *dataAddress,
+                         std::shared_ptr<VPUBufferObject> bo,
                          uint64_t metricDataAddress)
-        : VPUQueryCommand(ctx,
-                          VPU_CMD_METRIC_QUERY_BEGIN,
+        : VPUQueryCommand(VPU_CMD_METRIC_QUERY_BEGIN,
                           groupMask,
                           dataAddress,
+                          std::move(bo),
                           metricDataAddress){};
 
     static std::shared_ptr<VPUQueryBeginCommand>
-    create(VPUDeviceContext *ctx, uint32_t groupMask, void *dataAddress);
+    create(uint32_t groupMask, void *dataAddress, std::shared_ptr<VPUBufferObject> dataBo);
 };
 
 class VPUQueryEndCommand : public VPUQueryCommand {
   public:
-    VPUQueryEndCommand(VPUDeviceContext *ctx,
-                       uint32_t groupMask,
+    VPUQueryEndCommand(uint32_t groupMask,
                        void *dataAddress,
+                       std::shared_ptr<VPUBufferObject> bo,
                        uint64_t metricDataAddress)
-        : VPUQueryCommand(ctx,
-                          VPU_CMD_METRIC_QUERY_END,
+        : VPUQueryCommand(VPU_CMD_METRIC_QUERY_END,
                           groupMask,
                           dataAddress,
+                          std::move(bo),
                           metricDataAddress){};
 
     static std::shared_ptr<VPUQueryEndCommand>
-    create(VPUDeviceContext *ctx, uint32_t groupMask, void *dataAddress);
+    create(uint32_t groupMask, void *dataAddress, std::shared_ptr<VPUBufferObject> dataBo);
 };
 
 } // namespace VPU

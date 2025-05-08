@@ -249,10 +249,12 @@ class Graph {
     Graph(ze_context_handle_t hContext,
           ze_device_handle_t hDevice,
           graph_dditable_ext_t *graphDDI,
-          std::shared_ptr<GraphBuffer> buffer)
+          std::shared_ptr<GraphBuffer> buffer,
+          ze_graph_build_log_handle_t *pGraphBuildLogHandle = nullptr)
         : hContext(hContext)
         , hDevice(hDevice)
         , graphDDI(graphDDI)
+        , pLogHandle(pGraphBuildLogHandle)
         , buffer(std::move(buffer)) {}
 
     static std::shared_ptr<Graph> create(ze_context_handle_t hContext,
@@ -273,35 +275,47 @@ class Graph {
         return graph;
     }
 
-    static std::shared_ptr<Graph> create(ze_context_handle_t hContext,
-                                         ze_device_handle_t hDevice,
-                                         graph_dditable_ext_t *graphDDI,
-                                         const std::filesystem::path &path,
-                                         const std::string &buildFlags) {
+    static std::shared_ptr<Graph>
+    create(ze_context_handle_t hContext,
+           ze_device_handle_t hDevice,
+           graph_dditable_ext_t *graphDDI,
+           const std::filesystem::path &path,
+           const std::string &buildFlags,
+           ze_graph_build_log_handle_t *pGraphBuildLogHandle = nullptr) {
         auto buffer = GraphBuffer::get(hDevice, graphDDI, path, buildFlags);
         if (buffer == nullptr)
             return nullptr;
 
-        auto graph = std::make_shared<Graph>(hContext, hDevice, graphDDI, std::move(buffer));
+        auto graph = std::make_shared<Graph>(hContext,
+                                             hDevice,
+                                             graphDDI,
+                                             std::move(buffer),
+                                             pGraphBuildLogHandle);
         if (!graph->createGraphHandle())
             return nullptr;
 
         return graph;
     }
 
-    static std::shared_ptr<Graph> create(ze_context_handle_t hContext,
-                                         ze_device_handle_t hDevice,
-                                         graph_dditable_ext_t *graphDDI,
-                                         UmdTest::GlobalConfig &globalConfig,
-                                         const YAML::Node &node,
-                                         uint32_t graphFlags = ZE_GRAPH_FLAG_NONE) {
+    static std::shared_ptr<Graph>
+    create(ze_context_handle_t hContext,
+           ze_device_handle_t hDevice,
+           graph_dditable_ext_t *graphDDI,
+           UmdTest::GlobalConfig &globalConfig,
+           const YAML::Node &node,
+           uint32_t graphFlags = ZE_GRAPH_FLAG_NONE,
+           ze_graph_build_log_handle_t *pGraphBuildLogHandle = nullptr) {
         auto buffer = GraphBuffer::get(hDevice, graphDDI, globalConfig, node);
         if (buffer == nullptr)
             return nullptr;
 
         buffer->desc.flags = graphFlags;
 
-        auto graph = std::make_shared<Graph>(hContext, hDevice, graphDDI, std::move(buffer));
+        auto graph = std::make_shared<Graph>(hContext,
+                                             hDevice,
+                                             graphDDI,
+                                             std::move(buffer),
+                                             pGraphBuildLogHandle);
         if (!graph->createGraphHandle())
             return nullptr;
 
@@ -378,21 +392,53 @@ class Graph {
         }
     }
 
+    void copyImageToInputArgument(void *dst) {
+        if (dst == nullptr) {
+            FAIL() << "Destination pointer is null";
+        }
+        if (imagePaths.empty()) {
+            FAIL() << "No image provided. Check the path to the image";
+        }
+
+        TRACE("Image: %s\n", imagePaths[0].c_str());
+
+        auto inputLayout = inputProps.at(0).networkLayout;
+        ASSERT_TRUE(inputLayout == ZE_GRAPH_ARGUMENT_LAYOUT_NCHW ||
+                    inputLayout == ZE_GRAPH_ARGUMENT_LAYOUT_NHWC)
+            << "Unsupported input layout: " << zeGraphArgumentLayoutToStr(inputLayout);
+
+        bool layoutChw = inputLayout == ZE_GRAPH_ARGUMENT_LAYOUT_NCHW;
+        Image image(imagePaths[0], layoutChw);
+        if (image.getSizeInBytes() == 0) {
+            FAIL() << "Failed to read image " << imagePaths[0];
+        }
+
+        auto inputPrecision = inputProps.at(0).networkPrecision;
+        ASSERT_EQ(inputSize[0], image.getSizeInBytes() * graphPrecisionToByteSize(inputPrecision));
+        switch (inputPrecision) {
+        case ZE_GRAPH_ARGUMENT_PRECISION_FP32: {
+            std::vector<float> inputData(inputSize[0]);
+            float *dstPtr = static_cast<float *>(dst);
+            for (size_t i = 0; i < image.getSizeInBytes(); i++) {
+                dstPtr[i] = static_cast<float>(static_cast<uint8_t *>(image.getPtr())[i]);
+            }
+        } break;
+        case ZE_GRAPH_ARGUMENT_PRECISION_UINT8:
+            memcpy(dst, image.getPtr(), inputSize[0]);
+            break;
+        default:
+            FAIL() << "Unsupported input precision conversion for image: "
+                   << zeGraphArgumentPrecisionToStr(inputPrecision);
+        }
+    }
+
     void copyInputData() {
         if (inputType == InputType::BINARY && format == GraphFormat::BLOB) {
             for (size_t i = 0; i < inArgs.size(); i++) {
                 memcpy(inArgs[i], inputBin[i].data(), inputBin[i].size());
             }
         } else if (inputType == InputType::IMAGE) {
-            if (images.empty()) {
-                FAIL() << "No image provided. Check the path to the image";
-            }
-
-            TRACE("Image: %s\n", images[0].c_str());
-
-            Image image(images[0]);
-            ASSERT_EQ(inputSize[0], image.getSizeInBytes());
-            memcpy(inArgs[0], image.getPtr(), inputSize[0]);
+            copyImageToInputArgument(inArgs.at(0));
         } else {
             TRACE("No input file was provided: input will be filled with random values.\n");
             setRandomInput();
@@ -405,11 +451,7 @@ class Graph {
                 memcpy(target[i], inputBin[i].data(), inputBin[i].size());
             }
         } else if (inputType == InputType::IMAGE) {
-            TRACE("Image: %s\n", images[0].c_str());
-
-            Image image(images[0]);
-            ASSERT_EQ(inputSize[0], image.getSizeInBytes());
-            memcpy(target[0], image.getPtr(), inputSize[0]);
+            copyImageToInputArgument(target.at(0));
         } else {
             for (size_t i = 0; i < inputSize.size(); ++i) {
                 DataHandle::generateRandomData(target[i], inputSize[i]);
@@ -427,12 +469,13 @@ class Graph {
                 ASSERT_EQ(memcmp(outArgs[i], outputBin[i].data(), outputBin[i].size()), 0);
             }
         } else if (inputType == InputType::IMAGE) {
-            size_t elementSize = graphPrecisionToByteSize(outputPrecision.at(0));
+            auto outputPrecision = outputProps.at(0).networkPrecision;
+            size_t elementSize = graphPrecisionToByteSize(outputPrecision);
             if (elementSize == 0)
                 FAIL() << "Element size must be greater than 0";
             std::vector<float> outputData(outputSize.at(0) / elementSize);
 
-            switch (outputPrecision.at(0)) {
+            switch (outputPrecision) {
             case ZE_GRAPH_ARGUMENT_PRECISION_FP32: {
                 memcpy(outputData.data(), outArgs.at(0), outputSize.at(0));
                 break;
@@ -446,7 +489,7 @@ class Graph {
             }
             default:
                 FAIL() << "Unsupported output precision "
-                       << zeGraphArgumentPrecisionToStr(outputPrecision.at(0));
+                       << zeGraphArgumentPrecisionToStr(outputPrecision);
             }
 
             auto it = std::max_element(outputData.begin(), outputData.end());
@@ -549,10 +592,15 @@ class Graph {
         return std::make_shared<GraphBuffer>(std::move(data));
     }
 
+    ze_result_t getGraphProperties(ze_graph_properties_3_t *pGraphProperties) {
+        return graphDDI->pfnGetProperties3(handle, pGraphProperties);
+    }
+
   private:
     bool createGraphHandle() {
         ze_result_t ret = ZE_RESULT_SUCCESS;
-        scopedGraphHandle = zeScope::graphCreate2(graphDDI, hContext, hDevice, buffer->desc, ret);
+        scopedGraphHandle =
+            zeScope::graphCreate3(graphDDI, hContext, hDevice, buffer->desc, pLogHandle, ret);
         if (ret != ZE_RESULT_SUCCESS)
             return false;
 
@@ -579,7 +627,7 @@ class Graph {
                 std::filesystem::path imagePath = globalConfig.imageDir + image;
                 if (std::filesystem::exists(imagePath)) {
                     EXPECT_EQ(imagePath.extension(), ".bmp");
-                    images.push_back(imagePath);
+                    imagePaths.push_back(imagePath);
                 }
             }
 
@@ -593,7 +641,8 @@ class Graph {
         getArgumentsProperties();
         ASSERT_NE(inputSize.size(), 0);
         ASSERT_NE(outputSize.size(), 0);
-        ASSERT_NE(outputPrecision.size(), 0);
+        ASSERT_NE(inputProps.size(), 0);
+        ASSERT_NE(outputProps.size(), 0);
     }
 
     void getArgumentsProperties() {
@@ -611,12 +660,23 @@ class Graph {
                 size *= argProperties.dims[i];
             size *= graphPrecisionToByteSize(argProperties.devicePrecision);
 
+            TRACE("Graph Argument[%i]: %s, size: %lu,\n\tnetworkPrecision: %s, networkLayout: %s,\n"
+                  "\tdevicePrecision: %s, deviceLayout: %s\n",
+                  i,
+                  zeGraphArgumentToStr(argProperties.type),
+                  size,
+                  zeGraphArgumentPrecisionToStr(argProperties.networkPrecision),
+                  zeGraphArgumentLayoutToStr(argProperties.networkLayout),
+                  zeGraphArgumentPrecisionToStr(argProperties.devicePrecision),
+                  zeGraphArgumentLayoutToStr(argProperties.deviceLayout));
+
             ASSERT_GT(size, 0u);
             if (argProperties.type == ZE_GRAPH_ARGUMENT_TYPE_INPUT) {
                 inputSize.push_back(size);
+                inputProps.push_back(argProperties);
             } else {
                 outputSize.push_back(size);
-                outputPrecision.push_back(argProperties.devicePrecision);
+                outputProps.push_back(argProperties);
             }
         }
     }
@@ -637,12 +697,13 @@ class Graph {
     ze_context_handle_t hContext = nullptr;
     ze_device_handle_t hDevice = nullptr;
     graph_dditable_ext_t *graphDDI = nullptr;
+    ze_graph_build_log_handle_t *pLogHandle = nullptr;
 
     GraphFormat format = GraphFormat::MODEL;
     InputType inputType = InputType::BINARY;
 
     std::vector<std::vector<char>> inputBin, outputBin;
-    std::vector<std::string> images;
+    std::vector<std::string> imagePaths;
     std::vector<uint16_t> classIndexes;
     uint32_t iterations = 1;
 
@@ -650,7 +711,8 @@ class Graph {
 
     std::vector<uint32_t> inputSize;
     std::vector<uint32_t> outputSize;
-    std::vector<ze_graph_argument_precision_t> outputPrecision;
+    std::vector<ze_graph_argument_properties_t> inputProps;
+    std::vector<ze_graph_argument_properties_t> outputProps;
 
     std::vector<void *> inArgs, outArgs;
 

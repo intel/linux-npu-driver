@@ -340,6 +340,10 @@ bool KmdTest::api_version_lt(int major, int minor) {
         return false;
 }
 
+bool KmdTest::is_patchset() {
+    return api_version_lt(1, 3);
+}
+
 void KmdTest::get_context_num() {
     uint64_t param_value;
     ASSERT_EQ(0, get_param(DRM_IVPU_PARAM_NUM_CONTEXTS, &param_value));

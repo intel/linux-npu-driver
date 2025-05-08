@@ -9,6 +9,7 @@ tmp/
 # Build directory
 **/build*/
 artifacts/
+npu-linux-driver-*/
 
 # CMake
 **/CMakeFiles/*
@@ -62,3 +63,8 @@ Sessionx.vim
 !.vscode/extensions.json
 *.code-workspace
 compile_commands.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class

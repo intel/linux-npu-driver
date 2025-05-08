@@ -16,31 +16,29 @@
 #include <algorithm>
 #include <errno.h>
 #include <limits>
+#include <string.h>
+#include <utility>
 
 namespace VPU {
 
 VPUCommandBuffer::VPUCommandBuffer(VPUDeviceContext *ctx,
-                                   VPUBufferObject *buffer,
+                                   std::shared_ptr<VPUBufferObject> buffer,
                                    const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
                                    const std::vector<std::shared_ptr<VPUCommand>>::iterator &end)
     : ctx(ctx)
-    , buffer(buffer)
+    , buffer(std::move(buffer))
     , jobStatus(std::numeric_limits<uint32_t>::max())
     , commandsBegin(begin)
     , commandsEnd(end) {
-    bufferHandles.emplace_back(buffer->getHandle());
-}
-
-VPUCommandBuffer::~VPUCommandBuffer() {
-    if (ctx && buffer)
-        ctx->freeMemAlloc(buffer);
+    bufferHandles.emplace_back(VPUCommandBuffer::buffer->getHandle());
 }
 
 std::unique_ptr<VPUCommandBuffer> VPUCommandBuffer::allocateCommandBuffer(
     VPUDeviceContext *ctx,
     const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
     const std::vector<std::shared_ptr<VPUCommand>>::iterator &end,
-    VPUEventCommand::KMDEventDataType **fenceWait) {
+    VPUEventCommand::KMDEventDataType **fenceWait,
+    std::shared_ptr<VPUBufferObject> &fenceBo) {
     if (ctx == nullptr || begin == end) {
         LOG_E("VPUDeviceContext is nullptr or command list is empty");
         return nullptr;
@@ -67,8 +65,9 @@ std::unique_ptr<VPUCommandBuffer> VPUCommandBuffer::allocateCommandBuffer(
     size_t cmdBufferSize = sizeof(CommandHeader) + getFwDataCacheAlign(cmdSize) + descriptorSize +
                            ctx->getExtraDmaDescriptorSize();
 
-    VPUBufferObject *buffer =
-        ctx->createInternalBufferObject(cmdBufferSize, VPUBufferObject::Type::CachedFw);
+    std::shared_ptr<VPUBufferObject> buffer =
+        ctx->createUntrackedBufferObject(cmdBufferSize, VPUBufferObject::Type::CachedFw);
+
     if (buffer == nullptr) {
         LOG_E("Failed to allocate buffer object for command buffer");
         return nullptr;
@@ -84,7 +83,7 @@ std::unique_ptr<VPUCommandBuffer> VPUCommandBuffer::allocateCommandBuffer(
     uint64_t descOffset = cmdOffset + getFwDataCacheAlign(cmdSize);
 
     if (fenceWait && *fenceWait) {
-        auto waitCmd = VPUEventWaitCommand::create(ctx, *fenceWait);
+        auto waitCmd = VPUEventWaitCommand::create(*fenceWait, fenceBo);
         if (waitCmd == nullptr) {
             LOG_E("Failed to initialize wait event command");
             return nullptr;
@@ -112,7 +111,7 @@ std::unique_ptr<VPUCommandBuffer> VPUCommandBuffer::allocateCommandBuffer(
     if (fenceWait) {
         VPUEventCommand::KMDEventDataType *fenceSignal = reinterpret_cast<uint64_t *>(
             buffer->getBasePointer() + offsetof(CommandHeader, fenceValue));
-        auto signalCmd = VPUEventSignalCommand::create(ctx, fenceSignal);
+        auto signalCmd = VPUEventSignalCommand::create(fenceSignal, buffer);
         if (signalCmd == nullptr) {
             LOG_E("Failed to create signal event Command");
             return nullptr;
@@ -124,6 +123,7 @@ std::unique_ptr<VPUCommandBuffer> VPUCommandBuffer::allocateCommandBuffer(
         }
 
         *fenceWait = fenceSignal;
+        fenceBo = std::move(buffer);
     }
 
     if (cmdOffset != offsetof(CommandHeader, commandList) + cmdSize) {
@@ -150,12 +150,13 @@ bool VPUCommandBuffer::initHeader(size_t cmdSize) {
     vpu_cmd_buffer_header_t *bb =
         reinterpret_cast<vpu_cmd_buffer_header_t *>(buffer->getBasePointer());
 
+    // Init memory - required for backward/forward compatibility with the firmware
+    memset(buffer->getBasePointer(), 0, buffer->getAllocSize());
+
     bb->cmd_offset = offsetof(CommandHeader, commandList);
     bb->cmd_buffer_size = safe_cast<uint32_t>(bb->cmd_offset + cmdSize);
+
     bb->context_save_area_address = buffer->getVPUAddr() + offsetof(CommandHeader, contextSaveArea);
-    bb->kernel_heap_base_address = 0;
-    bb->descriptor_heap_base_address = 0;
-    bb->fence_heap_base_address = 0;
     return true;
 }
 
@@ -186,7 +187,7 @@ bool VPUCommandBuffer::addCommand(VPUCommand *cmd, uint64_t &cmdOffset, uint64_t
     }
 
     void *descPtr = buffer->getBasePointer() + descOffset;
-    if (!cmd->copyDescriptor(ctx, &descPtr)) {
+    if (!cmd->copyDescriptor(&descPtr, buffer)) {
         LOG_E("Failed to update offset in command");
         return false;
     }

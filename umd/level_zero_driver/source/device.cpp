@@ -51,7 +51,7 @@ Device::Device(DriverHandle *driverHandle, std::unique_ptr<VPU::VPUDevice> devic
             std::vector<VPU::GroupInfo> metricGroupsInfo = vpuDevice->getMetricGroupsInfo();
             loadMetricGroupsInfo(metricGroupsInfo);
         }
-        if (!Compiler::compilerInit(vpuDevice.get())) {
+        if (Compiler::compilerInit(vpuDevice.get()) != ZE_RESULT_SUCCESS) {
             LOG_W("Failed to initialize VPU compiler");
         }
     }
@@ -481,17 +481,17 @@ ze_result_t Device::getGlobalTimestamps(uint64_t *hostTimestamp, uint64_t *devic
         return ret;
     }
 
-    auto allignedBo = tsContext->getDeviceContext()->createInternalBufferObject(
+    auto alignedBo = tsContext->getDeviceContext()->createUntrackedBufferObject(
         sizeof(uint64_t),
         VPU::VPUBufferObject::Type::CachedFw);
 
-    if (allignedBo == nullptr) {
+    if (alignedBo == nullptr) {
         LOG_E("Failed to allocate internal buffer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    uint64_t *ts = reinterpret_cast<uint64_t *>(allignedBo->getBasePointer());
-    ret = tsCommandList->appendWriteGlobalTimestamp(ts, nullptr, 0, nullptr, true);
+    uint64_t *ts = reinterpret_cast<uint64_t *>(alignedBo->getBasePointer());
+    ret = tsCommandList->appendWriteGlobalTimestamp(std::move(alignedBo), nullptr, 0, nullptr);
     if (ret != ZE_RESULT_SUCCESS)
         return ret;
 

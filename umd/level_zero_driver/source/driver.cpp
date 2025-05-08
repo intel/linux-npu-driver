@@ -10,7 +10,6 @@
 #include "device.hpp"
 #include "driver_handle.hpp"
 #include "ext/compiler.hpp"
-#include "ext/compiler_common.hpp"
 #include "ext/disk_cache.hpp"
 #include "version.h"
 #include "vpu_driver/source/device/vpu_device.hpp"
@@ -64,7 +63,7 @@ void Driver::initializeLogging() {
 
     VPU::setLogLevel(umdLogLevel);
     VPU::setLogMask(umdLogMask);
-    setCidLogLevel(cidLogLevel);
+    L0::Compiler::setLogLevel(cidLogLevel);
 }
 
 ze_result_t Driver::getInitStatus() {
@@ -73,7 +72,7 @@ ze_result_t Driver::getInitStatus() {
 
 void Driver::displayComponentVersions() {
     LOG(MISC, "Driver version: %s", vpu_drv_version_str);
-    LOG(MISC, "CiD version: %s", Compiler::getCompilerVersionString().c_str());
+    LOG(MISC, "Compiler version: %s", Compiler::getCompilerVersionString().c_str());
     if (pGlobalDriverHandle) {
         for (auto &device : pGlobalDriverHandle->devices) {
             LOG(MISC, "Device JSM version: %s", device->getVPUDevice()->jsmApiVersion.c_str());

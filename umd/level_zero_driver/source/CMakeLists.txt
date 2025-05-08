@@ -51,8 +51,6 @@ target_sources(${TARGET_NAME_L0_DRV} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/metric_streamer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/compiler.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/compiler.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/ext/compiler_common.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/ext/compiler_common.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/elf_parser.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/elf_parser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/graph.cpp

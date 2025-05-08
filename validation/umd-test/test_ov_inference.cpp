@@ -156,7 +156,7 @@ TEST_P(OpenVinoBasic, CompileModelWithGraphInitAndExecute) {
 
     for (size_t i = 0; i < testImages.size(); i++) {
         /* Use default BGR order for color channels*/
-        Image img(testImages[i]);
+        Image img(testImages[i], false);
 
         /* This test is limited to images with one byte per channel -> 3 bytes per pixel */
         /* TODO: Add support for other pixel data formats */

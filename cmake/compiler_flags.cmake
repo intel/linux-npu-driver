@@ -12,7 +12,7 @@
 
 add_compile_options(
   # Compiler warnings
-  -Wall -Wextra -Werror -Wno-unused-parameter -Wvla
+  -Wall -Wextra -Werror -Wno-unused-parameter -Wvla -Wno-error=cpp
   # Control flow integrity
   $<$<CONFIG:Release>:-fcf-protection=full>
   # Format string defence

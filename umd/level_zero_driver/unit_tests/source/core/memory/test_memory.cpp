@@ -10,6 +10,7 @@
 #include "gtest/gtest.h"
 #include "level_zero_driver/source/context.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
 
@@ -75,13 +76,9 @@ TEST_F(ContextMemoryTestRange, passOutOfScopeMemoryToGetMemAddressRangeExpectNot
 
     EXPECT_EQ(ZE_RESULT_ERROR_NOT_AVAILABLE,
               context->getMemAddressRange(static_cast<char *>(ptr) - 1, &basePtr, &pSize));
-    EXPECT_NE(ptr, basePtr);
-    EXPECT_NE(size, pSize);
 
     EXPECT_EQ(ZE_RESULT_ERROR_NOT_AVAILABLE,
               context->getMemAddressRange(static_cast<char *>(ptr) + size, &basePtr, &pSize));
-    EXPECT_NE(ptr, basePtr);
-    EXPECT_NE(size, pSize);
 
     context->freeMem(ptr);
 }
@@ -96,8 +93,6 @@ TEST_F(ContextMemoryTestRange, passMemWithoutRangeToGetMemAddressRangeExpectSucc
 
     EXPECT_EQ(ZE_RESULT_SUCCESS,
               context->getMemAddressRange(static_cast<char *>(ptr) + size - 1, nullptr, nullptr));
-    EXPECT_NE(ptr, basePtr);
-    EXPECT_NE(size, pSize);
 
     context->freeMem(ptr);
 }
@@ -112,7 +107,8 @@ TEST_F(ContextMemoryTestRange, passValidInputToGetMemAddressRangeExpectSuccess) 
 
     EXPECT_EQ(ZE_RESULT_SUCCESS,
               context->getMemAddressRange(static_cast<char *>(ptr) + size - 1, &basePtr, &pSize));
-    EXPECT_EQ(ptr, basePtr);
+    auto bo = context->getDeviceContext()->findBufferObject(ptr);
+    EXPECT_EQ(reinterpret_cast<void *>(bo->getVPUAddr()), basePtr);
     EXPECT_EQ(size, pSize);
 
     context->freeMem(ptr);

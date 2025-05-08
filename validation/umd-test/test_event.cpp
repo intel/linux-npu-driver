@@ -42,13 +42,6 @@ TEST_F(Event, CreateEventWithInvalidParameters) {
     EXPECT_EQ(zeEventCreate(eventPool, nullptr, &event), ZE_RESULT_ERROR_INVALID_NULL_POINTER);
     EXPECT_EQ(zeEventCreate(eventPool, &eventDesc, nullptr), ZE_RESULT_ERROR_INVALID_NULL_POINTER);
     EXPECT_EQ(zeEventCreate(eventPool, nullptr, nullptr), ZE_RESULT_ERROR_INVALID_NULL_POINTER);
-
-    eventDesc.signal = 0x08;
-    EXPECT_EQ(zeEventCreate(eventPool, &eventDesc, &event), ZE_RESULT_ERROR_INVALID_ENUMERATION);
-
-    eventDesc.signal = ZE_EVENT_SCOPE_FLAG_HOST;
-    eventDesc.wait = 0x08;
-    EXPECT_EQ(zeEventCreate(eventPool, &eventDesc, &event), ZE_RESULT_ERROR_INVALID_ENUMERATION);
 }
 
 TEST_F(Event, AllocateEventTwiceExpectError) {

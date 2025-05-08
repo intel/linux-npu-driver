@@ -16,6 +16,7 @@
 #include <utility>
 
 namespace VPU {
+class VPUBufferObject;
 class VPUDeviceContext;
 
 VPUJob::VPUJob(VPUDeviceContext *ctx)
@@ -51,6 +52,7 @@ bool VPUJob::closeCommands() {
     LOG(VPU_JOB, "Schedule commands, number of commands %lu", commands.size());
 
     VPUEventCommand::KMDEventDataType *lastEvent = nullptr;
+    std::shared_ptr<VPUBufferObject> lastEventBo;
     for (auto it = commands.begin(); it != commands.end();) {
         auto next = scheduleCommands(it);
 
@@ -58,12 +60,12 @@ bool VPUJob::closeCommands() {
         LOG(VPU_JOB, "Passing %lu commands to command buffer", jump);
 
         if (safe_cast<size_t>(jump) == commands.size()) {
-            if (!createCommandBuffer(commands.begin(), commands.end(), nullptr)) {
+            if (!createCommandBuffer(commands.begin(), commands.end(), nullptr, lastEventBo)) {
                 LOG_E("Failed to initialize command buffer");
                 return false;
             }
         } else {
-            if (!createCommandBuffer(it, next, &lastEvent)) {
+            if (!createCommandBuffer(it, next, &lastEvent, lastEventBo)) {
                 LOG_E("Failed to initialize command buffer");
                 return false;
             }
@@ -78,8 +80,10 @@ bool VPUJob::closeCommands() {
 
 bool VPUJob::createCommandBuffer(const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
                                  const std::vector<std::shared_ptr<VPUCommand>>::iterator &end,
-                                 VPUEventCommand::KMDEventDataType **lastEvent) {
-    auto cmdBuffer = VPUCommandBuffer::allocateCommandBuffer(ctx, begin, end, lastEvent);
+                                 VPUEventCommand::KMDEventDataType **lastEvent,
+                                 std::shared_ptr<VPUBufferObject> &lastEventBo) {
+    auto cmdBuffer =
+        VPUCommandBuffer::allocateCommandBuffer(ctx, begin, end, lastEvent, lastEventBo);
     if (cmdBuffer == nullptr) {
         LOG_E("Failed to allocate VPUCommandBuffer");
         return false;

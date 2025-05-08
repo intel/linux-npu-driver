@@ -14,6 +14,9 @@
 
 class HashSha1 {
   public:
+    using DigestType = char *;
+    static constexpr size_t DigestLength = SHA1_DIGEST_LENGTH * 2;
+
     HashSha1() { SHA1Init(&context); }
 
     void update(const uint8_t *data, size_t size) { SHA1Update(&context, data, size); }
@@ -30,6 +33,12 @@ class HashSha1 {
             str[byteToHexLetters * i + 1] = hexChars[value[i] & 0xf];
         }
         return str;
+    }
+
+    static std::string getDigest(const uint8_t *data, size_t size) {
+        HashSha1 hash;
+        hash.update(data, size);
+        return hash.final();
     }
 
   private:

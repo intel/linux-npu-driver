@@ -40,18 +40,24 @@ int OsInterfaceImp::osiOpen(const char *pathname, int flags, mode_t mode) {
 
     LOG(FSYS, "Trying to open file '%s'.", pathname);
     if ((fd = open(pathname, flags, mode)) == -1) {
-        LOG(FSYS, "Failed to open file '%s'.", pathname);
+        LOG(FSYS, "Failed to open %s, errno: %u (%s)", pathname, errno, strerror(errno));
         return -1;
     }
 
     if (fstat(fd, &fstatInfo) != 0) {
-        LOG_E("Failed to get file information. Closing");
+        LOG_E("Failed to fstat on file %s", pathname);
         close(fd);
         return -1;
     }
 
-    if (!S_ISCHR(fstatInfo.st_mode) || S_ISLNK(fstatInfo.st_mode)) {
-        LOG_E("Open file is not the expected device file. Closing");
+    if (!S_ISCHR(fstatInfo.st_mode)) {
+        LOG_E("Failed to use %s because file is not a device file", pathname);
+        close(fd);
+        return -1;
+    }
+
+    if (fstatInfo.st_nlink > 1) {
+        LOG_E("Failed to use %s because file might be a hard link", pathname);
         close(fd);
         return -1;
     }
@@ -78,7 +84,7 @@ size_t OsInterfaceImp::osiGetSystemPageSize() {
 
 std::string OsInterfaceImp::osiReadFile(const std::filesystem::path &path, size_t maxReadSize) {
     std::string out(maxReadSize + 1, 0);
-    int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
+    int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
     if (fd == -1) {
         LOG_E("Failed to open %s, errno: %u (%s)", path.c_str(), errno, strerror(errno));
         return "";
@@ -128,10 +134,10 @@ class OsFileImp : public OsFile {
         : writeAccess(writeAccess) {
         int flags = O_RDONLY;
         if (writeAccess) {
-            flags = O_CREAT | O_RDWR;
+            flags = O_CREAT | O_RDWR | O_TRUNC;
         }
 
-        fd = ::open(path.c_str(), flags | O_CLOEXEC, S_IRUSR | S_IRGRP);
+        fd = ::open(path.c_str(), flags | O_CLOEXEC | O_NOFOLLOW, S_IRUSR | S_IRGRP);
         if (fd == -1) {
             LOG(FSYS,
                 "Failed to open file %s, errno: %u (%s)",
@@ -142,7 +148,7 @@ class OsFileImp : public OsFile {
         }
 
         struct stat fstatInfo = {};
-        if (fstat(fd, &fstatInfo) != 0 || !S_ISREG(fstatInfo.st_mode)) {
+        if (fstat(fd, &fstatInfo) != 0 || !S_ISREG(fstatInfo.st_mode) || fstatInfo.st_nlink > 1) {
             LOG_E("Invalid file %s", path.c_str());
             close(fd);
             fd = -1;
@@ -191,9 +197,6 @@ class OsFileImp : public OsFile {
             return false;
         }
 
-        if (!setOffsetAtZero())
-            return false;
-
         size_t offset = 0;
         size_t remaining = size;
         while (remaining > 0) {
@@ -207,7 +210,7 @@ class OsFileImp : public OsFile {
             remaining -= static_cast<size_t>(written);
         }
 
-        fileSize = offset;
+        fileSize += offset;
         return remaining == 0;
     }
 
@@ -235,16 +238,6 @@ class OsFileImp : public OsFile {
     size_t size() override { return fileSize; }
 
   private:
-    bool setOffsetAtZero() {
-        off_t off = lseek(fd, 0, SEEK_SET);
-        if (off != 0) {
-            LOG_E("Failed to set file offset, errno: %u (%s)", errno, strerror(errno));
-            return false;
-        }
-
-        return true;
-    }
-
     bool writeAccess;
     int fd;
     void *mmapPtr = MAP_FAILED;

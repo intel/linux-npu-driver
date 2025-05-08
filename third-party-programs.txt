@@ -17,7 +17,6 @@ terms are listed below.
 - OpenCV: Open Source Computer Vision Library
 - Flatbuffers
 - openvinotoolkit/openvino
-- OpenSSL
 - Perfetto
 
                                  Apache License
@@ -283,7 +282,6 @@ SOFTWARE.
 
 -------------------------------------------------------------
 
-- systemd libudev
 - GCC
 - GNU C Library - glibc
 

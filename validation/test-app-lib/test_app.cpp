@@ -193,6 +193,37 @@ void parse_args(std::unordered_map<int, Argument> &extArgs,
     }
 }
 
+void print_version_info() {
+    std::string os_version;
+    if (read_file("/etc/os-release", os_version) == 0) {
+        auto pos = os_version.find("PRETTY_NAME=");
+        if (pos != std::string::npos) {
+            os_version = os_version.substr(pos + 12); // Remove "PRETTY_NAME=" prefix
+            os_version = os_version.substr(0, os_version.find('\n')); // Trim to the end of the line
+        } else {
+            os_version = "Unknown OS";
+        }
+    }
+
+    // Remove quotes from the beginning and end of the os_version string
+    if (!os_version.empty() && os_version.front() == '"' && os_version.back() == '"') {
+        os_version = os_version.substr(1, os_version.size() - 2);
+    }
+
+    utsname uts_version = {};
+    uname(&uts_version);
+
+    std::cout << "Test version " BUILD_VERSION " on " << os_version << " (" << uts_version.release
+              << ")" << std::endl;
+
+    std::string fw_version;
+    read_file("/sys/kernel/debug/accel/0000:00:0b.0/fw_version", fw_version);
+
+    if (fw_version.size() > 0) {
+        std::cout << "FW version: " << fw_version << std::endl;
+    }
+}
+
 void append_positive_filter(const std::string &pattern) {
     auto &filter = ::testing::GTEST_FLAG(filter);
     if (filter == "*")
@@ -241,7 +272,10 @@ int run() {
         return list_tests_with_full_names();
     }
 
-    testing::UnitTest::GetInstance()->listeners().Append(new ThrowListener);
+    if (!::testing::GTEST_FLAG(list_tests)) {
+        testing::UnitTest::GetInstance()->listeners().Append(new ThrowListener);
+        print_version_info();
+    }
 
     return RUN_ALL_TESTS();
 }

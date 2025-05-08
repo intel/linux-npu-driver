@@ -183,7 +183,7 @@ class MetricStreamer : public UmdTest, public ::testing::WithParamInterface<metr
                                         hEvent,
                                         &hMetricStreamer),
                   ZE_RESULT_SUCCESS);
-        TRACE("Opened MetricStreamer with notifyEveryNReports: %u, samplingPeriod: %u ms",
+        TRACE("Opened MetricStreamer with notifyEveryNReports: %u, samplingPeriod: %u ms\n",
               notify,
               periodMs);
     }
@@ -296,6 +296,35 @@ TEST_P(MetricStreamer, RunInferenceExpectAnyReport) {
     readReports();
     ASSERT_GT(reportCount, 0) << "Failed to get any reports after running inference for "
                               << counter.duration() << " s, frame count: " << counter.getCount();
+}
+
+TEST_P(MetricStreamer, RunInferenceSleepThanExpectAnyReport) {
+    auto [node, metricGroupName, execTime] = GetParam();
+
+    openMetricStreamer();
+
+    std::shared_ptr<Graph> graph =
+        Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
+
+    graph->allocateArguments(MemType::SHARED_MEMORY);
+    graph->copyInputData();
+
+    ASSERT_EQ(
+        zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0u, nullptr),
+        ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeGraphDDITableExt
+                  ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0u, nullptr),
+              ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+    readReports();
+    ASSERT_GT(reportCount, 0);
 }
 
 TEST_P(MetricStreamer, RunInferenceExpectReportNotification) {
@@ -456,7 +485,7 @@ class MetricStreamerMemoryCopy : public MetricStreamer {
 
         if (isVPU37xx()) {
             generateVPU37xxMetricsBitmap();
-        } else {
+        } else if (isVPU40xx()) {
             generateVPU40xxMetricsBitmap();
         }
 

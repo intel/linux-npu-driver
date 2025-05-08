@@ -53,12 +53,14 @@ struct CommandListFixture : CommandQueueFixture {
         commandList = L0::CommandList::fromHandle(hCommandList);
 
         // Alloc 4KB device mem.
-        ptrAlloc = (uint64_t *)ctx->createMemAlloc(testAllocSize,
-                                                   VPU::VPUBufferObject::Type::CachedFw,
-                                                   VPU::VPUBufferObject::Location::Shared);
-        ptrAlloc2 = (uint64_t *)ctx->createMemAlloc(testAllocSize,
-                                                    VPU::VPUBufferObject::Type::CachedFw,
-                                                    VPU::VPUBufferObject::Location::Shared);
+        ptrAlloc = reinterpret_cast<uint64_t *>(
+            ctx->createMemAlloc(testAllocSize,
+                                VPU::VPUBufferObject::Type::CachedFw,
+                                VPU::VPUBufferObject::Location::Shared));
+        ptrAlloc2 = reinterpret_cast<uint64_t *>(
+            ctx->createMemAlloc(testAllocSize,
+                                VPU::VPUBufferObject::Type::CachedFw,
+                                VPU::VPUBufferObject::Location::Shared));
         ASSERT_NE(nullptr, ptrAlloc);
         ASSERT_NE(nullptr, ptrAlloc2);
 
@@ -74,8 +76,8 @@ struct CommandListFixture : CommandQueueFixture {
         ze_event_desc_t eventDesc = {.stype = ZE_STRUCTURE_TYPE_EVENT_DESC,
                                      .pNext = nullptr,
                                      .index = 0,
-                                     .signal = ZE_EVENT_POOL_FLAG_HOST_VISIBLE,
-                                     .wait = ZE_EVENT_POOL_FLAG_HOST_VISIBLE};
+                                     .signal = ZE_EVENT_SCOPE_FLAG_HOST,
+                                     .wait = ZE_EVENT_SCOPE_FLAG_HOST};
         ASSERT_EQ(ZE_RESULT_SUCCESS,
                   L0::EventPool::fromHandle(eventPool)->createEvent(&eventDesc, &event0));
         ASSERT_NE(nullptr, event0);

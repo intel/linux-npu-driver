@@ -36,22 +36,26 @@ class MockVPUDeviceContext : public VPUDeviceContext {
     MockVPUDeviceContext(std::unique_ptr<VPUDriverApi> drvApi, VPUHwInfo *info)
         : VPUDeviceContext(std::move(drvApi), info) {}
     MockVPUDeviceContext() = delete;
-    inline void *
+
+    inline std::shared_ptr<VPUBufferObject>
     createHostMemAlloc(size_t size,
                        VPUBufferObject::Type type = VPUBufferObject::Type::CachedShave) {
-        return createMemAlloc(size, type, VPUBufferObject::Location::Host);
+        auto ptr = createMemAlloc(size, type, VPUBufferObject::Location::Host);
+        return ptr ? findBufferObject(ptr) : nullptr;
     };
 
-    inline void *
+    inline std::shared_ptr<VPUBufferObject>
     createDeviceMemAlloc(size_t size,
                          VPUBufferObject::Type type = VPUBufferObject::Type::WriteCombineFw) {
-        return createMemAlloc(size, type, VPUBufferObject::Location::Device);
+        auto ptr = createMemAlloc(size, type, VPUBufferObject::Location::Device);
+        return ptr ? findBufferObject(ptr) : nullptr;
     };
 
-    inline void *
+    inline std::shared_ptr<VPUBufferObject>
     createSharedMemAlloc(size_t size,
                          VPUBufferObject::Type type = VPUBufferObject::Type::CachedFw) {
-        return createMemAlloc(size, type, VPUBufferObject::Location::Shared);
+        auto ptr = createMemAlloc(size, type, VPUBufferObject::Location::Shared);
+        return ptr ? findBufferObject(ptr) : nullptr;
     };
 };
 
