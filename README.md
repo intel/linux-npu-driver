@@ -40,6 +40,8 @@ You may obtain a copy of the license at: https://opensource.org/licenses/MIT
 
 * [Intel® OneApi Level Zero](https://github.com/oneapi-src/level-zero/)
 * [OpenVINO™](https://github.com/openvinotoolkit/openvino.git)
+* [OpenVINO™ GenAI](https://openvinotoolkit.github.io/openvino.genai/)
+* [How to run OpenVINO™ on a Linux AI PC](https://medium.com/openvino-toolkit/how-to-run-openvino-on-a-linux-ai-pc-52083ce14a98)
 * [OpenVINO™ AI Plugins for GIMP](https://github.com/intel/openvino-ai-plugins-gimp)
 * [Canonical brings GenAI to GIMP 3.0 with Intel® OpenVINO™ AI Plugins](https://discourse.ubuntu.com/t/canonical-brings-genai-to-gimp-3-0-with-intel-openvino-ai-plugins/54799)
 * [OpenVINO™ AI Plugins for Audacity*](https://github.com/intel/openvino-plugins-ai-audacity)
