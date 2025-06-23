@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -37,6 +37,20 @@ namespace L0 {
 class BlobContainer;
 struct GraphProfilingQuery;
 
+class HostParsedInferenceManager {
+  public:
+    HostParsedInferenceManager(std::shared_ptr<elf::HostParsedInference> hpi)
+        : hpis{std::move(hpi)} {}
+
+    std::shared_ptr<elf::HostParsedInference> &front() { return hpis.at(0); }
+    std::shared_ptr<elf::HostParsedInference> acquire();
+
+  private:
+    std::mutex mtx;
+    std::vector<std::shared_ptr<elf::HostParsedInference>> hpis;
+    bool loaded = false;
+};
+
 class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser> {
   public:
     ElfParser(VPU::VPUDeviceContext *ctx,
@@ -55,8 +69,8 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
     bool getProfilingSize(uint32_t &size) const;
 
     std::shared_ptr<VPU::VPUInferenceExecute>
-    createInferenceExecuteCommand(const std::vector<std::pair<const void *, uint32_t>> &inputPtrs,
-                                  const std::vector<std::pair<const void *, uint32_t>> &outputPtrs,
+    createInferenceExecuteCommand(const std::vector<const void *> &inputPtrs,
+                                  const std::vector<const void *> &outputPtrs,
                                   GraphProfilingQuery *profilingQuery);
 
     ze_result_t parse(std::vector<ze_graph_argument_properties_3_t> &argumentProperties,
@@ -69,13 +83,13 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
     std::shared_ptr<VPU::VPUCommand> allocateInitCommand(VPU::VPUDeviceContext *ctx) override;
 
     std::shared_ptr<VPU::VPUCommand>
-    allocateExecuteCommand(const std::vector<std::pair<const void *, uint32_t>> &inputArgs,
-                           const std::vector<std::pair<const void *, uint32_t>> &outputArgs,
+    allocateExecuteCommand(const std::vector<const void *> &inputArgs,
+                           const std::vector<const void *> &outputArgs,
                            GraphProfilingQuery *profilingQuery) override;
 
     bool applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &hpi,
-                           const std::vector<std::pair<const void *, uint32_t>> &inputs,
-                           const std::vector<std::pair<const void *, uint32_t>> &outputs,
+                           const std::vector<const void *> &inputs,
+                           const std::vector<const void *> &outputs,
                            GraphProfilingQuery *profilingQuery,
                            std::vector<std::shared_ptr<VPU::VPUBufferObject>> &bos);
     std::shared_ptr<VPU::VPUBufferObject> findBuffer(const void *ptr);
@@ -84,10 +98,7 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
     VPU::VPUDeviceContext *ctx;
     std::unique_ptr<elf::BufferManager> bufferManager;
     std::unique_ptr<elf::AccessManager> accessManager;
-    std::shared_ptr<elf::HostParsedInference> hpi;
-    bool needCopy = false;
-    bool needLoad = true;
-    std::mutex loadMutex;
+    std::unique_ptr<HostParsedInferenceManager> hpiManager;
 };
 
 template <class T>

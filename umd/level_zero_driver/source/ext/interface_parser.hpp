@@ -27,8 +27,8 @@ class IParser {
     virtual std::shared_ptr<VPU::VPUCommand> allocateInitCommand(VPU::VPUDeviceContext *ctx) = 0;
     virtual std::shared_ptr<VPU::VPUBufferObject> allocateInternal(size_t size) = 0;
     virtual std::shared_ptr<VPU::VPUCommand>
-    allocateExecuteCommand(const std::vector<std::pair<const void *, uint32_t>> &inputArgs,
-                           const std::vector<std::pair<const void *, uint32_t>> &outputArgs,
+    allocateExecuteCommand(const std::vector<const void *> &inputArgs,
+                           const std::vector<const void *> &outputArgs,
                            GraphProfilingQuery *profilingQuery) = 0;
 };
 

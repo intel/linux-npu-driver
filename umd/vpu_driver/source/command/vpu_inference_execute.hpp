@@ -15,7 +15,6 @@
 #include <any>
 #include <api/vpu_jsm_job_cmd_api.h>
 #include <memory>
-#include <utility>
 #include <vector>
 
 namespace elf {
@@ -36,8 +35,8 @@ class VPUInferenceExecute : public VPUCommand {
   public:
     VPUInferenceExecute(std::shared_ptr<L0::ElfParser> &parser,
                         std::shared_ptr<elf::HostParsedInference> &hpi,
-                        const std::vector<std::pair<const void *, uint32_t>> &inputs,
-                        const std::vector<std::pair<const void *, uint32_t>> &outputs,
+                        const std::vector<const void *> &inputs,
+                        const std::vector<const void *> &outputs,
                         L0::GraphProfilingQuery *profilingQuery,
                         uint64_t inferenceId,
                         std::vector<std::shared_ptr<VPUBufferObject>> &bos,
@@ -50,8 +49,8 @@ class VPUInferenceExecute : public VPUCommand {
     static std::shared_ptr<VPUInferenceExecute>
     create(std::shared_ptr<L0::ElfParser> parser,
            std::shared_ptr<elf::HostParsedInference> &hpi,
-           const std::vector<std::pair<const void *, uint32_t>> &inputs,
-           const std::vector<std::pair<const void *, uint32_t>> &outputs,
+           const std::vector<const void *> &inputs,
+           const std::vector<const void *> &outputs,
            L0::GraphProfilingQuery *profilingQuery,
            uint64_t inferenceId,
            std::vector<std::shared_ptr<VPUBufferObject>> &bos);
@@ -67,8 +66,8 @@ class VPUInferenceExecute : public VPUCommand {
   private:
     std::shared_ptr<L0::ElfParser> parser;
     std::shared_ptr<elf::HostParsedInference> hpi;
-    std::vector<std::pair<const void *, uint32_t>> inputs;
-    std::vector<std::pair<const void *, uint32_t>> outputs;
+    std::vector<const void *> inputs;
+    std::vector<const void *> outputs;
     L0::GraphProfilingQuery *profilingQuery;
 
     std::vector<uint32_t> argHandles;

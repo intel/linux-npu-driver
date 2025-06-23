@@ -93,11 +93,6 @@ class VPUCommandBuffer {
     bool addCommand(VPUCommand *cmd, uint64_t &cmdOffset, uint64_t &descOffset);
 
     /**
-     * Print the content of blob initialize or blob execute descriptor
-     */
-    void printDesc(vpu_cmd_resource_descriptor_table_t *table, size_t size, const char *type) const;
-
-    /**
      * Set fence address that is used for command buffer recognition
      */
     bool setSyncFenceAddr(VPUCommand *cmd);

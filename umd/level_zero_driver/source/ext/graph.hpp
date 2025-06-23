@@ -20,7 +20,6 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 
 namespace VPU {
@@ -119,10 +118,10 @@ struct Graph : _ze_graph_handle_t, IContextObject {
     ze_graph_desc_2_t desc;
     std::string buildFlags;
     std::unique_ptr<BlobContainer> blob;
-    bool loadedFromCache = true;
+    ze_graph_properties_flags_t propFlags = 0;
 
-    std::vector<std::pair<const void *, uint32_t>> inputArgs;
-    std::vector<std::pair<const void *, uint32_t>> outputArgs;
+    std::vector<const void *> inputArgs;
+    std::vector<const void *> outputArgs;
 
     std::vector<ze_graph_argument_properties_3_t> argumentProperties;
     std::vector<ze_graph_argument_metadata_t> argumentMetadata;

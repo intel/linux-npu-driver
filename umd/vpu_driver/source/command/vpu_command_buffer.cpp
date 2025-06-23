@@ -236,45 +236,6 @@ bool VPUCommandBuffer::waitForCompletion(int64_t timeout_abs_ns) {
     return true;
 }
 
-void VPUCommandBuffer::printDesc(vpu_cmd_resource_descriptor_table_t *table,
-                                 size_t size,
-                                 const char *type) const {
-    if (table == nullptr) {
-        LOG(VPU_CMD, "Descriptor base pointer is not provided, skip printing descriptors");
-        return;
-    }
-
-    LOG(VPU_CMD,
-        "Blob %s command descriptor table (table pointer: %p, size: %lu):",
-        type,
-        table,
-        size);
-
-    for (int i = 0; size > sizeof(vpu_cmd_resource_descriptor); i++) {
-        LOG(VPU_CMD,
-            "Table: %i:\n\ttype = %#x\n\tdesc_count = %i",
-            i,
-            table->type,
-            table->desc_count);
-        size_t count = table->desc_count;
-        table++;
-
-        vpu_cmd_resource_descriptor *desc = reinterpret_cast<decltype(desc)>(table);
-        for (size_t j = 0; j < count; j++) {
-            LOG(VPU_CMD,
-                "Entry %lu:\n\taddress = %#lx\n\twidth = %#x",
-                j,
-                desc->address,
-                desc->width);
-            desc++;
-        }
-
-        table = reinterpret_cast<vpu_cmd_resource_descriptor_table_t *>(desc);
-        size -= count * sizeof(vpu_cmd_resource_descriptor) +
-                sizeof(vpu_cmd_resource_descriptor_table_t);
-    }
-}
-
 void VPUCommandBuffer::printCommandBuffer() const {
     if (getLogLevel() < LogLevel::INFO)
         return;
@@ -284,17 +245,11 @@ void VPUCommandBuffer::printCommandBuffer() const {
     LOG(VPU_CMD,
         "Start compute command buffer printing:\n"
         "\tCommand buffer ptr cpu = %p, vpu = %#lx\n"
-        "\tSize = %u bytes, commands offset %u\n"
-        "\tKernel heap addr = %#lx\n"
-        "\tDescriptor heap addr = %#lx\n"
-        "\tFence heap addr = %#lx",
+        "\tSize = %u bytes, commands offset %u\n",
         cmdHeader,
         buffer->getVPUAddr(),
         cmdHeader->cmd_buffer_size,
-        cmdHeader->cmd_offset,
-        cmdHeader->kernel_heap_base_address,
-        cmdHeader->descriptor_heap_base_address,
-        cmdHeader->fence_heap_base_address);
+        cmdHeader->cmd_offset);
 
     size_t cmdOffset = cmdHeader->cmd_offset;
     int i = 0;
@@ -363,8 +318,8 @@ void VPUCommandBuffer::printCommandBuffer() const {
                 reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_start_offset,
                 reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_count);
             ctx->printCopyDescriptor(
-                bufferPtr + reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_start_offset +
-                    cmdHeader->descriptor_heap_base_address - buffer->getVPUAddr(),
+                bufferPtr + reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_start_offset -
+                    buffer->getVPUAddr(),
                 cmd);
             break;
         case VPU_CMD_INFERENCE_EXECUTE:

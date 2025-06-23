@@ -16,8 +16,10 @@
 
 #include <chrono> // IWYU pragma: keep
 #include <filesystem>
+#include <string>
 #include <sys/resource.h>
 #include <sys/sysinfo.h>
+#include <system_error>
 
 MemoryStatistics &MemoryStatistics::get() {
     static MemoryStatistics m;
@@ -30,12 +32,20 @@ void MemoryStatistics::enable(std::string_view statsPath) {
     }
 
     const std::filesystem::path statsFilePath(statsPath);
-    if (!std::filesystem::exists(statsFilePath.parent_path()))
-        std::filesystem::create_directories(statsFilePath.parent_path());
+    if (statsFilePath.has_parent_path() && !std::filesystem::exists(statsFilePath.parent_path())) {
+        std::error_code ec = {};
+        if (!std::filesystem::create_directories(statsFilePath.parent_path(), ec)) {
+            LOG_E("Failed to create directory for %s, error msg: %s, error code: %i",
+                  statsFilePath.parent_path().c_str(),
+                  ec.message().c_str(),
+                  ec.value());
+            return;
+        }
+    }
 
-    statOut.open(statsFilePath.c_str(), std::ios_base::out | std::ios_base::app);
+    statOut.open(statsFilePath, std::ios_base::out | std::ios_base::trunc);
     if (!statOut.is_open()) {
-        LOG_E("Can not open statistics file.");
+        LOG_E("Failed to open %s for writing", statsFilePath.c_str());
         return;
     }
 

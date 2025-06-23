@@ -210,7 +210,7 @@ ze_result_t zeDriverGetExtensionFunctionAddress(ze_driver_handle_t hDriver,
     }
 
     if (strcmp(name, ZE_COMMAND_QUEUE_NPU_EXT_NAME) == 0) {
-        static ze_command_queue_npu_dditable_ext_1_0_t table;
+        static ze_command_queue_npu_dditable_ext_t table;
 
         table.pfnSetWorkloadType = L0::zeCommandQueueSetWorkloadType;
         *ppFunctionAddress = reinterpret_cast<void *>(&table);

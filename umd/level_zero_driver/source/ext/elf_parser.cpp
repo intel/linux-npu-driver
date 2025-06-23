@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -16,6 +16,7 @@
 #include "profiling_data.hpp"
 #include "umd_common.hpp"
 #include "vpu_driver/source/command/vpu_inference_execute.hpp"
+#include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_37xx/vpu_hw_37xx.hpp"
 #include "vpu_driver/source/device/vpu_40xx/vpu_hw_40xx.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
@@ -31,6 +32,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bitset>
 #include <exception>
 #include <functional>
 #include <iterator>
@@ -88,13 +90,16 @@ class DriverBufferManager : public elf::BufferManager {
             bo->getVPUAddr(),
             bo->getAllocSize());
 
+        void *ptr = bo->getBasePointer();
         const std::lock_guard<std::mutex> lock(mtx);
-        auto [it, success] = tracedElfParserBuffers.try_emplace(bo->getBasePointer(), bo);
+        auto [it, success] = tracedElfParserBuffers.emplace(ptr, std::move(bo));
         if (!success) {
             LOG_E("Failed to trace elf parser buffer");
             return elf::DeviceBuffer();
         }
-        return elf::DeviceBuffer(bo->getBasePointer(), bo->getVPUAddr(), buffSpecs.size);
+        return elf::DeviceBuffer(it->second->getBasePointer(),
+                                 it->second->getVPUAddr(),
+                                 buffSpecs.size);
     }
 
     void deallocate(elf::DeviceBuffer &devAddress) override {
@@ -215,7 +220,7 @@ ElfParser::ElfParser(VPU::VPUDeviceContext *ctx,
     : ctx(ctx)
     , bufferManager(std::move(buffer))
     , accessManager(std::move(access))
-    , hpi(std::move(hpi)) {}
+    , hpiManager(std::make_unique<HostParsedInferenceManager>(std::move(hpi))) {}
 
 bool ElfParser::checkMagic(const std::unique_ptr<BlobContainer> &blob) {
     if (blob->size == 0)
@@ -245,16 +250,25 @@ createHostParsedInference(elf::BufferManager *buffer,
     config.nnVersion = toVersion<elf::Version>(ctx->getFwMappedInferenceVersion());
     config.archKind = toArchKind(ctx->getPciDevId());
 
+    elf::DeviceDescriptor devDesc = {};
+
+    devDesc.size = sizeof(elf::DeviceDescriptor);
+    devDesc.deviceID = ctx->getDeviceCapabilities().deviceId;
+    devDesc.revision = ctx->getDeviceCapabilities().deviceRevision;
+    devDesc.tileCount =
+        static_cast<uint32_t>(std::bitset<32>(ctx->getDeviceCapabilities().tileConfig).count());
+
     try {
-        return std::make_shared<elf::HostParsedInference>(buffer, access, config);
+        return std::make_shared<elf::HostParsedInference>(buffer, access, config, &devDesc);
     } catch (const elf::AllocError &err) {
         LOG_E("Failed to create elf::HostParsedInference, type: elf::AllocError, reason: %s",
               err.what());
         errorMsg += std::string(err.what()) + "\n";
         throw DriverError(ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY);
-    } catch (elf::VersioningError &err) {
-        LOG_E("Failed to create elf::HostParsedInference, type: elf::VersioningError, reason: %s",
-              err.what());
+    } catch (elf::CompatibilityError &err) {
+        LOG_E(
+            "Failed to create elf::HostParsedInference, type: elf::CompatibilityError, reason: %s",
+            err.what());
         errorMsg += std::string(err.what()) + "\n";
         throw DriverError(ZE_RESULT_ERROR_UNSUPPORTED_VERSION);
     } catch (const elf::RuntimeError &err) {
@@ -281,8 +295,8 @@ copyHostParsedInference(std::shared_ptr<elf::HostParsedInference> &hpi) {
         LOG_E("Failed to copy elf::HostParsedInference, type: elf::AllocError, reason: %s",
               err.what());
         throw DriverError(ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY);
-    } catch (elf::VersioningError &err) {
-        LOG_E("Failed to copy elf::HostParsedInference, type: elf::VersioningError, reason: %s",
+    } catch (elf::CompatibilityError &err) {
+        LOG_E("Failed to copy elf::HostParsedInference, type: elf::CompatibilityError, reason: %s",
               err.what());
         throw DriverError(ZE_RESULT_ERROR_UNSUPPORTED_VERSION);
     } catch (const elf::RuntimeError &err) {
@@ -296,6 +310,49 @@ copyHostParsedInference(std::shared_ptr<elf::HostParsedInference> &hpi) {
               err.what());
     }
     return nullptr;
+}
+
+static void loadHostParsedInference(const std::shared_ptr<elf::HostParsedInference> &hpi) {
+    try {
+        hpi->load();
+        return;
+    } catch (const elf::AllocError &err) {
+        LOG_E("Failed to load elf::HostParsedInference, type: elf::AllocError, reason: %s",
+              err.what());
+        throw DriverError(ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY);
+    } catch (elf::CompatibilityError &err) {
+        LOG_E("Failed to load elf::HostParsedInference, type: elf::CompatibilityError, reason: %s",
+              err.what());
+        throw DriverError(ZE_RESULT_ERROR_UNSUPPORTED_VERSION);
+    } catch (const elf::RuntimeError &err) {
+        LOG_E("Failed to load elf::HostParsedInference, type: elf::RuntimeError, reason: %s",
+              err.what());
+    } catch (const elf::LogicError &err) {
+        LOG_E("Failed to load elf::HostParsedInference, type: elf::LogicError, reason: %s",
+              err.what());
+    } catch (const std::exception &err) {
+        LOG_E("Failed to load elf::HostParsedInference, type: std::exception, reason: %s",
+              err.what());
+    }
+    throw DriverError(ZE_RESULT_ERROR_UNKNOWN);
+}
+
+std::shared_ptr<elf::HostParsedInference> HostParsedInferenceManager::acquire() {
+    std::lock_guard<std::mutex> lock(mtx);
+    if (!loaded) {
+        loadHostParsedInference(hpis.at(0));
+        loaded = true;
+    }
+
+    for (auto &hpi : hpis) {
+        if (hpi.use_count() == 1)
+            return hpi;
+    }
+
+    auto hpi = copyHostParsedInference(hpis.at(0));
+    if (hpi != nullptr)
+        hpis.push_back(hpi);
+    return hpi;
 }
 
 std::unique_ptr<ElfParser> ElfParser::getElfParser(VPU::VPUDeviceContext *ctx,
@@ -328,6 +385,12 @@ static ze_graph_argument_precision_t getTensorPrecision(elf::DType type) {
         return ZE_GRAPH_ARGUMENT_PRECISION_FP32;
     case elf::DType::DType_FP16:
         return ZE_GRAPH_ARGUMENT_PRECISION_FP16;
+    case elf::DType::DType_F8E4M3FN:
+        return ZE_GRAPH_ARGUMENT_PRECISION_FP8_E4M3;
+    case elf::DType::DType_F8E5M2:
+        return ZE_GRAPH_ARGUMENT_PRECISION_FP8_E5M2;
+    case elf::DType::DType_F8E8M0:
+        return ZE_GRAPH_ARGUMENT_PRECISION_FP8_E8M0;
     case elf::DType::DType_U64:
         return ZE_GRAPH_ARGUMENT_PRECISION_UINT64;
     case elf::DType::DType_U32:
@@ -354,9 +417,12 @@ static ze_graph_argument_precision_t getTensorPrecision(elf::DType type) {
         return ZE_GRAPH_ARGUMENT_PRECISION_BF16;
     case elf::DType::DType_I4X:
         return ZE_GRAPH_ARGUMENT_PRECISION_NF4;
-    default:
+    case elf::DType::DType_I2:
+    case elf::DType::DType_I2X:
+    case elf::DType::DType_LOG:
         return ZE_GRAPH_ARGUMENT_PRECISION_UNKNOWN;
     }
+    return ZE_GRAPH_ARGUMENT_PRECISION_UNKNOWN;
 }
 
 static constexpr std::array<std::pair<size_t, ze_graph_argument_layout_t>, 8> orderToLayout = {
@@ -504,7 +570,8 @@ static void fillOVNodeProperties(const elf::OVNode &node, ze_graph_argument_prop
 }
 
 bool ElfParser::getArgumentProperties(std::vector<ze_graph_argument_properties_3_t> &props) const {
-    auto metadata = hpi->getMetadata();
+    auto metadata = hpiManager->front()->getMetadata();
+
     props.reserve(metadata->mInTensorDescriptors.size() + metadata->mOutTensorDescriptors.size());
 
     for (size_t i = 0; i < metadata->mInTensorDescriptors.size(); i++) {
@@ -574,7 +641,7 @@ constexpr std::array<std::pair<elf::OVNodeType, ze_graph_metadata_type>, 18> toM
 }};
 
 bool ElfParser::getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &args) const {
-    auto metadata = hpi->getMetadata();
+    auto metadata = hpiManager->front()->getMetadata();
     args.reserve(metadata->mNetInputs.size() + metadata->mNetOutputs.size());
 
     auto convert = [](const elf::OVNode &node,
@@ -641,7 +708,7 @@ bool ElfParser::getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &a
 }
 
 bool ElfParser::getProfilingSize(uint32_t &size) const {
-    const auto &profBuffers = hpi->getProfBuffers();
+    const auto &profBuffers = hpiManager->front()->getProfBuffers();
 
     if (profBuffers.size() == 0) {
         size = 0;
@@ -663,36 +730,51 @@ std::shared_ptr<VPU::VPUBufferObject> ElfParser::findBuffer(const void *ptr) {
 }
 
 bool ElfParser::applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &cmdHpi,
-                                  const std::vector<std::pair<const void *, uint32_t>> &inputPtrs,
-                                  const std::vector<std::pair<const void *, uint32_t>> &outputPtrs,
+                                  const std::vector<const void *> &inputPtrs,
+                                  const std::vector<const void *> &outputPtrs,
                                   GraphProfilingQuery *profilingQuery,
                                   std::vector<std::shared_ptr<VPU::VPUBufferObject>> &bos) {
-    auto getDeviceBuffers = [this, &bos](const std::vector<std::pair<const void *, uint32_t>> &ptrs,
+    auto getDeviceBuffers = [this, &bos](const std::vector<const void *> &ptrs,
                                          std::vector<elf::DeviceBuffer> &buffers) {
         buffers.reserve(ptrs.size());
 
-        for (const auto &[ptr, size] : ptrs) {
-            auto bo = ctx->findBufferObject(ptr);
+        if (ptrs.size() != buffers.size()) {
+            return false;
+        }
+
+        for (size_t i = 0; i < ptrs.size(); i++) {
+            auto bo = ctx->findBufferObject(ptrs[i]);
             if (bo == nullptr) {
                 LOG_E("Failed to find a user buffer");
                 return false;
             }
 
+            uint64_t offset = reinterpret_cast<uint64_t>(ptrs[i]) -
+                              reinterpret_cast<uint64_t>(bo->getBasePointer());
+
+            if (bo->getAllocSize() - offset < buffers[i].size()) {
+                LOG_E("Graph argument at position: %zu with size: %lu exceedes expected size: %lu",
+                      i,
+                      bo->getAllocSize() - offset,
+                      buffers[i].size());
+                return false;
+            }
+
             bos.push_back(bo);
 
-            uint64_t vpuAddr = bo->getVPUAddr(ptr);
-            uint8_t *basePtr = static_cast<uint8_t *>(const_cast<void *>(ptr));
-            buffers.emplace_back(basePtr, vpuAddr, size);
+            uint64_t vpuAddr = bo->getVPUAddr(ptrs[i]);
+            uint8_t *basePtr = static_cast<uint8_t *>(const_cast<void *>(ptrs[i]));
+            buffers[i] = elf::DeviceBuffer(basePtr, vpuAddr, 0);
         }
 
         return true;
     };
 
-    std::vector<elf::DeviceBuffer> inputDeviceBuffers;
+    std::vector<elf::DeviceBuffer> inputDeviceBuffers = cmdHpi->getInputBuffers();
     if (!getDeviceBuffers(inputPtrs, inputDeviceBuffers))
         return false;
 
-    std::vector<elf::DeviceBuffer> outputDeviceBuffers;
+    std::vector<elf::DeviceBuffer> outputDeviceBuffers = cmdHpi->getOutputBuffers();
     if (!getDeviceBuffers(outputPtrs, outputDeviceBuffers))
         return false;
 
@@ -725,58 +807,15 @@ bool ElfParser::applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &cmd
     return true;
 }
 
-static void loadHostParsedInference(const std::shared_ptr<elf::HostParsedInference> &hpi) {
-    try {
-        hpi->load();
-        return;
-    } catch (const elf::AllocError &err) {
-        LOG_E("Failed to load elf::HostParsedInference, type: elf::AllocError, reason: %s",
-              err.what());
-        throw DriverError(ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY);
-    } catch (elf::VersioningError &err) {
-        LOG_E("Failed to load elf::HostParsedInference, type: elf::VersioningError, reason: %s",
-              err.what());
-        throw DriverError(ZE_RESULT_ERROR_UNSUPPORTED_VERSION);
-    } catch (const elf::RuntimeError &err) {
-        LOG_E("Failed to load elf::HostParsedInference, type: elf::RuntimeError, reason: %s",
-              err.what());
-    } catch (const elf::LogicError &err) {
-        LOG_E("Failed to load elf::HostParsedInference, type: elf::LogicError, reason: %s",
-              err.what());
-    } catch (const std::exception &err) {
-        LOG_E("Failed to load elf::HostParsedInference, type: std::exception, reason: %s",
-              err.what());
-    }
-    throw DriverError(ZE_RESULT_ERROR_UNKNOWN);
-}
-
-std::shared_ptr<VPU::VPUInferenceExecute> ElfParser::createInferenceExecuteCommand(
-    const std::vector<std::pair<const void *, uint32_t>> &inputPtrs,
-    const std::vector<std::pair<const void *, uint32_t>> &outputPtrs,
-    GraphProfilingQuery *profilingQuery) {
+std::shared_ptr<VPU::VPUInferenceExecute>
+ElfParser::createInferenceExecuteCommand(const std::vector<const void *> &inputPtrs,
+                                         const std::vector<const void *> &outputPtrs,
+                                         GraphProfilingQuery *profilingQuery) {
     uint64_t inferenceId = 0;
     if (!ctx->getUniqueInferenceId(inferenceId))
         return nullptr;
 
-    {
-        std::lock_guard lg(loadMutex);
-        if (needLoad) {
-            loadHostParsedInference(hpi);
-            needLoad = false;
-        }
-    }
-
-    std::shared_ptr<elf::HostParsedInference> cmdHpi;
-    if (needCopy) {
-        cmdHpi = copyHostParsedInference(hpi);
-        if (cmdHpi == nullptr) {
-            LOG_E("Not able to make copy of HostParsedInference");
-            return nullptr;
-        }
-    } else {
-        cmdHpi = hpi;
-    }
-
+    std::shared_ptr<elf::HostParsedInference> cmdHpi = hpiManager->acquire();
     std::vector<std::shared_ptr<VPU::VPUBufferObject>> bos;
     auto hpiBuffer = cmdHpi->getParsedInference();
     auto bo = findBuffer(hpiBuffer.cpu_addr());
@@ -809,7 +848,6 @@ std::shared_ptr<VPU::VPUInferenceExecute> ElfParser::createInferenceExecuteComma
     if (cmd == nullptr)
         return nullptr;
 
-    needCopy = true;
     return cmd;
 }
 
@@ -834,11 +872,7 @@ ze_result_t ElfParser::parse(std::vector<ze_graph_argument_properties_3_t> &argu
 
 ze_result_t ElfParser::initialize() {
     try {
-        std::lock_guard lg(loadMutex);
-        if (needLoad) {
-            loadHostParsedInference(hpi);
-            needLoad = false;
-        }
+        hpiManager->acquire();
         return ZE_RESULT_SUCCESS;
     } catch (const DriverError &e) {
         return e.result();
@@ -865,8 +899,8 @@ std::shared_ptr<VPU::VPUCommand> ElfParser::allocateInitCommand(VPU::VPUDeviceCo
 }
 
 std::shared_ptr<VPU::VPUCommand>
-ElfParser::allocateExecuteCommand(const std::vector<std::pair<const void *, uint32_t>> &inputArgs,
-                                  const std::vector<std::pair<const void *, uint32_t>> &outputArgs,
+ElfParser::allocateExecuteCommand(const std::vector<const void *> &inputArgs,
+                                  const std::vector<const void *> &outputArgs,
                                   GraphProfilingQuery *profilingQuery) {
     return createInferenceExecuteCommand(inputArgs, outputArgs, profilingQuery);
 }

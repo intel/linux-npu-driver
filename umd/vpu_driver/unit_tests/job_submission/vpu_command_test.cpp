@@ -164,7 +164,6 @@ struct VPUEventCommandTest : public VPUCommandTest {
         eventBo = ctx->createUntrackedBufferObject(4096, VPUBufferObject::Type::CachedFw);
         ASSERT_TRUE(eventBo);
 
-        cmdBufferHeader.fence_heap_base_address = 0;
         eventHeapPtr = reinterpret_cast<decltype(eventHeapPtr)>(eventBo->getBasePointer());
     }
 

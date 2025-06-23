@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -32,6 +32,7 @@
 #include <string.h>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace L0 {
 static thread_local std::string lastFailLog;
@@ -149,9 +150,9 @@ ze_result_t Graph::setArgumentValue(uint32_t argIndex, const void *pArgValue) {
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
 
     if (argIndex < inputArgs.size())
-        inputArgs[argIndex].first = pArgValue;
+        inputArgs[argIndex] = pArgValue;
     else
-        outputArgs[argIndex - inputArgs.size()].first = pArgValue;
+        outputArgs[argIndex - inputArgs.size()] = pArgValue;
     return ZE_RESULT_SUCCESS;
 }
 
@@ -175,7 +176,7 @@ ze_result_t Graph::getProperties2(ze_graph_properties_2_t *pGraphProperties) {
 ze_result_t Graph::getProperties3(ze_graph_properties_3_t *pGraphProperties) {
     pGraphProperties->numGraphArgs = safe_cast<uint32_t>(argumentProperties.size());
     pGraphProperties->initStageRequired = ZE_GRAPH_STAGE_INITIALIZE;
-    pGraphProperties->flags = loadedFromCache ? ZE_GRAPH_PROPERTIES_FLAG_LOADED_FROM_CACHE : 0;
+    pGraphProperties->flags = propFlags;
     return ZE_RESULT_SUCCESS;
 }
 
@@ -314,7 +315,6 @@ ze_result_t Graph::getDeviceGraphProperties(ze_device_handle_t hDevice,
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    *pDeviceGraphProperties = {};
     pDeviceGraphProperties->graphExtensionVersion = ZE_GRAPH_EXT_VERSION_CURRENT;
     pDeviceGraphProperties->graphFormatsSupported = ZE_GRAPH_FORMAT_NATIVE;
 
@@ -338,9 +338,9 @@ Graph::getDeviceGraphProperties2(ze_device_handle_t hDevice,
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    ze_device_graph_properties_t deviceGraphProperties = {};
-    if (getDeviceGraphProperties(hDevice, &deviceGraphProperties))
-        LOG_W("Failed to get compiler properties!");
+    getDeviceGraphProperties(
+        hDevice,
+        reinterpret_cast<ze_device_graph_properties_t *>(pDeviceGraphProperties2));
 
     Device *dev = Device::fromHandle(hDevice);
     VPU::VPUDevice *vdev = dev->getVPUDevice();
@@ -356,38 +356,6 @@ Graph::getDeviceGraphProperties2(ze_device_handle_t hDevice,
                                            elfVer.getLibraryELFVersion().getPatch()};
 
     return ZE_RESULT_SUCCESS;
-}
-
-static uint32_t getArgumentSize(const ze_graph_argument_properties_3_t &prop) {
-    size_t size = 1;
-    for (uint32_t i = 0; i < ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE; i++)
-        size *= prop.dims[i];
-
-    switch (prop.devicePrecision) {
-    case ZE_GRAPH_ARGUMENT_PRECISION_FP32:
-    case ZE_GRAPH_ARGUMENT_PRECISION_UINT32:
-    case ZE_GRAPH_ARGUMENT_PRECISION_INT32:
-        size *= sizeof(uint32_t);
-        break;
-    case ZE_GRAPH_ARGUMENT_PRECISION_BF16:
-    case ZE_GRAPH_ARGUMENT_PRECISION_FP16:
-    case ZE_GRAPH_ARGUMENT_PRECISION_UINT16:
-    case ZE_GRAPH_ARGUMENT_PRECISION_INT16:
-        size *= sizeof(uint16_t);
-        break;
-    case ZE_GRAPH_ARGUMENT_PRECISION_UINT8:
-    case ZE_GRAPH_ARGUMENT_PRECISION_INT8:
-        size *= sizeof(uint8_t);
-        break;
-    case ZE_GRAPH_ARGUMENT_PRECISION_INT4:
-    case ZE_GRAPH_ARGUMENT_PRECISION_UINT4:
-        size /= 2;
-        break;
-    default:
-        break;
-    }
-
-    return safe_cast<uint32_t>(size);
 }
 
 static void
@@ -425,6 +393,7 @@ void Graph::initialize(std::string &log) {
     switch (desc.format) {
     case ZE_GRAPH_FORMAT_NATIVE:
         blob = std::make_unique<BlobContainer>(const_cast<uint8_t *>(desc.pInput), desc.inputSize);
+        propFlags = ZE_GRAPH_PROPERTIES_FLAG_PRE_COMPILED;
         break;
     case ZE_GRAPH_FORMAT_NGRAPH_LITE:
         addDeviceConfigToBuildFlags();
@@ -434,6 +403,7 @@ void Graph::initialize(std::string &log) {
             key = cache.computeKey(desc);
             blob = cache.getBlob(key);
             if (blob) {
+                propFlags = ZE_GRAPH_PROPERTIES_FLAG_LOADED_FROM_CACHE;
                 log += "ZE DynamicCaching cache_status_t: cache_status_t::found\n";
                 /* Cache status is stored also in fail log due to back compatibility */
                 lastFailLog = "ZE DynamicCaching cache_status_t: cache_status_t::found\n";
@@ -441,13 +411,13 @@ void Graph::initialize(std::string &log) {
         }
 
         if (blob == nullptr) {
-            loadedFromCache = false;
             auto ret = Compiler::getCompiledBlob(ctx, desc, blob, log);
             if (ret != ZE_RESULT_SUCCESS) {
                 LOG_E("Failed to get compiled blob! Result:%#x", ret);
                 throw DriverError(ret);
             }
 
+            propFlags = ZE_GRAPH_PROPERTIES_FLAG_COMPILED;
             if (!(desc.flags & ZE_GRAPH_FLAG_DISABLE_CACHING)) {
                 cache.setBlob(key, blob);
                 log += "ZE DynamicCaching cache_status_t: cache_status_t::stored\n";
@@ -479,11 +449,10 @@ void Graph::initialize(std::string &log) {
                   ZE_RESULT_ERROR_INVALID_ARGUMENT);
 
     for (const auto &prop : argumentProperties) {
-        uint32_t size = getArgumentSize(prop);
         if (prop.type == ZE_GRAPH_ARGUMENT_TYPE_INPUT) {
-            inputArgs.emplace_back(nullptr, size);
+            inputArgs.emplace_back(nullptr);
         } else {
-            outputArgs.emplace_back(nullptr, size);
+            outputArgs.emplace_back(nullptr);
         }
     }
 }

@@ -17,6 +17,7 @@
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <algorithm>
+#include <errno.h>
 #include <uapi/drm/ivpu_accel.h>
 
 namespace L0 {
@@ -32,11 +33,15 @@ MetricStreamer::MetricStreamer(Context *pContext,
     startData.metric_group_mask = 0x1 << metricGroup->getGroupIndex();
     // Sampling rate expressed in nanoseconds
     startData.sampling_period_ns = desc->samplingPeriod;
-    startData.read_period_samples = desc->notifyEveryNReports;
+
+    constexpr uint32_t MIN_STREAMER_NOTIFY_FREQUENCY = 1024;
+    startData.read_period_samples =
+        std::max(desc->notifyEveryNReports, MIN_STREAMER_NOTIFY_FREQUENCY);
 
     L0_THROW_WHEN(ctx->getDriverApi().metricStreamerStart(&startData) < 0,
                   "Failed to start metric streamer",
-                  ZE_RESULT_ERROR_UNKNOWN);
+                  errno == ENOMEM ? ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY : ZE_RESULT_ERROR_UNKNOWN);
+
     sampleSize = startData.sample_size;
 
     if (notifyHandle && desc->notifyEveryNReports) {

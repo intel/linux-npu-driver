@@ -78,9 +78,21 @@ ze_result_t CommandQueue::create(ze_context_handle_t hContext,
             pDevice->getCommandQeueueGroupFlags(desc->ordinal);
         L0_THROW_WHEN(flags == 0, "Invalid group ordinal", ZE_RESULT_ERROR_INVALID_ARGUMENT);
 
+        bool isTurboMode = false;
+        if (desc->pNext != nullptr) {
+            const ze_structure_type_command_queue_npu_ext_t stype =
+                *reinterpret_cast<const ze_structure_type_command_queue_npu_ext_t *>(desc->pNext);
+            if (stype == ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC_NPU_EXT) {
+                auto npuDesc =
+                    reinterpret_cast<const ze_command_queue_desc_npu_ext_t *>(desc->pNext);
+                isTurboMode = npuDesc->turbo;
+            }
+        }
+
         Context *pContext = Context::fromHandle(hContext);
         auto vpuQueue = VPU::VPUDeviceQueue::create(pContext->getDeviceContext(),
-                                                    toVPUDevicePriority(desc->priority));
+                                                    toVPUDevicePriority(desc->priority),
+                                                    isTurboMode);
         L0_THROW_WHEN(vpuQueue == nullptr,
                       "VPU Command queue creation failed.",
                       ZE_RESULT_ERROR_UNINITIALIZED);
