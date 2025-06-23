@@ -17,4 +17,4 @@ typedef ze_graph_dditable_ext_t graph_dditable_ext_t;
 
 #define COMMAND_QUEUE_EXT_NAME ZE_COMMAND_QUEUE_NPU_EXT_NAME
 #define COMMAND_QUEUE_NPU_EXT_VERSION ZE_COMMAND_QUEUE_NPU_EXT_VERSION_1_0
-typedef ze_command_queue_npu_dditable_ext_1_0_t command_queue_dditable_t;
+typedef ze_command_queue_npu_dditable_ext_t command_queue_dditable_t;

@@ -181,10 +181,11 @@ int KmdContext::prime_fd_to_handle(int32_t fd, uint32_t flags, uint32_t *handle)
     return ret;
 }
 
-int KmdContext::create_cmdq(uint32_t *cmdq_id, int priority) {
-    struct drm_ivpu_cmdq_create args;
+int KmdContext::create_cmdq(uint32_t *cmdq_id, int priority, uint32_t flags) {
+    struct drm_ivpu_cmdq_create args = {};
 
     args.priority = priority;
+    args.flags = flags;
 
     int ret = ioctl(DRM_IOCTL_IVPU_CMDQ_CREATE, &args);
     if (ret)
@@ -211,7 +212,7 @@ void *KmdContext::bo_mmap(size_t size, int prot, uint64_t mmap_offset) {
     return ptr;
 }
 
-int KmdContext::get_unique_id() {
+uint32_t KmdContext::get_id() {
     if (ssid == 0) {
         uint64_t val = 0;
         int ret;
@@ -224,7 +225,7 @@ int KmdContext::get_unique_id() {
 }
 
 bool KmdContext::valid() {
-    return get_unique_id() != 0;
+    return get_id() != 0;
 }
 
 bool KmdContext::is_vpu37xx() {
@@ -900,11 +901,36 @@ int CmdBuffer::create() {
     return 0;
 }
 
-void CmdBuffer::start(int offset) {
+void CmdBuffer::start(int offset, int cmds_offset) {
     _start = offset;
-    _end = _start + sizeof(vpu_cmd_buffer_header_t);
+    clear(_start, sizeof(vpu_cmd_buffer_header_t));
+
+    vpu_cmd_buffer_header_t *bb_hdr = hdr();
+
+    if (cmds_offset) {
+        bb_hdr->cmd_offset = cmds_offset;
+    } else {
+        bb_hdr->cmd_offset = sizeof(vpu_cmd_buffer_header_t);
+    }
+
+    _end = _start + bb_hdr->cmd_offset;
     referenced_handles.clear();
     add_handle(*this);
+}
+
+void *CmdBuffer::add_cmd(int type, int size) {
+    if (get_free_space() < static_cast<ssize_t>(size)) {
+        ADD_FAILURE() << "Command buffer overflow";
+        return NULL;
+    }
+
+    vpu_cmd_header_t *header = (vpu_cmd_header_t *)ptr(_end);
+    header->type = type;
+    header->size = size;
+
+    _end += size;
+
+    return header;
 }
 
 vpu_cmd_buffer_header_t *CmdBuffer::hdr() {
@@ -1038,15 +1064,9 @@ void CmdBuffer::prepare_bb_hdr(void) {
     vpu_cmd_buffer_header_t *bb_hdr = hdr();
 
     bb_hdr->cmd_buffer_size = _end - _start;
-    bb_hdr->cmd_offset = sizeof(*bb_hdr);
     bb_hdr->context_save_area_address = vpu_addr() + ALIGN(_end, 64);
 
     TRACE("context_save_area_address=0x%lx\n", bb_hdr->context_save_area_address);
-
-    // Heaps are deprecated and should not be used anymore
-    ASSERT_EQ(bb_hdr->kernel_heap_base_address, 0ull);
-    ASSERT_EQ(bb_hdr->descriptor_heap_base_address, 0ull);
-    ASSERT_EQ(bb_hdr->fence_heap_base_address, 0ull);
 }
 
 void CmdBuffer::prepare_params(int engine, int priority, drm_ivpu_submit *params) {

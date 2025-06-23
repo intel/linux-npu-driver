@@ -189,10 +189,12 @@ class KmdContext {
     int prime_handle_to_fd(uint32_t handle, uint32_t flags, int32_t *fd);
     int prime_fd_to_handle(int32_t fd, uint32_t flags, uint32_t *handle);
 
-    int create_cmdq(uint32_t *cmdq_id, int priority = DRM_IVPU_JOB_PRIORITY_DEFAULT);
+    int create_cmdq(uint32_t *cmdq_id,
+                    int priority = DRM_IVPU_JOB_PRIORITY_DEFAULT,
+                    uint32_t flags = 0);
     int destroy_cmdq(uint32_t cmdq_id);
 
-    int get_unique_id();
+    uint32_t get_id();
 
     bool valid();
     bool is_vpu37xx();
@@ -394,24 +396,13 @@ struct CmdBuffer : MemoryBuffer {
     CmdBuffer(KmdContext &context, size_t size, VPU_BUF_USAGE usage = VPU_BUF_USAGE_BATCHBUFFER);
 
     int create();
-    void start(int offset);
+    void start(int offset, int cmds_offset = 0);
 
+    void *add_cmd(int type, int size);
     template <typename T>
     T *add_cmd(int type) {
-        if (get_free_space() < static_cast<ssize_t>(sizeof(T))) {
-            ADD_FAILURE() << "Command buffer overflow";
-            return NULL;
-        }
-
-        vpu_cmd_header_t *header = (vpu_cmd_header_t *)ptr(_end);
-        header->type = type;
-        header->size = sizeof(T);
-
-        _end += sizeof(T);
-
-        return (T *)header;
+        return (T *)add_cmd(type, sizeof(T));
     }
-
     vpu_cmd_buffer_header_t *hdr();
     void add_handle(MemoryBuffer &buf);
     ssize_t get_free_space();

@@ -176,7 +176,9 @@ TEST_P(CommandGraphLong, AppendGraphInitExecuteAndThreadedSynchronize) {
     // Userspace app defined timeout for decision on killing the zeCommandQueueSynchronize
     // thread
     std::chrono::steady_clock::time_point asyncTimeOut =
-        std::chrono::steady_clock::now() + std::chrono::microseconds(graphSyncTimeout);
+        (graphSyncTimeout == UINT64_MAX)
+            ? std::chrono::time_point<std::chrono::steady_clock>::max()
+            : std::chrono::steady_clock::now() + std::chrono::microseconds(graphSyncTimeout);
 
     ze_result_t result = ZE_RESULT_NOT_READY;
     if (std::future_status::ready == futureSync.wait_until(asyncTimeOut)) {
@@ -231,6 +233,7 @@ TEST_P(CommandGraphLong, RunGraphExecuteThreeTimes) {
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
+    ze_graph_memory_query_t ddrUsageQuery = {};
     for (uint32_t i = 0; i < 3; i++) {
         ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
 
@@ -244,6 +247,17 @@ TEST_P(CommandGraphLong, RunGraphExecuteThreeTimes) {
 
         graph->checkResults();
         graph->clearOutput();
+
+        /* Make sure that driver does not allocate any extra memory on next run */
+        ze_graph_memory_query_t ddrUsageQueryNext = {};
+        EXPECT_EQ(zeGraphDDITableExt->pfnQueryContextMemory(zeContext,
+                                                            ZE_GRAPH_QUERY_MEMORY_DDR,
+                                                            &ddrUsageQueryNext),
+                  ZE_RESULT_SUCCESS);
+        if (i > 0) {
+            EXPECT_EQ(ddrUsageQuery.allocated, ddrUsageQueryNext.allocated);
+        }
+        ddrUsageQuery = ddrUsageQueryNext;
     }
 }
 
@@ -488,7 +502,7 @@ TEST_P(CommandGraphLong, InferenceDeviceResetInference) {
     result = zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
-    result = zeCommandQueueSynchronize(queue, syncTimeout);
+    result = zeCommandQueueSynchronize(queue, graphSyncTimeout);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
     graph->checkResults();
@@ -506,7 +520,7 @@ TEST_P(CommandGraphLong, InferenceDeviceResetInference) {
     result = zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
-    result = zeCommandQueueSynchronize(queue, syncTimeout);
+    result = zeCommandQueueSynchronize(queue, graphSyncTimeout);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
     graph->checkResults();

@@ -15,25 +15,40 @@ inline const char *zeGraphArgumentToStr(ze_graph_argument_type_t a) {
         return "ZE_GRAPH_ARGUMENT_TYPE_INPUT";
     case ZE_GRAPH_ARGUMENT_TYPE_OUTPUT:
         return "ZE_GRAPH_ARGUMENT_TYPE_OUTPUT";
-    default:
-        return "UNKNOWN";
     }
+    return "UNKNOWN";
 }
 
 inline const char *zeGraphArgumentPrecisionToStr(ze_graph_argument_precision_t a) {
     switch (a) {
     case ZE_GRAPH_ARGUMENT_PRECISION_UNKNOWN:
         return "ZE_GRAPH_ARGUMENT_PRECISION_UNKNOWN";
+    case ZE_GRAPH_ARGUMENT_PRECISION_FP64:
+        return "ZE_GRAPH_ARGUMENT_PRECISION_FP64";
     case ZE_GRAPH_ARGUMENT_PRECISION_FP32:
         return "ZE_GRAPH_ARGUMENT_PRECISION_FP32";
     case ZE_GRAPH_ARGUMENT_PRECISION_FP16:
         return "ZE_GRAPH_ARGUMENT_PRECISION_FP16";
+    case ZE_GRAPH_ARGUMENT_PRECISION_FP8_E4M3:
+        return "ZE_GRAPH_ARGUMENT_PRECISION_FP8_E4M3";
+    case ZE_GRAPH_ARGUMENT_PRECISION_FP8_E5M2:
+        return "ZE_GRAPH_ARGUMENT_PRECISION_FP8_E5M2";
+    case ZE_GRAPH_ARGUMENT_PRECISION_FP8_E8M0:
+        return "ZE_GRAPH_ARGUMENT_PRECISION_FP8_E8M0";
+    case ZE_GRAPH_ARGUMENT_PRECISION_BF16:
+        return "ZE_GRAPH_ARGUMENT_PRECISION_BF16";
+    case ZE_GRAPH_ARGUMENT_PRECISION_UINT64:
+        return "ZE_GRAPH_ARGUMENT_PRECISION_UINT64";
+    case ZE_GRAPH_ARGUMENT_PRECISION_UINT32:
+        return "ZE_GRAPH_ARGUMENT_PRECISION_UINT32";
     case ZE_GRAPH_ARGUMENT_PRECISION_UINT16:
         return "ZE_GRAPH_ARGUMENT_PRECISION_UINT16";
     case ZE_GRAPH_ARGUMENT_PRECISION_UINT8:
         return "ZE_GRAPH_ARGUMENT_PRECISION_UINT8";
     case ZE_GRAPH_ARGUMENT_PRECISION_UINT4:
         return "ZE_GRAPH_ARGUMENT_PRECISION_UINT4";
+    case ZE_GRAPH_ARGUMENT_PRECISION_INT64:
+        return "ZE_GRAPH_ARGUMENT_PRECISION_INT64";
     case ZE_GRAPH_ARGUMENT_PRECISION_INT32:
         return "ZE_GRAPH_ARGUMENT_PRECISION_INT32";
     case ZE_GRAPH_ARGUMENT_PRECISION_INT16:
@@ -44,11 +59,14 @@ inline const char *zeGraphArgumentPrecisionToStr(ze_graph_argument_precision_t a
         return "ZE_GRAPH_ARGUMENT_PRECISION_INT4";
     case ZE_GRAPH_ARGUMENT_PRECISION_BIN:
         return "ZE_GRAPH_ARGUMENT_PRECISION_BIN";
-    case ZE_GRAPH_ARGUMENT_PRECISION_BF16:
-        return "ZE_GRAPH_ARGUMENT_PRECISION_BF16";
-    default:
-        return "UNKNOWN";
+    case ZE_GRAPH_ARGUMENT_PRECISION_DYNAMIC:
+        return "ZE_GRAPH_ARGUMENT_PRECISION_DYNAMIC";
+    case ZE_GRAPH_ARGUMENT_PRECISION_BOOLEAN:
+        return "ZE_GRAPH_ARGUMENT_PRECISION_BOOLEAN";
+    case ZE_GRAPH_ARGUMENT_PRECISION_NF4:
+        return "ZE_GRAPH_ARGUMENT_PRECISION_NF4";
     }
+    return "UNKNOWN";
 }
 
 inline const char *zeGraphArgumentLayoutToStr(ze_graph_argument_layout_t a) {
@@ -77,9 +95,8 @@ inline const char *zeGraphArgumentLayoutToStr(ze_graph_argument_layout_t a) {
         return "ZE_GRAPH_ARGUMENT_LAYOUT_CN";
     case ZE_GRAPH_ARGUMENT_LAYOUT_BLOCKED:
         return "ZE_GRAPH_ARGUMENT_LAYOUT_BLOCKED";
-    default:
-        return "UNKNOWN";
     }
+    return "UNKNOWN";
 }
 
 inline const char *getExecTypeStr(int execType) {
@@ -92,9 +109,8 @@ inline const char *getExecTypeStr(int execType) {
         return "ZE_TASK_EXECUTE_SW";
     case ZE_TASK_EXECUTE_DMA:
         return "ZE_TASK_EXECUTE_DMA";
-    default:
-        return "";
     }
+    return "";
 }
 
 inline const char *getStatusStr(int status) {
@@ -105,7 +121,6 @@ inline const char *getStatusStr(int status) {
         return "ZE_LAYER_STATUS_OPTIMIZED_OUT";
     case ZE_LAYER_STATUS_EXECUTED:
         return "ZE_LAYER_STATUS_EXECUTED";
-    default:
-        return "";
     }
+    return "";
 }

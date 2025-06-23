@@ -8,8 +8,8 @@
 #include "graph_utilities.hpp"
 #include "umd_test.h"
 
-#include <filesystem>
 #include <climits>
+#include <filesystem>
 #include <vector>
 
 enum stage { UPLOAD, EXECUTE, READBACK, COUNT };

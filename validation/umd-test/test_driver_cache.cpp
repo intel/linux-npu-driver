@@ -107,6 +107,9 @@ class DriverCache : public UmdTest {
     char driverCacheDirectory[PATH_MAX];
     std::vector<YAML::Node> modelDataNodes;
     size_t defaultCacheSize = 0;
+    ze_graph_properties_flags_t graphPropsFlagCompileMask =
+        ZE_GRAPH_PROPERTIES_FLAG_LOADED_FROM_CACHE | ZE_GRAPH_PROPERTIES_FLAG_COMPILED |
+        ZE_GRAPH_PROPERTIES_FLAG_PRE_COMPILED;
 
     decltype(zexDiskCacheSetSize) *diskCacheSetSize;
     decltype(zexDiskCacheGetSize) *diskCacheGetSize;
@@ -135,7 +138,8 @@ TEST_F(DriverCache, CheckIfAllCompiledModelsCached) {
 
         ze_graph_properties_3_t graphProperties;
         ASSERT_EQ(graph->getGraphProperties(&graphProperties), ZE_RESULT_SUCCESS);
-        ASSERT_FALSE(graphProperties.flags & ZE_GRAPH_PROPERTIES_FLAG_LOADED_FROM_CACHE);
+        ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
+                  ZE_GRAPH_PROPERTIES_FLAG_COMPILED);
     }
 
     auto cachedBlobsFirstIteration = getListOfCachedFiles();
@@ -147,7 +151,8 @@ TEST_F(DriverCache, CheckIfAllCompiledModelsCached) {
 
         ze_graph_properties_3_t graphProperties;
         ASSERT_EQ(graph->getGraphProperties(&graphProperties), ZE_RESULT_SUCCESS);
-        ASSERT_TRUE(graphProperties.flags & ZE_GRAPH_PROPERTIES_FLAG_LOADED_FROM_CACHE);
+        ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
+                  ZE_GRAPH_PROPERTIES_FLAG_LOADED_FROM_CACHE);
     }
 
     /* second compilation should not modify cache files */
@@ -274,8 +279,8 @@ TEST_F(DriverCache, CheckIfCorruptedCachedIsOverriden) {
 
         ze_graph_properties_3_t graphProperties;
         ASSERT_EQ(graph->getGraphProperties(&graphProperties), ZE_RESULT_SUCCESS);
-        ASSERT_FALSE(graphProperties.flags & ZE_GRAPH_PROPERTIES_FLAG_LOADED_FROM_CACHE);
-
+        ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
+                  ZE_GRAPH_PROPERTIES_FLAG_COMPILED);
         /* check if cached file has changed */
         std::vector<char> cachedDataAfter;
         ASSERT_EQ(DataHandle::loadFile(cachedFilePath, cachedDataAfter), 0);
@@ -286,8 +291,51 @@ TEST_F(DriverCache, CheckIfCorruptedCachedIsOverriden) {
         ASSERT_NE(graph, nullptr);
 
         ASSERT_EQ(graph->getGraphProperties(&graphProperties), ZE_RESULT_SUCCESS);
-        ASSERT_TRUE(graphProperties.flags & ZE_GRAPH_PROPERTIES_FLAG_LOADED_FROM_CACHE);
+        ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
+                  ZE_GRAPH_PROPERTIES_FLAG_LOADED_FROM_CACHE);
     }
+}
+
+TEST_F(DriverCache, CheckCacheUsingMultipleThreads) {
+    /* Compile at least one model in two threads simultaneously */
+    const size_t numThreads = std::max(8lu, modelDataNodes.size() + 2);
+    std::vector<std::thread> threads;
+    threads.reserve(numThreads);
+
+    clearCacheDirectory();
+    ASSERT_EQ(getUsedCacheSpace(), 0);
+
+    auto compileModel = [&](size_t idx, bool cached) {
+        auto &model = modelDataNodes.at(idx % modelDataNodes.size());
+
+        auto graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, model);
+        ASSERT_NE(graph, nullptr);
+
+        ze_graph_properties_3_t graphProperties;
+        ASSERT_EQ(graph->getGraphProperties(&graphProperties), ZE_RESULT_SUCCESS);
+        ASSERT_TRUE(graphProperties.flags & graphPropsFlagCompileMask);
+        if (cached) {
+            ASSERT_TRUE(graphProperties.flags & ZE_GRAPH_PROPERTIES_FLAG_LOADED_FROM_CACHE);
+        }
+    };
+
+    /* Expect to compile all models with or without caching it */
+    for (size_t i = 0; i < numThreads; ++i)
+        threads.emplace_back(compileModel, i, false);
+    for (auto &t : threads)
+        t.join();
+    threads.clear();
+
+    /* Expect that all models from previous compilation are cached */
+    auto cachedBlobs = getListOfCachedFiles();
+    ASSERT_EQ(cachedBlobs.size(), modelDataNodes.size());
+    for (size_t i = 0; i < numThreads; ++i)
+        threads.emplace_back(compileModel, i, true);
+    for (auto &t : threads)
+        t.join();
+
+    cachedBlobs = getListOfCachedFiles();
+    ASSERT_EQ(cachedBlobs.size(), modelDataNodes.size());
 }
 
 class CompilationLog : public DriverCache {
@@ -365,7 +413,8 @@ TEST_F(CompilationLog, CompileModelsAndCheckLog) {
         ASSERT_NE(graph, nullptr);
         ze_graph_properties_3_t graphProperties;
         ASSERT_EQ(graph->getGraphProperties(&graphProperties), ZE_RESULT_SUCCESS);
-        ASSERT_FALSE(graphProperties.flags & ZE_GRAPH_PROPERTIES_FLAG_LOADED_FROM_CACHE);
+        ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
+                  ZE_GRAPH_PROPERTIES_FLAG_COMPILED);
     }
     /* optionally if set of handles size is greater than 3 check removing single handle from the
      * middle*/

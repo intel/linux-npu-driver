@@ -20,7 +20,7 @@ namespace test_vars {
 extern bool forceGpu;
 extern bool disable_metrics;
 extern bool forceZeInitTests;
-extern uint32_t globalSyncTimeoutMs;
+extern int userRequestedTimeoutMs;
 } // namespace test_vars
 
 class Environment : public ::testing::Environment {
@@ -68,17 +68,16 @@ class Environment : public ::testing::Environment {
         if (test_vars::forceZeInitTests) {
             return;
         }
-        if (test_vars::globalSyncTimeoutMs) {
-            syncTimeout = static_cast<uint64_t>(test_vars::globalSyncTimeoutMs) * 1'000'000;
-            PRINTF("Synchronization timeout changed to %d ms.\n", test_vars::globalSyncTimeoutMs);
+        if (test_vars::userRequestedTimeoutMs > 0) {
+            userRequestedTimeoutNs =
+                static_cast<uint64_t>(test_vars::userRequestedTimeoutMs) * 1'000'000;
+            PRINTF("Synchronization timeout changed to %d ms.\n",
+                   test_vars::userRequestedTimeoutMs);
         }
 
         EXPECT_EQ(setenv("ZET_ENABLE_METRICS", config.metricsEnable ? "1" : "0", 0), 0);
-        /*
-         * TODO: reenable validation layer: EISW-128620
         EXPECT_EQ(setenv("ZE_ENABLE_VALIDATION_LAYER", "1", 0), 0);
         EXPECT_EQ(setenv("ZE_ENABLE_PARAMETER_VALIDATION", "1", 0), 0);
-        */
 
         uint32_t drvCount = 0u;
         ze_init_driver_type_desc_t initDriverDesc{
@@ -171,7 +170,7 @@ class Environment : public ::testing::Environment {
     uint64_t getMaxMemAllocSize() { return maxMemAllocSize; }
     uint16_t getPciDevId() { return pciDevId; }
     uint16_t getPlatformType() { return platformType; }
-    uint64_t getSyncTimeout() { return syncTimeout; }
+    uint64_t getUserSyncTimeoutNs() { return userRequestedTimeoutNs; }
 
     ze_driver_handle_t getDriverGpu() { return zeDriverGpu; }
     ze_device_handle_t getDeviceGpu() { return zeDeviceGpu; }
@@ -281,7 +280,7 @@ class Environment : public ::testing::Environment {
     uint64_t maxMemAllocSize = 0;
     uint16_t pciDevId = 0;
     uint32_t platformType = 0;
-    uint64_t syncTimeout = 2'000'000'000;
+    uint64_t userRequestedTimeoutNs = 0;
 
     ze_driver_handle_t zeDriverGpu = nullptr;
     ze_device_handle_t zeDeviceGpu = nullptr;
