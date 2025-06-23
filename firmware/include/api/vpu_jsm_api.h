@@ -1,15 +1,16 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (c) 2020-2024, Intel Corporation.
+ * Copyright (c) 2020-2025, Intel Corporation.
+ */
+
+/**
+ * @addtogroup Jsm
+ * @{
  */
 
 /**
  * @file
  * @brief JSM shared definitions
- *
- * @ingroup Jsm
- * @brief JSM shared definitions
- * @{
  */
 #ifndef VPU_JSM_API_H
 #define VPU_JSM_API_H
@@ -22,12 +23,12 @@
 /*
  * Minor version changes when API backward compatibility is preserved.
  */
-#define VPU_JSM_API_VER_MINOR 31
+#define VPU_JSM_API_VER_MINOR 32
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
  */
-#define VPU_JSM_API_VER_PATCH 0
+#define VPU_JSM_API_VER_PATCH 1
 
 /*
  * Index in the API version table
@@ -137,11 +138,21 @@ enum {
      *  2. Native fence queues are only supported on VPU 40xx onwards.
      */
     VPU_JOB_QUEUE_FLAGS_USE_NATIVE_FENCE_MASK = (1 << 1U),
-
     /*
      * Enable turbo mode for testing NPU performance; not recommended for regular usage.
      */
-    VPU_JOB_QUEUE_FLAGS_TURBO_MODE = (1 << 2U)
+    VPU_JOB_QUEUE_FLAGS_TURBO_MODE = (1 << 2U),
+    /*
+     * Queue error detection mode flag
+     * For 'interactive' queues (this bit not set), the FW will identify queues that have not
+     * completed a job inside the TDR timeout as in error as part of engine reset sequence.
+     * For 'non-interactive' queues (this bit set), the FW will identify queues that have not
+     * progressed the heartbeat inside the non-interactive no-progress timeout as in error as
+     * part of engine reset sequence. Additionally, there is an upper limit applied to these
+     * queues: even if they progress the heartbeat, if they run longer than non-interactive
+     * timeout, then the FW will also identify them as in error.
+     */
+    VPU_JOB_QUEUE_FLAGS_NON_INTERACTIVE = (1 << 3U)
 };
 
 /*
@@ -546,7 +557,8 @@ enum vpu_ipc_msg_type {
     VPU_IPC_MSG_BLOB_DEINIT_DEPRECATED = VPU_IPC_MSG_GENERAL_CMD,
     /**
      * Control dyndbg behavior by executing a dyndbg command; equivalent to
-     * Linux command: `echo '<dyndbg_cmd>' > <debugfs>/dynamic_debug/control`.
+     * Linux command:
+     * @verbatim echo '<dyndbg_cmd>' > <debugfs>/dynamic_debug/control @endverbatim
      */
     VPU_IPC_MSG_DYNDBG_CONTROL = 0x1201,
     /**
@@ -611,9 +623,9 @@ enum vpu_ipc_msg_type {
     /**
      * Asynchronous event sent from the VPU to the host either when the current
      * metric buffer is full or when the VPU has collected a multiple of
-     * @notify_sample_count samples as indicated through the start command
-     * (VPU_IPC_MSG_METRIC_STREAMER_START). Returns information about collected
-     * metric data.
+     * @ref vpu_jsm_metric_streamer_start::notify_sample_count samples as indicated
+     * through the start command (VPU_IPC_MSG_METRIC_STREAMER_START). Returns
+     * information about collected metric data.
      * @see vpu_jsm_metric_streamer_done
      */
     VPU_IPC_MSG_METRIC_STREAMER_NOTIFICATION = 0x2213,
@@ -767,7 +779,7 @@ struct vpu_jsm_metric_streamer_start {
     uint64_t sampling_rate;
     /**
      * If > 0 the VPU will send a VPU_IPC_MSG_METRIC_STREAMER_NOTIFICATION message
-     * after every @notify_sample_count samples is collected or dropped by the VPU.
+     * after every @ref notify_sample_count samples is collected or dropped by the VPU.
      * If set to UINT_MAX the VPU will only generate a notification when the metric
      * buffer is full. If set to 0 the VPU will never generate a notification.
      */
@@ -777,9 +789,9 @@ struct vpu_jsm_metric_streamer_start {
      * Address and size of the buffer where the VPU will write metric data. The
      * VPU writes all counters from enabled metric groups one after another. If
      * there is no space left to write data at the next sample period the VPU
-     * will switch to the next buffer (@see next_buffer_addr) and will optionally
-     * send a notification to the host driver if @notify_sample_count is non-zero.
-     * If @next_buffer_addr is NULL the VPU will stop collecting metric data.
+     * will switch to the next buffer (@ref next_buffer_addr) and will optionally
+     * send a notification to the host driver if @ref notify_sample_count is non-zero.
+     * If @ref next_buffer_addr is NULL the VPU will stop collecting metric data.
      */
     uint64_t buffer_addr;
     uint64_t buffer_size;
@@ -988,6 +1000,15 @@ struct vpu_ipc_msg_payload_hws_priority_band_setup {
      * TDR timeout value in milliseconds. Default value of 0 meaning no timeout.
      */
     uint32_t tdr_timeout;
+    /* Non-interactive queue timeout for no progress of heartbeat in milliseconds.
+     * Default value of 0 meaning no timeout.
+     */
+    uint32_t non_interactive_no_progress_timeout;
+    /*
+     * Non-interactive queue upper limit timeout value in milliseconds. Default
+     * value of 0 meaning no timeout.
+     */
+    uint32_t non_interactive_timeout;
 };
 
 /*
@@ -1351,7 +1372,7 @@ typedef struct vpu_jsm_metric_streamer_done vpu_jsm_metric_streamer_done_t;
 /**
  * Metric group description placed in the metric buffer after successful completion
  * of the VPU_IPC_MSG_METRIC_STREAMER_INFO command. This is followed by one or more
- * @vpu_jsm_metric_counter_descriptor records.
+ * @ref vpu_jsm_metric_counter_descriptor records.
  * @see VPU_IPC_MSG_METRIC_STREAMER_INFO
  */
 struct vpu_jsm_metric_group_descriptor {

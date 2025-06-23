@@ -33,6 +33,9 @@
  *
  * API changelog
  * -------------
+ * 11.10:
+ *   - Increase the minor version number to uniquely identify the UD24 release from earlier versions
+ *
  * 11.9:
  *   - Added VpuManagedMappedInference::model_identifier to enable the compiler to assign a unique identifier
  *     to an inference.
@@ -59,8 +62,8 @@
  *     to allow runtime to efficiently fill barrier FIFOs.
  */
 #define VPU_NNRT_40XX_API_VER_MAJOR 11
-#define VPU_NNRT_40XX_API_VER_MINOR 9
-#define VPU_NNRT_40XX_API_VER_PATCH 2
+#define VPU_NNRT_40XX_API_VER_MINOR 10
+#define VPU_NNRT_40XX_API_VER_PATCH 0
 #define VPU_NNRT_40XX_API_VER ((VPU_NNRT_40XX_API_VER_MAJOR << 16) | VPU_NNRT_40XX_API_VER_MINOR)
 
 /* Index in the API version table, same for all HW generations */
@@ -81,7 +84,7 @@
  *     with the full 32 bit AKI address and NW_PAGE is already correct)
  *
  * 1.9:
- *   - Add NVL clock gating support
+ *   - Add clock gating support
  *
  * 1.8:
  *   - Support Shave Shutdown control message

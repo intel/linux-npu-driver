@@ -29,7 +29,7 @@
  */
 #define VPU_NNRT_37XX_API_VER_MAJOR 7
 #define VPU_NNRT_37XX_API_VER_MINOR 0
-#define VPU_NNRT_37XX_API_VER_PATCH 4
+#define VPU_NNRT_37XX_API_VER_PATCH 5
 #define VPU_NNRT_37XX_API_VER ((VPU_NNRT_37XX_API_VER_MAJOR << 16) | VPU_NNRT_37XX_API_VER_MINOR)
 
 /* Index in the API version table, same for all HW generations */
@@ -197,8 +197,7 @@ static_assert(offsetof(VpuDPUVariant, invariant_index_) % 4 == 0, "Alignment err
 
 struct VPU_ALIGNED_STRUCT(4) VpuResourceRequirements {
     uint32_t nn_slice_length_;
-    uint32_t ddr_scratch_length_;
-    uint8_t reserved[2]; // Reserved due to deprecated member.
+    uint8_t deprecated_[6]; // Deprecated member, do not reuse until next API major version update
     uint8_t nn_slice_count_;
     uint8_t nn_barriers_;
 };
