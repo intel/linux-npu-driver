@@ -15,18 +15,18 @@
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <unordered_map>
+#include <utility>
 
 using namespace VPU;
 
-VPUInferenceExecute::VPUInferenceExecute(
-    std::shared_ptr<L0::ElfParser> &parser,
-    std::shared_ptr<elf::HostParsedInference> &hpi,
-    const std::vector<std::pair<const void *, uint32_t>> &inputs,
-    const std::vector<std::pair<const void *, uint32_t>> &outputs,
-    L0::GraphProfilingQuery *profilingQuery,
-    uint64_t inferenceId,
-    std::vector<std::shared_ptr<VPUBufferObject>> &bos,
-    size_t argumentPosition)
+VPUInferenceExecute::VPUInferenceExecute(std::shared_ptr<L0::ElfParser> &parser,
+                                         std::shared_ptr<elf::HostParsedInference> &hpi,
+                                         const std::vector<const void *> &inputs,
+                                         const std::vector<const void *> &outputs,
+                                         L0::GraphProfilingQuery *profilingQuery,
+                                         uint64_t inferenceId,
+                                         std::vector<std::shared_ptr<VPUBufferObject>> &bos,
+                                         size_t argumentPosition)
     : parser(parser)
     , hpi(hpi)
     , inputs(inputs)
@@ -50,8 +50,8 @@ VPUInferenceExecute::VPUInferenceExecute(
 std::shared_ptr<VPUInferenceExecute>
 VPUInferenceExecute::create(std::shared_ptr<L0::ElfParser> parser,
                             std::shared_ptr<elf::HostParsedInference> &cmdHpi,
-                            const std::vector<std::pair<const void *, uint32_t>> &inputPtrs,
-                            const std::vector<std::pair<const void *, uint32_t>> &outputPtrs,
+                            const std::vector<const void *> &inputPtrs,
+                            const std::vector<const void *> &outputPtrs,
                             L0::GraphProfilingQuery *profilingQuery,
                             uint64_t inferenceId,
                             std::vector<std::shared_ptr<VPUBufferObject>> &bos) {
@@ -85,9 +85,9 @@ bool VPUInferenceExecute::setUpdates(const ArgumentUpdatesMap &updatesMap) {
         }
 
         if (argIndex < numInputArgs) {
-            inputs[argIndex].first = newArg;
+            inputs[argIndex] = newArg;
         } else {
-            outputs[argIndex - numInputArgs].first = newArg;
+            outputs[argIndex - numInputArgs] = newArg;
         }
     }
 

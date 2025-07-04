@@ -31,7 +31,7 @@ struct VPUDeviceTest : public ::testing::Test {
     std::unique_ptr<MockVPUDevice> vpuDevice = MockVPUDevice::createWithDefaultHardwareInfo(osInfc);
     std::shared_ptr<MockVPUDeviceContext> ctx = vpuDevice->createMockDeviceContext();
     std::unique_ptr<VPUDeviceQueue> queue =
-        VPUDeviceQueue::create(ctx.get(), VPUDeviceQueue::Priority::NORMAL);
+        VPUDeviceQueue::create(ctx.get(), VPUDeviceQueue::Priority::NORMAL, false);
 };
 
 TEST_F(VPUDeviceTest, jobSubmissionTriggersIoctls) {

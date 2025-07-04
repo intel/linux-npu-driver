@@ -178,8 +178,8 @@ class UmdTest : public ::testing::Test {
     uint16_t pciDevId = 0u;
     uint32_t platformType = 0u;
 
-    uint64_t syncTimeout = 0ULL;
-    uint64_t graphSyncTimeout = 0ULL;
+    uint64_t syncTimeout = 2'000'000'000ULL;
+    uint64_t graphSyncTimeout = UINT64_MAX;
 
   private:
     zeScope::SharedPtr<ze_context_handle_t> scopedContext;

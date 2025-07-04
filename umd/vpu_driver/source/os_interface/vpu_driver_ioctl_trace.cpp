@@ -178,7 +178,7 @@ static std::string struct_drm_ivpu_cmdq_create_to_str(const drm_ivpu_cmdq_create
     std::ostringstream oss;
     oss << "(cmdq_id: " << cmdq_create->cmdq_id << ", "
         << "priority: " << struct_drm_ivpu_job_priority_to_str(cmdq_create->priority) << " ("
-        << cmdq_create->priority << "))";
+        << cmdq_create->priority << "), " << "flags: " << cmdq_create->flags << ")";
     return oss.str();
 }
 

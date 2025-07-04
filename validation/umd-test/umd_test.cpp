@@ -94,12 +94,11 @@ void UmdTest::SetUp() {
         CommandQueueGroupSetUpGpu(zeDeviceGpu, computeGrpOrdinalGpu, copyGrpOrdinalGpu);
     }
 
-    if (!isSilicon()) {
-        syncTimeout = 30'000'000'000;       // 30 seconds
-        graphSyncTimeout = 600'000'000'000; // 10 minutes
-    } else {
-        syncTimeout = testEnv->getSyncTimeout();
-        graphSyncTimeout = syncTimeout;
+    if (testEnv->getUserSyncTimeoutNs()) {
+        syncTimeout = testEnv->getUserSyncTimeoutNs();
+        graphSyncTimeout = testEnv->getUserSyncTimeoutNs();
+    } else if (!isSilicon()) {
+        syncTimeout = 30'000'000'000; // 30 seconds
     }
 
     /*Get base configuration from config file*/

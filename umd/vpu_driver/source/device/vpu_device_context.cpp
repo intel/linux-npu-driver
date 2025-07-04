@@ -49,7 +49,7 @@ VPUDeviceContext::importBufferObject(VPUBufferObject::Location type, int32_t fd)
     void *ptr = bo->getBasePointer();
 
     const std::lock_guard<std::mutex> lock(mtx);
-    auto [it, success] = trackedBuffers.try_emplace(ptr, std::move(bo));
+    auto [it, success] = trackedBuffers.emplace(ptr, std::move(bo));
     if (!success) {
         LOG_E("Failed to add buffer object to trackedBuffers");
         return nullptr;
@@ -78,7 +78,7 @@ VPUDeviceContext::createBufferObject(size_t size,
         bo->getVPUAddr());
 
     const std::lock_guard<std::mutex> lock(mtx);
-    auto [it, success] = trackedBuffers.try_emplace(bo->getBasePointer(), std::move(bo));
+    auto [it, success] = trackedBuffers.emplace(bo->getBasePointer(), std::move(bo));
     if (!success) {
         LOG_E("Failed to add buffer object to trackedBuffers");
         return nullptr;

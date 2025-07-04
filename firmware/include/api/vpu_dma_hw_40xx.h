@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (c) 2022-2023, Intel Corporation.
+ * Copyright (c) 2022-2025, Intel Corporation.
  */
 
 /**
@@ -19,6 +19,17 @@
  * members, please update VPU_NNRT_40XX_API_VER_MAJOR & VPU_NNRT_40XX_API_VER_MINOR in
  * vpu_nnrt_api_40xx.h. This allows the NNRuntime to detect old MappedInferences.
  */
+
+#define DMA_DESC_CFG_INT_ID_WID (8)
+#define DMA_DESC_CFG_BARR_EN_WID (1)
+#define DMA_DESC_LINK_ADDR_WID (48)
+#define DMA_DESC_SRC_DYN_SIZE_CFG_WID (2)
+#define DMA_DESC_DST_DYN_SIZE_CFG_WID (2)
+#define DMA_DESC_SRC_WID (48)
+#define DMA_DESC_DST_WID (48)
+#define DMA_DESC_LRA_WID (1)
+#define DMA_DESC_SRA_WID (1)
+#define DMA_DESC_DRA_WID (1)
 
 // Engine ID enum
 typedef enum {
@@ -250,45 +261,45 @@ typedef union {
 
 // Descriptor configuration fields struct
 typedef struct {
-    uint64_t num_dim : 3;           // Number of dimensions enabled on descriptor
-    uint64_t int_en : 1;            // Interrupt enable
-    uint64_t int_id : 8;            // Interrupt ID [0,127] for physical, [128,255] for virtual
-    uint64_t src_burst_length : 4;  // Number of consecutive accesses requests
-                                    // towards CMX or NoC (via the AXI interface)
-                                    // for which the DMA-channel owns the bus to read
-                                    // the source
-    uint64_t dst_burst_length : 4;  // Number of consecutive accesses requests
-                                    // towards CMX or NoC (via the AXI interface)
-                                    // for which the DMA-channel owns the bus to write
-                                    // the destination
-    uint64_t arb_qos : 8;           // Number of arbitration runs a JOB can lose before
-                                    // becoming high priority. 0 indicates a high priority
-                                    // JOB directly
-    uint64_t ord : 1;               // Forces JOB execution in JOB List order. Next JOB on list can only
-                                    // execute once previous JOB on list has completed
-    uint64_t barrier_en : 1;        // Barrier use enable
-    uint64_t memset_en : 1;         // Memory Set Enable. Uses a 32 bit pattern as constant source data
-                                    // for writes
-    uint64_t atp_en : 1;            // Address Translation Prefetch Enable. Enables generation of TLB
-                                    // prefetch requests
-    uint64_t watermark_en : 1;      // Job watermark enable
-    uint64_t rwf_en : 1;            // Remote Width Fetch Enable
-    uint64_t rws_en : 1;            // Remote Width Store Enable
-    uint64_t src_list_cfg : 2;      // Source List Configuration. JOB to read data from
-                                    // addresses computed using a memory source index list
-    uint64_t dst_list_cfg : 2;      // Destination  List Configuration. JOB to read data from
-                                    // addresses computed using a memory source index list
-    uint64_t conversion_cfg : 3;    // Data Format Conversion Configuration. CDMA to process
-                                    // data during transfer
-    uint64_t acceleration_cfg : 2;  // Acceleration Modules Configuration. CDMA to process
-                                    // data during transfer
-    uint64_t tile4_cfg : 2;         // Configuration for Tile4 Layout
-    uint64_t axi_user_bits_cfg : 2; // Configuration for AXI User Bits
-    uint64_t hwp_id_en : 1;         // Enable use of SW provided ID for HW profiling
-    uint64_t hwp_id : 12;           // ID for HW profiling (if feature is set)
-    uint64_t hwp_skip : 1;
-    uint64_t dynamic_task_en : 1;   // Enable Dynamic tasks
-    uint64_t ptr_wr_en : 1;         // Enable Descriptor Pointer Write
+    uint64_t num_dim : 3;                           // Number of dimensions enabled on descriptor
+    uint64_t int_en : 1;                            // Interrupt enable
+    uint64_t int_id : DMA_DESC_CFG_INT_ID_WID;      // Interrupt ID [0,127] for physical, [128,255] for virtual
+    uint64_t src_burst_length : 4;                  // Number of consecutive accesses requests
+                                                    // towards CMX or NoC (via the AXI interface)
+                                                    // for which the DMA-channel owns the bus to read
+                                                    // the source
+    uint64_t dst_burst_length : 4;                  // Number of consecutive accesses requests
+                                                    // towards CMX or NoC (via the AXI interface)
+                                                    // for which the DMA-channel owns the bus to write
+                                                    // the destination
+    uint64_t arb_qos : 8;                           // Number of arbitration runs a JOB can lose before
+                                                    // becoming high priority. 0 indicates a high priority
+                                                    // JOB directly
+    uint64_t ord : 1;                               // Forces JOB execution in JOB List order. Next JOB on list can only
+                                                    // execute once previous JOB on list has completed
+    uint64_t barrier_en : DMA_DESC_CFG_BARR_EN_WID; // Barrier use enable
+    uint64_t memset_en : 1;                         // Memory Set Enable. Uses a 32 bit pattern as constant source data
+                                                    // for writes
+    uint64_t atp_en : 1;                            // Address Translation Prefetch Enable. Enables generation of TLB
+                                                    // prefetch requests
+    uint64_t watermark_en : 1;                      // Job watermark enable
+    uint64_t rwf_en : 1;                            // Remote Width Fetch Enable
+    uint64_t rws_en : 1;                            // Remote Width Store Enable
+    uint64_t src_list_cfg : 2;                      // Source List Configuration. JOB to read data from
+                                                    // addresses computed using a memory source index list
+    uint64_t dst_list_cfg : 2;                      // Destination  List Configuration. JOB to read data from
+                                                    // addresses computed using a memory source index list
+    uint64_t conversion_cfg : 3;                    // Data Format Conversion Configuration. CDMA to process
+                                                    // data during transfer
+    uint64_t acceleration_cfg : 2;                  // Acceleration Modules Configuration. CDMA to process
+                                                    // data during transfer
+    uint64_t tile4_cfg : 2;                         // Configuration for Tile4 Layout
+    uint64_t axi_user_bits_cfg : 2;                 // Configuration for AXI User Bits
+    uint64_t hwp_id_en : 1;                         // Enable use of SW provided ID for HW profiling
+    uint64_t hwp_id : 12;                           // ID for HW profiling (if feature is set)
+    uint64_t hwp_skip : 1;                          // skip hw log generation of given descriptor
+    uint64_t dynamic_task_en : 1;                   // Enable Dynamic tasks
+    uint64_t ptr_wr_en : 1;                         // Enable Descriptor Pointer Write
 } DmaConfigFields;
 
 typedef struct ALIGN_DMA(DMA_L2CACHE_ALIGNMENT) {
@@ -296,9 +307,9 @@ typedef struct ALIGN_DMA(DMA_L2CACHE_ALIGNMENT) {
         uint64_t link_addr_offsetof; // Used by the compiler to get the offset of the link_address field
         uint64_t watermark : 1;      // Watermark to indicate that the job has completed
         struct {
-            uint64_t link_address : 48; // Pointer to the next element in linked list
-            uint64_t rsvd1 : 15;        // Reserved
-            uint64_t lra : 1;           // Link Relative Address. Base address fetched from LBA_ADDR
+            uint64_t link_address : DMA_DESC_LINK_ADDR_WID; // Pointer to the next element in linked list
+            uint64_t rsvd1 : 15;                            // Reserved
+            uint64_t lra : DMA_DESC_LRA_WID;                // Link Relative Address. Base address fetched from LBA_ADDR
         };
     };
     uint32_t lba_addr; // CMX address to the location of the Base Address for Relative Addressing options
@@ -324,17 +335,17 @@ typedef struct ALIGN_DMA(DMA_L2CACHE_ALIGNMENT) {
     union {
         uint64_t src_offsetof; // Used by the compiler to get the offset of the src field
         struct {
-            uint64_t src : 48;   // Address of the data transfer source (48 bits, byte-aligned)
-            uint64_t rsvd4 : 15; // Reserved
-            uint64_t sra : 1;    // Source Relative Address. Base address fetched from SBA_ADDR
+            uint64_t src : DMA_DESC_SRC_WID; // Address of the data transfer source (48 bits, byte-aligned)
+            uint64_t rsvd4 : 15;             // Reserved
+            uint64_t sra : DMA_DESC_SRA_WID; // Source Relative Address. Base address fetched from SBA_ADDR
         };
     };
     union {
         uint64_t dst_offsetof; // Used by the compiler to get the offset of the dst field
         struct {
-            uint64_t dst : 48;   // Address of the data transfer destination (48 bits, byte-aligned)
-            uint64_t rsvd5 : 15; // Reserved
-            uint64_t dra : 1;    // Destination Relative Address. Base address fetched from DBA_ADDR
+            uint64_t dst : DMA_DESC_DST_WID; // Address of the data transfer destination (48 bits, byte-aligned)
+            uint64_t rsvd5 : 15;             // Reserved
+            uint64_t dra : DMA_DESC_DRA_WID; // Destination Relative Address. Base address fetched from DBA_ADDR
         };
     };
     uint32_t sba_addr;     // Source CMX address to the Base Address for Relative Addressing
@@ -375,28 +386,28 @@ typedef struct ALIGN_DMA(DMA_L2CACHE_ALIGNMENT) {
         uint32_t remote_width_store; // Remote width store
         uint32_t stride_dst_2;       // Destination stride 3D
     };
-    uint16_t dim_size_src_3;       // Source dimension size 4D
-    uint16_t dim_size_src_4;       // Source dimension size 5D
-    uint16_t dim_size_dst_3;       // Destination stride 4D
-    uint16_t dim_size_dst_4;       // Destination stride 5D
-    uint16_t dim_size_src_5;       // Source dimension size 6D
-    uint16_t src_dyn_size_cfg : 2; // Dynamic task source dimension configuration
-    uint16_t rsvd6 : 14;           // Reserved
-    uint16_t dim_size_dst_5;       // Destination stride 6D
-    uint16_t dst_dyn_size_cfg : 2; // Dynamic task destination dimension configuration
-    uint16_t rsvd7 : 14;           // Reserved
-    uint32_t stride_src_3;         // Source stride 4D
-    uint32_t stride_dst_3;         // Destination stride 4D
-    uint32_t stride_src_4;         // Source stride 5D
-    uint32_t stride_dst_4;         // Destination stride 5D
-    uint32_t stride_src_5;         // Source stride 6D
-    uint32_t stride_dst_5;         // Destination stride 6D
-    uint16_t task_dyn_id;          // Dynamic task phase ID
-    uint16_t rsvd8;                // Reserved
-    uint32_t task_dyn_addr;        // Dynamic Task address
-    uint32_t ptr_wr_addr;          // Address used to write the Task Descriptor pointer
-    uint32_t rsvd9;                // Reserved
-    uint64_t pad[1];               // Padding to make all descriptors 32-Byte aligned
+    uint16_t dim_size_src_3;                                   // Source dimension size 4D
+    uint16_t dim_size_src_4;                                   // Source dimension size 5D
+    uint16_t dim_size_dst_3;                                   // Destination stride 4D
+    uint16_t dim_size_dst_4;                                   // Destination stride 5D
+    uint16_t dim_size_src_5;                                   // Source dimension size 6D
+    uint16_t src_dyn_size_cfg : DMA_DESC_SRC_DYN_SIZE_CFG_WID; // Dynamic task source dimension configuration
+    uint16_t rsvd6 : 14;                                       // Reserved
+    uint16_t dim_size_dst_5;                                   // Destination stride 6D
+    uint16_t dst_dyn_size_cfg : DMA_DESC_DST_DYN_SIZE_CFG_WID; // Dynamic task destination dimension configuration
+    uint16_t rsvd7 : 14;                                       // Reserved
+    uint32_t stride_src_3;                                     // Source stride 4D
+    uint32_t stride_dst_3;                                     // Destination stride 4D
+    uint32_t stride_src_4;                                     // Source stride 5D
+    uint32_t stride_dst_4;                                     // Destination stride 5D
+    uint32_t stride_src_5;                                     // Source stride 6D
+    uint32_t stride_dst_5;                                     // Destination stride 6D
+    uint16_t task_dyn_id;                                      // Dynamic task phase ID
+    uint16_t rsvd8;                                            // Reserved
+    uint32_t task_dyn_addr;                                    // Dynamic Task address
+    uint32_t ptr_wr_addr;                                      // Address used to write the Task Descriptor pointer
+    uint32_t rsvd9;                                            // Reserved
+    uint64_t pad[1];                                           // Padding to make all descriptors 32-Byte aligned
 } DmaDescriptor;
 
 static_assert(sizeof(DmaDescriptor) == 192, "DmaDescriptor size != 192");

@@ -29,18 +29,11 @@ struct DeviceContextTest : public ::testing::Test {
     void SetUp() override {
         // Make sure no other tracking buffers exist in MM.
         ASSERT_EQ(ctx->getBuffersCount(), 0u);
-        cmdBufferHeader.kernel_heap_base_address = 0;
-        cmdBufferHeader.descriptor_heap_base_address = 0;
     }
 
     void TearDown() override {
         // No tracking memory should be left.
         ASSERT_EQ(ctx->getBuffersCount(), 0u);
-    }
-
-    uint64_t getOffset(uint64_t ptr, uint64_t base) {
-        EXPECT_GE(ptr, base);
-        return ptr - base;
     }
 
     void checkOffsets(std::vector<std::shared_ptr<VPUCommand>> &commands,
@@ -49,8 +42,7 @@ struct DeviceContextTest : public ::testing::Test {
         size_t expDescOffset = 0;
         if (descBuffer.get()) {
             descTail = descBuffer->getBasePointer();
-            expDescOffset = getOffset(descBuffer->getVPUAddr(descTail),
-                                      cmdBufferHeader.descriptor_heap_base_address);
+            expDescOffset = descBuffer->getVPUAddr(descTail);
         }
 
         for (auto &cmd : commands) {

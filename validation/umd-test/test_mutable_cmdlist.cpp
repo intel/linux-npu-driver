@@ -120,7 +120,6 @@ class MutableCmdList : public UmdTest {
   public:
     void SetUp() override {
         UmdTest::SetUp();
-
         ze_mutable_command_list_exp_properties_t mutableCmdListProps{
             .stype = ZE_STRUCTURE_TYPE_MUTABLE_COMMAND_LIST_EXP_PROPERTIES,
             .pNext = nullptr,
@@ -276,7 +275,7 @@ TEST_F(MutableCmdList, UpdateGraphFirstInput) {
     result = zeCommandQueueExecuteCommandLists(queue, 1, &commandList, nullptr);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
-    result = zeCommandQueueSynchronize(queue, syncTimeout);
+    result = zeCommandQueueSynchronize(queue, graphSyncTimeout);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
     verifyOutputs(graph->inArgs, graph->outArgs, graph->outputSize[0]);
@@ -313,7 +312,7 @@ TEST_F(MutableCmdList, UpdateGraphFirstInput) {
     result = zeCommandQueueExecuteCommandLists(queue, 1, &commandList, nullptr);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
-    result = zeCommandQueueSynchronize(queue, syncTimeout);
+    result = zeCommandQueueSynchronize(queue, graphSyncTimeout);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
     verifyOutputs({newInput0, graph->inArgs[1], graph->inArgs[2]},
@@ -369,7 +368,7 @@ TEST_F(MutableCmdList, UpdateGraphInputsAndOutputs) {
     result = zeCommandQueueExecuteCommandLists(queue, 1, &commandList, nullptr);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
-    result = zeCommandQueueSynchronize(queue, syncTimeout);
+    result = zeCommandQueueSynchronize(queue, graphSyncTimeout);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
     verifyOutputs(graph->inArgs, graph->outArgs, graph->outputSize[0]);
@@ -426,7 +425,7 @@ TEST_F(MutableCmdList, UpdateGraphInputsAndOutputs) {
     result = zeCommandQueueExecuteCommandLists(queue, 1, &commandList, nullptr);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
-    result = zeCommandQueueSynchronize(queue, syncTimeout);
+    result = zeCommandQueueSynchronize(queue, graphSyncTimeout);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
     verifyOutputs({graph->inArgs[0], newInput1, newInput2},
@@ -510,7 +509,7 @@ TEST_F(MutableCmdList, UpdateTwoGraphsInSingleCmdList) {
     result = zeCommandQueueExecuteCommandLists(queue, 1, &commandList, nullptr);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
-    result = zeCommandQueueSynchronize(queue, syncTimeout);
+    result = zeCommandQueueSynchronize(queue, graphSyncTimeout);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
     verifyOutputs(graph1->inArgs, graph1->outArgs, graph1->outputSize[0]);
@@ -558,7 +557,7 @@ TEST_F(MutableCmdList, UpdateTwoGraphsInSingleCmdList) {
     result = zeCommandQueueExecuteCommandLists(queue, 1, &commandList, nullptr);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
-    result = zeCommandQueueSynchronize(queue, syncTimeout);
+    result = zeCommandQueueSynchronize(queue, graphSyncTimeout);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
     verifyOutputs({graph1->inArgs[0], newInput1Graph1, graph1->inArgs[2]},
@@ -619,7 +618,7 @@ TEST_F(MutableCmdList, UpdateGraphTwice) {
     result = zeCommandQueueExecuteCommandLists(queue, 1, &commandList, nullptr);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
-    result = zeCommandQueueSynchronize(queue, syncTimeout);
+    result = zeCommandQueueSynchronize(queue, graphSyncTimeout);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
     verifyOutputs(graph->inArgs, graph->outArgs, graph->outputSize[0]);
@@ -652,7 +651,7 @@ TEST_F(MutableCmdList, UpdateGraphTwice) {
     result = zeCommandQueueExecuteCommandLists(queue, 1, &commandList, nullptr);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
-    result = zeCommandQueueSynchronize(queue, syncTimeout);
+    result = zeCommandQueueSynchronize(queue, graphSyncTimeout);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
     verifyOutputs({newInput0, graph->inArgs[1], graph->inArgs[2]},
@@ -687,7 +686,7 @@ TEST_F(MutableCmdList, UpdateGraphTwice) {
     result = zeCommandQueueExecuteCommandLists(queue, 1, &commandList, nullptr);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
-    result = zeCommandQueueSynchronize(queue, syncTimeout);
+    result = zeCommandQueueSynchronize(queue, graphSyncTimeout);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
     verifyOutputs({newInput0, newInput1, graph->inArgs[2]}, graph->outArgs, graph->outputSize[0]);
@@ -855,7 +854,7 @@ TEST_F(MutableCmdList, MutateGraphExecuteInMultipleCommandList) {
         result = zeCommandQueueExecuteCommandLists(queue, 1, &cmdList, nullptr);
         ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
-        result = zeCommandQueueSynchronize(queue, syncTimeout);
+        result = zeCommandQueueSynchronize(queue, graphSyncTimeout);
         ASSERT_EQ(ZE_RESULT_SUCCESS, result);
 
         verifyOutputs(graph->inArgs, graph->outArgs, graph->outputSize[0]);
@@ -927,7 +926,7 @@ TEST_F(MutableCmdList, MutateGraphExecuteInMultipleCommandList) {
         result = zeCommandQueueExecuteCommandLists(queue, 1, &cmdList, nullptr);
         ASSERT_EQ(ZE_RESULT_SUCCESS, result) << "Failed to execute using cmdlist " << i;
 
-        result = zeCommandQueueSynchronize(queue, syncTimeout);
+        result = zeCommandQueueSynchronize(queue, graphSyncTimeout);
         ASSERT_EQ(ZE_RESULT_SUCCESS, result) << "Failed to synchronize using cmdlist " << i;
 
         verifyOutputs(graph->inArgs, graph->outArgs, graph->outputSize[0]);

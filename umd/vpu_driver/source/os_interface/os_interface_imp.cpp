@@ -134,7 +134,7 @@ class OsFileImp : public OsFile {
         : writeAccess(writeAccess) {
         int flags = O_RDONLY;
         if (writeAccess) {
-            flags = O_CREAT | O_RDWR | O_TRUNC;
+            flags = O_CREAT | O_RDWR | O_TRUNC | O_EXCL;
         }
 
         fd = ::open(path.c_str(), flags | O_CLOEXEC | O_NOFOLLOW, S_IRUSR | S_IRGRP);
@@ -156,7 +156,7 @@ class OsFileImp : public OsFile {
         }
 
         fileSize = safe_cast<size_t>(fstatInfo.st_size);
-        LOG(FSYS, "OsFileImp - path: %p, fd: %i, fileSize: %lu", path.c_str(), fd, fileSize);
+        LOG(FSYS, "OsFileImp::ctor - path: %s, fd: %i, fileSize: %lu", path.c_str(), fd, fileSize);
     }
 
     ~OsFileImp() override {
@@ -165,6 +165,8 @@ class OsFileImp : public OsFile {
 
         if (isOpen())
             ::close(fd);
+
+        LOG(FSYS, "OsFileImp::dtor - fd: %i, fileSize: %lu", fd, fileSize);
     }
 
     OsFileImp(const OsFileImp &) = delete;

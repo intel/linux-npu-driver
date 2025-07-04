@@ -183,6 +183,29 @@ TEST_F(UapiMem, BoMmapNegative) {
     EXPECT_EQ(munmap(ptr, BUF_SIZE), 0);
 }
 
+/* This test can potentially generate a kernel warning or a memory leak
+   if the bo_close() function is not thread-safe and the buffer can be closed
+   while it is being created. */
+TEST_F(UapiMem, DISABLED_BoClosedDuringCreate) {
+    uint32_t handle;
+    uint64_t vpu_addr;
+
+    ASSERT_EQ(ctx.bo_create(4 * KB, 0, &handle, &vpu_addr), 0);
+    ASSERT_EQ(handle, 1);
+    ASSERT_EQ(ctx.bo_close(handle), 0);
+
+    test_app::thread close_thread([&close_thread]() {
+        while (!close_thread.stop_requested()) {
+            ctx.bo_close(1);
+        }
+    });
+
+    for (int i = 0; i < 100; i++) {
+        ASSERT_EQ(ctx.bo_create(4 * KB, 0, &handle, &vpu_addr), 0);
+        ctx.bo_close(handle);
+    }
+}
+
 INSTANTIATE_TEST_SUITE_P(
     ,
     UapiMem,

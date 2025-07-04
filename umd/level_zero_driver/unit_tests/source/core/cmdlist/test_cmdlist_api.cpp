@@ -433,8 +433,24 @@ TEST_F(CommandListGraphApiTest,
     result = commandList->appendGraphInitialize(hGraph, event1, 1u, &event0);
     EXPECT_EQ(ZE_RESULT_SUCCESS, result);
 
-    EXPECT_EQ(ZE_RESULT_SUCCESS, pGraph->setArgumentValue(0, reinterpret_cast<void *>(ptrAlloc)));
-    EXPECT_EQ(ZE_RESULT_SUCCESS, pGraph->setArgumentValue(1, reinterpret_cast<void *>(ptrAlloc2)));
+    // The value depends on the buffer size returned by the elf loader
+    const size_t argsAllocSize = 147 * 1024;
+
+    uint64_t *inPtrAlloc =
+        reinterpret_cast<uint64_t *>(ctx->createMemAlloc(argsAllocSize,
+                                                         VPU::VPUBufferObject::Type::CachedFw,
+                                                         VPU::VPUBufferObject::Location::Shared));
+
+    uint64_t *outPtrAlloc =
+        reinterpret_cast<uint64_t *>(ctx->createMemAlloc(argsAllocSize,
+                                                         VPU::VPUBufferObject::Type::CachedFw,
+                                                         VPU::VPUBufferObject::Location::Shared));
+    ASSERT_NE(nullptr, inPtrAlloc);
+    ASSERT_NE(nullptr, outPtrAlloc);
+
+    EXPECT_EQ(ZE_RESULT_SUCCESS, pGraph->setArgumentValue(0, reinterpret_cast<void *>(inPtrAlloc)));
+    EXPECT_EQ(ZE_RESULT_SUCCESS,
+              pGraph->setArgumentValue(1, reinterpret_cast<void *>(outPtrAlloc)));
 
     result = commandList->appendGraphExecute(hGraph, nullptr, nullptr, 0u, nullptr);
     ASSERT_EQ(ZE_RESULT_SUCCESS, result);
@@ -448,6 +464,9 @@ TEST_F(CommandListGraphApiTest,
     EXPECT_EQ(ZE_RESULT_SUCCESS, result);
     result = commandList->appendGraphExecute(hGraph, nullptr, event1, 1u, &event0);
     EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+
+    EXPECT_TRUE(ctx->freeMemAlloc(inPtrAlloc));
+    EXPECT_TRUE(ctx->freeMemAlloc(outPtrAlloc));
 }
 
 TEST_F(CommandListGraphApiTest,
@@ -469,8 +488,24 @@ TEST_F(CommandListGraphApiTest,
     result = commandList->reset();
     EXPECT_EQ(ZE_RESULT_SUCCESS, result);
 
-    pGraph->setArgumentValue(0, reinterpret_cast<void *>(ptrAlloc));
-    pGraph->setArgumentValue(1, reinterpret_cast<void *>(ptrAlloc2));
+    // The value depends on the buffer size returned by the elf loader
+    const size_t argsAllocSize = 147 * 1024;
+
+    uint64_t *inPtrAlloc =
+        reinterpret_cast<uint64_t *>(ctx->createMemAlloc(argsAllocSize,
+                                                         VPU::VPUBufferObject::Type::CachedFw,
+                                                         VPU::VPUBufferObject::Location::Shared));
+
+    uint64_t *outPtrAlloc =
+        reinterpret_cast<uint64_t *>(ctx->createMemAlloc(argsAllocSize,
+                                                         VPU::VPUBufferObject::Type::CachedFw,
+                                                         VPU::VPUBufferObject::Location::Shared));
+    ASSERT_NE(nullptr, inPtrAlloc);
+    ASSERT_NE(nullptr, outPtrAlloc);
+
+    EXPECT_EQ(ZE_RESULT_SUCCESS, pGraph->setArgumentValue(0, reinterpret_cast<void *>(inPtrAlloc)));
+    EXPECT_EQ(ZE_RESULT_SUCCESS,
+              pGraph->setArgumentValue(1, reinterpret_cast<void *>(outPtrAlloc)));
 
     result = commandList->appendGraphExecute(hGraph, nullptr, nullptr, 0u, nullptr);
     EXPECT_EQ(ZE_RESULT_SUCCESS, result);
@@ -485,6 +520,9 @@ TEST_F(CommandListGraphApiTest,
 
     result = commandQueue->destroy();
     EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+
+    EXPECT_TRUE(ctx->freeMemAlloc(inPtrAlloc));
+    EXPECT_TRUE(ctx->freeMemAlloc(outPtrAlloc));
 }
 
 struct CommandListEventApiTest : Test<CommandListFixture> {

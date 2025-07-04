@@ -55,7 +55,7 @@ static size_t getCacheMaxSize() {
         return val;
     }
     constexpr size_t GB = 1024 * 1024 * 1024;
-    return 2 * GB;
+    return 4 * GB;
 }
 
 DiskCache::DiskCache(VPU::OsInterface &osInfc)
@@ -148,7 +148,7 @@ std::unique_ptr<BlobContainer> DiskCache::getBlob(const Key &key) {
 
     LOG(CACHE, "Cache hit using %s key", filename.c_str());
     return std::make_unique<BlobFileContainer>(static_cast<uint8_t *>(file->mmap()),
-                                               file->size(),
+                                               file->size() - HashSha1::DigestLength,
                                                std::move(file));
 }
 

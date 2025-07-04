@@ -41,6 +41,26 @@ class GraphApiBase : public UmdTest {
     std::vector<zeScope::SharedPtr<ze_command_list_handle_t>> lists;
 };
 
+TEST_F(GraphApiBase, GetDeviceGraphProperties) {
+    ze_device_graph_properties_t graphProperties = {};
+    graphProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
+    EXPECT_EQ(zeGraphDDITableExt->pfnDeviceGetGraphProperties(zeDevice, &graphProperties),
+              ZE_RESULT_SUCCESS);
+
+    ze_device_graph_properties_2_t graphProperties2 = {};
+    graphProperties2.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
+    EXPECT_EQ(zeGraphDDITableExt->pfnDeviceGetGraphProperties2(zeDevice, &graphProperties2),
+              ZE_RESULT_SUCCESS);
+
+    EXPECT_EQ(memcmp(&graphProperties, &graphProperties2, sizeof(graphProperties)), 0);
+    EXPECT_GT(graphProperties2.graphExtensionVersion, 0);
+    EXPECT_GT(graphProperties2.compilerVersion.major, 0);
+    EXPECT_GT(graphProperties2.compilerVersion.minor, 0);
+    EXPECT_GT(graphProperties2.graphFormatsSupported, 0);
+    EXPECT_GT(graphProperties2.elfVersion.major, 0);
+    EXPECT_GT(graphProperties2.runtimeVersion.major, 0);
+}
+
 TEST_F(GraphApiBase, GetProfilingDataPropertiesExpectSuccess) {
     ze_device_profiling_data_properties_t profProp = {};
     profProp.stype = ZE_STRUCTURE_TYPE_DEVICE_PROFILING_DATA_PROPERTIES;
@@ -84,8 +104,7 @@ TEST_F(GraphApiBase, GetDriverProperties) {
     TRACE("Driver supported options: %s\n", options.c_str());
 }
 
-// TODO: Enable test after compiler-in-driver with VCL API 7.2 is used
-TEST_F(GraphApiBase, DISABLED_GetCompilerProperties) {
+TEST_F(GraphApiBase, GetCompilerProperties) {
     size_t size = 0;
     EXPECT_EQ(zeGraphDDITableExt->pfnCompilerGetSupportedOptions(zeDevice,
                                                                  ZE_NPU_COMPILER_OPTIONS,
@@ -104,8 +123,7 @@ TEST_F(GraphApiBase, DISABLED_GetCompilerProperties) {
     TRACE("Compiler supported options: %s\n", options.c_str());
 }
 
-// TODO: Enable test after compiler-in-driver with VCL API 7.2 is used
-TEST_F(GraphApiBase, DISABLED_IsCompilerOptionSupported) {
+TEST_F(GraphApiBase, IsCompilerOptionSupported) {
     const char *option = "PERF_COUNT";
     EXPECT_EQ(zeGraphDDITableExt->pfnCompilerIsOptionSupported(zeDevice,
                                                                ZE_NPU_COMPILER_OPTIONS,
@@ -120,12 +138,14 @@ TEST_F(GraphApiBase, DISABLED_IsCompilerOptionSupported) {
                                                                nullptr),
               ZE_RESULT_SUCCESS);
 
-    const char *logLevelValue = "LOG_INFO";
+    /*
+     * TODO: The compiler does not support passing value to vclGetCompilerIsOptionSupported in 7.3
     EXPECT_EQ(zeGraphDDITableExt->pfnCompilerIsOptionSupported(zeDevice,
                                                                ZE_NPU_COMPILER_OPTIONS,
                                                                option,
                                                                logLevelValue),
               ZE_RESULT_SUCCESS);
+      */
 
     option = "NON_EXISTING";
     EXPECT_EQ(zeGraphDDITableExt->pfnCompilerIsOptionSupported(zeDevice,

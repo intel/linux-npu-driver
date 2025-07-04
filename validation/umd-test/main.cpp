@@ -15,7 +15,7 @@ bool forceGpu;
 bool disable_metrics;
 bool forceDmaHeap;
 bool forceZeInitTests;
-uint32_t globalSyncTimeoutMs;
+int userRequestedTimeoutMs;
 } // namespace test_vars
 
 static void setConfig(const char *optarg) {
@@ -48,7 +48,7 @@ static void forceAllTests(const char *) {
 }
 
 static void forceSyncTimeout(const char *arg) {
-    test_vars::globalSyncTimeoutMs = atoi(arg);
+    test_vars::userRequestedTimeoutMs = atoi(arg);
 }
 
 static void forceZeInitTests(const char *) {
@@ -67,7 +67,7 @@ const char *helpMsg = "  -c/--config [CONFIGURATION_PATH]\n"
                       "       Run tests that requires /dev/dma_heap/system\n"
                       "  -I/--ze-init-tests\n"
                       "       Run tests that use zeInit and zeInitDrivers\n"
-                      "  -T/--wait_timeout\n"
+                      "  -T/--sync_timeout\n"
                       "       Change timeout used for synchronization operations [ms] \n"
                       "  -A/--all\n"
                       "       Run all conditional tests(includes dma-heap)\n";

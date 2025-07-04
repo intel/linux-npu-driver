@@ -63,7 +63,7 @@ namespace nn_public {
  * If the VpuTaskType is DPU or DMA the wi_desc_ptr can point to a linked list of tasks.
  */
 struct VPU_ALIGNED_STRUCT(8) VpuWorkItem {
-    enum VpuTaskType : uint8_t { DPU = 0, DMA, SHV, MEDIA, UNKNOWN = 255 };
+    enum VpuTaskType : uint8_t { DPU = 0, DMA, SHV, MEDIA, DPU_AUTO, UNKNOWN = 255 };
     enum VpuDMADirection : uint8_t { FROM_DDR = 0, FROM_CMX = 1 };
 
     /**
@@ -89,6 +89,7 @@ struct VPU_ALIGNED_STRUCT(8) VpuWorkItem {
      * | DPU         | tile number        | n/a                      |
      * | DMA         | engine/CTRG number | 0: from DDR, 1: from CMX |
      * | SHV         | tile number        | see description below    |
+     * | DPU_AUTO    | tile number        | n/a                      |
      * ---------------------------------------------------------------
      *
      *  For Shave tasks a sub_unit of zero indicates that the compiler doesn't care

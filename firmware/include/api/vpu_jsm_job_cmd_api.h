@@ -3,12 +3,18 @@
  * Copyright (c) 2021-2025, Intel Corporation.
  */
 
-/**
- * @brief JSM common job command definitions
- */
-
 #ifndef VPU_JSM_JOB_CMD_API_H
 #define VPU_JSM_JOB_CMD_API_H
+
+/**
+ * @addtogroup Jsm
+ * @{
+ */
+
+/**
+ * @file
+ * @brief JSM common job command definitions
+ */
 
 /*
  * Major version changes that break backward compatibility.
@@ -21,18 +27,21 @@
  * Minor version changes when API backward compatibility is preserved.
  * Resets to 0 if Major version is incremented.
  */
-#define VPU_JSM_JOB_CMD_API_VER_MINOR 11
+#define VPU_JSM_JOB_CMD_API_VER_MINOR 12
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
  */
-#define VPU_JSM_JOB_CMD_API_VER_PATCH 3
+#define VPU_JSM_JOB_CMD_API_VER_PATCH 0
 
 /*
  * Index in the API version table
  * Must be unique for each API
  */
 #define VPU_JSM_JOB_CMD_API_VER_INDEX 3
+
+/* Macro to encode API version into uint32_t value */
+#define VPU_API_VERSION(major, minor) ((major << 16) | (minor))
 
 /*
  * Pack the API structures to enforce binary compatibility
@@ -211,8 +220,14 @@ typedef struct vpu_cmd_buffer_header {
     uint32_t cmd_buffer_size;
     /** Offset to the first command in the command buffer from start of buffer header */
     uint32_t cmd_offset;
-    /** Pointer to kernel heap base address */
-    uint64_t kernel_heap_base_address;
+    /**
+     * Version of the API header used by the host driver, usually this will be:
+     * header->api_version = VPU_JSM_JOB_CMD_API_VER_MAJOR << 16 | VPU_JSM_JOB_CMD_API_VER_MINOR
+     * The FW can use this value to interpret command buffer format as used by the host driver.
+     */
+    uint32_t api_version;
+    /* Reserved for future use, must be initialized zero if not used by the driver */
+    uint32_t reserved_0;
     /** Pointer to descriptor heap base address */
     uint64_t descriptor_heap_base_address;
     /**
@@ -228,6 +243,14 @@ typedef struct vpu_cmd_buffer_header {
      * VPU cache operations.
      */
     uint64_t context_save_area_address;
+    /** Address of the primary preemption buffer to use for this job */
+    uint64_t primary_preempt_buf_addr;
+    /** Size of the primary preemption buffer to use for this job */
+    uint32_t primary_preempt_buf_size;
+    /** Size of secondary preemption buffer to use for this job */
+    uint32_t secondary_preempt_buf_size;
+    /** Address of secondary preemption buffer to use for this job */
+    uint64_t secondary_preempt_buf_addr;
 } vpu_cmd_buffer_header_t;
 
 /**
@@ -369,5 +392,9 @@ typedef struct vpu_cmd_metric_query {
 } vpu_cmd_metric_query_t;
 
 #pragma pack(pop)
+
+/**
+ * @}
+ */
 
 #endif

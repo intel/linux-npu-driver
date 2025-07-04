@@ -29,8 +29,8 @@ class VPUDeviceQueue {
 
     virtual ~VPUDeviceQueue() = default;
 
-    static std::unique_ptr<VPUDeviceQueue> create(VPUDeviceContext *VPUContext,
-                                                  Priority queuePriority);
+    static std::unique_ptr<VPUDeviceQueue>
+    create(VPUDeviceContext *VPUContext, Priority queuePriority, bool isTurboMode);
 
     virtual bool submit(const VPUJob *job) = 0;
     virtual bool toBackgroundPriority() = 0;
@@ -62,7 +62,7 @@ class VPUDeviceQueueLegacy final : public VPUDeviceQueue {
 
 class VPUDeviceQueueManaged final : public VPUDeviceQueue {
   public:
-    VPUDeviceQueueManaged(VPUDriverApi *api, uint32_t defaultQueue);
+    VPUDeviceQueueManaged(VPUDriverApi *api, uint32_t defaultQueue, bool isTurboMode);
     virtual ~VPUDeviceQueueManaged() override;
 
     bool submit(const VPUJob *job) override;
@@ -76,5 +76,6 @@ class VPUDeviceQueueManaged final : public VPUDeviceQueue {
     uint32_t currentId;
     uint32_t defaultId;
     uint32_t backgroundId;
+    bool isTurboMode = false;
 };
 } // namespace VPU

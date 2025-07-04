@@ -55,6 +55,7 @@ if (TARGET openvino::runtime)
     target_sources(${PROJECT_NAME} PRIVATE test_ov_inference.cpp test_mutable_cmdlist.cpp)
     target_link_libraries(${PROJECT_NAME} openvino::runtime)
     target_compile_definitions(${PROJECT_NAME} PUBLIC UMD_TESTS_USE_OPENVINO=1)
+    target_compile_options(${PROJECT_NAME} PRIVATE -Wno-deprecated-declarations)
 endif()
 
 if (TARGET opencv_core AND TARGET opencv_imgcodecs)

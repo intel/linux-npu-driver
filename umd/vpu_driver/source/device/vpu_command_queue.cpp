@@ -67,8 +67,8 @@ bool submitWithWait(const VPUJob *job, T &&submitFunc) {
 VPUDeviceQueue::VPUDeviceQueue(VPUDriverApi *api)
     : pDriverApi(api) {}
 
-std::unique_ptr<VPUDeviceQueue> VPUDeviceQueue::create(VPUDeviceContext *VPUContext,
-                                                       Priority queuePriority) {
+std::unique_ptr<VPUDeviceQueue>
+VPUDeviceQueue::create(VPUDeviceContext *VPUContext, Priority queuePriority, bool isTurboMode) {
     if (!VPUContext) {
         LOG_E("Invalid VPUContext pointer");
         return nullptr;
@@ -80,13 +80,17 @@ std::unique_ptr<VPUDeviceQueue> VPUDeviceQueue::create(VPUDeviceContext *VPUCont
     }
     if (VPUContext->getDeviceCapabilities().cmdQueueCreationCapability) {
         uint32_t defaultQueue;
-        if (pApi->commandQueueCreate(static_cast<uint32_t>(queuePriority), defaultQueue)) {
+        if (pApi->commandQueueCreate(static_cast<uint32_t>(queuePriority),
+                                     defaultQueue,
+                                     isTurboMode)) {
             LOG_E("Command queue creation failed.");
             return nullptr;
         }
 
-        return std::make_unique<VPUDeviceQueueManaged>(pApi, defaultQueue);
+        return std::make_unique<VPUDeviceQueueManaged>(pApi, defaultQueue, isTurboMode);
     }
+
+    LOG(CMDQUEUE, "Continue creating queue with default mode");
     return std::make_unique<VPUDeviceQueueLegacy>(pApi, queuePriority);
 }
 
@@ -129,11 +133,14 @@ bool VPUDeviceQueueLegacy::toDefaultPriority() {
     return true;
 }
 
-VPUDeviceQueueManaged::VPUDeviceQueueManaged(VPUDriverApi *api, uint32_t defaultQueue)
+VPUDeviceQueueManaged::VPUDeviceQueueManaged(VPUDriverApi *api,
+                                             uint32_t defaultQueue,
+                                             bool isTurboMode)
     : VPUDeviceQueue(api)
     , currentId(defaultQueue)
     , defaultId(defaultQueue)
-    , backgroundId(defaultQueue) {}
+    , backgroundId(defaultQueue)
+    , isTurboMode(isTurboMode) {}
 
 VPUDeviceQueueManaged::~VPUDeviceQueueManaged() {
     if (backgroundId != defaultId && pDriverApi->commandQueueDestroy(backgroundId))
@@ -154,7 +161,9 @@ bool VPUDeviceQueueManaged::submit(const VPUJob *job) {
 
 bool VPUDeviceQueueManaged::toBackgroundPriority() {
     if (backgroundId == defaultId) {
-        if (pDriverApi->commandQueueCreate(static_cast<uint32_t>(Priority::IDLE), backgroundId)) {
+        if (pDriverApi->commandQueueCreate(static_cast<uint32_t>(Priority::IDLE),
+                                           backgroundId,
+                                           isTurboMode)) {
             LOG_E("Background command queue creation failed.");
             return false;
         }

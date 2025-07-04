@@ -343,6 +343,9 @@ class Graph {
 
         case ZE_GRAPH_ARGUMENT_PRECISION_INT8:
         case ZE_GRAPH_ARGUMENT_PRECISION_UINT8:
+        case ZE_GRAPH_ARGUMENT_PRECISION_FP8_E4M3:
+        case ZE_GRAPH_ARGUMENT_PRECISION_FP8_E5M2:
+        case ZE_GRAPH_ARGUMENT_PRECISION_FP8_E8M0:
             return sizeof(uint8_t);
 
         case ZE_GRAPH_ARGUMENT_PRECISION_INT4:

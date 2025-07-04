@@ -15,13 +15,6 @@
 #include <memory>
 #include <string>
 
-// TODO: Remove below definitions after they are added to npu_driver_compiler.h
-vcl_result_t
-vclGetCompilerSupportedOptionsExp(vcl_compiler_handle_t compiler, char *result, uint64_t *size);
-vcl_result_t vclGetCompilerIsOptionSupportedExp(vcl_compiler_handle_t compiler,
-                                                const char *option,
-                                                const char *value);
-
 class Vcl {
   public:
     static Vcl &sym() {
@@ -121,8 +114,8 @@ class Vcl {
     decltype(vclLogHandleGetString) *logHandleGetString = &missingSymbol;
     decltype(vclAllocatedExecutableCreate) *allocatedExecutableCreate = &missingSymbol;
     decltype(vclGetVersion) *getVersion = &missingSymbol;
-    decltype(vclGetCompilerSupportedOptionsExp) *getCompilerSupportedOptions = nullptr;
-    decltype(vclGetCompilerIsOptionSupportedExp) *getCompilerIsOptionSupported = nullptr;
+    decltype(vclGetCompilerSupportedOptions) *getCompilerSupportedOptions = nullptr;
+    decltype(vclGetCompilerIsOptionSupported) *getCompilerIsOptionSupported = nullptr;
 
   private:
     using VclHandle = std::unique_ptr<void, decltype(&closeHandle)>;

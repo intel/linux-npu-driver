@@ -396,6 +396,7 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
         uint32_t execTimeSec = 0;
         uint32_t targetFps = 0;
         double fpsDeviation = 0;
+        bool isTurboMode = false;
         ze_command_queue_priority_t priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL;
         ze_command_queue_workload_type_t workloadType = ZE_WORKLOAD_TYPE_FORCE_UINT32;
         size_t delayInUs = 0;
@@ -408,6 +409,7 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
     };
 
     std::vector<LocalInference> testInferences = {};
+    ze_command_queue_desc_npu_ext_t cmdQueueNpuDesc = {};
 
     void SetUp() override {
         CompilerInDriverLongT::SetUp();
@@ -421,6 +423,7 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
             LocalInference inference(model);
 
             inference.targetFps = model["target_fps"].as<uint32_t>(30);
+            inference.isTurboMode = false;
             inference.execTimeSec = model["exec_time_in_secs"].as<uint32_t>(3);
             inference.delayInUs = model["delay_in_us"].as<size_t>(0);
             inference.fpsDeviation = model["fps_deviation"].as<double>(0);
@@ -429,6 +432,11 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
 
             if (model["priority"].IsDefined() && model["priority"].as<std::string>().size())
                 inference.priority = toZePriority(model["priority"].as<std::string>());
+
+            if (model["turbo_mode"].IsDefined() && model["turbo_mode"].as<bool>()) {
+                inference.isTurboMode = true;
+                cmdQueueNpuDesc = {ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC_NPU_EXT, nullptr, true};
+            }
 
             if (model["workload_type"].IsDefined() &&
                 model["workload_type"].as<std::string>().size()) {
@@ -469,6 +477,7 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
 
         auto cmdQueueDescInference = cmdQueueDesc;
         cmdQueueDescInference.priority = inference.priority;
+        cmdQueueDescInference.pNext = inference.isTurboMode ? &cmdQueueNpuDesc : nullptr;
         auto scopedQueue =
             zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDescInference, ret);
         BREAK_ON_FAIL(ret, stats);

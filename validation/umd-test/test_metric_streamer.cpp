@@ -485,7 +485,7 @@ class MetricStreamerMemoryCopy : public MetricStreamer {
 
         if (isVPU37xx()) {
             generateVPU37xxMetricsBitmap();
-        } else if (isVPU40xx()) {
+        } else {
             generateVPU40xxMetricsBitmap();
         }
 

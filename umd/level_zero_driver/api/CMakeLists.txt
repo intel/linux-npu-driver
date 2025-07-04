@@ -25,7 +25,7 @@ target_sources(${TARGET_NAME_L0} PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/zet_misc.cpp
 )
 target_link_libraries(${TARGET_NAME_L0} level_zero_driver)
-
+target_link_options(${TARGET_NAME_L0} PRIVATE -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/ze.exports)
 add_subdirectory(ext)
 add_subdirectory(prv)
 

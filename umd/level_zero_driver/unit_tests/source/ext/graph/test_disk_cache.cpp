@@ -119,7 +119,7 @@ TEST_F(DiskCacheTest, HitCache) {
     auto blob = cache->getBlob(key);
     EXPECT_NE(blob, nullptr);
     EXPECT_EQ(blob->ptr, mmapPtr.get());
-    EXPECT_EQ(blob->size, fileSize);
+    EXPECT_EQ(blob->size, fileSize - HashSha1::DigestLength);
 }
 
 class HashSha1Test : public testing::TestWithParam<std::pair<const char *, const char *>> {};
