@@ -153,6 +153,7 @@ ExternalProject_Add(
     -DOPENCV_GENERATE_SETUPVARS=ON
     -DBUILD_opencv_python3=OFF
     -DBUILD_opencv_dnn=OFF
+    -DBUILD_opencv_java=OFF
     -DWITH_EIGEN=OFF
     -DWITH_JASPER=OFF
     -DWITH_OPENCL=OFF
