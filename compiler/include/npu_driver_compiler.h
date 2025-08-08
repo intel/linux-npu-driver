@@ -23,9 +23,13 @@ extern "C" {
 #endif
 
 #define VCL_COMPILER_VERSION_MAJOR 7
-#define VCL_COMPILER_VERSION_MINOR 3
+#define VCL_COMPILER_VERSION_MINOR 4
 #define VCL_PROFILING_VERSION_MAJOR 2
 #define VCL_PROFILING_VERSION_MINOR 0
+
+#ifndef DEPRECATED
+#define DEPRECATED  // for documentation only
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////
 #ifndef VCL_APICALL
@@ -240,18 +244,30 @@ VCL_APIEXPORT vcl_result_t VCL_APICALL vclQueryNetworkDestroy(vcl_query_handle_t
 ///////////////////////////////////////////////////////////////////////////////
 /// @brief Creates an executable object and returns the executable handle.
 /// Parse modelIRData in the executable descriptor to blob and store it in the executable.
-VCL_APIEXPORT vcl_result_t VCL_APICALL vclExecutableCreate(vcl_compiler_handle_t compiler, vcl_executable_desc_t desc,
-                                                           vcl_executable_handle_t* executable);
+DEPRECATED VCL_APIEXPORT vcl_result_t VCL_APICALL vclExecutableCreate(vcl_compiler_handle_t compiler,
+                                                                      vcl_executable_desc_t desc,
+                                                                      vcl_executable_handle_t* executable);
 
-typedef struct __vcl_allocator_t {
+DEPRECATED typedef struct __vcl_allocator_t {
     uint8_t* (*allocate)(uint64_t);
     void (*deallocate)(uint8_t*);
 } vcl_allocator_t;
 
-VCL_APIEXPORT vcl_result_t VCL_APICALL vclAllocatedExecutableCreate(vcl_compiler_handle_t compiler,
-                                                                    vcl_executable_desc_t desc,
-                                                                    vcl_allocator_t const* allocator,
-                                                                    uint8_t** blobBuffer, uint64_t* blobSize);
+typedef struct __vcl_allocator2_t {
+    uint8_t* (*allocate)(struct __vcl_allocator2_t*, uint64_t);
+    void (*deallocate)(struct __vcl_allocator2_t*, uint8_t*);
+} vcl_allocator2_t;
+
+DEPRECATED VCL_APIEXPORT vcl_result_t VCL_APICALL vclAllocatedExecutableCreate(vcl_compiler_handle_t compiler,
+                                                                               vcl_executable_desc_t desc,
+                                                                               vcl_allocator_t const* allocator,
+                                                                               uint8_t** blobBuffer,
+                                                                               uint64_t* blobSize);
+
+VCL_APIEXPORT vcl_result_t VCL_APICALL vclAllocatedExecutableCreate2(vcl_compiler_handle_t compiler,
+                                                                     vcl_executable_desc_t desc,
+                                                                     vcl_allocator2_t* allocator, uint8_t** blobBuffer,
+                                                                     uint64_t* blobSize);
 
 ///////////////////////////////////////////////////////////////////////////////
 /// @brief Destroys the executable and releases the cached blob.
