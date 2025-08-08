@@ -5,10 +5,8 @@
  *
  */
 
-#include "vpu_driver/source/command/vpu_job.hpp"
+#include "vpu_driver/source/command/job.hpp"
 
-#include "umd_common.hpp"
-#include "vpu_driver/source/command/vpu_event_command.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <iterator>
@@ -22,25 +20,23 @@ class VPUDeviceContext;
 VPUJob::VPUJob(VPUDeviceContext *ctx)
     : ctx(ctx) {}
 
+bool VPUJob::updateOnSubmit() {
+    for (auto &cmdBuffer : cmdBuffers) {
+        if (!cmdBuffer->updateCommands()) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool VPUJob::closeCommands() {
     if (ctx == nullptr) {
         LOG_E("VPUDeviceContext is nullptr");
         return false;
     }
 
-    if (needsUpdate) {
-        needsUpdate = false;
-
-        for (auto &cmdBuffer : cmdBuffers) {
-            if (!cmdBuffer->updateCommands()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     if (isClosed()) {
-        LOG_W("VPUJob is closed");
         return true;
     }
 
@@ -51,26 +47,16 @@ bool VPUJob::closeCommands() {
 
     LOG(VPU_JOB, "Schedule commands, number of commands %lu", commands.size());
 
-    VPUEventCommand::KMDEventDataType *lastEvent = nullptr;
     std::shared_ptr<VPUBufferObject> lastEventBo;
     for (auto it = commands.begin(); it != commands.end();) {
         auto next = scheduleCommands(it);
 
-        long jump = std::distance(it, next);
-        LOG(VPU_JOB, "Passing %lu commands to command buffer", jump);
+        LOG(VPU_JOB, "Passing %lu commands to command buffer", std::distance(it, next));
 
-        if (safe_cast<size_t>(jump) == commands.size()) {
-            if (!createCommandBuffer(commands.begin(), commands.end(), nullptr, lastEventBo)) {
-                LOG_E("Failed to initialize command buffer");
-                return false;
-            }
-        } else {
-            if (!createCommandBuffer(it, next, &lastEvent, lastEventBo)) {
-                LOG_E("Failed to initialize command buffer");
-                return false;
-            }
+        if (!createCommandBuffer(it, next, lastEventBo, next == commands.end() ? true : false)) {
+            LOG_E("Failed to initialize command buffer");
+            return false;
         }
-
         it = next;
     }
 
@@ -78,17 +64,66 @@ bool VPUJob::closeCommands() {
     return true;
 }
 
+bool VPUJob::makeInOrder(std::shared_ptr<VPUBufferObject> &waitFor) {
+    if (cmdBuffers.empty())
+        return false;
+
+    if (waitFor.get() == cmdBuffers.front()->getBuffer().get()) {
+        if (!cmdBuffers.front()->waitForCompletion(INT64_MAX))
+            return false;
+        cmdBuffers.front()->resetFenceValue();
+        waitFor = nullptr;
+    }
+
+    if (!cmdBuffers.front()->addWaitAtHead(waitFor, true)) {
+        LOG_E("Failed to append synchronization to the first command buffer");
+        return false;
+    }
+    if (!cmdBuffers.back()->addSelfSignalAtTail()) {
+        LOG_E("Failed to append synchronization to the last command buffer");
+        return false;
+    }
+
+    waitFor = cmdBuffers.back()->getBuffer();
+    hasInOrderWorkload = true;
+
+    cmdBuffers.front()->printCommandBuffer("InOrder patching(front)");
+    if (cmdBuffers.front() != cmdBuffers.back()) {
+        cmdBuffers.back()->printCommandBuffer("InOrder patching(back)");
+    }
+
+    return true;
+}
+
+bool VPUJob::stripInOrder() {
+    if (!isClosed()) {
+        return false;
+    }
+    cmdBuffers.clear();
+    hasInOrderWorkload = false;
+    closed = false;
+    return closeCommands();
+}
+
 bool VPUJob::createCommandBuffer(const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
                                  const std::vector<std::shared_ptr<VPUCommand>>::iterator &end,
-                                 VPUEventCommand::KMDEventDataType **lastEvent,
-                                 std::shared_ptr<VPUBufferObject> &lastEventBo) {
-    auto cmdBuffer =
-        VPUCommandBuffer::allocateCommandBuffer(ctx, begin, end, lastEvent, lastEventBo);
+                                 std::shared_ptr<VPUBufferObject> &lastEventBo,
+                                 bool last) {
+    auto cmdBuffer = VPUCommandBuffer::allocateCommandBuffer(ctx, begin, end);
     if (cmdBuffer == nullptr) {
         LOG_E("Failed to allocate VPUCommandBuffer");
         return false;
     }
 
+    if (lastEventBo) {
+        cmdBuffer->addWaitAtHead(lastEventBo);
+    }
+
+    if (!last) {
+        lastEventBo = cmdBuffer->getBuffer();
+        cmdBuffer->addSelfSignalAtTail();
+    }
+    cmdBuffer->printCommandBuffer("Create");
     cmdBuffers.emplace_back(std::move(cmdBuffer));
     return true;
 }
@@ -97,6 +132,7 @@ bool VPUJob::waitForCompletion(int64_t timeout_abs_ns) {
     for (const auto &cmdBuffer : cmdBuffers)
         if (!cmdBuffer->waitForCompletion(timeout_abs_ns))
             return false;
+
     printResult();
     return true;
 }

@@ -5,12 +5,12 @@
  *
  */
 
-#include "vpu_driver/source/command/vpu_inference_execute.hpp"
+#include "vpu_driver/source/command/inference_execute.hpp"
 
 #include "api/vpu_jsm_job_cmd_api.h"
 #include "level_zero_driver/source/ext/elf_parser.hpp"
 #include "umd_common.hpp"
-#include "vpu_driver/source/command/vpu_command_buffer.hpp"
+#include "vpu_driver/source/command/command_buffer.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
@@ -26,25 +26,33 @@ VPUInferenceExecute::VPUInferenceExecute(std::shared_ptr<L0::ElfParser> &parser,
                                          L0::GraphProfilingQuery *profilingQuery,
                                          uint64_t inferenceId,
                                          std::vector<std::shared_ptr<VPUBufferObject>> &bos,
-                                         size_t argumentPosition)
+                                         std::vector<std::shared_ptr<VPUBufferObject>> &userBos)
     : parser(parser)
     , hpi(hpi)
     , inputs(inputs)
     , outputs(outputs)
     , profilingQuery(profilingQuery)
-    , argBoPosition(argumentPosition) {
+    , userArgIndex(bos.size()) {
     vpu_cmd_inference_execute_t cmd = {};
     cmd.header.type = VPU_CMD_INFERENCE_EXECUTE;
     cmd.header.size = sizeof(vpu_cmd_inference_execute_t);
     cmd.inference_id = inferenceId;
-    cmd.host_mapped_inference.address = bos[0]->getVPUAddr();
-    cmd.host_mapped_inference.width = safe_cast<uint32_t>(bos[0]->getAllocSize());
+    cmd.host_mapped_inference.address = bos.at(0)->getVPUAddr();
+    cmd.host_mapped_inference.width = safe_cast<uint32_t>(bos.at(0)->getAllocSize());
     command.emplace<vpu_cmd_inference_execute_t>(cmd);
 
     appendAssociateBufferObject(bos);
+    appendAssociateBufferObject(userBos);
 
-    for (size_t i = argBoPosition; i < bos.size(); i++)
-        argHandles.push_back(bos[i]->getHandle());
+    userArgHandles.reserve(userBos.size());
+    for (const auto &bo : userBos) {
+        userArgHandles.emplace_back(bo->getHandle());
+    }
+
+    LOG(VPU_CMD,
+        "VPUInferenceExecute command created - hpi: %p, inference_id: %lu",
+        hpi.get(),
+        inferenceId);
 }
 
 std::shared_ptr<VPUInferenceExecute>
@@ -55,8 +63,9 @@ VPUInferenceExecute::create(std::shared_ptr<L0::ElfParser> parser,
                             L0::GraphProfilingQuery *profilingQuery,
                             uint64_t inferenceId,
                             std::vector<std::shared_ptr<VPUBufferObject>> &bos) {
-    size_t inputOutputBoPosition = bos.size();
-    if (!parser->applyInputOutputs(cmdHpi, inputPtrs, outputPtrs, profilingQuery, bos)) {
+    std::vector<std::shared_ptr<VPUBufferObject>> userBos;
+    userBos.reserve(inputPtrs.size() + outputPtrs.size());
+    if (!parser->applyInputOutputs(cmdHpi, inputPtrs, outputPtrs, profilingQuery, userBos)) {
         LOG_E("Failed to apply arguments to elf executor");
         return nullptr;
     }
@@ -68,7 +77,7 @@ VPUInferenceExecute::create(std::shared_ptr<L0::ElfParser> parser,
                                                  profilingQuery,
                                                  inferenceId,
                                                  bos,
-                                                 inputOutputBoPosition);
+                                                 userBos);
 }
 
 bool VPUInferenceExecute::setUpdates(const ArgumentUpdatesMap &updatesMap) {
@@ -96,22 +105,38 @@ bool VPUInferenceExecute::setUpdates(const ArgumentUpdatesMap &updatesMap) {
 }
 
 bool VPUInferenceExecute::update(VPUCommandBuffer *commandBuffer) {
+    if (!cmdNeedsUpdate)
+        return true;
+
     cmdNeedsUpdate = false;
 
-    std::vector<std::shared_ptr<VPUBufferObject>> newArgBos;
-    if (!parser->applyInputOutputs(hpi, inputs, outputs, profilingQuery, newArgBos)) {
+    std::vector<std::shared_ptr<VPUBufferObject>> userArgs;
+    if (!parser->applyInputOutputs(hpi, inputs, outputs, profilingQuery, userArgs)) {
         return false;
     }
 
     std::vector<uint32_t> newHandles;
-    for (const auto &bo : newArgBos)
+    for (const auto &bo : userArgs)
         newHandles.emplace_back(bo->getHandle());
 
-    commandBuffer->replaceBufferHandles(argHandles, newHandles);
-    argHandles = std::move(newHandles);
+    commandBuffer->replaceBufferHandles(userArgHandles, newHandles);
+    userArgHandles = std::move(newHandles);
 
-    eraseAssociatedBufferObjects(argBoPosition);
-    appendAssociateBufferObject(newArgBos);
-
+    eraseAssociatedBufferObjects(userArgIndex);
+    appendAssociateBufferObject(std::move(userArgs));
     return true;
+}
+
+size_t VPUInferenceExecute::getSharedScratchSize() {
+    return parser->getSharedScratchSize();
+}
+
+void VPUInferenceExecute::updateScratchBuffer(VPUCommandBuffer *cmdBuffer,
+                                              std::shared_ptr<VPUBufferObject> scratchBuffer) {
+    if (getSharedScratchSize() == 0)
+        return;
+
+    parser->updateSharedScratchBuffers(hpi, scratchBuffer);
+    cmdBuffer->replaceBufferHandles({lastScratchBoHandle}, {scratchBuffer->getHandle()});
+    lastScratchBoHandle = scratchBuffer->getHandle();
 }

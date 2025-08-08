@@ -12,7 +12,7 @@
 
 #include "api/vpu_jsm_job_cmd_api.h"
 #include "umd_common.hpp"
-#include "vpu_driver/source/command/vpu_command.hpp"
+#include "vpu_driver/source/command/command.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <any>
@@ -37,14 +37,19 @@ class VPUCopyCommand : public VPUCommand {
                                                   std::shared_ptr<VPUBufferObject> dstBo,
                                                   size_t size);
 
-    const vpu_cmd_header_t *getHeader() const {
+    const vpu_cmd_header_t *getHeader() const override {
         return reinterpret_cast<const vpu_cmd_header_t *>(
             std::any_cast<vpu_cmd_copy_buffer_t>(&command));
+    }
+
+    void patchDescriptorAddress(uint64_t vpuAddr) override {
+        std::any_cast<vpu_cmd_copy_buffer_t>(&command)->desc_start_offset = vpuAddr;
     }
 
     template <class T>
     static bool
     fillDescriptor(uint64_t srcAddr, uint64_t dstAddr, size_t size, VPUDescriptor &descriptor) {
+        // The hardware limits the DMA descriptor copy size to 16 MB
         static constexpr uint32_t COPY_SIZE_LIMIT = (16 << 20) - 1;
 
         if (srcAddr == 0 || dstAddr == 0) {

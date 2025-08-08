@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -11,14 +11,17 @@
 #include "api/vpu_jsm_job_cmd_api.h"
 #include "gtest/gtest.h"
 #include "umd_common.hpp"
-#include "vpu_driver/source/command/vpu_command.hpp"
-#include "vpu_driver/source/command/vpu_copy_command.hpp"
-#include "vpu_driver/source/command/vpu_ts_command.hpp"
+#include "vpu_driver/source/command/command.hpp"
+#include "vpu_driver/source/command/copy_command.hpp"
+#include "vpu_driver/source/command/ts_command.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
 
+#include <algorithm>
+#include <array>
 #include <memory>
+#include <numeric>
 #include <string>
 #include <utility>
 #include <vector>
@@ -38,29 +41,29 @@ struct DeviceContextTest : public ::testing::Test {
 
     void checkOffsets(std::vector<std::shared_ptr<VPUCommand>> &commands,
                       std::shared_ptr<VPUBufferObject> descBuffer) {
-        void *descTail = nullptr;
         size_t expDescOffset = 0;
         if (descBuffer.get()) {
-            descTail = descBuffer->getBasePointer();
+            auto descTail = descBuffer->getBasePointer();
             expDescOffset = descBuffer->getVPUAddr(descTail);
         }
 
         for (auto &cmd : commands) {
-            EXPECT_TRUE(cmd->copyDescriptor(&descTail, descBuffer));
-
-            uint64_t offset = UINT64_MAX;
-            uint64_t vpuAddr = UINT64_MAX;
             switch (cmd->getCommandType()) {
-            case VPU_CMD_TIMESTAMP:
-                vpuAddr = reinterpret_cast<const vpu_cmd_timestamp_t *>(cmd->getCommitStream())
-                              ->timestamp_address;
+            case VPU_CMD_TIMESTAMP: {
+                auto vpuAddr = reinterpret_cast<const vpu_cmd_timestamp_t *>(cmd->getCommitStream())
+                                   ->timestamp_address;
                 EXPECT_GT(vpuAddr, 0) << "Invalid timestamp address in VPU_CMD_TIMESTAMP";
                 break;
-            case VPU_CMD_COPY_LOCAL_TO_LOCAL:
-                offset = reinterpret_cast<const vpu_cmd_copy_buffer_t *>(cmd->getCommitStream())
-                             ->desc_start_offset;
+            }
+            case VPU_CMD_COPY_LOCAL_TO_LOCAL: {
+                cmd->patchDescriptorAddress(expDescOffset);
+
+                auto offset =
+                    reinterpret_cast<const vpu_cmd_copy_buffer_t *>(cmd->getCommitStream())
+                        ->desc_start_offset;
                 EXPECT_EQ(offset, expDescOffset) << "Invalid descriptor offset in VPU_CMD_COPY_*";
                 break;
+            }
             default:
                 EXPECT_TRUE(false) << "Missing support for counting offset for specific command";
                 break;
@@ -492,4 +495,64 @@ TEST_F(DeviceContextTest, implictlyAllocatedCopyCommandMemoryShouldBeDeallocated
 
     EXPECT_TRUE(ctx->freeMemAlloc(hostSrcBo->getBasePointer()));
     EXPECT_TRUE(ctx->freeMemAlloc(hostDestBo->getBasePointer()));
+}
+
+TEST_F(DeviceContextTest, scratchBufferCacheShouldWorkAsExpected) {
+    // Load scratch buffer with different sizes
+    std::array<size_t, 4> scratches = {1024, 2048, 4096, 8192};
+    auto greatestSize = *std::max_element(scratches.begin(), scratches.end());
+    auto sumSize = std::accumulate(scratches.begin(), scratches.end(), 0);
+
+    // Expect only single buffer in scratch buffer
+    for (auto &size : scratches) {
+        ctx->scratchCachePreload(size);
+        EXPECT_EQ(ctx->getAllocatedSize(), size);
+    }
+
+    // Expect to get the cached scratch buffer with largest size
+    for (auto &size : scratches) {
+        auto bo = ctx->scratchCacheAcquire(size);
+        EXPECT_EQ(bo->getAllocSize(), greatestSize);
+    }
+
+    // Clean the whole cache
+    ctx->scratchCachePrune(greatestSize);
+    EXPECT_EQ(ctx->getAllocatedSize(), 0);
+
+    // Fill the cache with multiple buffers
+    std::vector<std::shared_ptr<VPUBufferObject>> scratchBuffers;
+    for (auto &size : scratches) {
+        auto bo = ctx->scratchCacheAcquire(size);
+        EXPECT_EQ(bo->getAllocSize(), size);
+        scratchBuffers.push_back(std::move(bo));
+    }
+    scratchBuffers.clear();
+    EXPECT_EQ(ctx->getAllocatedSize(), sumSize);
+
+    // Acquire all possible cache
+    for (auto &size : scratches) {
+        auto bo = ctx->scratchCacheAcquire(size);
+        EXPECT_EQ(bo->getAllocSize(), size);
+        scratchBuffers.push_back(std::move(bo));
+    }
+    EXPECT_EQ(ctx->getAllocatedSize(), sumSize);
+
+    // Cleanup should not happen when buffer is in use
+    ctx->scratchCachePrune(greatestSize);
+    EXPECT_EQ(ctx->getAllocatedSize(), sumSize);
+
+    // Double the cache size
+    for (auto size : scratches) {
+        auto bo = ctx->scratchCacheAcquire(size);
+        EXPECT_EQ(bo->getAllocSize(), size);
+        scratchBuffers.push_back(std::move(bo));
+    }
+    EXPECT_EQ(ctx->getAllocatedSize(), sumSize * 2);
+    scratchBuffers.clear();
+
+    // Cleanup all cached scratch buffers
+    for (auto &size : scratches) {
+        ctx->scratchCachePrune(size);
+    }
+    EXPECT_EQ(ctx->getAllocatedSize(), 0);
 }

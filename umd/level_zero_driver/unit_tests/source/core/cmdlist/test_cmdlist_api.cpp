@@ -22,7 +22,7 @@
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
 #include "level_zero_driver/unit_tests/options.hpp"
 #include "level_zero_driver/unit_tests/utils.hpp"
-#include "vpu_driver/source/command/vpu_command.hpp"
+#include "vpu_driver/source/command/command.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/unit_tests/test_macros/test.hpp"

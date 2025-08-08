@@ -390,12 +390,15 @@ void Graph::initialize(std::string &log) {
         desc.flags,
         desc.pBuildFlags);
 
+    bool isInputPersistent = desc.flags & ZE_GRAPH_FLAG_INPUT_GRAPH_PERSISTENT;
     switch (desc.format) {
     case ZE_GRAPH_FORMAT_NATIVE:
         blob = std::make_unique<BlobContainer>(const_cast<uint8_t *>(desc.pInput), desc.inputSize);
         propFlags = ZE_GRAPH_PROPERTIES_FLAG_PRE_COMPILED;
         break;
     case ZE_GRAPH_FORMAT_NGRAPH_LITE:
+        // Binary from compilation is owned by driver, so we can assume it is persistent
+        isInputPersistent = true;
         addDeviceConfigToBuildFlags();
         desc.pBuildFlags = buildFlags.c_str();
 
@@ -434,7 +437,7 @@ void Graph::initialize(std::string &log) {
 
     if (ElfParser::checkMagic(blob)) {
         LOG(GRAPH, "Detected Elf format");
-        parser = ElfParser::getElfParser(ctx, blob, log);
+        parser = ElfParser::getElfParser(ctx, blob, log, isInputPersistent);
     } else {
         LOG_E("Failed to recognize blob format");
         log += "[NPU_DRV] Failed to recognize native binary format\n";

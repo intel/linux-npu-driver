@@ -155,18 +155,18 @@ TEST_F(CompilerInDriver, creatingNgraphLiteWithInputSizeZeroReturnsFailure) {
     ASSERT_EQ(nullptr, hGraph);
 }
 
-TEST_F(CompilerInDriver, creatingNgraphLiteWithNullBuildOptionsReturnsError) {
+TEST_F(CompilerInDriver, creatingNgraphLiteWithNullBuildOptionsReturnsSuccess) {
     graphDesc.pBuildFlags = nullptr;
 
     auto res = L0::Graph::create(context, device, &graphDesc, &hGraph);
-    ASSERT_NE(ZE_RESULT_SUCCESS, res);
+    ASSERT_EQ(ZE_RESULT_SUCCESS, res);
 }
 
-TEST_F(CompilerInDriver, creatingNgraphLiteWithNoBuildOptionsReturnsError) {
+TEST_F(CompilerInDriver, creatingNgraphLiteWithNoBuildOptionsReturnsSuccess) {
     graphDesc.pBuildFlags = "";
 
     auto res = L0::Graph::create(context, device, &graphDesc, &hGraph);
-    ASSERT_NE(ZE_RESULT_SUCCESS, res);
+    ASSERT_EQ(ZE_RESULT_SUCCESS, res);
 }
 
 TEST_F(CompilerInDriver, creatingNgraphLiteWithBuildOptionsReturnsSuccess) {

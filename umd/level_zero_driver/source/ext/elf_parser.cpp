@@ -5,6 +5,8 @@
  *
  */
 
+// IWYU pragma: no_include "perfetto.h"
+
 #include "elf_parser.hpp"
 
 #include <cstdint>
@@ -15,20 +17,14 @@
 #include "level_zero_driver/include/l0_exception.hpp"
 #include "profiling_data.hpp"
 #include "umd_common.hpp"
-#include "vpu_driver/source/command/vpu_inference_execute.hpp"
+#include "vpu_driver/source/command/inference_execute.hpp"
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_37xx/vpu_hw_37xx.hpp"
 #include "vpu_driver/source/device/vpu_40xx/vpu_hw_40xx.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
-#include "vpux_elf/types/data_types.hpp"
-#include "vpux_elf/types/section_header.hpp"
-#include "vpux_headers/buffer_specs.hpp"
-#include "vpux_headers/managed_buffer.hpp"
-#include "vpux_headers/metadata_primitives.hpp"
-#include "vpux_headers/platform.hpp"
-#include "vpux_hpi.hpp"
+#include "vpu_driver/source/utilities/trace_perfetto.hpp" // IWYU pragma: keep
 
 #include <algorithm>
 #include <array>
@@ -40,12 +36,19 @@
 #include <memory>
 #include <string.h>
 #include <vpux_elf/accessor.hpp>
+#include <vpux_elf/types/data_types.hpp>
+#include <vpux_elf/types/section_header.hpp>
 #include <vpux_elf/types/vpu_extensions.hpp>
 #include <vpux_elf/utils/error.hpp>
 #include <vpux_elf/utils/utils.hpp>
 #include <vpux_headers/buffer_manager.hpp>
+#include <vpux_headers/buffer_specs.hpp>
 #include <vpux_headers/device_buffer.hpp>
+#include <vpux_headers/managed_buffer.hpp>
 #include <vpux_headers/metadata.hpp>
+#include <vpux_headers/metadata_primitives.hpp>
+#include <vpux_headers/platform.hpp>
+#include <vpux_hpi.hpp>
 
 namespace L0 {
 
@@ -66,11 +69,22 @@ class DriverBufferManager : public elf::BufferManager {
     }
 
     elf::DeviceBuffer allocate(const elf::BufferSpecs &buffSpecs) override {
+        TRACE_EVENT("NPU_ELF", "elf::BufferManager::allocate");
         LOG(GRAPH,
             "Allocate: size: %#lx, alignment: %#lx, procFlags: %#lx",
             buffSpecs.size,
             buffSpecs.alignment,
             buffSpecs.procFlags);
+
+        auto range = getBufferType(buffSpecs.procFlags);
+        if (buffSpecs.isSharable() && range == VPU::VPUBufferObject::Type::WriteCombineDma &&
+            buffSpecs.size > 0) {
+            LOG(GRAPH, "Shared scratch buffer size: %lu", buffSpecs.size);
+            sharedScratchSize = buffSpecs.size;
+            ctx->scratchCachePreload(buffSpecs.size);
+            // Return empty scratch buffer, it will be added in updateSharedScratchBuffers
+            return elf::DeviceBuffer();
+        }
 
         size_t size = buffSpecs.size;
         if (size == 0) {
@@ -78,7 +92,7 @@ class DriverBufferManager : public elf::BufferManager {
             size = 1;
         }
 
-        auto bo = ctx->createUntrackedBufferObject(size, getBufferType(buffSpecs.procFlags));
+        auto bo = ctx->createUntrackedBufferObject(size, range);
         if (bo == nullptr) {
             LOG_E("Failed to allocate the memory");
             return elf::DeviceBuffer();
@@ -97,26 +111,46 @@ class DriverBufferManager : public elf::BufferManager {
             LOG_E("Failed to trace elf parser buffer");
             return elf::DeviceBuffer();
         }
+
         return elf::DeviceBuffer(it->second->getBasePointer(),
                                  it->second->getVPUAddr(),
                                  buffSpecs.size);
     }
 
     void deallocate(elf::DeviceBuffer &devAddress) override {
+        TRACE_EVENT("NPU_ELF", "elf::BufferManager::deallocate");
         LOG(GRAPH,
             "Deallocate: cpu: %p, vpu: %#lx, size: %lu",
             devAddress.cpu_addr(),
             devAddress.vpu_addr(),
             devAddress.size());
+
+        if (devAddress.cpu_addr() == nullptr) {
+            return;
+        }
+
         const std::lock_guard<std::mutex> lock(mtx);
-        if (devAddress.cpu_addr() && tracedElfParserBuffers.erase(devAddress.cpu_addr()) == 0)
-            LOG_E("Failed to deallocate elf parser memory");
+        auto it = tracedElfParserBuffers.find(devAddress.cpu_addr());
+        if (it == tracedElfParserBuffers.end()) {
+            LOG_E("Could not find a buffer to deallocate: cpu: %p, vpu: %lx, size: %lu",
+                  devAddress.cpu_addr(),
+                  devAddress.vpu_addr(),
+                  devAddress.size());
+            return;
+        }
+
+        tracedElfParserBuffers.erase(it);
     }
 
-    void lock(elf::DeviceBuffer &devAddress) override {}
-    void unlock(elf::DeviceBuffer &devAddress) override {}
+    void lock(elf::DeviceBuffer &devAddress) override {
+        TRACE_EVENT("NPU_ELF", "elf::BufferManager::lock");
+    }
+    void unlock(elf::DeviceBuffer &devAddress) override {
+        TRACE_EVENT("NPU_ELF", "elf::BufferManager::unlock");
+    }
 
     size_t copy(elf::DeviceBuffer &to, const uint8_t *from, size_t count) override {
+        TRACE_EVENT("NPU_ELF", "elf::BufferManager::copy");
         LOG(GRAPH,
             "Copy to.cpu_addr: %p, to.vpu_addr: %#lx from: %p, count: %#lx",
             to.cpu_addr(),
@@ -152,6 +186,8 @@ class DriverBufferManager : public elf::BufferManager {
         return it->second;
     }
 
+    size_t sharedScratchSize = 0;
+
   private:
     mutable std::mutex mtx;
     VPU::VPUDeviceContext *ctx;
@@ -159,18 +195,22 @@ class DriverBufferManager : public elf::BufferManager {
         tracedElfParserBuffers;
 };
 
-class ElfAccessManager : public elf::AccessManager {
+class DriverAccessManager : public elf::AccessManager {
   public:
-    ElfAccessManager(uint8_t *ptr, size_t size, DriverBufferManager *manager)
+    DriverAccessManager(uint8_t *ptr,
+                        size_t size,
+                        DriverBufferManager *manager,
+                        bool isInputPersist)
         : AccessManager(size)
         , blob(ptr)
-        , bufferManager(manager) {}
+        , bufferManager(manager)
+        , useStaticBuffer(isInputPersist) {}
 
-    ElfAccessManager(const ElfAccessManager &) = delete;
-    ElfAccessManager(ElfAccessManager &&) = delete;
-    ElfAccessManager &operator=(const ElfAccessManager &) = delete;
-    ElfAccessManager &operator=(ElfAccessManager &&) = delete;
-    ~ElfAccessManager() override = default;
+    DriverAccessManager(const DriverAccessManager &) = delete;
+    DriverAccessManager(DriverAccessManager &&) = delete;
+    DriverAccessManager &operator=(const DriverAccessManager &) = delete;
+    DriverAccessManager &operator=(DriverAccessManager &&) = delete;
+    ~DriverAccessManager() override = default;
 
     std::unique_ptr<elf::ManagedBuffer> readInternal(size_t offset,
                                                      const elf::BufferSpecs &specs) override {
@@ -181,12 +221,20 @@ class ElfAccessManager : public elf::AccessManager {
         uint8_t *start = blob + offset;
 
         if (hasNPUAccess(specs.procFlags)) {
+            // AllocatedDeviceBuffer is a wrapper for a buffer allocated by DriverBufferManager
             auto buffer = std::make_unique<elf::AllocatedDeviceBuffer>(bufferManager, specs);
             elf::DeviceBuffer devBuffer = buffer->getBuffer();
             bufferManager->copy(devBuffer, start, devBuffer.size());
             return buffer;
         }
 
+        if (useStaticBuffer) {
+            // StaticBuffer is a wrapper for a raw pointer
+            auto statBuffer = std::make_unique<elf::StaticBuffer>(start, specs);
+            return statBuffer;
+        }
+
+        // DynamicBuffer is a wrapper for a std::vector
         auto dynBuffer = std::make_unique<elf::DynamicBuffer>(specs);
         elf::DeviceBuffer devBuffer = dynBuffer->getBuffer();
         memcpy(devBuffer.cpu_addr(), start, devBuffer.size());
@@ -211,6 +259,7 @@ class ElfAccessManager : public elf::AccessManager {
 
     uint8_t *blob = nullptr;
     DriverBufferManager *bufferManager = nullptr;
+    bool useStaticBuffer;
 };
 
 ElfParser::ElfParser(VPU::VPUDeviceContext *ctx,
@@ -221,6 +270,10 @@ ElfParser::ElfParser(VPU::VPUDeviceContext *ctx,
     , bufferManager(std::move(buffer))
     , accessManager(std::move(access))
     , hpiManager(std::make_unique<HostParsedInferenceManager>(std::move(hpi))) {}
+
+ElfParser::~ElfParser() {
+    ctx->scratchCachePrune(getSharedScratchSize());
+}
 
 bool ElfParser::checkMagic(const std::unique_ptr<BlobContainer> &blob) {
     if (blob->size == 0)
@@ -259,6 +312,7 @@ createHostParsedInference(elf::BufferManager *buffer,
         static_cast<uint32_t>(std::bitset<32>(ctx->getDeviceCapabilities().tileConfig).count());
 
     try {
+        TRACE_EVENT("NPU_ELF", "elf::HostParsedInference::ctor");
         return std::make_shared<elf::HostParsedInference>(buffer, access, config, &devDesc);
     } catch (const elf::AllocError &err) {
         LOG_E("Failed to create elf::HostParsedInference, type: elf::AllocError, reason: %s",
@@ -290,6 +344,7 @@ createHostParsedInference(elf::BufferManager *buffer,
 static std::shared_ptr<elf::HostParsedInference>
 copyHostParsedInference(std::shared_ptr<elf::HostParsedInference> &hpi) {
     try {
+        TRACE_EVENT("NPU_ELF", "elf::HostParsedInference::copy");
         return std::make_shared<elf::HostParsedInference>(*hpi);
     } catch (const elf::AllocError &err) {
         LOG_E("Failed to copy elf::HostParsedInference, type: elf::AllocError, reason: %s",
@@ -314,6 +369,7 @@ copyHostParsedInference(std::shared_ptr<elf::HostParsedInference> &hpi) {
 
 static void loadHostParsedInference(const std::shared_ptr<elf::HostParsedInference> &hpi) {
     try {
+        TRACE_EVENT("NPU_ELF", "elf::HostParsedInference::load");
         hpi->load();
         return;
     } catch (const elf::AllocError &err) {
@@ -340,27 +396,36 @@ static void loadHostParsedInference(const std::shared_ptr<elf::HostParsedInferen
 std::shared_ptr<elf::HostParsedInference> HostParsedInferenceManager::acquire() {
     std::lock_guard<std::mutex> lock(mtx);
     if (!loaded) {
-        loadHostParsedInference(hpis.at(0));
+        loadHostParsedInference(headHpi);
         loaded = true;
     }
 
+    if (headHpi.use_count() == 1)
+        return headHpi;
+
     for (auto &hpi : hpis) {
-        if (hpi.use_count() == 1)
+        if (hpi.use_count() == 1) {
             return hpi;
+        }
     }
 
-    auto hpi = copyHostParsedInference(hpis.at(0));
-    if (hpi != nullptr)
+    auto hpi = copyHostParsedInference(headHpi);
+    if (hpi != nullptr) {
         hpis.push_back(hpi);
+    }
+
     return hpi;
 }
 
 std::unique_ptr<ElfParser> ElfParser::getElfParser(VPU::VPUDeviceContext *ctx,
                                                    const std::unique_ptr<BlobContainer> &blob,
-                                                   std::string &logBuffer) {
+                                                   std::string &logBuffer,
+                                                   bool isInputPersistent) {
     auto bufferManager = std::make_unique<DriverBufferManager>(ctx);
-    auto accessManager =
-        std::make_unique<ElfAccessManager>(blob->ptr, blob->size, bufferManager.get());
+    auto accessManager = std::make_unique<DriverAccessManager>(blob->ptr,
+                                                               blob->size,
+                                                               bufferManager.get(),
+                                                               isInputPersistent);
     auto hpi = createHostParsedInference(bufferManager.get(), accessManager.get(), ctx, logBuffer);
     if (hpi != nullptr)
         return std::make_unique<ElfParser>(ctx,
@@ -401,6 +466,8 @@ static ze_graph_argument_precision_t getTensorPrecision(elf::DType type) {
         return ZE_GRAPH_ARGUMENT_PRECISION_UINT8;
     case elf::DType::DType_U4:
         return ZE_GRAPH_ARGUMENT_PRECISION_UINT4;
+    case elf::DType::DType_I2X:
+        return ZE_GRAPH_ARGUMENT_PRECISION_UINT2;
     case elf::DType::DType_I64:
         return ZE_GRAPH_ARGUMENT_PRECISION_INT64;
     case elf::DType::DType_I32:
@@ -418,7 +485,6 @@ static ze_graph_argument_precision_t getTensorPrecision(elf::DType type) {
     case elf::DType::DType_I4X:
         return ZE_GRAPH_ARGUMENT_PRECISION_NF4;
     case elf::DType::DType_I2:
-    case elf::DType::DType_I2X:
     case elf::DType::DType_LOG:
         return ZE_GRAPH_ARGUMENT_PRECISION_UNKNOWN;
     }
@@ -570,8 +636,9 @@ static void fillOVNodeProperties(const elf::OVNode &node, ze_graph_argument_prop
 }
 
 bool ElfParser::getArgumentProperties(std::vector<ze_graph_argument_properties_3_t> &props) const {
-    auto metadata = hpiManager->front()->getMetadata();
-
+    TRACE_EVENT_BEGIN("NPU_ELF", "elf::HostParsedInference::getMetadata");
+    auto metadata = hpiManager->head()->getMetadata();
+    TRACE_EVENT_END("NPU_ELF");
     props.reserve(metadata->mInTensorDescriptors.size() + metadata->mOutTensorDescriptors.size());
 
     for (size_t i = 0; i < metadata->mInTensorDescriptors.size(); i++) {
@@ -641,7 +708,9 @@ constexpr std::array<std::pair<elf::OVNodeType, ze_graph_metadata_type>, 18> toM
 }};
 
 bool ElfParser::getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &args) const {
-    auto metadata = hpiManager->front()->getMetadata();
+    TRACE_EVENT_BEGIN("NPU_ELF", "elf::HostParsedInference::getMetadata");
+    auto metadata = hpiManager->head()->getMetadata();
+    TRACE_EVENT_END("NPU_ELF");
     args.reserve(metadata->mNetInputs.size() + metadata->mNetOutputs.size());
 
     auto convert = [](const elf::OVNode &node,
@@ -708,7 +777,8 @@ bool ElfParser::getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &a
 }
 
 bool ElfParser::getProfilingSize(uint32_t &size) const {
-    const auto &profBuffers = hpiManager->front()->getProfBuffers();
+    TRACE_EVENT("NPU_ELF", "elf::HostParsedInference::getProfBuffers");
+    const auto &profBuffers = hpiManager->head()->getProfBuffers();
 
     if (profBuffers.size() == 0) {
         size = 0;
@@ -723,10 +793,31 @@ bool ElfParser::getProfilingSize(uint32_t &size) const {
 }
 
 std::shared_ptr<VPU::VPUBufferObject> ElfParser::findBuffer(const void *ptr) {
-    auto driverBufferManager = reinterpret_cast<DriverBufferManager *>(bufferManager.get());
-    if (driverBufferManager == nullptr)
+    if (bufferManager == nullptr)
         return nullptr;
-    return driverBufferManager->findBuffer(ptr);
+    return dynamic_cast<DriverBufferManager &>(*bufferManager).findBuffer(ptr);
+}
+
+size_t ElfParser::getSharedScratchSize() const {
+    if (bufferManager == nullptr)
+        return 0;
+    return dynamic_cast<DriverBufferManager &>(*bufferManager).sharedScratchSize;
+}
+
+void ElfParser::updateSharedScratchBuffers(std::shared_ptr<elf::HostParsedInference> &cmdHpi,
+                                           std::shared_ptr<VPU::VPUBufferObject> &bo) {
+    std::vector<elf::DeviceBuffer> buffers{
+        elf::DeviceBuffer(bo->getBasePointer(), bo->getVPUAddr(), bo->getAllocSize())};
+
+    LOG(GRAPH,
+        "HostParsedInference[%p]->updateSharedScratchBuffers: cpu: %p, vpu: %#lx, size: %lu",
+        cmdHpi.get(),
+        buffers.at(0).cpu_addr(),
+        buffers.at(0).vpu_addr(),
+        buffers.at(0).size());
+
+    TRACE_EVENT("NPU_ELF", "elf::HostParsedInference::updateSharedScratchBuffers");
+    cmdHpi->updateSharedScratchBuffers(buffers);
 }
 
 bool ElfParser::applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &cmdHpi,
@@ -793,6 +884,14 @@ bool ElfParser::applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &cmd
     }
 
     try {
+        TRACE_EVENT("NPU_ELF", "elf::HostParsedInference::applyInputOutput");
+        LOG(GRAPH,
+            "HostParsedInference[%p]->applyInputOutput: input size: %lu, output size: %lu, "
+            "profiling size: %lu",
+            cmdHpi.get(),
+            inputDeviceBuffers.size(),
+            outputDeviceBuffers.size(),
+            profilingDeviceBuffers.size());
         cmdHpi->applyInputOutput(inputDeviceBuffers, outputDeviceBuffers, profilingDeviceBuffers);
     } catch (const elf::RelocError &err) {
         LOG_E("Caught reloc exception in hostParsedInference.applyInputOutput()");
@@ -826,11 +925,18 @@ ElfParser::createInferenceExecuteCommand(const std::vector<const void *> &inputP
     bos.push_back(std::move(bo));
 
     for (const auto &buffer : cmdHpi->getAllocatedBuffers()) {
-        if (buffer.size() == 0)
+        if (buffer.size() == 0) {
             continue;
+        }
 
         auto bo = findBuffer(buffer.cpu_addr());
         if (bo == nullptr) {
+            // TODO: Shared scratch buffer is not allocated by DriverBufferManager.
+            // It is possible that there are two buffers with same size. Consider to
+            // add a better check for shared scratch buffer
+            if (buffer.size() == getSharedScratchSize())
+                continue;
+
             LOG_E("Failed to find a buffer in tracked memory");
             return nullptr;
         }
@@ -881,12 +987,11 @@ ze_result_t ElfParser::initialize() {
 }
 
 std::shared_ptr<VPU::VPUBufferObject> ElfParser::allocateInternal(size_t size) {
-    auto driverBufferManager = reinterpret_cast<DriverBufferManager *>(bufferManager.get());
-    if (driverBufferManager == nullptr || !size)
+    if (!size)
         return nullptr;
     elf::BufferSpecs spec = {};
     spec.size = size;
-    elf::DeviceBuffer buffer = driverBufferManager->allocate(spec);
+    elf::DeviceBuffer buffer = bufferManager->allocate(spec);
     return findBuffer(buffer.cpu_addr());
 }
 

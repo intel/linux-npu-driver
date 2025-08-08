@@ -10,8 +10,8 @@
 #include "vpu_driver/source/device/vpu_command_queue.hpp"
 
 #include "umd_common.hpp"
-#include "vpu_driver/source/command/vpu_command_buffer.hpp"
-#include "vpu_driver/source/command/vpu_job.hpp"
+#include "vpu_driver/source/command/command_buffer.hpp"
+#include "vpu_driver/source/command/job.hpp"
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
@@ -33,10 +33,11 @@ bool submitWithWait(const VPUJob *job, T &&submitFunc) {
         return false;
     }
 
-    if (job->getCommandBuffers().size() == 0) {
+    if (job->getCommandBuffers().empty()) {
         LOG_E("Invalid argument - no command buffer in job");
         return false;
     }
+
     for (const auto &cmdBuffer : job->getCommandBuffers()) {
         constexpr auto pollTime = std::chrono::seconds(2);
         const auto timeoutPoint = std::chrono::steady_clock::now() + pollTime;
@@ -68,7 +69,7 @@ VPUDeviceQueue::VPUDeviceQueue(VPUDriverApi *api)
     : pDriverApi(api) {}
 
 std::unique_ptr<VPUDeviceQueue>
-VPUDeviceQueue::create(VPUDeviceContext *VPUContext, Priority queuePriority, bool isTurboMode) {
+VPUDeviceQueue::create(VPUDeviceContext *VPUContext, Priority queuePriority, uint32_t mode) {
     if (!VPUContext) {
         LOG_E("Invalid VPUContext pointer");
         return nullptr;
@@ -82,12 +83,16 @@ VPUDeviceQueue::create(VPUDeviceContext *VPUContext, Priority queuePriority, boo
         uint32_t defaultQueue;
         if (pApi->commandQueueCreate(static_cast<uint32_t>(queuePriority),
                                      defaultQueue,
-                                     isTurboMode)) {
+                                     mode & ModeFlags::TURBO ? true : false)) {
             LOG_E("Command queue creation failed.");
             return nullptr;
         }
 
-        return std::make_unique<VPUDeviceQueueManaged>(pApi, defaultQueue, isTurboMode);
+        return std::make_unique<VPUDeviceQueueManaged>(pApi, defaultQueue, mode);
+    }
+    if (mode & ModeFlags::IN_ORDER) {
+        LOG_E("In order mode not supported. Command queue creation failed.");
+        return nullptr;
     }
 
     LOG(CMDQUEUE, "Continue creating queue with default mode");
@@ -104,6 +109,7 @@ int VPUDeviceQueueLegacy::submitCommandBuffer(const std::unique_ptr<VPUCommandBu
     execParam.buffers_ptr = reinterpret_cast<uint64_t>(cmdBuf->getBufferHandles().data());
     execParam.buffer_count = safe_cast<uint32_t>(cmdBuf->getBufferHandles().size());
     execParam.engine = DRM_IVPU_ENGINE_COMPUTE;
+    execParam.commands_offset = cmdBuf->getCommandBufferOffset();
     execParam.priority = static_cast<uint32_t>(priority);
 
     LOG(DEVICE,
@@ -119,7 +125,11 @@ int VPUDeviceQueueLegacy::submitCommandBuffer(const std::unique_ptr<VPUCommandBu
     return pDriverApi->submitCommandBuffer(&execParam);
 }
 
-bool VPUDeviceQueueLegacy::submit(const VPUJob *job) {
+bool VPUDeviceQueueLegacy::submit(VPUJob *job) {
+    if (!job || job->isInOrder()) {
+        LOG_E("Submit failed, INORDER request on queue without INORDER support");
+        return false;
+    }
     return submitWithWait(job, [this](auto &cmdBuf) { return this->submitCommandBuffer(cmdBuf); });
 }
 
@@ -135,12 +145,12 @@ bool VPUDeviceQueueLegacy::toDefaultPriority() {
 
 VPUDeviceQueueManaged::VPUDeviceQueueManaged(VPUDriverApi *api,
                                              uint32_t defaultQueue,
-                                             bool isTurboMode)
+                                             uint32_t mode)
     : VPUDeviceQueue(api)
     , currentId(defaultQueue)
     , defaultId(defaultQueue)
     , backgroundId(defaultQueue)
-    , isTurboMode(isTurboMode) {}
+    , modeFlags(mode) {}
 
 VPUDeviceQueueManaged::~VPUDeviceQueueManaged() {
     if (backgroundId != defaultId && pDriverApi->commandQueueDestroy(backgroundId))
@@ -150,12 +160,30 @@ VPUDeviceQueueManaged::~VPUDeviceQueueManaged() {
 }
 
 int VPUDeviceQueueManaged::submitCommandBuffer(const std::unique_ptr<VPUCommandBuffer> &cmdBuf) {
-    return pDriverApi->commandQueueSubmit(cmdBuf->getBufferHandles().data(),
-                                          safe_cast<uint32_t>(cmdBuf->getBufferHandles().size()),
-                                          currentId);
+    drm_ivpu_cmdq_submit submitArgs = {};
+    submitArgs.buffers_ptr = reinterpret_cast<uint64_t>(cmdBuf->getBufferHandles().data());
+    submitArgs.buffer_count = safe_cast<uint32_t>(cmdBuf->getBufferHandles().size());
+    submitArgs.commands_offset = cmdBuf->getCommandBufferOffset();
+    submitArgs.cmdq_id = currentId;
+    return pDriverApi->commandQueueSubmit(&submitArgs);
 }
 
-bool VPUDeviceQueueManaged::submit(const VPUJob *job) {
+bool VPUDeviceQueueManaged::submit(VPUJob *job) {
+    if (!job)
+        return false;
+
+    if (isInOrder()) {
+        if (!job->makeInOrder(lastWaitBo)) {
+            LOG_E("Failed to create in order workload");
+            return false;
+        }
+    } else if (job->isInOrder()) {
+        if (!job->stripInOrder()) {
+            LOG_E("Failed to prepare job to submit.");
+            return false;
+        }
+    }
+
     return submitWithWait(job, [this](auto &cmdBuf) { return this->submitCommandBuffer(cmdBuf); });
 }
 
@@ -163,7 +191,7 @@ bool VPUDeviceQueueManaged::toBackgroundPriority() {
     if (backgroundId == defaultId) {
         if (pDriverApi->commandQueueCreate(static_cast<uint32_t>(Priority::IDLE),
                                            backgroundId,
-                                           isTurboMode)) {
+                                           modeFlags & ModeFlags::TURBO ? true : false)) {
             LOG_E("Background command queue creation failed.");
             return false;
         }
@@ -176,5 +204,4 @@ bool VPUDeviceQueueManaged::toDefaultPriority() {
     currentId = defaultId;
     return true;
 }
-
 } // namespace VPU

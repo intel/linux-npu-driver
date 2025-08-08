@@ -13,8 +13,8 @@
 #include "event.hpp"
 #include "level_zero_driver/include/l0_exception.hpp"
 #include "level_zero_driver/include/l0_handler.hpp"
-#include "vpu_driver/source/command/vpu_event_command.hpp"
-#include "vpu_driver/source/command/vpu_job.hpp"
+#include "vpu_driver/source/command/event_command.hpp"
+#include "vpu_driver/source/command/job.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 

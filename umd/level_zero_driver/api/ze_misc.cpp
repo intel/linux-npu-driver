@@ -177,6 +177,33 @@ exit:
 }
 
 ZE_APIEXPORT ze_result_t ZE_APICALL
+zeGetRTASBuilderProcAddrTable(ze_api_version_t version, ze_rtas_builder_dditable_t *pDdiTable) {
+    trace_zeGetRTASBuilderProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
+
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    pDdiTable->pfnCreateExt = nullptr;
+    pDdiTable->pfnGetBuildPropertiesExt = nullptr;
+    pDdiTable->pfnBuildExt = nullptr;
+    pDdiTable->pfnCommandListAppendCopyExt = nullptr;
+    pDdiTable->pfnDestroyExt = nullptr;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zeGetRTASBuilderProcAddrTable(ret, version, pDdiTable);
+    return ret;
+}
+
+ZE_APIEXPORT ze_result_t ZE_APICALL
 zeGetRTASParallelOperationExpProcAddrTable(ze_api_version_t version,
                                            ze_rtas_parallel_operation_exp_dditable_t *pDdiTable) {
     trace_zeGetRTASParallelOperationExpProcAddrTable(version, pDdiTable);
@@ -200,6 +227,33 @@ zeGetRTASParallelOperationExpProcAddrTable(ze_api_version_t version,
 
 exit:
     trace_zeGetRTASParallelOperationExpProcAddrTable(ret, version, pDdiTable);
+    return ret;
+}
+
+ZE_APIEXPORT ze_result_t ZE_APICALL
+zeGetRTASParallelOperationProcAddrTable(ze_api_version_t version,
+                                        ze_rtas_parallel_operation_dditable_t *pDdiTable) {
+    trace_zeGetRTASParallelOperationProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
+
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    pDdiTable->pfnCreateExt = nullptr;
+    pDdiTable->pfnGetPropertiesExt = nullptr;
+    pDdiTable->pfnJoinExt = nullptr;
+    pDdiTable->pfnDestroyExt = nullptr;
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zeGetRTASParallelOperationProcAddrTable(ret, version, pDdiTable);
     return ret;
 }
 

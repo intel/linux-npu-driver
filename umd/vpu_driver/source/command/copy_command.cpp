@@ -5,7 +5,7 @@
  *
  */
 
-#include "vpu_driver/source/command/vpu_copy_command.hpp"
+#include "vpu_driver/source/command/copy_command.hpp"
 
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
@@ -57,8 +57,6 @@ VPUCopyCommand::VPUCopyCommand(const std::shared_ptr<VPUBufferObject> srcBo,
     cmd.desc_start_offset = 0u;
     cmd.desc_count = descriptor.numDescriptors;
     command.emplace<vpu_cmd_copy_buffer_t>(cmd);
-
-    descriptor.commandOffset = &(std::any_cast<vpu_cmd_copy_buffer_t>(&command)->desc_start_offset);
 
     setDescriptor(std::move(descriptor));
     appendAssociateBufferObject(std::move(srcBo));

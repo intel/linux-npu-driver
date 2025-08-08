@@ -13,7 +13,7 @@
 #include "level_zero_driver/source/event.hpp"
 #include "level_zero_driver/source/eventpool.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
-#include "vpu_driver/source/command/vpu_event_command.hpp"
+#include "vpu_driver/source/command/event_command.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
 

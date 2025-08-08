@@ -8,9 +8,9 @@
 #include <stdint.h>
 
 #include "gtest/gtest.h"
-#include "vpu_driver/source/command/vpu_command_buffer.hpp"
-#include "vpu_driver/source/command/vpu_copy_command.hpp"
-#include "vpu_driver/source/command/vpu_ts_command.hpp"
+#include "vpu_driver/source/command/command_buffer.hpp"
+#include "vpu_driver/source/command/copy_command.hpp"
+#include "vpu_driver/source/command/ts_command.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
@@ -36,9 +36,7 @@ struct VPUCommandBufferTest : public ::testing::Test {
 
 TEST_F(VPUCommandBufferTest, allocateCommandBufferWithoutCommandExpectNullptr) {
     std::vector<std::shared_ptr<VPUCommand>> cmds;
-    EXPECT_EQ(
-        nullptr,
-        VPUCommandBuffer::allocateCommandBuffer(ctx, cmds.begin(), cmds.end(), nullptr, eventBo));
+    EXPECT_EQ(nullptr, VPUCommandBuffer::allocateCommandBuffer(ctx, cmds.begin(), cmds.end()));
 }
 
 TEST_F(VPUCommandBufferTest, allocateCommandBufferWithTimestampCommand) {
@@ -50,9 +48,7 @@ TEST_F(VPUCommandBufferTest, allocateCommandBufferWithTimestampCommand) {
                                     tsHeap));
     ASSERT_NE(cmds.back(), nullptr);
 
-    EXPECT_NE(
-        nullptr,
-        VPUCommandBuffer::allocateCommandBuffer(ctx, cmds.begin(), cmds.end(), nullptr, eventBo));
+    EXPECT_NE(nullptr, VPUCommandBuffer::allocateCommandBuffer(ctx, cmds.begin(), cmds.end()));
     EXPECT_TRUE(ctx->freeMemAlloc(tsHeap->getBasePointer()));
 }
 
@@ -66,9 +62,7 @@ TEST_F(VPUCommandBufferTest, allocateCommandBufferWithMallocFailureExpectNullptr
     ASSERT_NE(cmds.back(), nullptr);
 
     osInfc.mockFailNextAlloc();
-    EXPECT_EQ(
-        nullptr,
-        VPUCommandBuffer::allocateCommandBuffer(ctx, cmds.begin(), cmds.end(), nullptr, eventBo));
+    EXPECT_EQ(nullptr, VPUCommandBuffer::allocateCommandBuffer(ctx, cmds.begin(), cmds.end()));
     EXPECT_TRUE(ctx->freeMemAlloc(tsHeap->getBasePointer()));
 }
 
@@ -85,11 +79,8 @@ TEST_F(VPUCommandBufferTest, allocateCommandBufferWithCopyCommand) {
                                              sizeof(uint64_t)));
     ASSERT_NE(cmds.back(), nullptr);
 
-    EXPECT_NE(
-        nullptr,
-        VPUCommandBuffer::allocateCommandBuffer(ctx, cmds.begin(), cmds.end(), nullptr, eventBo));
+    EXPECT_NE(nullptr, VPUCommandBuffer::allocateCommandBuffer(ctx, cmds.begin(), cmds.end()));
     EXPECT_TRUE(ctx->freeMemAlloc(srcBo->getBasePointer()));
     EXPECT_TRUE(ctx->freeMemAlloc(dstBo->getBasePointer()));
 }
-
 } // namespace VPU

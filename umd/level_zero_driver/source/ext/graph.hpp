@@ -12,7 +12,7 @@
 
 #include "blob_container.hpp"
 #include "level_zero_driver/include/l0_handler.hpp"
-#include "vpu_driver/source/command/vpu_command.hpp"
+#include "vpu_driver/source/command/command.hpp"
 
 #include <level_zero/ze_api.h>
 #include <level_zero/ze_graph_ext.h>

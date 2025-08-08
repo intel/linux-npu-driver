@@ -32,6 +32,8 @@ TracePerfetto::TracePerfetto() {
         track_event_cfg.add_disabled_categories("*");
         track_event_cfg.add_enabled_categories("API");
         track_event_cfg.add_enabled_categories("SYS");
+        track_event_cfg.add_enabled_categories("NPU_ELF");
+        track_event_cfg.add_enabled_categories("NPU_COMPILER");
 
         perfetto::TraceConfig cfg;
         cfg.add_buffers()->set_size_kb(64 * 1024);

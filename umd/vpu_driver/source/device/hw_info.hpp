@@ -9,7 +9,7 @@
 
 #include <stdint.h>
 
-#include "vpu_driver/source/command/vpu_command.hpp"
+#include "vpu_driver/source/command/command.hpp"
 #include "vpu_driver/source/device/vpu_37xx/vpu_hw_37xx.hpp"
 #include "vpu_driver/source/device/vpu_40xx/vpu_hw_40xx.hpp"
 
@@ -50,6 +50,7 @@ struct VPUHwInfo {
 
     uint32_t extraDmaDescriptorSize = 0;
     uint64_t fwMappedInferenceVersion = 0;
+    uint64_t fwJsmCmdApiVersion = 0;
     uint32_t fwTimestampType = 0;
 
     bool metricStreamerCapability = false;
@@ -73,5 +74,11 @@ inline VPUHwInfo getHwInfoByDeviceId(uint32_t deviceId) {
         return getHwInfo40xx();
     }
     throw std::runtime_error("Unrecognized PCI device ID");
+}
+
+inline bool isJsmCmdApiGreaterThan(const VPUHwInfo &hwInfo, uint32_t major, uint32_t minor) {
+    uint64_t version = static_cast<uint64_t>((major << 16) | (minor & 0xFFFF));
+
+    return hwInfo.fwJsmCmdApiVersion > version;
 }
 } // namespace VPU

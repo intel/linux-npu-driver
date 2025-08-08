@@ -12,7 +12,7 @@
 
 #include "interface_parser.hpp"
 #include "level_zero/ze_graph_ext.h"
-#include "vpu_driver/source/command/vpu_command.hpp"
+#include "vpu_driver/source/command/command.hpp"
 #include "vpux_elf/utils/version.hpp"
 
 #include <level_zero/ze_api.h>
@@ -22,9 +22,12 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-#include <vpux_elf/accessor.hpp>
-#include <vpux_headers/buffer_manager.hpp>
 #include <vpux_hpi.hpp>
+
+namespace elf {
+class AccessManager;
+class BufferManager;
+} // namespace elf
 
 namespace VPU {
 class VPUBufferObject;
@@ -40,13 +43,14 @@ struct GraphProfilingQuery;
 class HostParsedInferenceManager {
   public:
     HostParsedInferenceManager(std::shared_ptr<elf::HostParsedInference> hpi)
-        : hpis{std::move(hpi)} {}
+        : headHpi(std::move(hpi)) {}
 
-    std::shared_ptr<elf::HostParsedInference> &front() { return hpis.at(0); }
+    std::shared_ptr<elf::HostParsedInference> &head() { return headHpi; }
     std::shared_ptr<elf::HostParsedInference> acquire();
 
   private:
     std::mutex mtx;
+    std::shared_ptr<elf::HostParsedInference> headHpi;
     std::vector<std::shared_ptr<elf::HostParsedInference>> hpis;
     bool loaded = false;
 };
@@ -57,16 +61,24 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
               std::unique_ptr<elf::BufferManager> manager,
               std::unique_ptr<elf::AccessManager> access,
               std::shared_ptr<elf::HostParsedInference> loader);
+    ~ElfParser();
+
+    ElfParser(ElfParser const &) = delete;
+    ElfParser &operator=(ElfParser const &) = delete;
+    ElfParser(ElfParser &&) = delete;
+    ElfParser &operator=(ElfParser &&) = delete;
 
     static bool checkMagic(const std::unique_ptr<BlobContainer> &blob);
     static std::unique_ptr<ElfParser> getElfParser(VPU::VPUDeviceContext *ctx,
                                                    const std::unique_ptr<BlobContainer> &blob,
-                                                   std::string &logBuffer);
+                                                   std::string &logBuffer,
+                                                   bool isInputPersistent);
     static elf::VersionsProvider getElfVer(uint32_t deviceId);
 
     bool getArgumentProperties(std::vector<ze_graph_argument_properties_3_t> &props) const;
     bool getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &args) const;
     bool getProfilingSize(uint32_t &size) const;
+    size_t getSharedScratchSize() const;
 
     std::shared_ptr<VPU::VPUInferenceExecute>
     createInferenceExecuteCommand(const std::vector<const void *> &inputPtrs,
@@ -87,6 +99,8 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
                            const std::vector<const void *> &outputArgs,
                            GraphProfilingQuery *profilingQuery) override;
 
+    void updateSharedScratchBuffers(std::shared_ptr<elf::HostParsedInference> &hpi,
+                                    std::shared_ptr<VPU::VPUBufferObject> &bo);
     bool applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &hpi,
                            const std::vector<const void *> &inputs,
                            const std::vector<const void *> &outputs,

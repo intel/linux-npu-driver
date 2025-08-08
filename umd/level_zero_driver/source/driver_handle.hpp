@@ -12,6 +12,7 @@
 #include "device.hpp"
 
 #include <level_zero/ze_api.h>
+#include <level_zero/ze_command_queue_npu_ext.h>
 #include <memory>
 #include <vector>
 
@@ -35,6 +36,7 @@ struct DriverHandle : _ze_driver_handle_t {
     ze_result_t getMemAllocProperties(const void *ptr,
                                       ze_memory_allocation_properties_t *pMemAllocProperties,
                                       ze_device_handle_t *phDevice);
+    ze_command_queue_npu_ext_version_t getSupportedCmdQueueExtVersion();
 
     static DriverHandle *fromHandle(ze_driver_handle_t handle) {
         return static_cast<DriverHandle *>(handle);

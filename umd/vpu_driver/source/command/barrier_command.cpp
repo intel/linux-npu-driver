@@ -5,7 +5,7 @@
  *
  */
 
-#include "vpu_driver/source/command/vpu_barrier_command.hpp"
+#include "vpu_driver/source/command/barrier_command.hpp"
 
 namespace VPU {
 

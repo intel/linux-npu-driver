@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -27,6 +27,19 @@
 
 namespace VPU {
 struct VPUDescriptor;
+class VPUDeviceContext;
+
+class ScratchCacheFactory {
+  public:
+    ScratchCacheFactory() = default;
+
+    std::shared_ptr<VPUBufferObject> acquire(VPUDeviceContext *ctx, size_t size);
+    void prune(size_t size);
+
+  private:
+    std::vector<std::shared_ptr<VPUBufferObject>> scratchBuffers;
+    std::mutex scratchMutex;
+};
 
 class VPUDeviceContext {
   public:
@@ -142,6 +155,19 @@ class VPUDeviceContext {
     getCopyCommandDescriptor(uint64_t srcAddr, uint64_t dstAddr, size_t size, VPUDescriptor &desc);
     void printCopyDescriptor(void *desc, vpu_cmd_header_t *cmd);
 
+    // Scratch cache management
+    std::shared_ptr<VPUBufferObject> scratchCacheAcquire(size_t size) {
+        return scratchCache.acquire(this, size);
+    }
+    void scratchCachePrune(size_t size) { return scratchCache.prune(size); }
+    void scratchCachePreload(size_t size) {
+        if (size == 0) {
+            return;
+        }
+        scratchCache.prune(size - 1);
+        scratchCache.acquire(this, size);
+    }
+
   private:
     /**
        Create VPUBufferObject and assign it to tracking structure
@@ -161,6 +187,8 @@ class VPUDeviceContext {
         trackedBuffers;
     std::vector<std::weak_ptr<VPUBufferObject>> untrackedBuffers;
     mutable std::mutex mtx;
+
+    ScratchCacheFactory scratchCache;
 };
 
 } // namespace VPU
