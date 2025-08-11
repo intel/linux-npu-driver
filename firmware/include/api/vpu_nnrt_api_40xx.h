@@ -63,7 +63,8 @@
  */
 #define VPU_NNRT_40XX_API_VER_MAJOR 11
 #define VPU_NNRT_40XX_API_VER_MINOR 10
-#define VPU_NNRT_40XX_API_VER_PATCH 0
+#define VPU_NNRT_40XX_API_VER_PATCH 1
+
 #define VPU_NNRT_40XX_API_VER ((VPU_NNRT_40XX_API_VER_MAJOR << 16) | VPU_NNRT_40XX_API_VER_MINOR)
 
 /* Index in the API version table, same for all HW generations */
@@ -79,19 +80,22 @@
  *
  * Act Runtime changelog:
  * ----------------------
+ * 1.11:
+ *  - Improve compatibility
+ *
  * 1.10:
  *   - Support for executing shave tasks directly from DDR (expects two FIFO pushes
  *     with the full 32 bit AKI address and NW_PAGE is already correct)
  *
  * 1.9:
- *   - Add clock gating support
+ *   - Add NVL clock gating support
  *
  * 1.8:
  *   - Support Shave Shutdown control message
  *
  */
 #define VPU_ACT_RT_VER_MAJOR 1
-#define VPU_ACT_RT_VER_MINOR 10
+#define VPU_ACT_RT_VER_MINOR 9
 #define VPU_ACT_RT_VER_PATCH 0
 #define VPU_ACT_RT_VER ((VPU_ACT_RT_VER_MAJOR << 16) | VPU_ACT_RT_VER_MINOR)
 

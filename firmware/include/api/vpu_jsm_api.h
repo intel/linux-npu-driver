@@ -28,7 +28,7 @@
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
  */
-#define VPU_JSM_API_VER_PATCH 1
+#define VPU_JSM_API_VER_PATCH 3
 
 /*
  * Index in the API version table
@@ -223,7 +223,7 @@ enum {
  */
 #define VPU_INLINE_CMD_TYPE_FENCE_SIGNAL 0x2
 
-/*
+/**
  * Job scheduling priority bands for both hardware scheduling and OS scheduling.
  */
 enum vpu_job_scheduling_priority_band {
@@ -234,16 +234,16 @@ enum vpu_job_scheduling_priority_band {
     VPU_JOB_SCHEDULING_PRIORITY_BAND_COUNT = 4,
 };
 
-/*
+/**
  * Job format.
  * Jobs defines the actual workloads to be executed by a given engine.
  */
 struct vpu_job {
-    /**< Address of VPU commands batch buffer */
+    /** Address of VPU commands batch buffer */
     volatile uint64_t batch_buf_addr;
-    /**< Job ID */
+    /** Job ID */
     volatile uint32_t job_id;
-    /**< Flags bit field, see VPU_JOB_FLAGS_* above */
+    /** Flags bit field, see VPU_JOB_FLAGS_* above */
     volatile uint32_t flags;
     /**
      * Doorbell ring timestamp taken by KMD from SoC's global system clock, in
@@ -251,21 +251,21 @@ struct vpu_job {
      * to match other profiling timestamps.
      */
     volatile uint64_t doorbell_timestamp;
-    /**< Extra id for job tracking, used only in the firmware perf traces */
+    /** Extra id for job tracking, used only in the firmware perf traces */
     volatile uint64_t host_tracking_id;
-    /**< Address of the primary preemption buffer to use for this job */
+    /** Address of the primary preemption buffer to use for this job */
     volatile uint64_t primary_preempt_buf_addr;
-    /**< Size of the primary preemption buffer to use for this job */
+    /** Size of the primary preemption buffer to use for this job */
     volatile uint32_t primary_preempt_buf_size;
-    /**< Size of secondary preemption buffer to use for this job */
+    /** Size of secondary preemption buffer to use for this job */
     volatile uint32_t secondary_preempt_buf_size;
-    /**< Address of secondary preemption buffer to use for this job */
+    /** Address of secondary preemption buffer to use for this job */
     volatile uint64_t secondary_preempt_buf_addr;
     uint64_t reserved_0;
 };
 typedef struct vpu_job vpu_job_t;
 
-/*
+/**
  * Inline command format.
  * Inline commands are the commands executed at scheduler level (typically,
  * synchronization directives). Inline command and job objects must be of
@@ -273,34 +273,36 @@ typedef struct vpu_job vpu_job_t;
  */
 struct vpu_inline_cmd {
     uint64_t reserved_0;
-    /* Inline command type, see VPU_INLINE_CMD_TYPE_* defines. */
+    /** Inline command type, see VPU_INLINE_CMD_TYPE_* defines. */
     volatile uint32_t type;
-    /* Flags bit field, see VPU_JOB_FLAGS_* above. */
+    /** Flags bit field, see VPU_JOB_FLAGS_* above. */
     volatile uint32_t flags;
-    /* Inline command payload. Depends on inline command type. */
-    union {
-        /* Fence (wait and signal) commands' payload. */
-        struct {
-            /* Fence object handle. */
+    /** Inline command payload. Depends on inline command type. */
+    union payload {
+        /** Fence (wait and signal) commands' payload. */
+        struct fence {
+            /** Fence object handle. */
             volatile uint64_t fence_handle;
-            /* User VA of the current fence value. */
+            /** User VA of the current fence value. */
             volatile uint64_t current_value_va;
-            /* User VA of the monitored fence value (read-only). */
+            /** User VA of the monitored fence value (read-only). */
             volatile uint64_t monitored_value_va;
-            /* Value to wait for or write in fence location. */
+            /** Value to wait for or write in fence location. */
             volatile uint64_t value;
-            /* User VA of the log buffer in which to add log entry on completion. */
+            /** User VA of the log buffer in which to add log entry on completion. */
             volatile uint64_t log_buffer_va;
-            /* NPU private data. */
+            /** NPU private data. */
             volatile uint64_t npu_private_data;
         } fence;
-        /* Other commands do not have a payload. */
-        /* Payload definition for future inline commands can be inserted here. */
+        /**
+         * Other commands do not have a payload:
+         * Payload definition for future inline commands can be inserted here.
+         */
         uint64_t reserved_1[6];
     } payload;
 };
 
-/*
+/**
  * Job queue slots can be populated either with job objects or inline command objects.
  */
 union vpu_jobq_slot {
@@ -308,7 +310,7 @@ union vpu_jobq_slot {
     struct vpu_inline_cmd inline_cmd;
 };
 
-/*
+/**
  * Job queue control registers.
  */
 struct vpu_job_queue_header {
@@ -316,18 +318,18 @@ struct vpu_job_queue_header {
     uint32_t head;
     volatile uint32_t tail;
     volatile uint32_t flags;
-    /* Set to 1 to indicate priority_band field is valid */
+    /** Set to 1 to indicate priority_band field is valid */
     uint32_t priority_band_valid;
-    /*
+    /**
      * Priority for the work of this job queue, valid only if the HWS is NOT used
-     * and the `priority_band_valid` is set to 1. It is applied only during
-     * the VPU_IPC_MSG_REGISTER_DB message processing.
-     * The device firmware might use the `priority_band` to optimize the power
+     * and the @ref priority_band_valid is set to 1. It is applied only during
+     * the @ref VPU_IPC_MSG_REGISTER_DB message processing.
+     * The device firmware might use the priority_band to optimize the power
      * management logic, but it will not affect the order of jobs.
      * Available priority bands: @see enum vpu_job_scheduling_priority_band
      */
     uint32_t priority_band;
-    /* Inside realtime band assigns a further priority, limited to 0..31 range */
+    /** Inside realtime band assigns a further priority, limited to 0..31 range */
     uint32_t realtime_priority_level;
     uint32_t reserved_0[9];
 };
@@ -354,16 +356,16 @@ enum vpu_trace_entity_type {
     VPU_TRACE_ENTITY_TYPE_HW_COMPONENT = 2,
 };
 
-/*
+/**
  * HWS specific log buffer header details.
  * Total size is 32 bytes.
  */
 struct vpu_hws_log_buffer_header {
-    /* Written by VPU after adding a log entry. Initialised by host to 0. */
+    /** Written by VPU after adding a log entry. Initialised by host to 0. */
     uint32_t first_free_entry_index;
-    /* Incremented by VPU every time the VPU writes the 0th entry; initialised by host to 0. */
+    /** Incremented by VPU every time the VPU writes the 0th entry; initialised by host to 0. */
     uint32_t wraparound_count;
-    /*
+    /**
      * This is the number of buffers that can be stored in the log buffer provided by the host.
      * It is written by host before passing buffer to VPU. VPU should consider it read-only.
      */
@@ -371,14 +373,14 @@ struct vpu_hws_log_buffer_header {
     uint64_t reserved[2];
 };
 
-/*
+/**
  * HWS specific log buffer entry details.
  * Total size is 32 bytes.
  */
 struct vpu_hws_log_buffer_entry {
-    /* VPU timestamp must be an invariant timer tick (not impacted by DVFS) */
+    /** VPU timestamp must be an invariant timer tick (not impacted by DVFS) */
     uint64_t vpu_timestamp;
-    /*
+    /**
      * Operation type:
      *     0 - context state change
      *     1 - queue new work
@@ -388,7 +390,7 @@ struct vpu_hws_log_buffer_entry {
      */
     uint32_t operation_type;
     uint32_t reserved;
-    /* Operation data depends on operation type */
+    /** Operation data depends on operation type */
     uint64_t operation_data[2];
 };
 
@@ -398,51 +400,51 @@ enum vpu_hws_native_fence_log_type {
     VPU_HWS_NATIVE_FENCE_LOG_TYPE_SIGNALS = 2
 };
 
-/* HWS native fence log buffer header. */
+/** HWS native fence log buffer header. */
 struct vpu_hws_native_fence_log_header {
     union {
         struct {
-            /* Index of the first free entry in buffer. */
+            /** Index of the first free entry in buffer. */
             uint32_t first_free_entry_idx;
-            /* Incremented each time NPU wraps around the buffer to write next entry. */
+            /** Incremented each time NPU wraps around the buffer to write next entry. */
             uint32_t wraparound_count;
         };
-        /* Field allowing atomic update of both fields above. */
+        /** Field allowing atomic update of both fields above. */
         uint64_t atomic_wraparound_and_entry_idx;
     };
-    /* Log buffer type, see enum vpu_hws_native_fence_log_type. */
+    /** Log buffer type, see enum vpu_hws_native_fence_log_type. */
     uint64_t type;
-    /* Allocated number of entries in the log buffer. */
+    /** Allocated number of entries in the log buffer. */
     uint64_t entry_nb;
     uint64_t reserved[2];
 };
 
-/* Native fence log operation types. */
+/** Native fence log operation types. */
 enum vpu_hws_native_fence_log_op {
     VPU_HWS_NATIVE_FENCE_LOG_OP_SIGNAL_EXECUTED = 0,
     VPU_HWS_NATIVE_FENCE_LOG_OP_WAIT_UNBLOCKED = 1
 };
 
-/* HWS native fence log entry. */
+/** HWS native fence log entry. */
 struct vpu_hws_native_fence_log_entry {
-    /* Newly signaled/unblocked fence value. */
+    /** Newly signaled/unblocked fence value. */
     uint64_t fence_value;
-    /* Native fence object handle to which this operation belongs. */
+    /** Native fence object handle to which this operation belongs. */
     uint64_t fence_handle;
-    /* Operation type, see enum vpu_hws_native_fence_log_op. */
+    /** Operation type, see enum vpu_hws_native_fence_log_op. */
     uint64_t op_type;
     uint64_t reserved_0;
-    /*
+    /**
      * VPU_HWS_NATIVE_FENCE_LOG_OP_WAIT_UNBLOCKED only: Timestamp at which fence
      * wait was started (in NPU SysTime).
      */
     uint64_t fence_wait_start_ts;
     uint64_t reserved_1;
-    /* Timestamp at which fence operation was completed (in NPU SysTime). */
+    /** Timestamp at which fence operation was completed (in NPU SysTime). */
     uint64_t fence_end_ts;
 };
 
-/* Native fence log buffer. */
+/** Native fence log buffer. */
 struct vpu_hws_native_fence_log_buffer {
     struct vpu_hws_native_fence_log_header header;
     struct vpu_hws_native_fence_log_entry entry[];
@@ -521,26 +523,51 @@ enum vpu_ipc_msg_type {
      * @see vpu_jsm_metric_streamer_start
      */
     VPU_IPC_MSG_METRIC_STREAMER_INFO = 0x1112,
-    /** Control command: Priority band setup */
+    /**
+     * Control command: Priority band setup
+     * @see vpu_ipc_msg_payload_hws_priority_band_setup
+     */
     VPU_IPC_MSG_SET_PRIORITY_BAND_SETUP = 0x1113,
-    /** Control command: Create command queue */
+    /**
+     * Control command: Create command queue
+     * @see vpu_ipc_msg_payload_hws_create_cmdq
+     */
     VPU_IPC_MSG_CREATE_CMD_QUEUE = 0x1114,
-    /** Control command: Destroy command queue */
+    /**
+     * Control command: Destroy command queue
+     * @see vpu_ipc_msg_payload_hws_destroy_cmdq
+     */
     VPU_IPC_MSG_DESTROY_CMD_QUEUE = 0x1115,
-    /** Control command: Set context scheduling properties */
+    /**
+     * Control command: Set context scheduling properties
+     * @see vpu_ipc_msg_payload_hws_set_context_sched_properties
+     */
     VPU_IPC_MSG_SET_CONTEXT_SCHED_PROPERTIES = 0x1116,
-    /*
+    /**
      * Register a doorbell to notify VPU of new work. The doorbell may later be
      * deallocated or reassigned to another context.
+     * @see vpu_jsm_hws_register_db
      */
     VPU_IPC_MSG_HWS_REGISTER_DB = 0x1117,
-    /** Control command: Log buffer setting */
+    /**
+     * Control command: Log buffer setting
+     * @see vpu_ipc_msg_payload_hws_set_scheduling_log
+     */
     VPU_IPC_MSG_HWS_SET_SCHEDULING_LOG = 0x1118,
-    /* Control command: Suspend command queue. */
+    /**
+     * Control command: Suspend command queue.
+     * @see vpu_ipc_msg_payload_hws_suspend_cmdq
+     */
     VPU_IPC_MSG_HWS_SUSPEND_CMDQ = 0x1119,
-    /* Control command: Resume command queue */
+    /**
+     * Control command: Resume command queue
+     * @see vpu_ipc_msg_payload_hws_resume_cmdq
+     */
     VPU_IPC_MSG_HWS_RESUME_CMDQ = 0x111a,
-    /* Control command: Resume engine after reset */
+    /**
+     * Control command: Resume engine after reset
+     * @see vpu_ipc_msg_payload_hws_resume_engine
+     */
     VPU_IPC_MSG_HWS_ENGINE_RESUME = 0x111b,
     /* Control command: Enable survivability/DCT mode */
     VPU_IPC_MSG_DCT_ENABLE = 0x111c,
@@ -568,11 +595,18 @@ enum vpu_ipc_msg_type {
 
     /* IPC Device -> Host, Job completion */
     VPU_IPC_MSG_JOB_DONE = 0x2100,
-    /* IPC Device -> Host, Fence signalled */
+    /**
+     * IPC Device -> Host, Fence signalled
+     * @see vpu_ipc_msg_payload_native_fence_signalled
+     */
     VPU_IPC_MSG_NATIVE_FENCE_SIGNALLED = 0x2101,
 
     /* IPC Device -> Host, Async command completion */
     VPU_IPC_MSG_ASYNC_CMD_DONE = 0x2200,
+    /**
+     * IPC Device -> Host, engine reset complete
+     * @see vpu_ipc_msg_payload_engine_reset_done
+     */
     VPU_IPC_MSG_ENGINE_RESET_DONE = VPU_IPC_MSG_ASYNC_CMD_DONE,
     VPU_IPC_MSG_ENGINE_PREEMPT_DONE = 0x2201,
     VPU_IPC_MSG_REGISTER_DB_DONE = 0x2202,
@@ -629,23 +663,50 @@ enum vpu_ipc_msg_type {
      * @see vpu_jsm_metric_streamer_done
      */
     VPU_IPC_MSG_METRIC_STREAMER_NOTIFICATION = 0x2213,
-    /** Response to control command: Priority band setup */
+    /**
+     * Response to control command: Priority band setup
+     * @see vpu_ipc_msg_payload_hws_priority_band_setup
+     */
     VPU_IPC_MSG_SET_PRIORITY_BAND_SETUP_RSP = 0x2214,
-    /** Response to control command: Create command queue */
+    /**
+     * Response to control command: Create command queue
+     * @see vpu_ipc_msg_payload_hws_create_cmdq_rsp
+     */
     VPU_IPC_MSG_CREATE_CMD_QUEUE_RSP = 0x2215,
-    /** Response to control command: Destroy command queue */
+    /**
+     * Response to control command: Destroy command queue
+     * @see vpu_ipc_msg_payload_hws_destroy_cmdq
+     */
     VPU_IPC_MSG_DESTROY_CMD_QUEUE_RSP = 0x2216,
-    /** Response to control command: Set context scheduling properties */
+    /**
+     * Response to control command: Set context scheduling properties
+     * @see vpu_ipc_msg_payload_hws_set_context_sched_properties
+     */
     VPU_IPC_MSG_SET_CONTEXT_SCHED_PROPERTIES_RSP = 0x2217,
-    /** Response to control command: Log buffer setting */
+    /**
+     * Response to control command: Log buffer setting
+     * @see vpu_ipc_msg_payload_hws_set_scheduling_log
+     */
     VPU_IPC_MSG_HWS_SET_SCHEDULING_LOG_RSP = 0x2218,
-    /* IPC Device -> Host, HWS notify index entry of log buffer written */
+    /**
+     * IPC Device -> Host, HWS notify index entry of log buffer written
+     * @see vpu_ipc_msg_payload_hws_scheduling_log_notification
+     */
     VPU_IPC_MSG_HWS_SCHEDULING_LOG_NOTIFICATION = 0x2219,
-    /* IPC Device -> Host, HWS completion of a context suspend request */
+    /**
+     * IPC Device -> Host, HWS completion of a context suspend request
+     * @see vpu_ipc_msg_payload_hws_suspend_cmdq
+     */
     VPU_IPC_MSG_HWS_SUSPEND_CMDQ_DONE = 0x221a,
-    /* Response to control command: Resume command queue */
+    /**
+     * Response to control command: Resume command queue
+     * @see vpu_ipc_msg_payload_hws_resume_cmdq
+     */
     VPU_IPC_MSG_HWS_RESUME_CMDQ_RSP = 0x221b,
-    /* Response to control command: Resume engine command response */
+    /**
+     * Response to control command: Resume engine command response
+     * @see vpu_ipc_msg_payload_hws_resume_engine
+     */
     VPU_IPC_MSG_HWS_RESUME_ENGINE_DONE = 0x221c,
     /* Response to control command: Enable survivability/DCT mode */
     VPU_IPC_MSG_DCT_ENABLE_DONE = 0x221d,
@@ -875,38 +936,47 @@ struct vpu_ipc_msg_payload_job_done {
 };
 typedef struct vpu_ipc_msg_payload_job_done vpu_ipc_msg_payload_job_done_t;
 
-/*
+/**
  * Notification message upon native fence signalling.
  * @see VPU_IPC_MSG_NATIVE_FENCE_SIGNALLED
  */
 struct vpu_ipc_msg_payload_native_fence_signalled {
-    /* Engine ID. */
+    /** Engine ID. */
     uint32_t engine_idx;
-    /* Host SSID. */
+    /** Host SSID. */
     uint32_t host_ssid;
-    /* CMDQ ID */
+    /** CMDQ ID */
     uint64_t cmdq_id;
-    /* Fence object handle. */
+    /** Fence object handle. */
     uint64_t fence_handle;
 };
 
+/**
+ * vpu_ipc_msg_payload_engine_reset_done will contain an array of this structure
+ * which contains which queues caused reset if FW was able to detect any error.
+ * @see vpu_ipc_msg_payload_engine_reset_done
+ */
 struct vpu_jsm_engine_reset_context {
-    /* Host SSID */
+    /** Host SSID */
     uint32_t host_ssid;
-    /* Zero Padding */
+    /** Zero Padding */
     uint32_t reserved_0;
-    /* Command queue id */
+    /** Command queue id */
     uint64_t cmdq_id;
-    /* See VPU_ENGINE_RESET_CONTEXT_* defines */
+    /** See VPU_ENGINE_RESET_CONTEXT_* defines */
     uint64_t flags;
 };
 
+/**
+ * Engine reset response.
+ * @see VPU_IPC_MSG_ENGINE_RESET_DONE
+ */
 struct vpu_ipc_msg_payload_engine_reset_done {
-    /* Engine ordinal */
+    /** Engine ordinal */
     uint32_t engine_idx;
-    /* Number of impacted contexts */
+    /** Number of impacted contexts */
     uint32_t num_impacted_contexts;
-    /* Array of impacted command queue ids and their flags */
+    /** Array of impacted command queue ids and their flags */
     struct vpu_jsm_engine_reset_context impacted_contexts[VPU_MAX_ENGINE_RESET_IMPACTED_CONTEXTS];
 };
 typedef struct vpu_ipc_msg_payload_engine_reset_done vpu_ipc_msg_payload_engine_reset_done_t;
@@ -973,7 +1043,10 @@ struct vpu_ipc_msg_payload_get_power_level_count_done {
 };
 typedef struct vpu_ipc_msg_payload_get_power_level_count_done vpu_ipc_msg_payload_get_power_level_count_done_t;
 
-/* HWS priority band setup request / response */
+/**
+ * HWS priority band setup request / response
+ * @see VPU_IPC_MSG_SET_PRIORITY_BAND_SETUP
+ */
 struct vpu_ipc_msg_payload_hws_priority_band_setup {
     /*
      * Grace period in 100ns units when preempting another priority band for
@@ -1011,13 +1084,12 @@ struct vpu_ipc_msg_payload_hws_priority_band_setup {
     uint32_t non_interactive_timeout;
 };
 
-/*
+/**
  * @brief HWS create command queue request.
  * Host will create a command queue via this command.
  * Note: Cmdq group is a handle of an object which
  * may contain one or more command queues.
  * @see VPU_IPC_MSG_CREATE_CMD_QUEUE
- * @see VPU_IPC_MSG_CREATE_CMD_QUEUE_RSP
  */
 struct vpu_ipc_msg_payload_hws_create_cmdq {
     /* Process id */
@@ -1038,66 +1110,73 @@ struct vpu_ipc_msg_payload_hws_create_cmdq {
     uint32_t reserved_0;
 };
 
-/*
- * @brief HWS create command queue response.
- * @see VPU_IPC_MSG_CREATE_CMD_QUEUE
+/**
+ * HWS create command queue response.
  * @see VPU_IPC_MSG_CREATE_CMD_QUEUE_RSP
  */
 struct vpu_ipc_msg_payload_hws_create_cmdq_rsp {
-    /* Process id */
+    /** Process id */
     uint64_t process_id;
-    /* Host SSID */
+    /** Host SSID */
     uint32_t host_ssid;
-    /* Engine for which queue is being created */
+    /** Engine for which queue is being created */
     uint32_t engine_idx;
-    /* Command queue group */
+    /** Command queue group */
     uint64_t cmdq_group;
-    /* Command queue id */
+    /** Command queue id */
     uint64_t cmdq_id;
 };
 
-/* HWS destroy command queue request / response */
+/**
+ * HWS destroy command queue request / response
+ * @see VPU_IPC_MSG_DESTROY_CMD_QUEUE
+ * @see VPU_IPC_MSG_DESTROY_CMD_QUEUE_RSP
+ */
 struct vpu_ipc_msg_payload_hws_destroy_cmdq {
-    /* Host SSID */
+    /** Host SSID */
     uint32_t host_ssid;
-    /* Zero Padding */
+    /** Zero Padding */
     uint32_t reserved;
-    /* Command queue id */
+    /** Command queue id */
     uint64_t cmdq_id;
 };
 
-/* HWS set context scheduling properties request / response */
+/**
+ * HWS set context scheduling properties request / response
+ * @see VPU_IPC_MSG_SET_CONTEXT_SCHED_PROPERTIES
+ * @see VPU_IPC_MSG_SET_CONTEXT_SCHED_PROPERTIES_RSP
+ */
 struct vpu_ipc_msg_payload_hws_set_context_sched_properties {
-    /* Host SSID */
+    /** Host SSID */
     uint32_t host_ssid;
-    /* Zero Padding */
+    /** Zero Padding */
     uint32_t reserved_0;
-    /* Command queue id */
+    /** Command queue id */
     uint64_t cmdq_id;
-    /*
+    /**
      * Priority band to assign to work of this context.
      * Available priority bands: @see enum vpu_job_scheduling_priority_band
      */
     uint32_t priority_band;
-    /* Inside realtime band assigns a further priority */
+    /** Inside realtime band assigns a further priority */
     uint32_t realtime_priority_level;
-    /* Priority relative to other contexts in the same process */
+    /** Priority relative to other contexts in the same process */
     int32_t in_process_priority;
-    /* Zero padding / Reserved */
+    /** Zero padding / Reserved */
     uint32_t reserved_1;
-    /*
+    /**
      * Context quantum relative to other contexts of same priority in the same process
      * Minimum value supported by NPU is 1ms (10000 in 100ns units).
      */
     uint64_t context_quantum;
-    /* Grace period when preempting context of the same priority within the same process */
+    /** Grace period when preempting context of the same priority within the same process */
     uint64_t grace_period_same_priority;
-    /* Grace period when preempting context of a lower priority within the same process */
+    /** Grace period when preempting context of a lower priority within the same process */
     uint64_t grace_period_lower_priority;
 };
 
-/*
- * @brief Register doorbell command structure.
+/**
+ * Register doorbell command structure.
  * This structure supports doorbell registration for both HW and OS scheduling.
  * Note: Queue base and size are added here so that the same structure can be used for
  * OS scheduling and HW scheduling. For OS scheduling, cmdq_id will be ignored
@@ -1106,27 +1185,27 @@ struct vpu_ipc_msg_payload_hws_set_context_sched_properties {
  * @see VPU_IPC_MSG_HWS_REGISTER_DB
  */
 struct vpu_jsm_hws_register_db {
-    /* Index of the doorbell to register. */
+    /** Index of the doorbell to register. */
     uint32_t db_id;
-    /* Host sub-stream ID for the context assigned to the doorbell. */
+    /** Host sub-stream ID for the context assigned to the doorbell. */
     uint32_t host_ssid;
-    /* ID of the command queue associated with the doorbell. */
+    /** ID of the command queue associated with the doorbell. */
     uint64_t cmdq_id;
-    /* Virtual address pointing to the start of command queue. */
+    /** Virtual address pointing to the start of command queue. */
     uint64_t cmdq_base;
-    /* Size of the command queue in bytes. */
+    /** Size of the command queue in bytes. */
     uint64_t cmdq_size;
 };
 
-/*
- * @brief Structure to set another buffer to be used for scheduling-related logging.
+/**
+ * Structure to set another buffer to be used for scheduling-related logging.
  * The size of the logging buffer and the number of entries is defined as part of the
  * buffer itself as described next.
  * The log buffer received from the host is made up of;
- *   - header:     32 bytes in size, as shown in 'struct vpu_hws_log_buffer_header'.
+ *   - header:     32 bytes in size, as shown in @ref vpu_hws_log_buffer_header.
  *                 The header contains the number of log entries in the buffer.
  *   - log entry:  0 to n-1, each log entry is 32 bytes in size, as shown in
- *                 'struct vpu_hws_log_buffer_entry'.
+ *                 @ref vpu_hws_log_buffer_entry.
  *                 The entry contains the VPU timestamp, operation type and data.
  * The host should provide the notify index value of log buffer to VPU. This is a
  * value defined within the log buffer and when written to will generate the
@@ -1140,30 +1219,30 @@ struct vpu_jsm_hws_register_db {
  * @see VPU_IPC_MSG_HWS_SCHEDULING_LOG_NOTIFICATION
  */
 struct vpu_ipc_msg_payload_hws_set_scheduling_log {
-    /* Engine ordinal */
+    /** Engine ordinal */
     uint32_t engine_idx;
-    /* Host SSID */
+    /** Host SSID */
     uint32_t host_ssid;
-    /*
+    /**
      * VPU log buffer virtual address.
      * Set to 0 to disable logging for this engine.
      */
     uint64_t vpu_log_buffer_va;
-    /*
+    /**
      * Notify index of log buffer. VPU_IPC_MSG_HWS_SCHEDULING_LOG_NOTIFICATION
      * is generated when an event log is written to this index.
      */
     uint64_t notify_index;
-    /*
+    /**
      * Field is now deprecated, will be removed when KMD is updated to support removal
      */
     uint32_t enable_extra_events;
-    /* Zero Padding */
+    /** Zero Padding */
     uint32_t reserved_0;
 };
 
-/*
- * @brief The scheduling log notification is generated by VPU when it writes
+/**
+ * The scheduling log notification is generated by VPU when it writes
  * an event into the log buffer at the notify_index. VPU notifies host with
  * VPU_IPC_MSG_HWS_SCHEDULING_LOG_NOTIFICATION. This is an asynchronous
  * message from VPU to host.
@@ -1171,14 +1250,14 @@ struct vpu_ipc_msg_payload_hws_set_scheduling_log {
  * @see VPU_IPC_MSG_HWS_SET_SCHEDULING_LOG
  */
 struct vpu_ipc_msg_payload_hws_scheduling_log_notification {
-    /* Engine ordinal */
+    /** Engine ordinal */
     uint32_t engine_idx;
-    /* Zero Padding */
+    /** Zero Padding */
     uint32_t reserved_0;
 };
 
-/*
- * @brief HWS suspend command queue request and done structure.
+/**
+ * HWS suspend command queue request and done structure.
  * Host will request the suspend of contexts and VPU will;
  *   - Suspend all work on this context
  *   - Preempt any running work
@@ -1197,21 +1276,21 @@ struct vpu_ipc_msg_payload_hws_scheduling_log_notification {
  * @see VPU_IPC_MSG_HWS_SUSPEND_CMDQ_DONE
  */
 struct vpu_ipc_msg_payload_hws_suspend_cmdq {
-    /* Host SSID */
+    /** Host SSID */
     uint32_t host_ssid;
-    /* Zero Padding */
+    /** Zero Padding */
     uint32_t reserved_0;
-    /* Command queue id */
+    /** Command queue id */
     uint64_t cmdq_id;
-    /*
+    /**
      * Suspend fence value - reported by the VPU suspend context
      * completed once suspend is complete.
      */
     uint64_t suspend_fence_value;
 };
 
-/*
- * @brief HWS Resume command queue request / response structure.
+/**
+ * HWS Resume command queue request / response structure.
  * Host will request the resume of a context;
  *  - VPU will resume all work on this context
  *  - Scheduler will allow this context to be scheduled
@@ -1219,25 +1298,25 @@ struct vpu_ipc_msg_payload_hws_suspend_cmdq {
  * @see VPU_IPC_MSG_HWS_RESUME_CMDQ_RSP
  */
 struct vpu_ipc_msg_payload_hws_resume_cmdq {
-    /* Host SSID */
+    /** Host SSID */
     uint32_t host_ssid;
-    /* Zero Padding */
+    /** Zero Padding */
     uint32_t reserved_0;
-    /* Command queue id */
+    /** Command queue id */
     uint64_t cmdq_id;
 };
 
-/*
- * @brief HWS Resume engine request / response structure.
- * After a HWS engine reset, all scheduling is stopped on VPU until a engine resume.
+/**
+ * HWS Resume engine request / response structure.
+ * After a HWS engine reset, all scheduling is stopped on VPU until an engine resume.
  * Host shall send this command to resume scheduling of any valid queue.
- * @see VPU_IPC_MSG_HWS_RESUME_ENGINE
+ * @see VPU_IPC_MSG_HWS_ENGINE_RESUME
  * @see VPU_IPC_MSG_HWS_RESUME_ENGINE_DONE
  */
 struct vpu_ipc_msg_payload_hws_resume_engine {
-    /* Engine to be resumed */
+    /** Engine to be resumed */
     uint32_t engine_idx;
-    /* Reserved */
+    /** Reserved */
     uint32_t reserved_0;
 };
 

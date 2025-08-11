@@ -1,10 +1,20 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (c) 2022-2024, Intel Corporation.
+ * Copyright (c) 2022-2025, Intel Corporation.
+ */
+
+/**
+ * @file
+ * @brief Contains structs that are common between the workload management and non workload management APIs.
  */
 
 #ifndef VPU_NNRT_COMMON_H
 #define VPU_NNRT_COMMON_H
+
+/**
+ * @addtogroup NNRT
+ * @{
+ */
 
 /*
  * IMPORTANT:
@@ -42,19 +52,28 @@ constexpr uint32_t VPU_BARRIERS_PER_GROUP = 16;
 constexpr uint32_t VPU_DPU_PER_TILE = 1;
 constexpr uint32_t VPU_SNN_PER_TILE = VPU_DPU_PER_TILE;
 constexpr uint32_t VPU_SNN_TOTAL = VPU_SNN_PER_TILE * VPU_MAX_TILES;
+constexpr uint32_t VPU_MAX_DMA_ENGINES = 2;
 constexpr uint32_t VPU_AS_PER_TILE = 2;
 constexpr uint32_t VPU_AS_TOTAL = VPU_AS_PER_TILE * VPU_MAX_TILES;
-constexpr uint32_t VPU_MAX_DMA_ENGINES = 2;
 
 #pragma pack(push, 1)
 
+/**
+ * @brief Holds the start address and count of an array of one or more objects of type T
+ */
 template <typename T>
 struct VPU_ALIGNED_STRUCT(8) VpuTaskReference {
     uint64_t reserved1;
     uint64_t reserved2;
     uint64_t reserved3;
 
+    /**
+     * @brief Address of the first T in the array.
+     */
     uint64_t address;
+    /**
+     * @brief Number of elements of T in the array.
+     */
     uint64_t count;
 
     T *data() { return reinterpret_cast<T *>(address); }
@@ -67,23 +86,58 @@ struct VPU_ALIGNED_STRUCT(8) VpuTaskReference {
 
     T &at(uint32_t index, int64_t offset = 0) { return (reinterpret_cast<T *>(address + offset))[index]; }
     const T &at(uint32_t index, int64_t offset = 0) const { return (reinterpret_cast<T *>(address + offset))[index]; }
+
+    bool is_valid() const {
+        // Check if address is non-null and aligned to the natural alignment of T
+        return (address != 0 && !(address & (alignof(T) - 1)));
+    }
 };
 
 static_assert(sizeof(VpuTaskReference<uint32_t>) == 40, "VpuTaskReference size != 40");
 
+/**
+ * @brief Contains runtime configuration for the Shaves
+ */
 struct VPU_ALIGNED_STRUCT(8) VpuNNShaveRuntimeConfigs {
     uint64_t reserved;
-    uint64_t runtime_entry; // when useScheduleEmbeddedRt = true this is a windowed address
+    /**
+     * @brief The entrypoint address.
+     */
+    uint64_t runtime_entry;
+    /**
+     * @brief The window base address.
+     */
     uint64_t act_rt_window_base;
+    /**
+     * @brief The addresses of the stacks (one per shave) in DDR.
+     * If the stacks are not in DDR then this field is ignored.
+     */
     uint32_t stack_frames[VPU_AS_TOTAL];
+    /**
+     * @brief The size of the stacks in bytes.
+     */
     uint32_t stack_size;
+    /**
+     * @brief Unused
+     */
     uint32_t code_window_buffer_size;
+    /**
+     * @brief Bitmask of performance metrics to be collected.
+     */
     uint32_t perf_metrics_mask;
+    /**
+     * @brief The version of the runtime embedded in this blob.
+     */
     uint32_t runtime_version;
-    uint8_t use_schedule_embedded_rt; // when useScheduleEmbeddedRt = false; FW copies ActRt to this buffer
-                                      // when useScheduleEmbeddedRt = true; buffer already contains the ActRt
+    /**
+     * @brief Unused
+     */
+    uint8_t use_schedule_embedded_rt;
+    /**
+     * @brief Unused
+     */
     VpuHWPStatMode dpu_perf_mode;
-    uint8_t pad_[6];
+    uint8_t pad1_[6];
 };
 
 static_assert(sizeof(VpuNNShaveRuntimeConfigs) == 96, "VpuNNShaveRuntimeConfigs size != 96");
@@ -91,5 +145,10 @@ static_assert(sizeof(VpuNNShaveRuntimeConfigs) == 96, "VpuNNShaveRuntimeConfigs 
 #pragma pack(pop)
 
 } // namespace nn_public
+
+/**
+ * close the "addtogroup NNRT" block
+ * @}
+ */
 
 #endif
