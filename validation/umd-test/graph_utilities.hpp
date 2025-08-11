@@ -199,7 +199,8 @@ class GraphBuffer {
 
     void loadNGraphModel(ze_device_handle_t hDevice, graph_dditable_ext_t *graphDdi) {
         std::vector<char> bufferXml, bufferBin;
-        ze_device_graph_properties_t deviceGraphProp;
+        ze_device_graph_properties_t deviceGraphProp = {};
+        deviceGraphProp.stype = ZE_STRUCTURE_TYPE_DEVICE_GRAPH_PROPERTIES;
 
         ASSERT_TRUE(getModelFromPath(path, bufferXml, bufferBin));
         ASSERT_EQ(graphDdi->pfnDeviceGetGraphProperties(hDevice, &deviceGraphProp),
@@ -350,6 +351,8 @@ class Graph {
 
         case ZE_GRAPH_ARGUMENT_PRECISION_INT4:
         case ZE_GRAPH_ARGUMENT_PRECISION_UINT4:
+        case ZE_GRAPH_ARGUMENT_PRECISION_INT2:
+        case ZE_GRAPH_ARGUMENT_PRECISION_UINT2:
         case ZE_GRAPH_ARGUMENT_PRECISION_BIN:
         case ZE_GRAPH_ARGUMENT_PRECISION_BOOLEAN:
             return 0;

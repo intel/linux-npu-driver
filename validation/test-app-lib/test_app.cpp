@@ -79,6 +79,8 @@ static void print_help(const char *extraMessage, const char *appName) {
            "      Run disabled tests (shortcut for --gtest_also_run_disabled_tests).\n"
            "  -S/--run_skipped\n"
            "      Run skipped tests.\n"
+           "  -B/--break\n"
+           "      Stop after failure.\n"
            "  -r/--repeat [COUNT]\n"
            "      Repeat tests COUNT times (shortcut for --gtest_repeat=COUNT).\n"
            "  -l/--list_tests\n"
@@ -104,6 +106,11 @@ static void print_help(const char *extraMessage, const char *appName) {
 
     printf("\n");
     exit(1);
+}
+
+static void setBreakFlag(const char *arg) {
+    ::testing::GTEST_FLAG(throw_on_failure) = true;
+    ::testing::GTEST_FLAG(catch_exceptions) = false;
 }
 
 static void setRunDisabledTests(const char *) {
@@ -155,6 +162,7 @@ void parse_args(std::unordered_map<int, Argument> &extArgs,
     ArgumentMap appArgs = {
         {'h', {"help", no_argument, [extHelpMsg, argv](auto) { print_help(extHelpMsg, argv[0]); }}},
         {'v', {"verbose", no_argument, [](auto) { test_app::verbose_logs = true; }}},
+        {'B', {"break", no_argument, &setBreakFlag}},
         {'D', {"run_disabled", no_argument, &setRunDisabledTests}},
         {'S', {"run_skipped", no_argument, [](auto) { test_app::run_skipped_tests = true; }}},
         {'r', {"repeat", required_argument, &setRepeatFlag}},

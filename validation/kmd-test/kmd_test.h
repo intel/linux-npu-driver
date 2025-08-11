@@ -169,6 +169,7 @@ class KmdContext {
 
     int open();
     void close();
+    int reopen();
 
     int get_fd() const;
     int get_major_id() const;
@@ -276,6 +277,7 @@ class KmdTest : public ::testing::Test {
     void fw_store();
     void fw_restore();
 
+    int WaitPid(pid_t pid, int secTimeout);
     int RunCommand(char *const commandLine[], int secTimeout);
     void CopyTest(KmdContext &ctx, MemoryBuffer &src_buf, uint64_t size, uint8_t pattern);
 
@@ -397,6 +399,7 @@ struct CmdBuffer : MemoryBuffer {
 
     int create();
     void start(int offset, int cmds_offset = 0);
+    void resize(uint32_t bb_size);
 
     void *add_cmd(int type, int size);
     template <typename T>
@@ -406,6 +409,7 @@ struct CmdBuffer : MemoryBuffer {
     vpu_cmd_buffer_header_t *hdr();
     void add_handle(MemoryBuffer &buf);
     ssize_t get_free_space();
+    void add_nop_cmd(int size = 8);
     void add_barrier_cmd();
     void
     add_ts_cmd(MemoryBuffer &ts_buf, uint32_t ts_offset, enum vpu_time_type type = VPU_TIME_RAW);

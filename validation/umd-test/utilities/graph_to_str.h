@@ -47,6 +47,8 @@ inline const char *zeGraphArgumentPrecisionToStr(ze_graph_argument_precision_t a
         return "ZE_GRAPH_ARGUMENT_PRECISION_UINT8";
     case ZE_GRAPH_ARGUMENT_PRECISION_UINT4:
         return "ZE_GRAPH_ARGUMENT_PRECISION_UINT4";
+    case ZE_GRAPH_ARGUMENT_PRECISION_UINT2:
+        return "ZE_GRAPH_ARGUMENT_PRECISION_UINT2";
     case ZE_GRAPH_ARGUMENT_PRECISION_INT64:
         return "ZE_GRAPH_ARGUMENT_PRECISION_INT64";
     case ZE_GRAPH_ARGUMENT_PRECISION_INT32:
@@ -57,6 +59,8 @@ inline const char *zeGraphArgumentPrecisionToStr(ze_graph_argument_precision_t a
         return "ZE_GRAPH_ARGUMENT_PRECISION_INT8";
     case ZE_GRAPH_ARGUMENT_PRECISION_INT4:
         return "ZE_GRAPH_ARGUMENT_PRECISION_INT4";
+    case ZE_GRAPH_ARGUMENT_PRECISION_INT2:
+        return "ZE_GRAPH_ARGUMENT_PRECISION_INT2";
     case ZE_GRAPH_ARGUMENT_PRECISION_BIN:
         return "ZE_GRAPH_ARGUMENT_PRECISION_BIN";
     case ZE_GRAPH_ARGUMENT_PRECISION_DYNAMIC:
