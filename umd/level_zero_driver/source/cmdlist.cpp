@@ -14,12 +14,12 @@
 #include "level_zero_driver/include/l0_exception.hpp"
 #include "level_zero_driver/include/nested_structs_handler.hpp"
 #include "metric_query.hpp"
-#include "vpu_driver/source/command/vpu_barrier_command.hpp"
-#include "vpu_driver/source/command/vpu_command.hpp"
-#include "vpu_driver/source/command/vpu_copy_command.hpp"
-#include "vpu_driver/source/command/vpu_fill_command.hpp"
-#include "vpu_driver/source/command/vpu_query_command.hpp"
-#include "vpu_driver/source/command/vpu_ts_command.hpp"
+#include "vpu_driver/source/command/barrier_command.hpp"
+#include "vpu_driver/source/command/command.hpp"
+#include "vpu_driver/source/command/copy_command.hpp"
+#include "vpu_driver/source/command/fill_command.hpp"
+#include "vpu_driver/source/command/query_command.hpp"
+#include "vpu_driver/source/command/ts_command.hpp"
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
@@ -754,8 +754,6 @@ ze_result_t CommandList::updateMutableCommands(const ze_mutable_commands_exp_des
             return ZE_RESULT_ERROR_INVALID_ARGUMENT;
         }
     }
-
-    vpuJob->setNeedsUpdate(true);
 
     return ZE_RESULT_SUCCESS;
 }

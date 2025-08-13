@@ -25,8 +25,7 @@ namespace VPU {
 class NullOsInterfaceImp : public OsInterface {
   public:
     static OsInterface *getInstance();
-    static bool isNullDeviceRequested();
-    static bool configureNullDevice();
+    bool configureNullDevice();
 
     int osiOpen(const char *pathname, int flags, mode_t mode) override;
     int osiClose(int fd) override;

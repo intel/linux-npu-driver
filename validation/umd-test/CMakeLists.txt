@@ -42,6 +42,7 @@ add_executable(${PROJECT_NAME}
     test_immediate_cmdlist.cpp
     test_inference_performance.cpp
     test_init_drivers.cpp
+    test_inorder_exec.cpp
     test_memory.cpp
     test_metric.cpp
     test_metric_streamer.cpp
@@ -53,9 +54,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/umd/leve
 
 if (TARGET openvino::runtime)
     target_sources(${PROJECT_NAME} PRIVATE test_ov_inference.cpp test_mutable_cmdlist.cpp)
-    target_link_libraries(${PROJECT_NAME} openvino::runtime)
+    target_link_libraries(${PROJECT_NAME} openvino::runtime fw_vpu_api_headers)
     target_compile_definitions(${PROJECT_NAME} PUBLIC UMD_TESTS_USE_OPENVINO=1)
-    target_compile_options(${PROJECT_NAME} PRIVATE -Wno-deprecated-declarations)
 endif()
 
 if (TARGET opencv_core AND TARGET opencv_imgcodecs)

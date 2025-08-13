@@ -5,6 +5,8 @@
  *
  */
 
+// IWYU pragma: no_include "perfetto.h"
+
 #include "compiler.hpp"
 
 #include <stddef.h>
@@ -18,6 +20,7 @@
 #include "vpu_driver/source/device/vpu_device.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
+#include "vpu_driver/source/utilities/trace_perfetto.hpp" // IWYU pragma: keep
 
 #include <bitset>
 #include <memory>
@@ -113,6 +116,7 @@ ze_result_t Compiler::compilerCreate(const VPU::VPUHwInfo &hwInfo,
     deviceDesc.revision = hwInfo.deviceRevision;
     deviceDesc.tileCount = static_cast<uint32_t>(std::bitset<32>(hwInfo.tileConfig).count());
 
+    TRACE_EVENT("NPU_COMPILER", "vclCompilerCreate");
     return vclToL0Err(Vcl::sym().compilerCreate(&compilerDesc, &deviceDesc, &compiler, &logHandle));
 }
 
@@ -120,6 +124,7 @@ ze_result_t Compiler::compilerDestroy(vcl_compiler_handle_t compiler) {
     if (!Vcl::sym().ok())
         return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
 
+    TRACE_EVENT("NPU_COMPILER", "vclCompilerDestroy");
     return vclToL0Err(Vcl::sym().compilerDestroy(compiler));
 }
 
@@ -127,8 +132,10 @@ ze_result_t Compiler::compilerInit(VPU::VPUDevice *vpuDevice) {
     if (!Vcl::sym().ok())
         return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
 
+    TRACE_EVENT_BEGIN("NPU_COMPILER", "vclGetVersion");
     ze_result_t ret =
         vclToL0Err(Vcl::sym().getVersion(&vclCompilerApiVersion, &vclProfilingApiVersion));
+    TRACE_EVENT_END("NPU_COMPILER");
     if (ret != ZE_RESULT_SUCCESS) {
         LOG_E("Failed to call vclGetVersion, ret: %#x", ret);
         return ret;
@@ -142,13 +149,17 @@ ze_result_t Compiler::compilerInit(VPU::VPUDevice *vpuDevice) {
         return ret;
     }
 
+    TRACE_EVENT_BEGIN("NPU_COMPILER", "vclCompilerGetProperties");
     ret = vclToL0Err(Vcl::sym().compilerGetProperties(compiler, &compilerProperties));
+    TRACE_EVENT_END("NPU_COMPILER");
     if (ret != ZE_RESULT_SUCCESS) {
         LOG_E("Failed to get compiler version! Result:%#x", ret);
+        TRACE_EVENT("NPU_COMPILER", "vclCompilerDestroy");
         Vcl::sym().compilerDestroy(compiler);
         return ret;
     }
 
+    TRACE_EVENT("NPU_COMPILER", "vclCompilerDestroy");
     Vcl::sym().compilerDestroy(compiler);
     return ret;
 }
@@ -162,7 +173,9 @@ static void appendCompilerLog(vcl_log_handle_t logHandle, std::string &buffer) {
     }
 
     size_t compilerLogSize = 0;
+    TRACE_EVENT_BEGIN("NPU_COMPILER", "vclLogHandleGetString");
     vcl_result_t logRet = Vcl::sym().logHandleGetString(logHandle, &compilerLogSize, NULL);
+    TRACE_EVENT_END("NPU_COMPILER");
     if (logRet != VCL_RESULT_SUCCESS) {
         LOG_E("Failed to get size of error message");
         return;
@@ -174,6 +187,8 @@ static void appendCompilerLog(vcl_log_handle_t logHandle, std::string &buffer) {
 
     size_t currentSize = buffer.size();
     buffer.resize(currentSize + compilerLogSize);
+
+    TRACE_EVENT("NPU_COMPILER", "vclLogHandleGetString");
     logRet =
         Vcl::sym().logHandleGetString(logHandle, &compilerLogSize, buffer.data() + currentSize);
     if (logRet != VCL_RESULT_SUCCESS) {
@@ -199,6 +214,14 @@ static void vclDeallocate(uint8_t *ptr) {
     delete[] ptr;
 }
 
+static uint8_t *vclAllocate2(vcl_allocator2_t *allocator, uint64_t size) {
+    return new uint8_t[size];
+}
+
+static void vclDeallocate2(vcl_allocator2_t *allocator, uint8_t *ptr) {
+    delete[] ptr;
+}
+
 static ze_result_t getCompilerExecutableAllocation(VPU::VPUDeviceContext *ctx,
                                                    vcl_compiler_handle_t &compiler,
                                                    ze_graph_desc_2_t &desc,
@@ -213,23 +236,40 @@ static ze_result_t getCompilerExecutableAllocation(VPU::VPUDeviceContext *ctx,
                                      strlen(desc.pBuildFlags)};
     LOG(GRAPH, "Compiler options: %s", exeDesc.options);
 
-    vcl_allocator_t allocator = {.allocate = &vclAllocate, .deallocate = &vclDeallocate};
-
     uint8_t *graphBuffer = nullptr;
     size_t graphSize = 0;
-    ze_result_t ret = vclToL0Err(Vcl::sym().allocatedExecutableCreate(compiler,
-                                                                      exeDesc,
-                                                                      &allocator,
-                                                                      &graphBuffer,
-                                                                      &graphSize));
-    if (ret != ZE_RESULT_SUCCESS) {
-        log += "[NPU_DRV] Driver reports a failure from vclAllocatedExecutableCreate, return "
-               "code: " +
-               std::to_string(ret) + '\n';
-        LOG_E("Failed to create compiler executable! Result:%#x", ret);
-        return ret;
-    }
 
+    if (Vcl::sym().allocatedExecutableCreate2 != nullptr) {
+        vcl_allocator2_t allocator = {.allocate = &vclAllocate2, .deallocate = &vclDeallocate2};
+        TRACE_EVENT("NPU_COMPILER", "vclAllocatedExecutableCreate2");
+        ze_result_t ret = vclToL0Err(Vcl::sym().allocatedExecutableCreate2(compiler,
+                                                                           exeDesc,
+                                                                           &allocator,
+                                                                           &graphBuffer,
+                                                                           &graphSize));
+        if (ret != ZE_RESULT_SUCCESS) {
+            log += "[NPU_DRV] Driver reports a failure from vclAllocatedExecutableCreate2, return "
+                   "code: " +
+                   std::to_string(ret) + '\n';
+            LOG_E("Failed to create compiler executable! Result:%#x", ret);
+            return ret;
+        }
+    } else {
+        vcl_allocator_t allocator = {.allocate = &vclAllocate, .deallocate = &vclDeallocate};
+        TRACE_EVENT("NPU_COMPILER", "vclAllocatedExecutableCreate");
+        ze_result_t ret = vclToL0Err(Vcl::sym().allocatedExecutableCreate(compiler,
+                                                                          exeDesc,
+                                                                          &allocator,
+                                                                          &graphBuffer,
+                                                                          &graphSize));
+        if (ret != ZE_RESULT_SUCCESS) {
+            log += "[NPU_DRV] Driver reports a failure from vclAllocatedExecutableCreate, return "
+                   "code: " +
+                   std::to_string(ret) + '\n';
+            LOG_E("Failed to create compiler executable! Result:%#x", ret);
+            return ret;
+        }
+    }
     blob = std::make_unique<BlobAllocContainer>(std::unique_ptr<uint8_t[]>(graphBuffer), graphSize);
     return ZE_RESULT_SUCCESS;
 }
@@ -262,7 +302,10 @@ ze_result_t Compiler::getCompiledBlob(VPU::VPUDeviceContext *ctx,
     }
 
     ret = getCompilerExecutableAllocation(ctx, compiler, desc, blob, log);
+
     appendCompilerLog(logHandle, log);
+
+    TRACE_EVENT("NPU_COMPILER", "vclCompilerDestroy");
     Vcl::sym().compilerDestroy(compiler);
     return ret;
 }
@@ -310,8 +353,10 @@ ze_result_t Compiler::getDecodedProfilingBuffer(ze_graph_profiling_type_t profil
                                                .profSize = profSize};
     vcl_log_handle_t logHandle = NULL;
 
+    TRACE_EVENT_BEGIN("NPU_COMPILER", "vclProfilingCreate");
     ze_result_t ret =
         vclToL0Err(Vcl::sym().profilingCreate(&profilingApiInput, &profHandle, &logHandle));
+    TRACE_EVENT_END("NPU_COMPILER");
     if (ret != ZE_RESULT_SUCCESS) {
         logBuffer += "[NPU_DRV] Driver reports a failure from vclProfilingCreate, return code: " +
                      std::to_string(ret) + '\n';
@@ -325,13 +370,17 @@ ze_result_t Compiler::getDecodedProfilingBuffer(ze_graph_profiling_type_t profil
     if (profilingType == ZE_GRAPH_PROFILING_TASK_LEVEL)
         profType = VCL_PROFILING_TASK_LEVEL;
 
+    TRACE_EVENT_BEGIN("NPU_COMPILER", "vclGetDecodedProfilingBuffer");
     ret = vclToL0Err(Vcl::sym().getDecodedProfilingBuffer(profHandle, profType, &profOutput));
+    TRACE_EVENT_END("NPU_COMPILER");
     if (ret != ZE_RESULT_SUCCESS) {
         logBuffer +=
             "[NPU_DRV] Driver reports a failure from vclGetDecodedProfilingBuffer, return code: " +
             std::to_string(ret) + '\n';
         appendCompilerLog(logHandle, logBuffer);
         LOG_E("Failed to get decoded profiling data in compiler");
+
+        TRACE_EVENT("NPU_COMPILER", "vclProfilingDestroy");
         Vcl::sym().profilingDestroy(profHandle);
         return ret;
     }
@@ -342,6 +391,7 @@ ze_result_t Compiler::getDecodedProfilingBuffer(ze_graph_profiling_type_t profil
     if (pData != nullptr)
         memcpy(pData, profOutput.data, *pSize);
 
+    TRACE_EVENT("NPU_COMPILER", "vclProfilingDestroy");
     Vcl::sym().profilingDestroy(profHandle);
     return ZE_RESULT_SUCCESS;
 }
@@ -352,6 +402,7 @@ ze_result_t Compiler::queryNetworkCreate(vcl_compiler_handle_t compiler,
     if (!Vcl::sym().ok())
         return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
 
+    TRACE_EVENT("NPU_COMPILER", "vclQueryNetworkCreate");
     return vclToL0Err(Vcl::sym().queryNetworkCreate(compiler, queryDesc, query));
 }
 
@@ -360,6 +411,7 @@ Compiler::queryNetwork(vcl_query_handle_t query, uint8_t *pSupportedLayers, size
     if (!Vcl::sym().ok())
         return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
 
+    TRACE_EVENT("NPU_COMPILER", "vclQueryNetwork");
     return vclToL0Err(Vcl::sym().queryNetwork(query, pSupportedLayers, pSize));
 }
 
@@ -367,6 +419,7 @@ ze_result_t Compiler::queryNetworkDestroy(vcl_query_handle_t query) {
     if (!Vcl::sym().ok())
         return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
 
+    TRACE_EVENT("NPU_COMPILER", "vclQueryNetworkDestroy");
     return vclToL0Err(Vcl::sym().queryNetworkDestroy(query));
 }
 
@@ -390,11 +443,14 @@ Compiler::getSupportedOptions(VPU::VPUDevice *vpuDevice, size_t *pSize, char *pS
         return ret;
     }
 
+    TRACE_EVENT_BEGIN("NPU_COMPILER", "vclGetCompilerSupportedOptions");
     ret = vclToL0Err(Vcl::sym().getCompilerSupportedOptions(compiler, pSupportedOptions, pSize));
+    TRACE_EVENT_END("NPU_COMPILER");
     if (ret != ZE_RESULT_SUCCESS) {
         LOG_E("Failed to call vclGetCompilerSupportedOptions, ret: %#x", ret);
     }
 
+    TRACE_EVENT("NPU_COMPILER", "vclCompilerDestroy");
     Vcl::sym().compilerDestroy(compiler);
     return ret;
 }
@@ -419,11 +475,14 @@ Compiler::isOptionSupported(VPU::VPUDevice *vpuDevice, const char *pOption, cons
         return ret;
     }
 
+    TRACE_EVENT_BEGIN("NPU_COMPILER", "vclGetCompilerIsOptionSupported");
     ret = vclToL0Err(Vcl::sym().getCompilerIsOptionSupported(compiler, pOption, pValue));
+    TRACE_EVENT_END("NPU_COMPILER");
     if (ret != ZE_RESULT_SUCCESS) {
         LOG_E("Failed to call vclGetCompilerIsOptionSupported, ret: %#x", ret);
     }
 
+    TRACE_EVENT("NPU_COMPILER", "vclCompilerDestroy");
     Vcl::sym().compilerDestroy(compiler);
     return ret;
 }

@@ -10,7 +10,7 @@
 #include "context.hpp"
 #include "event.hpp"
 #include "level_zero_driver/include/l0_exception.hpp"
-#include "vpu_driver/source/command/vpu_event_command.hpp"
+#include "vpu_driver/source/command/event_command.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"

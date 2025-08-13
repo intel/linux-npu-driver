@@ -152,6 +152,14 @@ ze_result_t zeDriverGetExtensionProperties(ze_driver_handle_t hDriver,
         goto exit;
     }
 
+    for (auto &ext : supportedExts) {
+        if (strcmp(ext.name, ZE_COMMAND_QUEUE_NPU_EXT_NAME) == 0) {
+            auto driver = DriverHandle::fromHandle(hDriver);
+            ext.version = driver->getSupportedCmdQueueExtVersion();
+            break;
+        }
+    }
+
     if (*pCount == 0) {
         *pCount = supportedExts.size();
         ret = ZE_RESULT_SUCCESS;

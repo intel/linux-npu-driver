@@ -9,7 +9,7 @@
 
 #include <cstdint>
 
-#include "vpu_driver/source/command/vpu_job.hpp"
+#include "vpu_driver/source/command/job.hpp"
 #include "vpu_driver/source/device/vpu_device.hpp"
 
 #include <functional>

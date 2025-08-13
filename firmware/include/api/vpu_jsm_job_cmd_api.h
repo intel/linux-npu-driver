@@ -27,7 +27,7 @@
  * Minor version changes when API backward compatibility is preserved.
  * Resets to 0 if Major version is incremented.
  */
-#define VPU_JSM_JOB_CMD_API_VER_MINOR 12
+#define VPU_JSM_JOB_CMD_API_VER_MINOR 14
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
@@ -61,9 +61,6 @@
 /** Fence value size, in bytes. */
 #define VPU_FENCE_SIZE 8
 
-/** Minimum size of inference execute command, in bytes. */
-#define VPU_INFERENCE_EXECUTE_CMD_MIN_SIZE 32U
-
 /**
  * @brief List of commands supported by the VPU
  *
@@ -75,14 +72,60 @@ enum vpu_cmd_type {
     /** Currently supported commands. */
     VPU_CMD_NOP = 0x0001,
     VPU_CMD_TIMESTAMP = 0x0100,
+    /**
+     * @brief Fence wait command
+     *
+     * This command is used for host - NPU synchronization.
+     *
+     * When the NPU encounters this command in a job, it stops processing
+     * subsequent commands in the job until the fence is signaled, i.e., a
+     * specific value (specified in the command) is written to the fence
+     * address.
+     *
+     * @see @ref vpu_cmd_fence for details on the command structure.
+     */
     VPU_CMD_FENCE_WAIT = 0x0101,
+    /**
+     * @brief Fence signal command
+     *
+     * This command is used for host - NPU synchronization.
+     *
+     * When the NPU encounters this command in a job, it waits until all the
+     * previous commands in the job have been completed and then signals the
+     * fence by writing a specific value (specified in the command) to the
+     * fence address.
+     *
+     * @see @ref vpu_cmd_fence for details on the command structure.
+     */
     VPU_CMD_FENCE_SIGNAL = 0x0102,
+    /**
+     * @brief Barrier command
+     *
+     * This command is used to ensure that all previous commands in the job have
+     * been completed before proceeding with the next command in the job.
+     *
+     * @see @ref vpu_cmd_barrier for details on the command structure.
+     */
     VPU_CMD_BARRIER = 0x0103,
     VPU_CMD_METRIC_QUERY_BEGIN = 0x0104,
     VPU_CMD_METRIC_QUERY_END = 0x0105,
+    /**
+     * @brief Memory fill command
+     *
+     * This command is used to fill a memory region with a specific pattern.
+     *
+     * @see @ref vpu_cmd_memory_fill for details on the command structure.
+     */
     VPU_CMD_MEMORY_FILL = 0x0202,
     VPU_CMD_COPY_LOCAL_TO_LOCAL = 0x0302,
     VPU_CMD_COPY = 0x0302,
+    /**
+     * @brief Inference Execute command
+     *
+     * This command is used to execute an inference on the NPU.
+     *
+     * @see @ref vpu_cmd_inference_execute for details on the command structure.
+     */
     VPU_CMD_INFERENCE_EXECUTE = 0x0306,
 
     /** Deprecated commands. Do not reuse IDs */
@@ -129,7 +172,6 @@ enum vpu_time_type {
 
 /**
  * @brief Resource descriptor
- * @see vpu_cmd_resource_descriptor_table_t
  */
 typedef struct vpu_cmd_resource_descriptor {
     uint64_t address;    /**< Resource address */
@@ -150,21 +192,6 @@ typedef struct vpu_cmd_resource_view_descriptor {
     uint64_t uav_counter_address; /**< UAV counter address */
     uint64_t reserved_0[5];       /**< Unused, reserved for future */
 } vpu_cmd_resource_view_descriptor_t;
-
-/**
- * @brief A header for a table of resource descriptors of
- * given type.
- *
- * The header is followed be a variable number (@see desc_count)
- * of resource descriptors.
- * @see enum vpu_desc_table_entry_type
- * @see vpu_cmd_resource_descriptor_t
- */
-typedef struct vpu_cmd_resource_descriptor_table {
-    uint16_t type;       /**< enum vpu_desc_table_entry_type */
-    uint16_t desc_count; /**< Number of descriptors in the descriptor table entry */
-    uint32_t reserved_0; /**< Unused */
-} vpu_cmd_resource_descriptor_table_t;
 
 /**
  * @brief Copy command descriptor on VPU 37xx
@@ -243,22 +270,20 @@ typedef struct vpu_cmd_buffer_header {
      * VPU cache operations.
      */
     uint64_t context_save_area_address;
-    /** Address of the primary preemption buffer to use for this job */
-    uint64_t primary_preempt_buf_addr;
-    /** Size of the primary preemption buffer to use for this job */
-    uint32_t primary_preempt_buf_size;
-    /** Size of secondary preemption buffer to use for this job */
-    uint32_t secondary_preempt_buf_size;
-    /** Address of secondary preemption buffer to use for this job */
-    uint64_t secondary_preempt_buf_addr;
 } vpu_cmd_buffer_header_t;
 
 /**
  * Command header, shared by all commands.
  */
 typedef struct vpu_cmd_header {
-    uint16_t type; /**< @see enum vpu_cmd_type */
-    uint16_t size; /**< Size of the command in bytes, including the header */
+    /**
+     * @brief Command type.
+     *
+     * Possible values defined by @ref vpu_cmd_type.
+     */
+    uint16_t type;
+    /** Size of the command in bytes, including the header */
+    uint16_t size;
 } vpu_cmd_header_t;
 
 /**
@@ -286,17 +311,21 @@ typedef struct vpu_cmd_copy_buffer {
 } vpu_cmd_copy_buffer_t;
 
 /**
- * @brief Momory fill command format
- * @see VPU_CMD_MEMORY_FILL
+ * @brief Memory fill command format
+ *
+ * @see @ref VPU_CMD_MEMORY_FILL
  */
 typedef struct vpu_cmd_memory_fill {
+    /** Common command header */
     vpu_cmd_header_t header;
     /** Reserved */
     uint32_t reserved_0;
     /**
-     * Start address to fill, should be in VPU DDR
-     * NOTE: Address must be aligned on a 64B boundary to allow proper handling of
-     * VPU cache operations.
+     * Start address to fill, should be in NPU DDR.
+     * NOTE:
+     * - (NPU 37xx) - Address must be aligned on a 64B boundary to allow proper handling of
+     *   NPU cache operations.
+     * - (NPU 40xx+) - With DMA implementation, there are no alignment requirements.
      */
     uint64_t start_address;
     /** Size in bytes of memory buffer to fill */
@@ -308,10 +337,12 @@ typedef struct vpu_cmd_memory_fill {
 } vpu_cmd_memory_fill_t;
 
 /**
- * @brief Execute parsed inference
- * @see VPU_CMD_INFERENCE_EXECUTE
+ * @brief Inference Execute command format
+ *
+ * Format of the @ref VPU_CMD_INFERENCE_EXECUTE command.
  */
 typedef struct vpu_cmd_inference_execute {
+    /** Common command header */
     vpu_cmd_header_t header;
     /** Reserved */
     uint32_t reserved_0;
@@ -340,33 +371,48 @@ typedef struct vpu_cmd_timestamp {
 } vpu_cmd_timestamp_t;
 
 /**
- * @brief Fence wait/signal commands format
+ * @brief Fence Wait and Fence Signal command format
+ *
  * @see VPU_CMD_FENCE_WAIT
  * @see VPU_CMD_FENCE_SIGNAL
  */
 typedef struct vpu_cmd_fence {
+    /** Common command header */
     vpu_cmd_header_t header;
     /** Reserved */
     uint32_t reserved_0;
     /**
      * Offset from the base of the fence heap for the current fence value
-     * NOTE: (VPU 37xx) - Resulting address (heap base plus offset) must be aligned on a 64B boundary
-     * to allow proper handling of VPU cache operations.
-     * (VPU 40xx) - Resulting address (heap base plus offset) must be aligned on an 8B boundary as
-     * LNL+ facilitates cache-bypass, memory access.
+     *
+     * @note
+     * - (VPU 37xx) - Resulting address (heap base plus offset) must be aligned
+     *   on a 64B boundary to allow proper handling of NPU cache operations.
+     * - (VPU 40xx) - Resulting address (heap base plus offset) must be aligned
+     *   on an 8B boundary as LNL+ facilitates cache-bypass, memory access.
+     *
+     * @see vpu_cmd_buffer_header_t.fence_heap_base_address
      */
     uint64_t offset;
-    /** Fence value to be written */
+    /**
+     * @brief Fence value to wait for or signal.
+     *
+     * - For @ref VPU_CMD_FENCE_WAIT, this is the value to wait for.
+     * - For @ref VPU_CMD_FENCE_SIGNAL, this is the value to write to the fence
+     *   address.
+     */
     uint64_t value;
 } vpu_cmd_fence_t;
 
 /**
  * @brief Barier command structure
+ *
  * @see VPU_CMD_BARRIER
  */
 typedef struct vpu_cmd_barrier {
+    /** Common command header */
     vpu_cmd_header_t header;
-    uint32_t reserved_0; /**< Reserved */
+    /** Reserved */
+    uint32_t reserved_0;
 } vpu_cmd_barrier_t;
 
 /**

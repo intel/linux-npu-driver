@@ -51,6 +51,43 @@ inline void trace_zeGetRTASBuilderExpProcAddrTable(ze_result_t ret,
                          trace_ze_result_t(ret);
 }
 
+inline std::string _trace_zeGetRTASBuilderProcAddrTable(ze_api_version_t version,
+                                                        ze_rtas_builder_dditable_t *pDdiTable) {
+    std::stringstream ss;
+    ss << std::hex << std::showbase;
+    ss << "NPU_LOG: [API_DDI] zeGetRTASBuilderProcAddrTable(";
+    ss << "version: " << version;
+    if (pDdiTable == nullptr) {
+        ss << ", pDdiTable: nullptr";
+    } else {
+        ss << ", pDdiTable {";
+        ss << "pfnCreateExt: " << reinterpret_cast<uintptr_t>(pDdiTable->pfnCreateExt);
+        ss << ", pfnGetBuildPropertiesExt: "
+           << reinterpret_cast<uintptr_t>(pDdiTable->pfnGetBuildPropertiesExt);
+        ss << ", pfnBuildExt: " << reinterpret_cast<uintptr_t>(pDdiTable->pfnBuildExt);
+        ss << ", pfnCommandListAppendCopyExt: "
+           << reinterpret_cast<uintptr_t>(pDdiTable->pfnCommandListAppendCopyExt);
+        ss << ", pfnDestroyExt: " << reinterpret_cast<uintptr_t>(pDdiTable->pfnDestroyExt);
+        ss << "}";
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeGetRTASBuilderProcAddrTable(ze_api_version_t version,
+                                                ze_rtas_builder_dditable_t *pDdiTable) {
+    TRACE_EVENT_BEGIN("API", "zeGetRTASBuilderProcAddrTable");
+    if (IS_API_DDI_TRACE())
+        std::cerr << _trace_zeGetRTASBuilderProcAddrTable(version, pDdiTable) + "..\n";
+}
+inline void trace_zeGetRTASBuilderProcAddrTable(ze_result_t ret,
+                                                ze_api_version_t version,
+                                                ze_rtas_builder_dditable_t *pDdiTable) {
+    TRACE_EVENT_END("API");
+    if (IS_API_DDI_TRACE())
+        std::cerr << _trace_zeGetRTASBuilderProcAddrTable(version, pDdiTable) +
+                         trace_ze_result_t(ret);
+}
+
 inline std::string _trace_zeGetRTASParallelOperationExpProcAddrTable(
     ze_api_version_t version,
     ze_rtas_parallel_operation_exp_dditable_t *pDdiTable) {
@@ -86,6 +123,44 @@ inline void trace_zeGetRTASParallelOperationExpProcAddrTable(
     TRACE_EVENT_END("API");
     if (IS_API_DDI_TRACE())
         std::cerr << _trace_zeGetRTASParallelOperationExpProcAddrTable(version, pDdiTable) +
+                         trace_ze_result_t(ret);
+}
+
+inline std::string
+_trace_zeGetRTASParallelOperationProcAddrTable(ze_api_version_t version,
+                                               ze_rtas_parallel_operation_dditable_t *pDdiTable) {
+    std::stringstream ss;
+    ss << std::hex << std::showbase;
+    ss << "NPU_LOG: [API_DDI] zeGetRTASParallelOperationProcAddrTable(";
+    ss << "version: " << version;
+    if (pDdiTable == nullptr) {
+        ss << ", pDdiTable: nullptr";
+    } else {
+        ss << ", pDdiTable {";
+        ss << "pfnCreateExt: " << reinterpret_cast<uintptr_t>(pDdiTable->pfnCreateExt);
+        ss << ", pfnGetPropertiesExt: "
+           << reinterpret_cast<uintptr_t>(pDdiTable->pfnGetPropertiesExt);
+        ss << ", pfnJoinExt: " << reinterpret_cast<uintptr_t>(pDdiTable->pfnJoinExt);
+        ss << ", pfnDestroyExt: " << reinterpret_cast<uintptr_t>(pDdiTable->pfnDestroyExt);
+        ss << "}";
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void
+trace_zeGetRTASParallelOperationProcAddrTable(ze_api_version_t version,
+                                              ze_rtas_parallel_operation_dditable_t *pDdiTable) {
+    TRACE_EVENT_BEGIN("API", "zeGetRTASParallelOperationProcAddrTable");
+    if (IS_API_DDI_TRACE())
+        std::cerr << _trace_zeGetRTASParallelOperationProcAddrTable(version, pDdiTable) + "..\n";
+}
+inline void
+trace_zeGetRTASParallelOperationProcAddrTable(ze_result_t ret,
+                                              ze_api_version_t version,
+                                              ze_rtas_parallel_operation_dditable_t *pDdiTable) {
+    TRACE_EVENT_END("API");
+    if (IS_API_DDI_TRACE())
+        std::cerr << _trace_zeGetRTASParallelOperationProcAddrTable(version, pDdiTable) +
                          trace_ze_result_t(ret);
 }
 

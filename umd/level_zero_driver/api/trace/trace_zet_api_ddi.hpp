@@ -225,6 +225,38 @@ inline void trace_zetGetContextProcAddrTable(ze_result_t ret,
         std::cerr << _trace_zetGetContextProcAddrTable(version, pDdiTable) + trace_ze_result_t(ret);
 }
 
+inline std::string
+_trace_zetGetCommandListExpProcAddrTable(ze_api_version_t version,
+                                         zet_command_list_exp_dditable_t *pDdiTable) {
+    std::stringstream ss;
+    ss << std::hex << std::showbase;
+    ss << "NPU_LOG: [API_DDI] zetGetCommandListExpProcAddrTable(";
+    ss << "version: " << version;
+    if (pDdiTable == nullptr) {
+        ss << ", pDdiTable: nullptr";
+    } else {
+        ss << ", pDdiTable {";
+        ss << "pfnAppendMarkerExp: " << reinterpret_cast<uintptr_t>(pDdiTable->pfnAppendMarkerExp);
+        ss << "}";
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zetGetCommandListExpProcAddrTable(ze_api_version_t version,
+                                                    zet_command_list_exp_dditable_t *pDdiTable) {
+    TRACE_EVENT_BEGIN("API", "zetGetCommandListExpProcAddrTable");
+    if (IS_API_DDI_TRACE())
+        std::cerr << _trace_zetGetCommandListExpProcAddrTable(version, pDdiTable) + "..\n";
+}
+inline void trace_zetGetCommandListExpProcAddrTable(ze_result_t ret,
+                                                    ze_api_version_t version,
+                                                    zet_command_list_exp_dditable_t *pDdiTable) {
+    TRACE_EVENT_END("API");
+    if (IS_API_DDI_TRACE())
+        std::cerr << _trace_zetGetCommandListExpProcAddrTable(version, pDdiTable) +
+                         trace_ze_result_t(ret);
+}
+
 inline std::string _trace_zetGetCommandListProcAddrTable(ze_api_version_t version,
                                                          zet_command_list_dditable_t *pDdiTable) {
     std::stringstream ss;

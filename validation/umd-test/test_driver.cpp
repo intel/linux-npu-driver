@@ -58,7 +58,9 @@ TEST_F(Driver, GetExtensionProperties) {
         if (extName == ZE_MUTABLE_COMMAND_LIST_EXP_NAME &&
             v.version == ZE_MUTABLE_COMMAND_LIST_EXP_VERSION_1_1)
             has_mutable_cmdlist_extension = true;
-        if (extName == COMMAND_QUEUE_EXT_NAME && v.version == COMMAND_QUEUE_NPU_EXT_VERSION)
+        if (extName == COMMAND_QUEUE_EXT_NAME &&
+            (v.version == ZE_COMMAND_QUEUE_NPU_EXT_VERSION_1_0 ||
+             v.version == ZE_COMMAND_QUEUE_NPU_EXT_VERSION_1_1))
             has_cmd_queue_extension = true;
     }
 

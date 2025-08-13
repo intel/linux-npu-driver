@@ -10,9 +10,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "vpu_driver/source/command/vpu_command.hpp"
-#include "vpu_driver/source/command/vpu_command_buffer.hpp"
-#include "vpu_driver/source/command/vpu_event_command.hpp"
+#include "vpu_driver/source/command/command.hpp"
+#include "vpu_driver/source/command/command_buffer.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <memory>
@@ -31,6 +30,8 @@ class VPUJob {
      * @return true if command buffers are created with success
      */
     bool closeCommands();
+    bool makeInOrder(std::shared_ptr<VPUBufferObject> &waitFor);
+    bool stripInOrder();
 
     /**
      * Return true if the command buffers execution is completed with success
@@ -79,10 +80,10 @@ class VPUJob {
 
         return commands[index].get();
     }
-
     bool isClosed() const { return closed; }
+    bool isInOrder() const { return hasInOrderWorkload; }
 
-    void setNeedsUpdate(bool value) { needsUpdate = value; }
+    bool updateOnSubmit();
 
   private:
     std::vector<std::shared_ptr<VPUCommand>>::iterator
@@ -90,15 +91,15 @@ class VPUJob {
 
     bool createCommandBuffer(const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
                              const std::vector<std::shared_ptr<VPUCommand>>::iterator &end,
-                             VPUEventCommand::KMDEventDataType **lastEvent,
-                             std::shared_ptr<VPUBufferObject> &lastEventBo);
+                             std::shared_ptr<VPUBufferObject> &lastEventBo,
+                             bool last);
 
     VPUDeviceContext *ctx = nullptr;
 
     std::vector<std::unique_ptr<VPUCommandBuffer>> cmdBuffers;
     std::vector<std::shared_ptr<VPUCommand>> commands;
     bool closed = false;
-    bool needsUpdate = false;
+    bool hasInOrderWorkload = false;
 };
 
 } // namespace VPU

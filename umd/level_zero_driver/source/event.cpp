@@ -11,8 +11,8 @@
 
 #include "metric.hpp"
 #include "metric_streamer.hpp"
-#include "vpu_driver/source/command/vpu_command_buffer.hpp"
-#include "vpu_driver/source/command/vpu_job.hpp"
+#include "vpu_driver/source/command/command_buffer.hpp"
+#include "vpu_driver/source/command/job.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/source/utilities/timer.hpp"

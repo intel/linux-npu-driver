@@ -15,7 +15,7 @@
 #include "fence.hpp"
 #include "level_zero/ze_api.h"
 #include "level_zero_driver/include/l0_exception.hpp"
-#include "vpu_driver/source/command/vpu_job.hpp"
+#include "vpu_driver/source/command/job.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/source/utilities/timer.hpp"
 
@@ -71,6 +71,9 @@ ze_result_t CommandQueue::create(ze_context_handle_t hContext,
         LOG_E("Invalid phCommandQueue pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
+    CommandQueueMode mode = desc->mode == ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS
+                                ? CommandQueueMode::SYNCHRONOUS
+                                : CommandQueueMode::DEFAULT;
 
     try {
         Device *pDevice = Device::fromHandle(hDevice);
@@ -78,37 +81,53 @@ ze_result_t CommandQueue::create(ze_context_handle_t hContext,
             pDevice->getCommandQeueueGroupFlags(desc->ordinal);
         L0_THROW_WHEN(flags == 0, "Invalid group ordinal", ZE_RESULT_ERROR_INVALID_ARGUMENT);
 
-        bool isTurboMode = false;
-        if (desc->pNext != nullptr) {
-            const ze_structure_type_command_queue_npu_ext_t stype =
-                *reinterpret_cast<const ze_structure_type_command_queue_npu_ext_t *>(desc->pNext);
-            if (stype == ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC_NPU_EXT) {
-                auto npuDesc =
+        uint32_t queueCreationMode = VPU::VPUDeviceQueue::ModeFlags::DEFAULT;
+        if (desc->pNext) {
+            const auto *descriptorType = reinterpret_cast<const ze_base_desc_t *>(desc->pNext);
+            switch (static_cast<ze_structure_type_command_queue_npu_ext_t>(descriptorType->stype)) {
+            case ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC_NPU_EXT: {
+                const auto *pNext =
                     reinterpret_cast<const ze_command_queue_desc_npu_ext_t *>(desc->pNext);
-                isTurboMode = npuDesc->turbo;
+                if (pNext->turbo)
+                    queueCreationMode |= VPU::VPUDeviceQueue::ModeFlags::TURBO;
+            } break;
+            case ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC_NPU_EXT_2: {
+                const auto *pNext =
+                    reinterpret_cast<const ze_command_queue_desc_npu_ext_2_t *>(desc->pNext);
+                if (pNext && desc->mode == ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS &&
+                    pNext->options & ZE_NPU_COMMAND_QUEUE_OPTION_DEVICE_SYNC) {
+                    LOG_E("Unsupported queue configuration, requested both SYNCHRONOUS and DEVICE "
+                          "SYNC mode");
+                    return ZE_RESULT_ERROR_INVALID_ENUMERATION;
+                }
+
+                if (pNext->options & ZE_NPU_COMMAND_QUEUE_OPTION_DEVICE_SYNC)
+                    queueCreationMode |= VPU::VPUDeviceQueue::ModeFlags::IN_ORDER;
+
+                if (pNext->options & ZE_NPU_COMMAND_QUEUE_OPTION_TURBO)
+                    queueCreationMode |= VPU::VPUDeviceQueue::ModeFlags::TURBO;
+            } break;
+            default:
+                break;
             }
         }
 
         Context *pContext = Context::fromHandle(hContext);
         auto vpuQueue = VPU::VPUDeviceQueue::create(pContext->getDeviceContext(),
                                                     toVPUDevicePriority(desc->priority),
-                                                    isTurboMode);
+                                                    queueCreationMode);
         L0_THROW_WHEN(vpuQueue == nullptr,
                       "VPU Command queue creation failed.",
                       ZE_RESULT_ERROR_UNINITIALIZED);
 
-        auto cmdQueue = std::make_unique<CommandQueue>(
-            pContext,
-            std::move(vpuQueue),
-            desc->mode == ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS ? CommandQueueMode::SYNCHRONOUS
-                                                            : CommandQueueMode::DEFAULT);
+        auto cmdQueue =
+            std::make_unique<CommandQueue>(pContext, std::move(vpuQueue), std::move(mode));
         *phCommandQueue = cmdQueue.get();
         pContext->appendObject(std::move(cmdQueue));
         LOG(CMDQUEUE, "CommandQueue created - %p", *phCommandQueue);
     } catch (const DriverError &err) {
         return err.result();
     }
-
     return ZE_RESULT_SUCCESS;
 }
 
@@ -156,10 +175,8 @@ void CommandQueue::destroyFence(Fence *pFence) {
 ze_result_t CommandQueue::executeCommandLists(uint32_t nCommandLists,
                                               ze_command_list_handle_t *phCommandLists,
                                               ze_fence_handle_t hFence) {
-    LOG(CMDQUEUE, "CommandQueue Execute - %p", this);
-
     if (phCommandLists == nullptr) {
-        LOG_E("Invalid pointer to handle hCommandLists");
+        LOG_E("Invalid pointer to phCommandLists");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
@@ -170,40 +187,51 @@ ze_result_t CommandQueue::executeCommandLists(uint32_t nCommandLists,
 
     for (auto i = 0u; i < nCommandLists; i++) {
         auto cmdList = CommandList::fromHandle(phCommandLists[i]);
+        if (cmdList == nullptr) {
+            LOG_W("Received nullptr from phCommandList[%i]", i);
+            return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        }
 
         if (!cmdList->isCmdListClosed()) {
-            LOG_E("Command List didn't close");
+            LOG_E("Commands are not closed in phCommandList[%i]: %p", i, cmdList);
             return ZE_RESULT_ERROR_UNINITIALIZED;
         }
     }
 
     std::vector<std::shared_ptr<VPU::VPUJob>> jobs;
+    jobs.reserve(nCommandLists);
+
     for (auto i = 0u; i < nCommandLists; i++) {
         auto cmdList = CommandList::fromHandle(phCommandLists[i]);
         if (cmdList == nullptr) {
-            LOG_W("Failed to get command stream. Skipping command list %p.", cmdList);
-            continue;
+            LOG_W("Received nullptr from phCommandList[%i]", i);
+            return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
         }
 
         if (!cmdList->getNumCommands()) {
-            LOG(CMDQUEUE, "No commands on list. Skipping command list %p.", cmdList);
+            LOG(CMDQUEUE, "Skipping submission of empty phCommandList[%u]: %p", i, cmdList);
             continue;
         }
 
         std::shared_ptr<VPU::VPUJob> job = cmdList->getJob();
         if (!job) {
-            LOG_E("Failed to get VPUJob from CommandList");
+            LOG_E("Received nullptr VPUJob from phCommandList[%u]: %p", i, cmdList);
+            return ZE_RESULT_ERROR_UNKNOWN;
+        }
+
+        if (!job->updateOnSubmit()) {
+            LOG_E("Failed to update job on submit");
             return ZE_RESULT_ERROR_UNKNOWN;
         }
 
         if (!vpuQueue->submit(job.get())) {
-            LOG_E("VPUJob submission failed");
+            LOG_E("Failed to submit VPUJob(%p) from phCommandList[%u]: %p", job.get(), i, cmdList);
             if (errno == -EBADFD)
                 return ZE_RESULT_ERROR_DEVICE_LOST;
             return ZE_RESULT_ERROR_UNKNOWN;
         }
 
-        LOG(CMDQUEUE, "VPUJob %p submitted", job.get());
+        LOG(CMDQUEUE, "VPUJob %p submitted from phCommandList[%u]: %p", job.get(), i, cmdList);
         jobs.emplace_back(std::move(job));
     }
 

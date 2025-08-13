@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -167,6 +167,8 @@ VPUDeviceContext::createUntrackedBufferObject(size_t size, VPUBufferObject::Type
 
     const std::lock_guard<std::mutex> lock(mtx);
     untrackedBuffers.emplace_back(bo);
+
+    MemoryStatistics::get().snapshot();
     return bo;
 }
 
@@ -204,6 +206,72 @@ bool VPUDeviceContext::getUniqueInferenceId(uint64_t &inferenceId) {
         return false;
     }
     return true;
+}
+
+std::shared_ptr<VPUBufferObject> ScratchCacheFactory::acquire(VPUDeviceContext *ctx, size_t size) {
+    if (size == 0) {
+        return nullptr;
+    }
+
+    const std::lock_guard<std::mutex> lock(scratchMutex);
+    std::shared_ptr<VPUBufferObject> hit = nullptr;
+    for (auto &bo : scratchBuffers) {
+        if (bo.use_count() != 1) {
+            continue;
+        }
+
+        if (bo->getAllocSize() == size) {
+            hit = bo;
+            break;
+        }
+
+        if (bo->getAllocSize() > size) {
+            if (hit && hit->getAllocSize() < bo->getAllocSize()) {
+                continue;
+            }
+
+            hit = bo;
+            continue;
+        }
+    }
+
+    if (hit != nullptr) {
+        LOG(CONTEXT,
+            "Reusing scratch buffer: handle %u, size: %lu, requested size: %lu",
+            hit->getHandle(),
+            hit->getAllocSize(),
+            size);
+        return hit;
+    }
+
+    auto bo =
+        ctx->createUntrackedBufferObject(size, VPUBufferObject::Type::WriteCombineDmaUnmappable);
+    if (bo == nullptr) {
+        LOG_E("Failed to allocate scratch buffer of size %lu", size);
+        return nullptr;
+    }
+
+    scratchBuffers.emplace_back(bo);
+    LOG(CONTEXT,
+        "Allocated scratch buffer: handle %u, size: %lu, requested size: %lu",
+        bo->getHandle(),
+        bo->getAllocSize(),
+        size);
+    return bo;
+}
+
+void ScratchCacheFactory::prune(size_t size) {
+    if (size == 0)
+        return;
+
+    const std::lock_guard<std::mutex> lock(scratchMutex);
+    scratchBuffers.erase(std::remove_if(scratchBuffers.begin(),
+                                        scratchBuffers.end(),
+                                        [size](const std::shared_ptr<VPUBufferObject> &bo) {
+                                            return bo.use_count() == 1 &&
+                                                   bo->getAllocSize() <= size;
+                                        }),
+                         scratchBuffers.end());
 }
 
 } // namespace VPU

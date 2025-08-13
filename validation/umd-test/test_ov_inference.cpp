@@ -35,7 +35,7 @@ class OpenVinoBasic : public UmdTest, public ::testing::WithParamInterface<YAML:
     }
 
     template <auto elementType>
-    void processResults(const ov::Tensor &inferenceOutput, uint32_t classExpected) {
+    void processResults(ov::Tensor &inferenceOutput, uint32_t classExpected) {
         using T = ov::fundamental_type_for<elementType>;
         ov::Shape outputShape = inferenceOutput.get_shape();
         ASSERT_GT(outputShape.size(), 0);
@@ -44,7 +44,7 @@ class OpenVinoBasic : public UmdTest, public ::testing::WithParamInterface<YAML:
         ASSERT_EQ(outputShape[0], 1);
 
         std::vector<T> results(inferenceOutput.get_size());
-        const T *outputData = inferenceOutput.data<const T>();
+        T *outputData = inferenceOutput.data<T>();
         std::for_each(results.begin(), results.end(), [&](T &n) { n = *outputData++; });
         auto it = std::max_element(results.begin(), results.end());
         size_t index = std::distance(results.begin(), it);
@@ -52,7 +52,7 @@ class OpenVinoBasic : public UmdTest, public ::testing::WithParamInterface<YAML:
         ASSERT_EQ(index, static_cast<size_t>(classExpected));
     }
 
-    void processResults(const ov::Tensor &results, uint32_t exp) {
+    void processResults(ov::Tensor &results, uint32_t exp) {
         using T = ov::element::Type_t;
         switch (results.get_element_type()) {
         case T::f32:
@@ -192,14 +192,15 @@ TEST_P(OpenVinoBasic, CompileModelWithGraphInitAndExecute) {
         /* Test can parse and compare results for imagenet classes where
          * output format has shape: [ 1, 1000 ]
          */
+        ov::Tensor output;
         if (networkOutputs.size() == 1 &&
             networkOutputs[0].get_shape() == ov::Shape(std::initializer_list<size_t>({1, 1000})) &&
             !expectedImageClassIndexes.empty()) {
-            const ov::Tensor &output = infer_request.get_output_tensor();
+            output = infer_request.get_output_tensor();
             processResults(output, expectedImageClassIndexes[i]);
         } else {
             for (size_t index = 0; index < networkOutputs.size(); index++) {
-                const ov::Tensor &output = infer_request.get_output_tensor(index);
+                output = infer_request.get_output_tensor(index);
                 ASSERT_GT(output.get_size(), 0);
             }
         }

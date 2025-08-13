@@ -72,6 +72,11 @@ void KmdContext::close() {
     }
 }
 
+int KmdContext::reopen() {
+    close();
+    return open();
+}
+
 int KmdContext::ioctl(unsigned long req, void *data) {
     if (::ioctl(fd, req, data) == -1)
         return errno;
@@ -616,7 +621,7 @@ void KmdTest::fw_restore() {
     context.open();
 }
 
-static int WaitPid(pid_t pid, int secTimeout) {
+int KmdTest::WaitPid(pid_t pid, int secTimeout) {
     constexpr std::chrono::milliseconds sleep_time_ms = std::chrono::milliseconds(10);
     std::chrono::steady_clock::time_point timeout =
         std::chrono::steady_clock::now() + std::chrono::seconds(secTimeout);
@@ -918,6 +923,19 @@ void CmdBuffer::start(int offset, int cmds_offset) {
     add_handle(*this);
 }
 
+// Resize the command buffer to a new size.
+// If the new size is larger than the current size, it will add a NOP command
+// to fill the gap. If the new size is smaller, it will truncate the command buffer.
+void CmdBuffer::resize(uint32_t bb_size) {
+    uint32_t old_bb_size = _end - _start;
+
+    if (bb_size > old_bb_size) {
+        add_nop_cmd(bb_size - old_bb_size);
+    } else {
+        _end = _start + bb_size;
+    }
+}
+
 void *CmdBuffer::add_cmd(int type, int size) {
     if (get_free_space() < static_cast<ssize_t>(size)) {
         ADD_FAILURE() << "Command buffer overflow";
@@ -946,6 +964,10 @@ void CmdBuffer::add_handle(MemoryBuffer &buf) {
 ssize_t CmdBuffer::get_free_space() {
     // Also account for space reserved for context save area buffer
     return _size - VPU_CONTEXT_SAVE_AREA_SIZE - _end;
+}
+
+void CmdBuffer::add_nop_cmd(int size) {
+    ASSERT_TRUE(add_cmd(VPU_CMD_NOP, size));
 }
 
 void CmdBuffer::add_barrier_cmd() {
@@ -1066,7 +1088,12 @@ void CmdBuffer::prepare_bb_hdr(void) {
     bb_hdr->cmd_buffer_size = _end - _start;
     bb_hdr->context_save_area_address = vpu_addr() + ALIGN(_end, 64);
 
-    TRACE("context_save_area_address=0x%lx\n", bb_hdr->context_save_area_address);
+    TRACE("Submit: ssid %d, addr 0x%lx, bb size %d, cmds offset %d, api version 0x%08x\n",
+          _context.get_id(),
+          vpu_addr() + _start,
+          bb_hdr->cmd_buffer_size,
+          bb_hdr->cmd_offset,
+          bb_hdr->api_version);
 }
 
 void CmdBuffer::prepare_params(int engine, int priority, drm_ivpu_submit *params) {

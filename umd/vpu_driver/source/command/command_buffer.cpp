@@ -5,11 +5,14 @@
  *
  */
 
-#include "vpu_driver/source/command/vpu_command_buffer.hpp"
+#include "vpu_driver/source/command/command_buffer.hpp"
 
 #include "umd_common.hpp"
-#include "vpu_driver/source/command/vpu_command.hpp"
+#include "vpu_driver/source/command/command.hpp"
+#include "vpu_driver/source/command/inference_execute.hpp"
+#include "vpu_driver/source/command/nop_command.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
@@ -36,9 +39,7 @@ VPUCommandBuffer::VPUCommandBuffer(VPUDeviceContext *ctx,
 std::unique_ptr<VPUCommandBuffer> VPUCommandBuffer::allocateCommandBuffer(
     VPUDeviceContext *ctx,
     const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
-    const std::vector<std::shared_ptr<VPUCommand>>::iterator &end,
-    VPUEventCommand::KMDEventDataType **fenceWait,
-    std::shared_ptr<VPUBufferObject> &fenceBo) {
+    const std::vector<std::shared_ptr<VPUCommand>>::iterator &end) {
     if (ctx == nullptr || begin == end) {
         LOG_E("VPUDeviceContext is nullptr or command list is empty");
         return nullptr;
@@ -46,24 +47,18 @@ std::unique_ptr<VPUCommandBuffer> VPUCommandBuffer::allocateCommandBuffer(
 
     size_t cmdSize = 0;
     size_t descriptorSize = 0;
+
     for (auto it = begin; it != end; it++) {
         const auto &cmd = *it;
         cmdSize += cmd->getCommitSize();
         descriptorSize += getFwDataCacheAlign(cmd->getDescriptorSize());
     }
 
-    if (fenceWait) {
-        if (*fenceWait) {
-            // Add internal fence wait command
-            cmdSize += sizeof(vpu_cmd_fence_t);
-        }
+    cmdSize += sizeof(vpu_cmd_fence_t);
 
-        // Add internal fence signal command
-        cmdSize += sizeof(vpu_cmd_fence_t);
-    }
-
-    size_t cmdBufferSize = sizeof(CommandHeader) + getFwDataCacheAlign(cmdSize) + descriptorSize +
-                           ctx->getExtraDmaDescriptorSize();
+    size_t cmdOffset = offsetof(CommandHeader, commandList);
+    size_t descOffset = getFwDataCacheAlign(cmdOffset + cmdSize);
+    size_t cmdBufferSize = descOffset + descriptorSize + ctx->getExtraDmaDescriptorSize();
 
     std::shared_ptr<VPUBufferObject> buffer =
         ctx->createUntrackedBufferObject(cmdBufferSize, VPUBufferObject::Type::CachedFw);
@@ -79,26 +74,10 @@ std::unique_ptr<VPUCommandBuffer> VPUCommandBuffer::allocateCommandBuffer(
         return nullptr;
     }
 
-    uint64_t cmdOffset = offsetof(CommandHeader, commandList);
-    uint64_t descOffset = cmdOffset + getFwDataCacheAlign(cmdSize);
-
-    if (fenceWait && *fenceWait) {
-        auto waitCmd = VPUEventWaitCommand::create(*fenceWait, fenceBo);
-        if (waitCmd == nullptr) {
-            LOG_E("Failed to initialize wait event command");
-            return nullptr;
-        }
-
-        if (!cmdBuffer->addCommand(waitCmd.get(), cmdOffset, descOffset)) {
-            LOG_E("Failed to append wait command to buffer");
-            return nullptr;
-        }
-    }
-
     for (auto it = begin; it != end; it++) {
         const auto &cmd = *it;
         if (cmd->isSynchronizeCommand() && !cmdBuffer->setSyncFenceAddr(cmd.get())) {
-            LOG_E("Failed to set synchronize fence vpu addresss");
+            LOG_E("Failed to set synchronize fence vpu address");
             return nullptr;
         }
 
@@ -108,22 +87,10 @@ std::unique_ptr<VPUCommandBuffer> VPUCommandBuffer::allocateCommandBuffer(
         }
     }
 
-    if (fenceWait) {
-        VPUEventCommand::KMDEventDataType *fenceSignal = reinterpret_cast<uint64_t *>(
-            buffer->getBasePointer() + offsetof(CommandHeader, fenceValue));
-        auto signalCmd = VPUEventSignalCommand::create(fenceSignal, buffer);
-        if (signalCmd == nullptr) {
-            LOG_E("Failed to create signal event Command");
-            return nullptr;
-        }
-
-        if (!cmdBuffer->addCommand(signalCmd.get(), cmdOffset, descOffset)) {
-            LOG_E("Failed to append signal command to buffer");
-            return nullptr;
-        }
-
-        *fenceWait = fenceSignal;
-        fenceBo = std::move(buffer);
+    auto nopCmd = VPUNopCommand::create(ctx->getDeviceCapabilities(), sizeof(vpu_cmd_fence_t));
+    if (!cmdBuffer->addCommand(nopCmd.get(), cmdOffset, descOffset)) {
+        LOG_E("Failed to append NOP command to the command buffer");
+        return nullptr;
     }
 
     if (cmdOffset != offsetof(CommandHeader, commandList) + cmdSize) {
@@ -132,12 +99,11 @@ std::unique_ptr<VPUCommandBuffer> VPUCommandBuffer::allocateCommandBuffer(
     }
 
     if (descOffset !=
-        offsetof(CommandHeader, commandList) + getFwDataCacheAlign(cmdSize) + descriptorSize) {
+        getFwDataCacheAlign(offsetof(CommandHeader, commandList) + cmdSize) + descriptorSize) {
         LOG_E("Invalid size of descriptor");
         return nullptr;
     }
 
-    cmdBuffer->printCommandBuffer();
     return cmdBuffer;
 }
 
@@ -147,13 +113,17 @@ bool VPUCommandBuffer::initHeader(size_t cmdSize) {
         return false;
     }
 
-    vpu_cmd_buffer_header_t *bb =
-        reinterpret_cast<vpu_cmd_buffer_header_t *>(buffer->getBasePointer());
+    vpu_cmd_buffer_header_t *bb = reinterpret_cast<vpu_cmd_buffer_header_t *>(
+        buffer->getBasePointer() + offsetof(CommandHeader, header));
 
     // Init memory - required for backward/forward compatibility with the firmware
     memset(buffer->getBasePointer(), 0, buffer->getAllocSize());
 
-    bb->cmd_offset = offsetof(CommandHeader, commandList);
+    /* By default command offset is set to CommandHeader.commandList where user commands begins,
+     * when internal synchronization is used offset is changed to CommandHeader.internalSync where
+     * are synchronization commands added by driver
+     */
+    bb->cmd_offset = offsetof(CommandHeader, commandList) - offsetof(CommandHeader, header);
     bb->cmd_buffer_size = safe_cast<uint32_t>(bb->cmd_offset + cmdSize);
 
     bb->context_save_area_address = buffer->getVPUAddr() + offsetof(CommandHeader, contextSaveArea);
@@ -166,7 +136,7 @@ void VPUCommandBuffer::addUniqueBoHandle(uint32_t handle) {
         bufferHandles.emplace_back(handle);
 }
 
-bool VPUCommandBuffer::addCommand(VPUCommand *cmd, uint64_t &cmdOffset, uint64_t &descOffset) {
+bool VPUCommandBuffer::addCommand(VPUCommand *cmd, size_t &cmdOffset, size_t &descOffset) {
     if (cmd == nullptr) {
         LOG_E("Command is nullptr or command is not initialized");
         return false;
@@ -177,7 +147,7 @@ bool VPUCommandBuffer::addCommand(VPUCommand *cmd, uint64_t &cmdOffset, uint64_t
         cmd->getCommandType(),
         cmd->getCommitSize());
 
-    if (cmdOffset >= descOffset) {
+    if (descOffset && cmdOffset >= descOffset) {
         LOG_E("Command override the descriptor");
         return false;
     }
@@ -186,10 +156,14 @@ bool VPUCommandBuffer::addCommand(VPUCommand *cmd, uint64_t &cmdOffset, uint64_t
         addUniqueBoHandle(bo->getHandle());
     }
 
-    void *descPtr = buffer->getBasePointer() + descOffset;
-    if (!cmd->copyDescriptor(&descPtr, buffer)) {
-        LOG_E("Failed to update offset in command");
-        return false;
+    if (descOffset && cmd->getDescriptorSize() > 0) {
+        if (!buffer->copyToBuffer(cmd->getDescriptorData(), cmd->getDescriptorSize(), descOffset)) {
+            LOG_E("Failed to update offset in command");
+            return false;
+        }
+
+        cmd->patchDescriptorAddress(buffer->getVPUAddr() + descOffset);
+        descOffset += getFwDataCacheAlign(cmd->getDescriptorSize());
     }
 
     if (!buffer->copyToBuffer(cmd->getCommitStream(), cmd->getCommitSize(), cmdOffset)) {
@@ -200,8 +174,73 @@ bool VPUCommandBuffer::addCommand(VPUCommand *cmd, uint64_t &cmdOffset, uint64_t
     LOG(VPU_CMD, "Command appended to command buffer: cmdOffset: %zu", cmdOffset);
 
     cmdOffset += cmd->getCommitSize();
-    descOffset += getFwDataCacheAlign(cmd->getDescriptorSize());
 
+    if (cmd->getCommandType() == VPU_CMD_INFERENCE_EXECUTE) {
+        auto &inference = dynamic_cast<VPUInferenceExecute &>(*cmd);
+        inferenceScratchSize = std::max(inferenceScratchSize, inference.getSharedScratchSize());
+    }
+
+    return true;
+}
+
+bool VPUCommandBuffer::addWaitAtHead(std::shared_ptr<VPUBufferObject> waitBo, bool resetFence) {
+    vpu_cmd_buffer_header_t *cmdHeader = reinterpret_cast<vpu_cmd_buffer_header_t *>(
+        buffer->getBasePointer() + offsetof(CommandHeader, header));
+
+    if (!waitBo) {
+        cmdHeader->cmd_offset =
+            offsetof(CommandHeader, commandList) - offsetof(CommandHeader, header);
+        waitBoGuard = nullptr;
+        return true;
+    }
+
+    size_t cmdOffset = offsetof(CommandHeader, internalSync);
+    size_t descOffset = 0;
+    VPUEventCommand::KMDEventDataType *waitFence =
+        &reinterpret_cast<CommandHeader *>(waitBo->getBasePointer())->fenceValue;
+
+    auto waitCmd = VPUEventWaitCommand::create(waitFence, waitBo);
+    if (waitCmd == nullptr) {
+        LOG_E("Failed to initialize synchronization wait command");
+        return false;
+    }
+    if (!addCommand(waitCmd.get(), cmdOffset, descOffset)) {
+        LOG_E("Failed to append synchronization wait command to buffer");
+        return false;
+    }
+
+    if (resetFence) {
+        auto resetFenceCmd = VPUEventResetCommand::create(waitFence, waitBo);
+
+        if (!addCommand(resetFenceCmd.get(), cmdOffset, descOffset)) {
+            LOG_E("Failed to append synchronization reset command to buffer");
+            return false;
+        }
+    } else {
+        auto nopCmd = VPUNopCommand::create(ctx->getDeviceCapabilities(), sizeof(vpu_cmd_fence_t));
+        if (!addCommand(nopCmd.get(), cmdOffset, descOffset)) {
+            LOG_E("Failed to append NOP command at the end of buffer");
+            return false;
+        }
+    }
+    waitBoGuard = std::move(waitBo);
+
+    cmdHeader->cmd_offset = offsetof(CommandHeader, internalSync) - offsetof(CommandHeader, header);
+    return true;
+}
+
+bool VPUCommandBuffer::addSelfSignalAtTail() {
+    auto commandHeader = reinterpret_cast<CommandHeader *>(buffer->getBasePointer());
+    size_t descOffset = 0;
+    size_t cmdOffset = offsetof(CommandHeader, header) + commandHeader->header.cmd_buffer_size -
+                       sizeof(vpu_cmd_fence_t);
+
+    auto signalCmd = VPUEventSignalCommand::create(&commandHeader->fenceValue, buffer);
+
+    if (!addCommand(signalCmd.get(), cmdOffset, descOffset)) {
+        LOG_E("Failed to append synchronization signal command to buffer");
+        return false;
+    }
     return true;
 }
 
@@ -233,31 +272,44 @@ bool VPUCommandBuffer::waitForCompletion(int64_t timeout_abs_ns) {
         return false;
 
     jobStatus = args.job_status;
+    inferenceScratchBuffer.reset();
     return true;
 }
 
-void VPUCommandBuffer::printCommandBuffer() const {
+void VPUCommandBuffer::resetFenceValue() {
+    if (buffer == nullptr)
+        return;
+    CommandHeader *cmdHeader = reinterpret_cast<CommandHeader *>(buffer->getBasePointer());
+    if (cmdHeader)
+        cmdHeader->fenceValue = VPUEventCommand::State::STATE_HOST_RESET;
+}
+
+void VPUCommandBuffer::printCommandBuffer(const char *description) const {
     if (getLogLevel() < LogLevel::INFO)
         return;
 
     uint8_t *bufferPtr = buffer->getBasePointer();
-    vpu_cmd_buffer_header_t *cmdHeader = reinterpret_cast<vpu_cmd_buffer_header_t *>(bufferPtr);
+    vpu_cmd_buffer_header_t *cmdHeader =
+        reinterpret_cast<vpu_cmd_buffer_header_t *>(bufferPtr + offsetof(CommandHeader, header));
     LOG(VPU_CMD,
-        "Start compute command buffer printing:\n"
-        "\tCommand buffer ptr cpu = %p, vpu = %#lx\n"
-        "\tSize = %u bytes, commands offset %u\n",
+        "Start command buffer printing(%s):\n"
+        "\t&vpu_cmd_buffer_header_t: %p, (vpu: %#lx)\n"
+        "\tcmd_buffer_size: %#x, cmd_offset: %#x, context_save_area_address: %#lx\n",
+        description ? description : "",
         cmdHeader,
-        buffer->getVPUAddr(),
+        buffer->getVPUAddr(cmdHeader),
         cmdHeader->cmd_buffer_size,
-        cmdHeader->cmd_offset);
+        cmdHeader->cmd_offset,
+        cmdHeader->context_save_area_address);
 
-    size_t cmdOffset = cmdHeader->cmd_offset;
+    uint32_t cmdOffset = cmdHeader->cmd_offset;
     int i = 0;
     while (cmdOffset < cmdHeader->cmd_buffer_size) {
-        vpu_cmd_header_t *cmd = reinterpret_cast<vpu_cmd_header_t *>(bufferPtr + cmdOffset);
+        vpu_cmd_header_t *cmd = reinterpret_cast<vpu_cmd_header_t *>(
+            bufferPtr + offsetof(CommandHeader, header) + cmdOffset);
 
         if (cmd->size <= 0 || cmd->size >= cmdHeader->cmd_buffer_size) {
-            LOG_E("Invalid command size, stop command buffer printing");
+            LOG_E("Invalid command size: %u, stop command buffer printing", cmd->size);
             return;
         }
 
@@ -318,8 +370,8 @@ void VPUCommandBuffer::printCommandBuffer() const {
                 reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_start_offset,
                 reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_count);
             ctx->printCopyDescriptor(
-                bufferPtr + reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_start_offset -
-                    buffer->getVPUAddr(),
+                bufferPtr + (reinterpret_cast<vpu_cmd_copy_buffer_t *>(cmd)->desc_start_offset -
+                             buffer->getVPUAddr()),
                 cmd);
             break;
         case VPU_CMD_INFERENCE_EXECUTE:
@@ -341,7 +393,9 @@ void VPUCommandBuffer::printCommandBuffer() const {
                 reinterpret_cast<vpu_cmd_memory_fill_t *>(cmd)->fill_pattern,
                 reinterpret_cast<vpu_cmd_memory_fill_t *>(cmd)->start_address);
             break;
-
+        case VPU_CMD_NOP:
+            LOG(VPU_CMD, "Command %i: NOP (size: %u bytes)", i, cmd->size);
+            break;
         default:
             LOG_E("Unknown command, stop command buffer printing");
             return;
@@ -349,11 +403,16 @@ void VPUCommandBuffer::printCommandBuffer() const {
         cmdOffset += cmd->size;
         i++;
     }
-    LOG(VPU_CMD, "Stop compute command buffer printing");
+    LOG(VPU_CMD, "Stop command buffer printing");
 }
 
-bool VPUCommandBuffer::replaceBufferHandles(std::vector<uint32_t> &oldHandles,
-                                            std::vector<uint32_t> &newHandles) {
+bool VPUCommandBuffer::replaceBufferHandles(const std::vector<uint32_t> &oldHandles,
+                                            const std::vector<uint32_t> &newHandles) {
+    if (oldHandles.size() != newHandles.size()) {
+        LOG_E("Incorrect number of handles passed to replaceBufferHandles");
+        return false;
+    }
+
     bufferHandles.erase(std::remove_if(bufferHandles.begin(),
                                        bufferHandles.end(),
                                        [&oldHandles](auto x) {
@@ -369,12 +428,23 @@ bool VPUCommandBuffer::replaceBufferHandles(std::vector<uint32_t> &oldHandles,
 }
 
 bool VPUCommandBuffer::updateCommands() {
+    if (inferenceScratchSize) {
+        inferenceScratchBuffer = ctx->scratchCacheAcquire(inferenceScratchSize);
+        if (inferenceScratchBuffer == nullptr) {
+            LOG_E("Failed to allocate scratch buffer");
+            return false;
+        }
+    }
+
     for (auto it = commandsBegin; it != commandsEnd; it++) {
-        auto &cmd = *it;
-        if (cmd->needsUpdate()) {
-            if (!cmd->update(this)) {
-                return false;
-            }
+        std::shared_ptr<VPUCommand> &cmd = *it;
+        if (cmd->getCommandType() == VPU_CMD_INFERENCE_EXECUTE) {
+            auto &inference = dynamic_cast<VPUInferenceExecute &>(*cmd);
+            inference.updateScratchBuffer(this, inferenceScratchBuffer);
+        }
+
+        if (!cmd->update(this)) {
+            return false;
         }
     }
     return true;

@@ -8,8 +8,8 @@
 #include <stdint.h>
 
 #include "gtest/gtest.h"
-#include "vpu_driver/source/command/vpu_job.hpp"
-#include "vpu_driver/source/command/vpu_ts_command.hpp"
+#include "vpu_driver/source/command/job.hpp"
+#include "vpu_driver/source/command/ts_command.hpp"
 #include "vpu_driver/source/device/metric_info.hpp"
 #include "vpu_driver/source/device/vpu_command_queue.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"

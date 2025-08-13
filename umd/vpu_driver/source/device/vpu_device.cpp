@@ -41,7 +41,8 @@ bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
         hwInfo.platformType = drvApi->getDeviceParam<uint32_t>(DRM_IVPU_PARAM_PLATFORM_TYPE);
         hwInfo.fwMappedInferenceVersion =
             drvApi->getDeviceParam(DRM_IVPU_PARAM_FW_API_VERSION, hwInfo.fwMappedInferenceIndex);
-
+        hwInfo.fwJsmCmdApiVersion =
+            drvApi->getDeviceParam(DRM_IVPU_PARAM_FW_API_VERSION, hwInfo.fwJsmCmdApiVerIndex);
         uint32_t tileConfigParam = drvApi->getDeviceParam<uint32_t>(DRM_IVPU_PARAM_TILE_CONFIG);
         hwInfo.tileConfig = ~tileConfigParam & hwInfo.tileFuseMask;
     } catch (const std::exception &err) {

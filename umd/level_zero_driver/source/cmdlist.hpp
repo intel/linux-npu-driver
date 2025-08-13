@@ -12,8 +12,8 @@
 
 #include "level_zero_driver/include/l0_handler.hpp"
 #include "level_zero_driver/source/event.hpp"
-#include "vpu_driver/source/command/vpu_event_command.hpp"
-#include "vpu_driver/source/command/vpu_job.hpp"
+#include "vpu_driver/source/command/event_command.hpp"
+#include "vpu_driver/source/command/job.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <level_zero/ze_api.h>

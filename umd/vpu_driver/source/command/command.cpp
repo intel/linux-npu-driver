@@ -5,12 +5,8 @@
  *
  */
 
-#include "vpu_driver/source/command/vpu_command.hpp"
+#include "vpu_driver/source/command/command.hpp"
 
-#include <cstddef>
-#include <cstdint>
-
-#include "vpu_driver/include/umd_common.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
@@ -24,20 +20,6 @@ namespace VPU {
 
 VPUCommand::VPUCommand(ScheduleType schType)
     : sType(schType) {}
-
-bool VPUCommand::copyDescriptor(void **desc, std::shared_ptr<VPUBufferObject> bo) {
-    if (!descriptor.has_value())
-        return true;
-
-    std::copy(descriptor->data.begin(),
-              descriptor->data.end(),
-              *reinterpret_cast<uint8_t **>(desc));
-
-    *descriptor->commandOffset = bo->getVPUAddr(*desc);
-    *reinterpret_cast<uint8_t **>(desc) += getFwDataCacheAlign(descriptor->data.size());
-
-    return true;
-}
 
 bool VPUCommand::appendAssociateBufferObject(VPUDeviceContext *ctx, const void *assocPtr) {
     auto bo = ctx->findBufferObject(assocPtr);

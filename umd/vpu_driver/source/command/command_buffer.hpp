@@ -11,14 +11,14 @@
 #include <stdint.h>
 
 #include "api/vpu_jsm_job_cmd_api.h"
-#include "vpu_driver/source/command/vpu_event_command.hpp"
-#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
+#include "vpu_driver/source/command/event_command.hpp"
 
 #include <memory>
 #include <uapi/drm/ivpu_accel.h>
 #include <vector>
 
 namespace VPU {
+class VPUBufferObject;
 class VPUCommand;
 class VPUDeviceContext;
 
@@ -41,9 +41,7 @@ class VPUCommandBuffer {
     static std::unique_ptr<VPUCommandBuffer>
     allocateCommandBuffer(VPUDeviceContext *ctx,
                           const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
-                          const std::vector<std::shared_ptr<VPUCommand>>::iterator &end,
-                          VPUEventCommand::KMDEventDataType **fenceWait,
-                          std::shared_ptr<VPUBufferObject> &fenceBo);
+                          const std::vector<std::shared_ptr<VPUCommand>>::iterator &end);
 
     /**
      * Return true if job is finished
@@ -65,21 +63,28 @@ class VPUCommandBuffer {
     /**
      * Print the content of command buffer
      */
-    void printCommandBuffer() const;
+    void printCommandBuffer(const char *description) const;
 
     /**
-     * Return the pointer to buffer. Used only for testing
+     * Returns the buffer object.
      */
-    const uint8_t *getBufferPtr() const { return buffer->getBasePointer(); }
+    std::shared_ptr<VPUBufferObject> getBuffer() const { return buffer; }
 
     /**
      * Return the VPU address of fence signal command
      */
     uint64_t getFenceAddr() const { return syncFenceVpuAddr; }
 
-    bool replaceBufferHandles(std::vector<uint32_t> &oldHandles, std::vector<uint32_t> &newHandles);
+    bool replaceBufferHandles(const std::vector<uint32_t> &oldHandles,
+                              const std::vector<uint32_t> &newHandles);
 
     bool updateCommands();
+
+    void resetFenceValue();
+
+    uint32_t getCommandBufferOffset() const { return offsetof(CommandHeader, header); }
+    bool addWaitAtHead(std::shared_ptr<VPUBufferObject> waitBo, bool resetFence = false);
+    bool addSelfSignalAtTail();
 
   private:
     /**
@@ -90,7 +95,7 @@ class VPUCommandBuffer {
     /**
      * Add VPUCommand details to the command list
      */
-    bool addCommand(VPUCommand *cmd, uint64_t &cmdOffset, uint64_t &descOffset);
+    bool addCommand(VPUCommand *cmd, size_t &cmdOffset, size_t &descOffset);
 
     /**
      * Set fence address that is used for command buffer recognition
@@ -99,14 +104,15 @@ class VPUCommandBuffer {
     void addUniqueBoHandle(uint32_t handle);
 
   public:
-    /* Address CommandHeader has to be aligned to 64 bytes (FW cache line size) */
+    /* CommandHeader address has to be aligned to 64 bytes (FW cache line size) */
     struct CommandHeader {
-        vpu_cmd_buffer_header header;
-        uint8_t contextSaveArea[VPU_CONTEXT_SAVE_AREA_SIZE] __attribute__((aligned(64)));
+        uint8_t contextSaveArea[VPU_CONTEXT_SAVE_AREA_SIZE];
         VPUEventCommand::KMDEventDataType fenceValue;
-        uint64_t reserved_1[7];
+        uint64_t reserved[7];
+        vpu_cmd_buffer_header header;
+        vpu_cmd_fence_t internalSync[2];
         uint8_t commandList[0];
-        uint8_t descriptorList[0];
+        /* Last array is descriptors that requires address alignment to 64 bytes */
     };
 
     /* Make sure that CommandHeader fields meet FW alignment requirement */
@@ -116,20 +122,24 @@ class VPUCommandBuffer {
                   "Context save area address is not aligned to 64 bytes");
     static_assert(offsetof(CommandHeader, fenceValue) % 64 == 0,
                   "Fence value is not aligned to 64 bytes");
-    static_assert(offsetof(CommandHeader, commandList) % 64 == 0,
-                  "Command list is not aligned to 64 bytes");
-    static_assert(offsetof(CommandHeader, descriptorList) % 64 == 0,
-                  "Descriptor list is not aligned to 64 bytes");
 
   private:
     VPUDeviceContext *ctx;
     std::shared_ptr<VPUBufferObject> buffer;
+    /* waitBoGuard keeps memory of synchronization fence
+     * from previous command buffer when full synchronization requested
+     */
+    std::shared_ptr<VPUBufferObject> waitBoGuard;
     uint32_t jobStatus;
     std::vector<std::shared_ptr<VPUCommand>>::iterator commandsBegin;
     std::vector<std::shared_ptr<VPUCommand>>::iterator commandsEnd;
 
     uint64_t syncFenceVpuAddr = 0;
     std::vector<uint32_t> bufferHandles;
+
+    // The inference execute command may require a shared scratch buffer
+    size_t inferenceScratchSize = 0;
+    std::shared_ptr<VPUBufferObject> inferenceScratchBuffer;
 };
 
 } // namespace VPU

@@ -14,6 +14,7 @@
 
 #include <iostream>
 #include <level_zero/ze_api.h>
+#include <level_zero/ze_command_queue_npu_ext.h>
 #include <sstream>
 
 #define IS_API_TRACE() (VPU::getLogLevel() == INFO && VPU::getLogMask() & API)
@@ -1549,6 +1550,32 @@ inline std::string _trace_zeCommandQueueCreate(ze_context_handle_t hContext,
         ss << ", mode: " << desc->mode;
         ss << ", priority: " << desc->priority;
         ss << "}";
+        if (desc->pNext) {
+            const auto *descriptorType =
+                reinterpret_cast<const ze_structure_type_command_queue_npu_ext_t *>(desc->pNext);
+            switch (*descriptorType) {
+            case ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC_NPU_EXT: {
+                const auto *pNext =
+                    reinterpret_cast<const ze_command_queue_desc_npu_ext_t *>(desc->pNext);
+                ss << ", ext desc {";
+                ss << "stype: " << pNext->stype;
+                ss << ", pNext: " << pNext->pNext;
+                ss << ", turbo: " << pNext->turbo;
+                ss << "}";
+            } break;
+            case ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC_NPU_EXT_2: {
+                const auto *pNext =
+                    reinterpret_cast<const ze_command_queue_desc_npu_ext_2_t *>(desc->pNext);
+                ss << ", ext2 desc {";
+                ss << "stype: " << pNext->stype;
+                ss << ", pNext: " << pNext->pNext;
+                ss << ", options: " << pNext->options;
+                ss << "}";
+            } break;
+            default:
+                break;
+            }
+        }
     }
     if (phCommandQueue == nullptr) {
         ss << ", phCommandQueue: nullptr";

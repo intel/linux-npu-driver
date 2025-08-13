@@ -9,11 +9,11 @@
 #include <stdint.h>
 
 #include "gtest/gtest.h"
-#include "vpu_driver/source/command/vpu_command_buffer.hpp"
-#include "vpu_driver/source/command/vpu_copy_command.hpp"
-#include "vpu_driver/source/command/vpu_event_command.hpp"
-#include "vpu_driver/source/command/vpu_job.hpp"
-#include "vpu_driver/source/command/vpu_ts_command.hpp"
+#include "vpu_driver/source/command/command_buffer.hpp"
+#include "vpu_driver/source/command/copy_command.hpp"
+#include "vpu_driver/source/command/event_command.hpp"
+#include "vpu_driver/source/command/job.hpp"
+#include "vpu_driver/source/command/ts_command.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"

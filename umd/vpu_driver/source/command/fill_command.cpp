@@ -5,7 +5,7 @@
  *
  */
 
-#include "vpu_driver/source/command/vpu_fill_command.hpp"
+#include "vpu_driver/source/command/fill_command.hpp"
 
 #include <cstdint>
 

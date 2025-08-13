@@ -5,7 +5,7 @@
  *
  */
 
-#include "vpu_driver/source/command/vpu_query_command.hpp"
+#include "vpu_driver/source/command/query_command.hpp"
 
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"

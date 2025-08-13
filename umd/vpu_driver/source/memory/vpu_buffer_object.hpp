@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -28,6 +28,7 @@ class VPUBufferObject {
         WriteCombineFw = DRM_IVPU_BO_WC | DRM_IVPU_BO_MAPPABLE,
         WriteCombineShave = DRM_IVPU_BO_WC | DRM_IVPU_BO_MAPPABLE | DRM_IVPU_BO_HIGH_MEM,
         WriteCombineDma = DRM_IVPU_BO_WC | DRM_IVPU_BO_MAPPABLE | DRM_IVPU_BO_DMA_MEM,
+        WriteCombineDmaUnmappable = DRM_IVPU_BO_WC | DRM_IVPU_BO_DMA_MEM,
         ImportedMemory = 0,
     };
     const uint32_t externalMemMask = 0x8000;
@@ -140,7 +141,7 @@ class VPUBufferObject {
        @param dataSize[in]: Size of the stream in bytes.
        @return true on successful copy, false otherwise.
      */
-    bool copyToBuffer(const void *data, size_t size, uint64_t offset);
+    bool copyToBuffer(const void *data, size_t size, size_t offset);
 
     /**
        Fill allocated buffer with pattern.

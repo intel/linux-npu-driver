@@ -27,8 +27,7 @@ class VPUDeviceContext;
 class VPUBufferObject;
 
 struct VPUDescriptor {
-    std::vector<char> data = {};
-    uint64_t *commandOffset = nullptr;
+    std::vector<uint8_t> data = {};
     uint32_t numDescriptors = 0;
 };
 
@@ -55,7 +54,7 @@ class VPUCommand {
         const vpu_cmd_header_t *hdr = this->getHeader();
         if (!hdr)
             return 0;
-        return hdr->size;
+        return static_cast<size_t>(hdr->size);
     }
 
     const uint8_t *getCommitStream() const {
@@ -69,15 +68,19 @@ class VPUCommand {
         return static_cast<vpu_cmd_type>(hdr->type);
     }
 
+    const uint8_t *getDescriptorData() const {
+        return descriptor ? descriptor->data.data() : nullptr;
+    }
     size_t getDescriptorSize() const { return descriptor ? descriptor->data.size() : 0; }
+    virtual void patchDescriptorAddress(uint64_t vpuAddr) {
+        LOG_E("Command with type %#x does not implement patchDescriptorAddress", getCommandType());
+    }
 
     const std::vector<std::shared_ptr<VPUBufferObject>> &getAssociateBufferObjects() const {
         return bufferObjects;
     }
 
     inline bool isSynchronizeCommand() const { return sType == ScheduleType::Synchronize; }
-
-    bool copyDescriptor(void **desc, std::shared_ptr<VPUBufferObject> bo);
 
     using ArgumentUpdatesMap =
         std::unordered_map<uint32_t, const void *>; // key - argument index
@@ -87,12 +90,7 @@ class VPUCommand {
         return false;
     }
 
-    virtual bool update(VPUCommandBuffer *commandBuffer) {
-        LOG_E("Command with type %#x does not support changing arguments", getCommandType());
-        return false;
-    }
-
-    bool needsUpdate() const { return cmdNeedsUpdate; }
+    virtual bool update(VPUCommandBuffer *commandBuffer) { return true; }
 
   protected:
     bool appendAssociateBufferObject(VPUDeviceContext *ctx, const void *assocPtr);

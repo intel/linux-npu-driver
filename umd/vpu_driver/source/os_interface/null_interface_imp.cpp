@@ -30,41 +30,33 @@ namespace VPU {
 
 OsInterface *NullOsInterfaceImp::getInstance() {
     static NullOsInterfaceImp instance;
-    return &instance;
-}
 
-bool NullOsInterfaceImp::isNullDeviceRequested() {
-    char *env = getenv("ZE_INTEL_NPU_PLATFORM_OVERRIDE");
-    if (env)
-        return true;
-    return false;
+    return instance.configureNullDevice() ? &instance : nullptr;
 }
 
 bool NullOsInterfaceImp::configureNullDevice() {
     char *env = getenv("ZE_INTEL_NPU_PLATFORM_OVERRIDE");
     if (!env)
         return false;
-    NullOsInterfaceImp *dev =
-        reinterpret_cast<NullOsInterfaceImp *>(NullOsInterfaceImp::getInstance());
 
     if (std::string("INPU_MTL") == env || std::string("METEORLAKE") == env) {
-        dev->nullHwInfo = getHwInfoByDeviceId(PCI_DEVICE_ID_MTL);
-        dev->nullHwInfo.deviceId = PCI_DEVICE_ID_MTL;
-        LOG_W("MTL(%#x) null device is set.", dev->nullHwInfo.deviceId);
+        nullHwInfo = getHwInfoByDeviceId(PCI_DEVICE_ID_MTL);
+        nullHwInfo.deviceId = PCI_DEVICE_ID_MTL;
+        LOG_W("MTL(%#x) null device is set.", nullHwInfo.deviceId);
     } else if (std::string("INPU_LNL") == env || std::string("LUNARLAKE") == env) {
-        dev->nullHwInfo = getHwInfoByDeviceId(PCI_DEVICE_ID_LNL);
-        dev->nullHwInfo.deviceId = PCI_DEVICE_ID_LNL;
-        LOG_W("LNL(%#x) null device is set.", dev->nullHwInfo.deviceId);
+        nullHwInfo = getHwInfoByDeviceId(PCI_DEVICE_ID_LNL);
+        nullHwInfo.deviceId = PCI_DEVICE_ID_LNL;
+        LOG_W("LNL(%#x) null device is set.", nullHwInfo.deviceId);
     } else if (std::string("ARROWLAKE") == env) {
-        dev->nullHwInfo = getHwInfoByDeviceId(PCI_DEVICE_ID_ARL);
-        dev->nullHwInfo.deviceId = PCI_DEVICE_ID_ARL;
-        LOG_W("ARL(%#x) null device is set.", dev->nullHwInfo.deviceId);
+        nullHwInfo = getHwInfoByDeviceId(PCI_DEVICE_ID_ARL);
+        nullHwInfo.deviceId = PCI_DEVICE_ID_ARL;
+        LOG_W("ARL(%#x) null device is set.", nullHwInfo.deviceId);
     } else {
         LOG_E("Null device(%s) requested but configured device is not supported.", env);
         return false;
     }
 
-    dev->deviceAddress = 0xc000'0000;
+    deviceAddress = 0xc000'0000;
 
     /* Revision can be provided in formats: oct, dec, hex */
     env = getenv("ZE_INTEL_NPU_REVISION_OVERRIDE");
@@ -83,7 +75,7 @@ bool NullOsInterfaceImp::configureNullDevice() {
             return false;
         }
 
-        dev->nullHwInfo.deviceRevision = npuRevisionId;
+        nullHwInfo.deviceRevision = npuRevisionId;
     }
 
     /* Disabled tile mask can be provided in formats: bin, dec, oct, hex */
@@ -101,10 +93,10 @@ bool NullOsInterfaceImp::configureNullDevice() {
              */
             if (tilesMask.front() == 'b') {
                 tilesMask = tilesMask.substr(1);
-                dev->nullHwInfo.tileConfig =
+                nullHwInfo.tileConfig =
                     static_cast<uint32_t>(std::stoul(tilesMask, &charsParsed, 2));
             } else {
-                dev->nullHwInfo.tileConfig =
+                nullHwInfo.tileConfig =
                     static_cast<uint32_t>(std::stoul(tilesMask, &charsParsed, 0));
             }
             if (charsParsed != tilesMask.length())
@@ -135,7 +127,7 @@ bool NullOsInterfaceImp::configureNullDevice() {
             LOG_E("Null device configuration disables all tiles.");
             return false;
         }
-        std::bitset<32> maxTiles(dev->nullHwInfo.tileFuseMask);
+        std::bitset<32> maxTiles(nullHwInfo.tileFuseMask);
         if (enabledTiles > maxTiles.count()) {
             LOG_E("Null device tile count above limit, set: %zd supported: %zd",
                   enabledTiles,
@@ -146,12 +138,12 @@ bool NullOsInterfaceImp::configureNullDevice() {
 
         /* tilesConfig represents disabled tiles */
         if (disabledTiles)
-            dev->nullHwInfo.tileConfig = (1 << disabledTiles) - 1;
+            nullHwInfo.tileConfig = (1 << disabledTiles) - 1;
     }
 
-    LOG(DEVICE, "Device PCI ID is %x", dev->nullHwInfo.deviceId);
-    LOG(DEVICE, "Device revision is %d", dev->nullHwInfo.deviceRevision);
-    LOG(DEVICE, "Device disabled tiles bits are 0x%x", dev->nullHwInfo.tileConfig);
+    LOG(DEVICE, "Device PCI ID is %x", nullHwInfo.deviceId);
+    LOG(DEVICE, "Device revision is %d", nullHwInfo.deviceRevision);
+    LOG(DEVICE, "Device disabled tiles bits are 0x%x", nullHwInfo.tileConfig);
     return true;
 }
 

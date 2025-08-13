@@ -91,6 +91,17 @@ DriverHandle::getMemAllocProperties(const void *ptr,
     return ZE_RESULT_SUCCESS;
 }
 
+ze_command_queue_npu_ext_version_t DriverHandle::getSupportedCmdQueueExtVersion() {
+    if (devices.empty())
+        return ZE_COMMAND_QUEUE_NPU_EXT_VERSION_1_0;
+
+    for (auto &vpuDevice : devices)
+        if (!vpuDevice->getVPUDevice()->getCapCmdQueueCreation())
+            return ZE_COMMAND_QUEUE_NPU_EXT_VERSION_1_0;
+
+    return ZE_COMMAND_QUEUE_NPU_EXT_VERSION_1_1;
+}
+
 DriverHandle::DriverHandle(std::vector<std::unique_ptr<VPU::VPUDevice>> vpuDevices) {
     for (auto &vpuDevice : vpuDevices)
         devices.push_back(std::make_unique<Device>(this, std::move(vpuDevice)));

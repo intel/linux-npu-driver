@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -39,7 +39,7 @@ VPUBufferObject::VPUBufferObject(const VPUDriverApi &drvApi,
 }
 
 VPUBufferObject::~VPUBufferObject() {
-    if (drvApi.unmap(basePtr, allocSize) != 0) {
+    if (basePtr != nullptr && drvApi.unmap(basePtr, allocSize) != 0) {
         LOG_E("Failed to unmap handle %d", handle);
     }
 
@@ -76,11 +76,13 @@ VPUBufferObject::create(const VPUDriverApi &drvApi, Location type, Type range, s
         return nullptr;
     }
 
-    ptr = drvApi.mmap(size, safe_cast<off_t>(offset));
-    if (ptr == nullptr) {
-        LOG_E("Failed to mmap the created buffer");
-        drvApi.closeBuffer(handle);
-        return nullptr;
+    if (static_cast<int>(range) & DRM_IVPU_BO_MAPPABLE) {
+        ptr = drvApi.mmap(size, safe_cast<off_t>(offset));
+        if (ptr == nullptr) {
+            LOG_E("Failed to mmap the created buffer");
+            drvApi.closeBuffer(handle);
+            return nullptr;
+        }
     }
 
     if (MemoryStatistics::get().isEnabled()) {
@@ -139,7 +141,12 @@ VPUBufferObject::importFromFd(const VPUDriverApi &drvApi, Location type, int32_t
                                              vpuAddr);
 }
 
-bool VPUBufferObject::copyToBuffer(const void *data, size_t size, uint64_t offset) {
+bool VPUBufferObject::copyToBuffer(const void *data, size_t size, size_t offset) {
+    if (basePtr == nullptr) {
+        LOG_E("Base pointer is null");
+        return false;
+    }
+
     if ((offset + size) > allocSize) {
         LOG_E("Copy out of buffer range");
         return false;
@@ -156,6 +163,11 @@ bool VPUBufferObject::copyToBuffer(const void *data, size_t size, uint64_t offse
 }
 
 bool VPUBufferObject::fillBuffer(const void *pattern, size_t patternSize) {
+    if (basePtr == nullptr) {
+        LOG_E("Base pointer is null");
+        return false;
+    }
+
     if (!pattern) {
         LOG_E("Fill pattern undefined");
         return false;

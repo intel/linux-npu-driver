@@ -425,6 +425,31 @@ exit:
     return ret;
 }
 
+ZE_DLLEXPORT ze_result_t ZE_APICALL
+zetGetCommandListExpProcAddrTable(ze_api_version_t version,
+                                  zet_command_list_exp_dditable_t *pDdiTable) {
+    trace_zetGetCommandListExpProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
+
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    ret = ZE_RESULT_SUCCESS;
+
+    pDdiTable->pfnAppendMarkerExp = nullptr;
+
+exit:
+    trace_zetGetCommandListExpProcAddrTable(ret, version, pDdiTable);
+    return ret;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /// @brief Exported function for filling application's CommandList table
 ///        with current process' addresses

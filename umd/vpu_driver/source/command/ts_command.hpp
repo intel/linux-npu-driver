@@ -9,7 +9,7 @@
 #include <cstdint>
 
 #include "api/vpu_jsm_job_cmd_api.h"
-#include "vpu_driver/source/command/vpu_command.hpp"
+#include "vpu_driver/source/command/command.hpp"
 
 #include <any>
 #include <memory>

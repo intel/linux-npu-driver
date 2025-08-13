@@ -10,7 +10,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "vpu_driver/source/command/vpu_command.hpp"
+#include "vpu_driver/source/command/command.hpp"
 
 #include <any>
 #include <api/vpu_jsm_job_cmd_api.h>
@@ -40,7 +40,7 @@ class VPUInferenceExecute : public VPUCommand {
                         L0::GraphProfilingQuery *profilingQuery,
                         uint64_t inferenceId,
                         std::vector<std::shared_ptr<VPUBufferObject>> &bos,
-                        size_t argBosPosition);
+                        std::vector<std::shared_ptr<VPUBufferObject>> &userBos);
     ~VPUInferenceExecute() = default;
 
     VPUInferenceExecute(VPUInferenceExecute const &) = delete;
@@ -63,6 +63,9 @@ class VPUInferenceExecute : public VPUCommand {
     bool setUpdates(const ArgumentUpdatesMap &updatesMap) override;
     bool update(VPUCommandBuffer *commandBuffer) override;
 
+    void updateScratchBuffer(VPUCommandBuffer *cmdBuffer, std::shared_ptr<VPUBufferObject> bo);
+    size_t getSharedScratchSize();
+
   private:
     std::shared_ptr<L0::ElfParser> parser;
     std::shared_ptr<elf::HostParsedInference> hpi;
@@ -70,8 +73,12 @@ class VPUInferenceExecute : public VPUCommand {
     std::vector<const void *> outputs;
     L0::GraphProfilingQuery *profilingQuery;
 
-    std::vector<uint32_t> argHandles;
-    const size_t argBoPosition = 0;
+    /* inputs, outputs and graph profiling buffer */
+    size_t userArgIndex;
+    std::vector<uint32_t> userArgHandles;
+
+    /* shared scratch buffer, on command create the value is invalid */
+    uint32_t lastScratchBoHandle = UINT32_MAX;
 };
 
 } // namespace VPU

@@ -13,7 +13,9 @@
 
 PERFETTO_DEFINE_CATEGORIES(
     perfetto::Category("API").SetDescription("Level Zero APIs traces to Intel NPU UMD"),
-    perfetto::Category("SYS").SetDescription("Linux system calls used by Intel NPU UMD"));
+    perfetto::Category("SYS").SetDescription("Linux system calls used by Intel NPU UMD"),
+    perfetto::Category("NPU_ELF").SetDescription("elf::HostParsedInference calls traces"),
+    perfetto::Category("NPU_COMPILER").SetDescription("NPU Compiler API calls traces"));
 
 class TracePerfetto {
   public:

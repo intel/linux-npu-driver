@@ -153,15 +153,10 @@ int VPUDriverApi::commandQueueCreate(uint32_t priority, uint32_t &queueId, bool 
     return 0;
 }
 
-int VPUDriverApi::commandQueueSubmit(const void *buffers, uint32_t bufCnt, uint32_t queueId) const {
-    drm_ivpu_cmdq_submit submitArgs = {};
-    submitArgs.buffers_ptr = reinterpret_cast<uint64_t>(buffers);
-    submitArgs.buffer_count = bufCnt;
-    submitArgs.cmdq_id = queueId;
-
-    int ret = doIoctl(DRM_IOCTL_IVPU_CMDQ_SUBMIT, &submitArgs);
-    if (ret)
-        LOG_E("DRM_IOCTL_IVPU_CMDQ_SUBMIT failed, error %d", ret);
+int VPUDriverApi::commandQueueSubmit(drm_ivpu_cmdq_submit *arg) const {
+    int ret = doIoctl(DRM_IOCTL_IVPU_CMDQ_SUBMIT, arg);
+    if (ret && errno != EBUSY)
+        LOG_E("DRM_IOCTL_IVPU_CMDQ_SUBMIT failed, error %d(%d)", ret, errno);
     return ret;
 }
 
