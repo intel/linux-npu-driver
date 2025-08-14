@@ -9,6 +9,11 @@
 # This software and the related documents are provided as is, with no express or
 # implied warranties, other than those that are expressly stated in the License.
 
+# TODO: Detect empty directory and upgrade to warning then regardless
+if (USE_SYSTEM_LIBRARIES)
+  message(STATUS "USE_SYSTEM_LIBRARIES does not apply to level-zero-npu-extensions; it must always be vendored.")
+endif()
+
 set(LEVEL_ZERO_EXT_HEADERS_DIR "${CMAKE_BINARY_DIR}/include/level_zero")
 file(MAKE_DIRECTORY ${LEVEL_ZERO_EXT_HEADERS_DIR})
 file(GLOB_RECURSE LEVEL_ZERO_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/level-zero-npu-extensions/*.h)
