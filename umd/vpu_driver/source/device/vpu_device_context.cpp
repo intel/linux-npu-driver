@@ -274,4 +274,59 @@ void ScratchCacheFactory::prune(size_t size) {
                          scratchBuffers.end());
 }
 
+std::shared_ptr<VPUBufferObject> PreemptionCacheFactory::acquire(VPUDeviceContext *ctx) {
+    const auto size = ctx->getDeviceCapabilities().fwPreemptBufSize;
+    if (size == 0) {
+        LOG_E("Preemption buffer size is zero, cannot acquire preemption buffer");
+        return nullptr;
+    }
+
+    const std::lock_guard<std::mutex> lock(preemptionMutex);
+    for (auto &bo : preemptionBuffers) {
+        if (bo.use_count() == 1) {
+            LOG(CONTEXT,
+                "Reusing preemption buffer: handle %u, size: %lu",
+                bo->getHandle(),
+                bo->getAllocSize());
+            return bo;
+        }
+    }
+
+    auto bo =
+        ctx->createUntrackedBufferObject(size, VPUBufferObject::Type::WriteCombineFwUnmappable);
+    if (!bo) {
+        LOG_E("Failed to create new preemption buffer of size %lu", size);
+        return nullptr;
+    }
+
+    preemptionBuffers.push_back(bo);
+    LOG(CONTEXT,
+        "Returning new preemption buffer: handle %u, size: %lu",
+        bo->getHandle(),
+        bo->getAllocSize());
+    return bo;
+}
+
+void PreemptionCacheFactory::prune() {
+    const std::lock_guard<std::mutex> lock(preemptionMutex);
+    if (numQueues > 0)
+        numQueues--;
+
+    size_t numQueuesToRemove = preemptionBuffers.size() > numQueues
+                                   ? preemptionBuffers.size() - numQueues
+                                   : preemptionBuffers.size();
+    preemptionBuffers.erase(
+        std::remove_if(preemptionBuffers.begin(),
+                       preemptionBuffers.end(),
+                       [&numQueuesToRemove](const std::shared_ptr<VPUBufferObject> &bo) {
+                           if (numQueuesToRemove > 0 && bo.use_count() == 1) {
+                               numQueuesToRemove--;
+                               return true;
+                           }
+                           return false;
+                       }),
+        preemptionBuffers.end());
+    LOG(CONTEXT, "Pruned preemption buffers, remaining count: %zu", preemptionBuffers.size());
+}
+
 } // namespace VPU

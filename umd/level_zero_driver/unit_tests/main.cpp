@@ -7,11 +7,11 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "vpu_driver/source/utilities/log.hpp"
 
 #include <filesystem>
 #include <getopt.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string>
 #include <unistd.h>
 #include <utility>
@@ -50,10 +50,10 @@ static bool parseOptions(int argc, char **argv) {
     while ((opt = getopt_long(argc, argv, "vl:b:m:c:", longOptions, nullptr)) != -1) {
         switch (opt) {
         case 'v':
-            VPU::setLogLevel(INFO);
+            setenv("ZE_INTEL_NPU_LOGLEVEL", "INFO", 1);
             break;
         case 'l':
-            VPU::setLogLevel(optarg);
+            setenv("ZE_INTEL_NPU_LOGLEVEL", optarg, 1);
             break;
         case 'b':
             TestOptions::blobPath = optarg;

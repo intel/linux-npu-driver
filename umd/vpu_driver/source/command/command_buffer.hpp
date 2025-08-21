@@ -14,6 +14,7 @@
 #include "vpu_driver/source/command/event_command.hpp"
 
 #include <memory>
+#include <optional>
 #include <uapi/drm/ivpu_accel.h>
 #include <vector>
 
@@ -58,7 +59,7 @@ class VPUCommandBuffer {
     /**
      * Return the vector of stored buffer handles
      */
-    const std::vector<uint32_t> &getBufferHandles() const { return bufferHandles; };
+    const std::vector<uint32_t> &getBufferHandles() const { return bufferHandles; }
 
     /**
      * Print the content of command buffer
@@ -85,6 +86,9 @@ class VPUCommandBuffer {
     uint32_t getCommandBufferOffset() const { return offsetof(CommandHeader, header); }
     bool addWaitAtHead(std::shared_ptr<VPUBufferObject> waitBo, bool resetFence = false);
     bool addSelfSignalAtTail();
+
+    void addPreemptionBuffer(std::shared_ptr<VPUBufferObject> bo);
+    uint32_t getPreemptionBufferIndex() const { return preemptionBufferIndex.value_or(0); }
 
   private:
     /**
@@ -140,6 +144,9 @@ class VPUCommandBuffer {
     // The inference execute command may require a shared scratch buffer
     size_t inferenceScratchSize = 0;
     std::shared_ptr<VPUBufferObject> inferenceScratchBuffer;
+
+    std::shared_ptr<VPUBufferObject> preemptionBuffer;
+    std::optional<uint32_t> preemptionBufferIndex = std::nullopt;
 };
 
 } // namespace VPU

@@ -29,6 +29,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <stdlib.h>
 #include <string.h>
 #include <string>
 #include <string_view>
@@ -367,10 +368,86 @@ addOptionToBuildFlags(std::string_view key, std::string_view value, std::string 
     buildFlags += " " + std::string(key) + "=\"" + std::string(value) + "\"";
 }
 
+static void setUpFlagsFromEnvVariable(std::string &graphBuildFlags) {
+    std::string buildFlags(graphBuildFlags);
+
+    const char *env = getenv("ZE_INTEL_NPU_COMPILER_EXTRA_BUILD_FLAGS");
+    if (!env)
+        return;
+
+    auto getKey = [&](std::string &options) {
+        auto keyEnd = options.find("=");
+        if (keyEnd == std::string::npos)
+            return std::string();
+
+        auto key = options.substr(0, keyEnd);
+        options.erase(0, keyEnd + 1);
+        key.erase(std::remove(key.begin(), key.end(), ' '), key.end());
+        return key;
+    };
+    auto getValue = [&](std::string &options) {
+        auto valueStart = options.find("\"");
+        if (valueStart == std::string::npos)
+            return std::string();
+        auto valueEnd = options.find("\"", valueStart + 1);
+        if (valueEnd == std::string::npos)
+            return std::string();
+
+        auto value = options.substr(valueStart + 1, valueEnd - valueStart - 1);
+        options.erase(0, valueEnd + 1);
+        value.erase(std::remove(value.begin(), value.end(), ' '), value.end());
+        return value;
+    };
+
+    std::unordered_map<std::string, std::string> options;
+    auto configStart = buildFlags.find("--config");
+    auto flagsString = buildFlags.substr(0, configStart);
+    auto configString =
+        configStart == std::string::npos
+            ? std::string("")
+            : buildFlags.substr(configStart + sizeof("--config"), std::string::npos);
+
+    for (auto key = getKey(configString); key.size(); key = getKey(configString)) {
+        auto value = getValue(configString);
+        options.emplace(std::make_pair(key, value));
+    }
+
+    std::string optionsFromEnv(env);
+    for (auto key = getKey(optionsFromEnv); key.size(); key = getKey(optionsFromEnv)) {
+        auto value = getValue(optionsFromEnv);
+
+        auto it = options.find(key);
+        if (it == options.end()) {
+            LOG_W("Compilation option added from environment variable %s = %s",
+                  key.c_str(),
+                  value.c_str());
+            options.emplace(std::make_pair(key, value));
+        } else {
+            LOG_W("Compilation option %s will be overridden by environment variable, from value %s "
+                  "to %s",
+                  key.c_str(),
+                  it->second.c_str(),
+                  value.c_str());
+            it->second = std::move(value);
+        }
+    }
+
+    flagsString += " --config ";
+    for (auto it = options.begin(); it != options.end(); ++it) {
+        flagsString += it->first + "=\"" + it->second + "\" ";
+    }
+
+    graphBuildFlags = std::move(flagsString);
+    LOG_W("Compilation options were modified by environment settings. Configuration string passed "
+          "to compiler:");
+    LOG_W("%s", graphBuildFlags.c_str());
+}
+
 void Graph::addDeviceConfigToBuildFlags() {
     if (desc.flags & ZE_GRAPH_FLAG_ENABLE_PROFILING) {
         addOptionToBuildFlags("PERF_COUNT", "YES", buildFlags);
     }
+    setUpFlagsFromEnvVariable(buildFlags);
 }
 
 void Graph::initialize(std::string &log) {

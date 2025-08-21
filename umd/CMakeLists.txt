@@ -22,12 +22,6 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     add_compile_options(-Wno-unknown-warning-option -Wno-unknown-pragmas)
 endif()
 
-if ("${LINUX_SYSTEM_NAME}" STREQUAL "ubuntu" AND "${LINUX_SYSTEM_VERSION_ID}" STREQUAL "22.04")
-    install(FILES 10-intel-vpu.rules
-            COMPONENT level-zero-npu
-            DESTINATION /etc/udev/rules.d)
-endif()
-
 if (NOT UMD_LOGLEVEL)
   set(UMD_LOGLEVEL ERROR)
 endif()

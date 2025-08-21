@@ -42,13 +42,16 @@ std::shared_ptr<VPUCopyCommand> VPUCopyCommand::create(VPUDeviceContext *ctx,
                                        descriptor))
         return nullptr;
 
-    return std::make_shared<VPUCopyCommand>(std::move(srcBo), std::move(dstBo), size, descriptor);
+    return std::make_shared<VPUCopyCommand>(std::move(srcBo),
+                                            std::move(dstBo),
+                                            size,
+                                            std::move(descriptor));
 }
 
 VPUCopyCommand::VPUCopyCommand(const std::shared_ptr<VPUBufferObject> srcBo,
                                std::shared_ptr<VPUBufferObject> dstBo,
                                size_t size,
-                               VPUDescriptor &descriptor)
+                               VPUDescriptor descriptor)
     : VPUCommand() {
     vpu_cmd_copy_buffer_t cmd = {};
 

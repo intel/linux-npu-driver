@@ -281,6 +281,87 @@ ze_result_t CommandList::appendMemoryFillAsCopyCmd(void *ptr,
                                                         size);
 }
 
+ze_result_t CommandList::appendMemoryCopyRegion(void *dstptr,
+                                                const ze_copy_region_t *dstRegion,
+                                                uint32_t dstPitch,
+                                                uint32_t dstSlicePitch,
+                                                const void *srcptr,
+                                                const ze_copy_region_t *srcRegion,
+                                                uint32_t srcPitch,
+                                                uint32_t srcSlicePitch,
+                                                ze_event_handle_t hSignalEvent,
+                                                uint32_t numWaitEvents,
+                                                ze_event_handle_t *phWaitEvents) {
+    ze_result_t result = ZE_RESULT_SUCCESS;
+
+    if ((dstptr == nullptr) || (srcptr == nullptr)) {
+        LOG_E("Source or destination pointer is nullptr");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    if ((dstRegion == nullptr) || (srcRegion == nullptr)) {
+        LOG_E("The pointer to the source or destination region is nullptr");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    if ((dstRegion->width != srcRegion->width) || (dstRegion->height != srcRegion->height) ||
+        (dstRegion->depth != srcRegion->depth)) {
+        LOG_E("Incorrect region dimensions");
+        return ZE_RESULT_ERROR_INVALID_SIZE;
+    }
+
+    if (dstRegion->width == 0) {
+        LOG_E("Invalid value for the region width");
+        return ZE_RESULT_ERROR_INVALID_SIZE;
+    }
+
+    if (dstPitch < dstRegion->width) {
+        LOG_E("Invalid value for the destination pitch");
+        return ZE_RESULT_ERROR_INVALID_SIZE;
+    }
+
+    // Only support 2D copies for now
+    if ((dstSlicePitch != 0) || (srcSlicePitch != 0)) {
+        LOG_E("Slice pitch value other than 0 is not supported");
+        return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    }
+
+    if ((dstRegion->depth != 1) || (srcRegion->depth != 1)) {
+        LOG_E("The region depth value other than 1 is not supported");
+        return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    }
+
+    if ((dstRegion->originZ != 0) || (srcRegion->originZ != 0)) {
+        LOG_E("The origin z offset other than 0 is not supported");
+        return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    }
+
+    for (uint32_t y = 0; y < dstRegion->height; y++) {
+        uint32_t srcOffset = srcRegion->originX + (srcRegion->originY + y) * srcPitch;
+        uint32_t dstOffset = dstRegion->originX + (dstRegion->originY + y) * dstPitch;
+
+        auto srcBo = ctx->findBufferObject(static_cast<const uint8_t *>(srcptr) + srcOffset);
+        auto dstBo = ctx->findBufferObject(static_cast<uint8_t *>(dstptr) + dstOffset);
+
+        result = appendCommandWithEvents<VPU::VPUCopyCommand>(
+            hSignalEvent,
+            numWaitEvents,
+            phWaitEvents,
+            ctx,
+            static_cast<const uint8_t *>(srcptr) + srcOffset,
+            std::move(srcBo),
+            static_cast<uint8_t *>(dstptr) + dstOffset,
+            std::move(dstBo),
+            dstRegion->width);
+        if (result != ZE_RESULT_SUCCESS) {
+            LOG_E("Failed to append copy command to list");
+            break;
+        }
+    }
+
+    return result;
+}
+
 ze_result_t
 CommandList::appendWriteGlobalTimestamp(std::shared_ptr<VPU::VPUBufferObject> timestampBo,
                                         ze_event_handle_t hSignalEvent,

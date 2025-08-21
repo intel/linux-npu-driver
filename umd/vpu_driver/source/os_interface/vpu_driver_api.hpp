@@ -74,11 +74,15 @@ class VPUDriverApi final {
     int metricStreamerGetInfo(drm_ivpu_metric_streamer_get_data *data) const;
 
     template <typename T = uint64_t>
-    T getDeviceParam(uint32_t param, uint32_t index = 0) const {
+    T getDeviceParam(uint32_t param, uint32_t index = 0, bool ignoreError = false) const {
         struct drm_ivpu_param arg = {};
         arg.param = param;
         arg.index = index;
         if (doIoctl(DRM_IOCTL_IVPU_GET_PARAM, &arg)) {
+            if (ignoreError) {
+                LOG(DEVICE, "Ignore error from read param: %#x, errno: %d", param, errno);
+                return T{};
+            }
             LOG_E("Failed to read device param, param: %#x, errno: %d", param, errno);
             throw std::runtime_error("Failed to get device param");
         }

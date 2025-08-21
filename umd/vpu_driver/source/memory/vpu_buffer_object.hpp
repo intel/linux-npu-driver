@@ -26,6 +26,7 @@ class VPUBufferObject {
         UncachedShave = DRM_IVPU_BO_UNCACHED | DRM_IVPU_BO_HIGH_MEM,
         UncachedDma = DRM_IVPU_BO_UNCACHED | DRM_IVPU_BO_DMA_MEM,
         WriteCombineFw = DRM_IVPU_BO_WC | DRM_IVPU_BO_MAPPABLE,
+        WriteCombineFwUnmappable = DRM_IVPU_BO_WC,
         WriteCombineShave = DRM_IVPU_BO_WC | DRM_IVPU_BO_MAPPABLE | DRM_IVPU_BO_HIGH_MEM,
         WriteCombineDma = DRM_IVPU_BO_WC | DRM_IVPU_BO_MAPPABLE | DRM_IVPU_BO_DMA_MEM,
         WriteCombineDmaUnmappable = DRM_IVPU_BO_WC | DRM_IVPU_BO_DMA_MEM,

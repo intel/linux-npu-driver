@@ -41,6 +41,23 @@ class ScratchCacheFactory {
     std::mutex scratchMutex;
 };
 
+class PreemptionCacheFactory {
+  public:
+    PreemptionCacheFactory() = default;
+
+    std::shared_ptr<VPUBufferObject> acquire(VPUDeviceContext *ctx);
+    void prune();
+    void load() {
+        const std::lock_guard<std::mutex> lock(preemptionMutex);
+        numQueues++;
+    }
+
+  private:
+    size_t numQueues = 0;
+    std::vector<std::shared_ptr<VPUBufferObject>> preemptionBuffers;
+    std::mutex preemptionMutex;
+};
+
 class VPUDeviceContext {
   public:
     VPUDeviceContext(std::unique_ptr<VPUDriverApi> drvApi, VPUHwInfo *info);
@@ -168,6 +185,17 @@ class VPUDeviceContext {
         scratchCache.acquire(this, size);
     }
 
+    std::shared_ptr<VPUBufferObject> preemptionCacheAcquire() {
+        return preemptionCache.acquire(this);
+    }
+
+    void preemptionCachePrune() { preemptionCache.prune(); }
+    void preemptionCacheLoad() { preemptionCache.load(); }
+
+    bool isPreemptionBufferSupported() const {
+        return hwInfo->fwPreemptBufSize > 0 && hwInfo->cmdQueueCreationCapability;
+    }
+
   private:
     /**
        Create VPUBufferObject and assign it to tracking structure
@@ -189,6 +217,7 @@ class VPUDeviceContext {
     mutable std::mutex mtx;
 
     ScratchCacheFactory scratchCache;
+    PreemptionCacheFactory preemptionCache;
 };
 
 } // namespace VPU

@@ -478,7 +478,7 @@ Compiler::isOptionSupported(VPU::VPUDevice *vpuDevice, const char *pOption, cons
     TRACE_EVENT_BEGIN("NPU_COMPILER", "vclGetCompilerIsOptionSupported");
     ret = vclToL0Err(Vcl::sym().getCompilerIsOptionSupported(compiler, pOption, pValue));
     TRACE_EVENT_END("NPU_COMPILER");
-    if (ret != ZE_RESULT_SUCCESS) {
+    if (ret != ZE_RESULT_SUCCESS && ret != ZE_RESULT_ERROR_UNSUPPORTED_FEATURE) {
         LOG_E("Failed to call vclGetCompilerIsOptionSupported, ret: %#x", ret);
     }
 

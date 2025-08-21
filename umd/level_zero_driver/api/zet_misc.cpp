@@ -422,13 +422,13 @@ std::string getLoaderVersion() {
 ze_result_t translateHandle(zel_handle_type_t type, void *handler, void **pHandler) {
     void *loaderHandle = getLoaderHandle();
     if (loaderHandle == nullptr) {
-        LOG_E("Failed to open libze_loader.so.1 library");
+        LOG_E("Failed to open " LIB_ZE_LOADER_NAME " library");
         return ZE_RESULT_ERROR_UNKNOWN;
     }
 
     static void *functionPointer = dlsym(loaderHandle, "zelLoaderTranslateHandle");
     if (functionPointer == nullptr) {
-        LOG_E("Failed to get 'zelLoaderTranslateHandle' from libze_loader.so.1, reason: %s",
+        LOG_E("Failed to get 'zelLoaderTranslateHandle' from " LIB_ZE_LOADER_NAME ", reason: %s",
               dlerror());
         return ZE_RESULT_ERROR_UNKNOWN;
     }

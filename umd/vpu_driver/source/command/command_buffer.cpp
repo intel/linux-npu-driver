@@ -25,15 +25,15 @@
 namespace VPU {
 
 VPUCommandBuffer::VPUCommandBuffer(VPUDeviceContext *ctx,
-                                   std::shared_ptr<VPUBufferObject> buffer,
+                                   std::shared_ptr<VPUBufferObject> bufferIn,
                                    const std::vector<std::shared_ptr<VPUCommand>>::iterator &begin,
                                    const std::vector<std::shared_ptr<VPUCommand>>::iterator &end)
     : ctx(ctx)
-    , buffer(std::move(buffer))
+    , buffer(std::move(bufferIn))
     , jobStatus(std::numeric_limits<uint32_t>::max())
     , commandsBegin(begin)
     , commandsEnd(end) {
-    bufferHandles.emplace_back(VPUCommandBuffer::buffer->getHandle());
+    bufferHandles.emplace_back(buffer->getHandle());
 }
 
 std::unique_ptr<VPUCommandBuffer> VPUCommandBuffer::allocateCommandBuffer(
@@ -77,7 +77,7 @@ std::unique_ptr<VPUCommandBuffer> VPUCommandBuffer::allocateCommandBuffer(
     for (auto it = begin; it != end; it++) {
         const auto &cmd = *it;
         if (cmd->isSynchronizeCommand() && !cmdBuffer->setSyncFenceAddr(cmd.get())) {
-            LOG_E("Failed to set synchronize fence vpu address");
+            LOG_E("Failed to set synchronize fence vpu addresss");
             return nullptr;
         }
 
@@ -273,6 +273,12 @@ bool VPUCommandBuffer::waitForCompletion(int64_t timeout_abs_ns) {
 
     jobStatus = args.job_status;
     inferenceScratchBuffer.reset();
+
+    if (preemptionBuffer && preemptionBufferIndex.has_value()) {
+        bufferHandles.erase(bufferHandles.begin() + preemptionBufferIndex.value());
+        preemptionBufferIndex.reset();
+        preemptionBuffer.reset();
+    }
     return true;
 }
 
@@ -448,6 +454,21 @@ bool VPUCommandBuffer::updateCommands() {
         }
     }
     return true;
+}
+
+void VPUCommandBuffer::addPreemptionBuffer(std::shared_ptr<VPUBufferObject> bo) {
+    if (preemptionBuffer) {
+        LOG_E("Preemption buffer is already set, cannot add another one");
+        return;
+    }
+    if (bo == nullptr) {
+        LOG_E("Preemption buffer is nullptr");
+        return;
+    }
+
+    preemptionBuffer = std::move(bo);
+    preemptionBufferIndex = static_cast<uint32_t>(bufferHandles.size());
+    bufferHandles.emplace_back(preemptionBuffer->getHandle());
 }
 
 } // namespace VPU

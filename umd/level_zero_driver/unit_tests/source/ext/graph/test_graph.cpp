@@ -22,6 +22,7 @@
 #include <filesystem>
 #include <level_zero/ze_api.h>
 #include <level_zero/ze_graph_profiling_ext.h>
+#include <stdlib.h>
 #include <string.h>
 #include <string>
 #include <vector>
@@ -57,13 +58,17 @@ struct GraphNativeFixture : ContextFixture {
 
     L0::Graph *graph = nullptr;
     std::vector<uint8_t> blob;
-    ze_graph_desc_2_t graphDesc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES,
-                                   .pNext = nullptr,
-                                   .format = ZE_GRAPH_FORMAT_NATIVE,
-                                   .inputSize = 0,
-                                   .pInput = nullptr,
-                                   .pBuildFlags = nullptr,
-                                   .flags = 0};
+    ze_graph_desc_2_t graphDesc = {
+        .stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES,
+        .pNext = nullptr,
+        .format = ZE_GRAPH_FORMAT_NATIVE,
+        .inputSize = 0,
+        .pInput = nullptr,
+        .pBuildFlags =
+            "--inputs_precisions=\"0:FP32\" --inputs_layouts=\"0:NCHW\" "
+            "--outputs_precisions=\"0:FP32\" --outputs_layouts=\"0:NCHW\" "
+            "--config NPU_BATCH_MODE=\"AUTO\" NPU_PLATFORM=\"4000\" PERFORMANCE_HINT=\"LATENCY\"",
+        .flags = 0};
 };
 
 using GraphTest = Test<DeviceFixture>;
@@ -252,6 +257,38 @@ TEST_F(GraphNativeTest, whenCallgetArgumentProperties3ExpectSuccess) {
 // TODO: Elf create internal buffer object that are detected as memory in ContextFixture::TearDown()
 TEST_F(GraphNativeTest, DISABLED_expectThatContextDestroyDestructGraphObject) {
     graph = nullptr;
+}
+
+TEST_F(GraphNativeTest, setCompilerOptionsFromEnvVariable) {
+    char *storedExtraBuildFlags = getenv("ZE_INTEL_NPU_COMPILER_EXTRA_BUILD_FLAGS");
+    setenv("ZE_INTEL_NPU_COMPILER_EXTRA_BUILD_FLAGS",
+           "NPU_TILES=\"3\" NPU_COMPILATION_MODE_PARAMS=\"workload-management-mode=FWLM_V1_PAGES\" "
+           "PERFORMANCE_HINT=\"THROUGHPUT\"",
+           1);
+
+    /* Test setup from environment */
+    EXPECT_NE(graph->getBuildFlags().find("PERFORMANCE_HINT=\"LATENCY\""), std::string::npos);
+    graph->addDeviceConfigToBuildFlags();
+
+    /*Expected to be added or unchanged*/
+    EXPECT_NE(graph->getBuildFlags().find("--config"), std::string::npos);
+    EXPECT_NE(graph->getBuildFlags().find("NPU_TILES=\"3\""), std::string::npos);
+    EXPECT_NE(graph->getBuildFlags().find(
+                  "NPU_COMPILATION_MODE_PARAMS=\"workload-management-mode=FWLM_V1_PAGES\""),
+              std::string::npos);
+    EXPECT_NE(graph->getBuildFlags().find(
+                  "--inputs_precisions=\"0:FP32\" --inputs_layouts=\"0:NCHW\" "
+                  "--outputs_precisions=\"0:FP32\" --outputs_layouts=\"0:NCHW\" "),
+              std::string::npos);
+
+    /* Expected to be exchanged by new value */
+    EXPECT_EQ(graph->getBuildFlags().find("PERFORMANCE_HINT=\"LATENCY\""), std::string::npos);
+    EXPECT_NE(graph->getBuildFlags().find("PERFORMANCE_HINT=\"THROUGHPUT\""), std::string::npos);
+
+    if (storedExtraBuildFlags)
+        setenv("ZE_INTEL_NPU_COMPILER_EXTRA_BUILD_FLAGS", storedExtraBuildFlags, 1);
+    else
+        unsetenv("ZE_INTEL_NPU_COMPILER_EXTRA_BUILD_FLAGS");
 }
 
 } // namespace ult

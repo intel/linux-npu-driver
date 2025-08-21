@@ -164,6 +164,8 @@ int VPUDeviceQueueManaged::submitCommandBuffer(const std::unique_ptr<VPUCommandB
     submitArgs.buffers_ptr = reinterpret_cast<uint64_t>(cmdBuf->getBufferHandles().data());
     submitArgs.buffer_count = safe_cast<uint32_t>(cmdBuf->getBufferHandles().size());
     submitArgs.commands_offset = cmdBuf->getCommandBufferOffset();
+    // If preempt_buffer_index is 0, then kernel allocates preemption buffer
+    submitArgs.preempt_buffer_index = cmdBuf->getPreemptionBufferIndex();
     submitArgs.cmdq_id = currentId;
     return pDriverApi->commandQueueSubmit(&submitArgs);
 }
