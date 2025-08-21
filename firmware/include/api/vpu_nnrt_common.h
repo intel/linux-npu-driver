@@ -142,6 +142,27 @@ struct VPU_ALIGNED_STRUCT(8) VpuNNShaveRuntimeConfigs {
 
 static_assert(sizeof(VpuNNShaveRuntimeConfigs) == 96, "VpuNNShaveRuntimeConfigs size != 96");
 
+/**
+ * @brief Contains the resource requirements for the inference.
+ */
+struct VPU_ALIGNED_STRUCT(4) VpuResourceRequirements {
+    /**
+     * @brief Amount of CMX memory required per tile.
+     */
+    uint32_t nn_slice_length_;
+    uint8_t deprecated_[6]; // Deprecated member, do not reuse until next API major version update
+    /**
+     * @brief Number of tiles.
+     */
+    uint8_t nn_slice_count_;
+    /**
+     * @brief Unused.
+     */
+    uint8_t nn_barriers_;
+};
+
+static_assert(sizeof(VpuResourceRequirements) == 12, "VpuResourceRequirements size != 12");
+
 #pragma pack(pop)
 
 } // namespace nn_public

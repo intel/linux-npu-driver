@@ -28,7 +28,7 @@
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
  */
-#define VPU_JSM_API_VER_PATCH 3
+#define VPU_JSM_API_VER_PATCH 8
 
 /*
  * Index in the API version table
@@ -454,10 +454,17 @@ struct vpu_hws_native_fence_log_buffer {
  * Host <-> VPU IPC messages types.
  */
 enum vpu_ipc_msg_type {
+    /** Unsupported command */
     VPU_IPC_MSG_UNKNOWN = 0xFFFFFFFF,
 
-    /* IPC Host -> Device, Async commands */
+    /** IPC Host -> Device, base id for async commands */
     VPU_IPC_MSG_ASYNC_CMD = 0x1100,
+    /**
+     * Reset engine. The NPU cancels all the jobs currently executing on the target
+     * engine making the engine become idle and then does a HW reset, before returning
+     * to the host.
+     * @see struct vpu_ipc_msg_payload_engine_reset
+     */
     VPU_IPC_MSG_ENGINE_RESET = VPU_IPC_MSG_ASYNC_CMD,
     /**
      * Preempt engine. The NPU stops (preempts) all the jobs currently
@@ -467,10 +474,24 @@ enum vpu_ipc_msg_type {
      * the target engine, but it stops processing them (until the queue doorbell
      * is rung again); the host is responsible to reset the job queue, either
      * after preemption or when resubmitting jobs to the queue.
+     * @see vpu_ipc_msg_payload_engine_preempt
      */
     VPU_IPC_MSG_ENGINE_PREEMPT = 0x1101,
+    /**
+     * OS scheduling doorbell register command
+     * @see vpu_ipc_msg_payload_register_db
+     */
     VPU_IPC_MSG_REGISTER_DB = 0x1102,
+    /**
+     * OS scheduling doorbell unregister command
+     * @see vpu_ipc_msg_payload_unregister_db
+     */
     VPU_IPC_MSG_UNREGISTER_DB = 0x1103,
+    /**
+     * Query engine heartbeat. Heartbeat is expected to increase monotonically
+     * and increase while work is being progressed by NPU.
+     * @see vpu_ipc_msg_payload_query_engine_hb
+     */
     VPU_IPC_MSG_QUERY_ENGINE_HB = 0x1104,
     VPU_IPC_MSG_GET_POWER_LEVEL_COUNT = 0x1105,
     VPU_IPC_MSG_GET_POWER_LEVEL = 0x1106,
@@ -496,6 +517,7 @@ enum vpu_ipc_msg_type {
      * aborted and removed from internal scheduling queues. All doorbells assigned
      * to the host_ssid are unregistered and any internal FW resources belonging to
      * the host_ssid are released.
+     * @see vpu_ipc_msg_payload_ssid_release
      */
     VPU_IPC_MSG_SSID_RELEASE = 0x110e,
     /**
@@ -569,23 +591,32 @@ enum vpu_ipc_msg_type {
      * @see vpu_ipc_msg_payload_hws_resume_engine
      */
     VPU_IPC_MSG_HWS_ENGINE_RESUME = 0x111b,
-    /* Control command: Enable survivability/DCT mode */
+    /**
+     * Control command: Enable survivability/DCT mode
+     * @see vpu_ipc_msg_payload_pwr_dct_control
+     */
     VPU_IPC_MSG_DCT_ENABLE = 0x111c,
-    /* Control command: Disable survivability/DCT mode */
+    /**
+     * Control command: Disable survivability/DCT mode
+     * This command has no payload
+     */
     VPU_IPC_MSG_DCT_DISABLE = 0x111d,
     /**
      * Dump VPU state. To be used for debug purposes only.
-     * NOTE: Please introduce new ASYNC commands before this one. *
+     * This command has no payload.
+     * NOTE: Please introduce new ASYNC commands before this one.
      */
     VPU_IPC_MSG_STATE_DUMP = 0x11FF,
 
-    /* IPC Host -> Device, General commands */
+    /** IPC Host -> Device, base id for general commands */
     VPU_IPC_MSG_GENERAL_CMD = 0x1200,
+    /** Unsupported command */
     VPU_IPC_MSG_BLOB_DEINIT_DEPRECATED = VPU_IPC_MSG_GENERAL_CMD,
     /**
      * Control dyndbg behavior by executing a dyndbg command; equivalent to
      * Linux command:
      * @verbatim echo '<dyndbg_cmd>' > <debugfs>/dynamic_debug/control @endverbatim
+     * @see vpu_ipc_msg_payload_dyndbg_control
      */
     VPU_IPC_MSG_DYNDBG_CONTROL = 0x1201,
     /**
@@ -593,7 +624,10 @@ enum vpu_ipc_msg_type {
      */
     VPU_IPC_MSG_PWR_D0I3_ENTER = 0x1202,
 
-    /* IPC Device -> Host, Job completion */
+    /**
+     * IPC Device -> Host, Job completion
+     * @see struct vpu_ipc_msg_payload_job_done
+     */
     VPU_IPC_MSG_JOB_DONE = 0x2100,
     /**
      * IPC Device -> Host, Fence signalled
@@ -608,9 +642,17 @@ enum vpu_ipc_msg_type {
      * @see vpu_ipc_msg_payload_engine_reset_done
      */
     VPU_IPC_MSG_ENGINE_RESET_DONE = VPU_IPC_MSG_ASYNC_CMD_DONE,
+    /**
+     * Preempt complete message
+     * @see vpu_ipc_msg_payload_engine_preempt_done
+     */
     VPU_IPC_MSG_ENGINE_PREEMPT_DONE = 0x2201,
     VPU_IPC_MSG_REGISTER_DB_DONE = 0x2202,
     VPU_IPC_MSG_UNREGISTER_DB_DONE = 0x2203,
+    /**
+     * Response to query engine heartbeat.
+     * @see vpu_ipc_msg_payload_query_engine_hb_done
+     */
     VPU_IPC_MSG_QUERY_ENGINE_HB_DONE = 0x2204,
     VPU_IPC_MSG_GET_POWER_LEVEL_COUNT_DONE = 0x2205,
     VPU_IPC_MSG_GET_POWER_LEVEL_DONE = 0x2206,
@@ -627,7 +669,10 @@ enum vpu_ipc_msg_type {
     VPU_IPC_MSG_TRACE_GET_CAPABILITY_RSP = 0x220c,
     /** Response to VPU_IPC_MSG_TRACE_GET_NAME. */
     VPU_IPC_MSG_TRACE_GET_NAME_RSP = 0x220d,
-    /** Response to VPU_IPC_MSG_SSID_RELEASE. */
+    /**
+     * Response to VPU_IPC_MSG_SSID_RELEASE.
+     * @see vpu_ipc_msg_payload_ssid_release
+     */
     VPU_IPC_MSG_SSID_RELEASE_DONE = 0x220e,
     /**
      * Response to VPU_IPC_MSG_METRIC_STREAMER_START.
@@ -708,13 +753,20 @@ enum vpu_ipc_msg_type {
      * @see vpu_ipc_msg_payload_hws_resume_engine
      */
     VPU_IPC_MSG_HWS_RESUME_ENGINE_DONE = 0x221c,
-    /* Response to control command: Enable survivability/DCT mode */
+    /**
+     * Response to control command: Enable survivability/DCT mode
+     * This command has no payload
+     */
     VPU_IPC_MSG_DCT_ENABLE_DONE = 0x221d,
-    /* Response to control command: Disable survivability/DCT mode */
+    /**
+     * Response to control command: Disable survivability/DCT mode
+     * This command has no payload
+     */
     VPU_IPC_MSG_DCT_DISABLE_DONE = 0x221e,
     /**
      * Response to state dump control command.
-     * NOTE: Please introduce new ASYNC responses before this one. *
+     * This command has no payload.
+     * NOTE: Please introduce new ASYNC responses before this one.
      */
     VPU_IPC_MSG_STATE_DUMP_RSP = 0x22FF,
 
@@ -734,61 +786,70 @@ typedef enum vpu_ipc_msg_type vpu_ipc_msg_type_t;
 enum vpu_ipc_msg_status { VPU_IPC_MSG_FREE, VPU_IPC_MSG_ALLOCATED };
 typedef enum vpu_ipc_msg_status vpu_ipc_msg_status_t;
 
-/*
- * Host <-> LRT IPC message payload definitions
+/**
+ * Engine reset request payload
+ * @see VPU_IPC_MSG_ENGINE_RESET
  */
 struct vpu_ipc_msg_payload_engine_reset {
-    /* Engine to be reset. */
+    /** Engine to be reset. */
     uint32_t engine_idx;
-    /* Reserved */
+    /** Reserved */
     uint32_t reserved_0;
 };
 typedef struct vpu_ipc_msg_payload_engine_reset vpu_ipc_msg_payload_engine_reset_t;
 
+/**
+ * Engine preemption request struct
+ * @see VPU_IPC_MSG_ENGINE_PREEMPT
+ */
 struct vpu_ipc_msg_payload_engine_preempt {
-    /* Engine to be preempted. */
+    /** Engine to be preempted. */
     uint32_t engine_idx;
-    /* ID of the preemption request. */
+    /** ID of the preemption request. */
     uint32_t preempt_id;
 };
 typedef struct vpu_ipc_msg_payload_engine_preempt vpu_ipc_msg_payload_engine_preempt_t;
 
-/*
- * @brief Register doorbell command structure.
+/**
+ * Register doorbell command structure.
  * This structure supports doorbell registration for only OS scheduling.
  * @see VPU_IPC_MSG_REGISTER_DB
  */
 struct vpu_ipc_msg_payload_register_db {
-    /* Index of the doorbell to register. */
+    /** Index of the doorbell to register. */
     uint32_t db_idx;
-    /* Reserved */
+    /** Reserved */
     uint32_t reserved_0;
-    /* Virtual address in Global GTT pointing to the start of job queue. */
+    /** Virtual address in Global GTT pointing to the start of job queue. */
     uint64_t jobq_base;
-    /* Size of the job queue in bytes. */
+    /** Size of the job queue in bytes. */
     uint32_t jobq_size;
-    /* Host sub-stream ID for the context assigned to the doorbell. */
+    /** Host sub-stream ID for the context assigned to the doorbell. */
     uint32_t host_ssid;
 };
 typedef struct vpu_ipc_msg_payload_register_db vpu_ipc_msg_payload_register_db_t;
 
 /**
- * @brief Unregister doorbell command structure.
+ * Unregister doorbell command structure.
  * Request structure to unregister a doorbell for both HW and OS scheduling.
  * @see VPU_IPC_MSG_UNREGISTER_DB
  */
 struct vpu_ipc_msg_payload_unregister_db {
-    /* Index of the doorbell to unregister. */
+    /** Index of the doorbell to unregister. */
     uint32_t db_idx;
-    /* Reserved */
+    /** Reserved */
     uint32_t reserved_0;
 };
 typedef struct vpu_ipc_msg_payload_unregister_db vpu_ipc_msg_payload_unregister_db_t;
 
+/**
+ * Heartbeat request structure
+ * @see VPU_IPC_MSG_QUERY_ENGINE_HB
+ */
 struct vpu_ipc_msg_payload_query_engine_hb {
-    /* Engine to return heartbeat value. */
+    /** Engine to return heartbeat value. */
     uint32_t engine_idx;
-    /* Reserved */
+    /** Reserved */
     uint32_t reserved_0;
 };
 typedef struct vpu_ipc_msg_payload_query_engine_hb vpu_ipc_msg_payload_query_engine_hb_t;
@@ -810,10 +871,14 @@ struct vpu_ipc_msg_payload_power_level {
 };
 typedef struct vpu_ipc_msg_payload_set_power_level vpu_ipc_msg_payload_set_power_level_t;
 
+/**
+ * Structure for requesting ssid release
+ * @see VPU_IPC_MSG_SSID_RELEASE
+ */
 struct vpu_ipc_msg_payload_ssid_release {
-    /* Host sub-stream ID for the context to be released. */
+    /** Host sub-stream ID for the context to be released. */
     uint32_t host_ssid;
-    /* Reserved */
+    /** Reserved */
     uint32_t reserved_0;
 };
 typedef struct vpu_ipc_msg_payload_ssid_release vpu_ipc_msg_payload_ssid_release_t;
@@ -918,20 +983,24 @@ struct vpu_jsm_metric_streamer_update {
 };
 typedef struct vpu_jsm_metric_streamer_update vpu_jsm_metric_streamer_update_t;
 
+/**
+ * Device -> host job completion message.
+ * @see VPU_IPC_MSG_JOB_DONE
+ */
 struct vpu_ipc_msg_payload_job_done {
-    /* Engine to which the job was submitted. */
+    /** Engine to which the job was submitted. */
     uint32_t engine_idx;
-    /* Index of the doorbell to which the job was submitted */
+    /** Index of the doorbell to which the job was submitted */
     uint32_t db_idx;
-    /* ID of the completed job */
+    /** ID of the completed job */
     uint32_t job_id;
-    /* Status of the completed job */
+    /** Status of the completed job */
     uint32_t job_status;
-    /* Host SSID */
+    /** Host SSID */
     uint32_t host_ssid;
-    /* Zero Padding */
+    /** Zero Padding */
     uint32_t reserved_0;
-    /* Command queue id */
+    /** Command queue id */
     uint64_t cmdq_id;
 };
 typedef struct vpu_ipc_msg_payload_job_done vpu_ipc_msg_payload_job_done_t;
@@ -981,10 +1050,14 @@ struct vpu_ipc_msg_payload_engine_reset_done {
 };
 typedef struct vpu_ipc_msg_payload_engine_reset_done vpu_ipc_msg_payload_engine_reset_done_t;
 
+/**
+ * Preemption response struct
+ * @see VPU_IPC_MSG_ENGINE_PREEMPT_DONE
+ */
 struct vpu_ipc_msg_payload_engine_preempt_done {
-    /* Engine preempted. */
+    /** Engine preempted. */
     uint32_t engine_idx;
-    /* ID of the preemption request. */
+    /** ID of the preemption request. */
     uint32_t preempt_id;
 };
 typedef struct vpu_ipc_msg_payload_engine_preempt_done vpu_ipc_msg_payload_engine_preempt_done_t;
@@ -1016,12 +1089,16 @@ struct vpu_ipc_msg_payload_unregister_db_done {
 };
 typedef struct vpu_ipc_msg_payload_unregister_db_done vpu_ipc_msg_payload_unregister_db_done_t;
 
+/**
+ * Structure for heartbeat response
+ * @see VPU_IPC_MSG_QUERY_ENGINE_HB_DONE
+ */
 struct vpu_ipc_msg_payload_query_engine_hb_done {
-    /* Engine returning heartbeat value. */
+    /** Engine returning heartbeat value. */
     uint32_t engine_idx;
-    /* Reserved */
+    /** Reserved */
     uint32_t reserved_0;
-    /* Heartbeat value. */
+    /** Heartbeat value. */
     uint64_t heartbeat;
 };
 typedef struct vpu_ipc_msg_payload_query_engine_hb_done vpu_ipc_msg_payload_query_engine_hb_done_t;
@@ -1540,29 +1617,24 @@ struct vpu_jsm_metric_counter_descriptor {
 typedef struct vpu_jsm_metric_counter_descriptor vpu_jsm_metric_counter_descriptor_t;
 
 /**
- * Payload for VPU_IPC_MSG_DYNDBG_CONTROL requests.
+ * Payload for @ref VPU_IPC_MSG_DYNDBG_CONTROL requests.
  *
- * VPU_IPC_MSG_DYNDBG_CONTROL are used to control the VPU FW Dynamic Debug
- * feature, which allows developers to selectively enable / disable MVLOG_DEBUG
- * messages. This is equivalent to the Dynamic Debug functionality provided by
- * Linux
- * (https://www.kernel.org/doc/html/latest/admin-guide/dynamic-debug-howto.html)
- * The host can control Dynamic Debug behavior by sending dyndbg commands, which
- * have the same syntax as Linux
- * dyndbg commands.
+ * VPU_IPC_MSG_DYNDBG_CONTROL requests are used to control the VPU FW dynamic debug
+ * feature, which allows developers to selectively enable/disable code to obtain
+ * additional FW information. This is equivalent to the dynamic debug functionality
+ * provided by Linux. The host can control dynamic debug behavior by sending dyndbg
+ * commands, using the same syntax as for Linux dynamic debug commands.
  *
- * NOTE: in order for MVLOG_DEBUG messages to be actually printed, the host
- * still has to set the logging level to MVLOG_DEBUG, using the
- * VPU_IPC_MSG_TRACE_SET_CONFIG command.
+ * @see https://www.kernel.org/doc/html/latest/admin-guide/dynamic-debug-howto.html.
  *
- * The host can see the current dynamic debug configuration by executing a
- * special 'show' command. The dyndbg configuration will be printed to the
- * configured logging destination using MVLOG_INFO logging level.
+ * NOTE:
+ * As the dynamic debug feature uses MVLOG messages to provide information, the host
+ * must first set the logging level to MVLOG_DEBUG, using the @ref VPU_IPC_MSG_TRACE_SET_CONFIG
+ * command.
  */
 struct vpu_ipc_msg_payload_dyndbg_control {
     /**
-     * Dyndbg command (same format as Linux dyndbg); must be a NULL-terminated
-     * string.
+     * Dyndbg command to be executed.
      */
     char dyndbg_cmd[VPU_DYNDBG_CMD_MAX_LEN];
 };
@@ -1584,7 +1656,7 @@ struct vpu_ipc_msg_payload_pwr_d0i3_enter {
 typedef struct vpu_ipc_msg_payload_pwr_d0i3_enter vpu_ipc_msg_payload_pwr_d0i3_enter_t;
 
 /**
- * Payload for VPU_IPC_MSG_DCT_ENABLE message.
+ * Payload for @ref VPU_IPC_MSG_DCT_ENABLE message.
  *
  * Default values for DCT active/inactive times are 5.3ms and 30ms respectively,
  * corresponding to a 85% duty cycle. This payload allows the host to tune these
@@ -1641,28 +1713,28 @@ union vpu_ipc_msg_payload {
 };
 typedef union vpu_ipc_msg_payload vpu_ipc_msg_payload_t;
 
-/*
- * Host <-> LRT IPC message base structure.
+/**
+ * Host <-> NPU IPC message base structure.
  *
  * NOTE: All instances of this object must be aligned on a 64B boundary
  * to allow proper handling of VPU cache operations.
  */
 struct vpu_ipc_msg {
-    /* Reserved */
+    /** Reserved */
     uint64_t reserved_0;
-    /* Message type, see vpu_ipc_msg_type enum. */
+    /** Message type, see @ref vpu_ipc_msg_type. */
     uint32_t type;
-    /* Buffer status, see vpu_ipc_msg_status enum. */
+    /** Buffer status, see @ref vpu_ipc_msg_status. */
     uint32_t status;
-    /*
+    /**
      * Request ID, provided by the host in a request message and passed
      * back by VPU in the response message.
      */
     uint32_t request_id;
-    /* Request return code set by the VPU, see VPU_JSM_STATUS_* defines. */
+    /** Request return code set by the VPU, see VPU_JSM_STATUS_* defines. */
     uint32_t result;
     uint64_t reserved_1;
-    /* Message payload depending on message type, see vpu_ipc_msg_payload union. */
+    /** Message payload depending on message type, see vpu_ipc_msg_payload union. */
     union vpu_ipc_msg_payload payload;
 };
 typedef struct vpu_ipc_msg vpu_ipc_msg_t;

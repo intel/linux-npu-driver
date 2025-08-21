@@ -32,7 +32,7 @@
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
  */
-#define VPU_JSM_JOB_CMD_API_VER_PATCH 0
+#define VPU_JSM_JOB_CMD_API_VER_PATCH 2
 
 /*
  * Index in the API version table
@@ -62,18 +62,41 @@
 #define VPU_FENCE_SIZE 8
 
 /**
- * @brief List of commands supported by the VPU
- *
- * We need to document each command extensively here
+ * @brief List of commands supported by the NPU. Deprecated commands are clearly marked
+ * and should not be used.
  */
 enum vpu_cmd_type {
+    /**
+     * @brief Unsupported command.
+     */
     VPU_CMD_UNKNOWN = 0x0000,
 
-    /** Currently supported commands. */
+    /* Currently supported commands. */
+
+    /**
+     * @brief NOP command.
+     *
+     * This command does nothing when executed. Any other command can be overwritten
+     * with a NOP command and, as a result, the size of the NOP command can vary. It
+     * must, however, contain at least the command header @ref vpu_cmd_header. The
+     * header is validated by JSM when processing the commands. If validation fails,
+     * JSM terminates the related job with the @ref VPU_JSM_STATUS_PARSING_ERR status
+     * code. In the case where a command is overwritten with a NOP command, the
+     * command size in the header must be set to reflect this. Otherwise, the next
+     * command in the job may fail as not aligned or not recognized.
+     */
     VPU_CMD_NOP = 0x0001,
+    /**
+     * @brief Timestamp command.
+     *
+     * This command is used to retrieve a timestamp from the NPU. Timestamp
+     * types that can be requested are defined by @ref vpu_time_type.
+     *
+     * @see @ref vpu_cmd_timestamp for details on the command structure.
+     */
     VPU_CMD_TIMESTAMP = 0x0100,
     /**
-     * @brief Fence wait command
+     * @brief Fence wait command.
      *
      * This command is used for host - NPU synchronization.
      *
@@ -86,7 +109,7 @@ enum vpu_cmd_type {
      */
     VPU_CMD_FENCE_WAIT = 0x0101,
     /**
-     * @brief Fence signal command
+     * @brief Fence signal command.
      *
      * This command is used for host - NPU synchronization.
      *
@@ -99,7 +122,7 @@ enum vpu_cmd_type {
      */
     VPU_CMD_FENCE_SIGNAL = 0x0102,
     /**
-     * @brief Barrier command
+     * @brief Barrier command.
      *
      * This command is used to ensure that all previous commands in the job have
      * been completed before proceeding with the next command in the job.
@@ -107,20 +130,49 @@ enum vpu_cmd_type {
      * @see @ref vpu_cmd_barrier for details on the command structure.
      */
     VPU_CMD_BARRIER = 0x0103,
+    /**
+     * @brief Metric query begin command
+     *
+     * This command is used to start a metric query on the NPU.
+     *
+     * @see @ref vpu_cmd_metric_query for details on the command structure.
+     */
     VPU_CMD_METRIC_QUERY_BEGIN = 0x0104,
+    /**
+     * @brief Metric query end command
+     *
+     * This command is used to end a metric query on the NPU.
+     *
+     * @see @ref vpu_cmd_metric_query for details on the command structure.
+     */
     VPU_CMD_METRIC_QUERY_END = 0x0105,
     /**
-     * @brief Memory fill command
+     * @brief Memory fill command.
      *
      * This command is used to fill a memory region with a specific pattern.
      *
      * @see @ref vpu_cmd_memory_fill for details on the command structure.
      */
     VPU_CMD_MEMORY_FILL = 0x0202,
+    /**
+     * @brief Copy command.
+     *
+     * This command is an alias of @ref VPU_CMD_COPY.
+     * It is to be deprecated and should not be used in new code.
+     *
+     * @see @ref vpu_cmd_copy_buffer for details on the command structure.
+     */
     VPU_CMD_COPY_LOCAL_TO_LOCAL = 0x0302,
+    /**
+     * @brief Copy command.
+     *
+     * This command is used to copy data via the NPU.
+     *
+     * @see @ref vpu_cmd_copy_buffer for details on the command structure.
+     */
     VPU_CMD_COPY = 0x0302,
     /**
-     * @brief Inference Execute command
+     * @brief Inference execute command.
      *
      * This command is used to execute an inference on the NPU.
      *
@@ -128,15 +180,70 @@ enum vpu_cmd_type {
      */
     VPU_CMD_INFERENCE_EXECUTE = 0x0306,
 
-    /** Deprecated commands. Do not reuse IDs */
+    /* Deprecated commands. Do not reuse IDs. */
+
+    /**
+     * @deprecated This command is deprecated and should not be used.
+     *
+     * If the NPU receives this command, it will terminate the related job with
+     * the @ref VPU_JSM_STATUS_PARSING_ERR status code.
+     */
     VPU_CMD_COPY_SYSTEM_TO_LOCAL = 0x0200,
+    /**
+     * @deprecated This command is deprecated and should not be used.
+     *
+     * If the NPU receives this command, it will terminate the related job with
+     * the @ref VPU_JSM_STATUS_PARSING_ERR status code.
+     */
     VPU_CMD_COPY_LOCAL_TO_SYSTEM = 0x0201,
+    /**
+     * @deprecated This command is deprecated and should not be used.
+     *
+     * If the NPU receives this command, it will terminate the related job with
+     * the @ref VPU_JSM_STATUS_PARSING_ERR status code.
+     */
     VPU_CMD_COPY_SYSTEM_TO_SYSTEM = 0x0203,
+    /**
+     * @deprecated This command is deprecated and should not be used.
+     *
+     * If the NPU receives this command, it will terminate the related job with
+     * the @ref VPU_JSM_STATUS_PARSING_ERR status code.
+     */
     VPU_CMD_DXIL_DEPRECATED = 0x0300,
+    /**
+     * @deprecated This command is deprecated and should not be used.
+     *
+     * If the NPU receives this command, it will terminate the related job with
+     * the @ref VPU_JSM_STATUS_PARSING_ERR status code.
+     */
     VPU_CMD_JIT_MAPPED_INFERENCE_EXECUTE_DEPRECATED = 0x0301,
+    /**
+     * @deprecated This command is deprecated and should not be used.
+     *
+     * If the NPU receives this command, it will terminate the related job with
+     * the @ref VPU_JSM_STATUS_PARSING_ERR status code.
+     */
     VPU_CMD_CLEAR_BUFFER_DEPRECATED = 0x0303,
+    /**
+     * @deprecated This command is deprecated and should not be used.
+     *
+     * If the NPU receives this command, it will terminate the related job with
+     * the @ref VPU_JSM_STATUS_PARSING_ERR status code.
+     */
     VPU_CMD_OV_BLOB_INITIALIZE_DEPRECATED = 0x0304,
+    /**
+     * @deprecated This command is deprecated and should not be used.
+     *
+     * If the NPU receives this command, it will terminate the related job with
+     * the @ref VPU_JSM_STATUS_PARSING_ERR status code.
+     */
     VPU_CMD_OV_BLOB_EXECUTE_DEPRECATED = 0x0305,
+    /**
+     * @deprecated This command is deprecated and should not be used.
+     *
+     * If the NPU receives this command, it will terminate the related job with
+     * the @ref VPU_JSM_STATUS_PARSING_ERR status code.
+     */
     VPU_CMD_DXIL_COPY_DEPRECATED = 0x0307
 };
 
@@ -159,14 +266,14 @@ enum vpu_desc_table_entry_type {
  * @brief VPU timestamp types.
  * Used to select the type of data returned by the command VPU_CMD_TIMESTAMP.
  *
- * @see vpu_cmd_timestamp
+ * @see @ref vpu_cmd_timestamp
  */
 enum vpu_time_type {
-    /* PerfFRC raw timestamp. */
+    /** PerfFRC raw timestamp. */
     VPU_TIME_RAW = 0,
-    /* SysTime timestamp (including SysTime delta). */
+    /** SysTime timestamp (including SysTime delta). */
     VPU_TIME_SYSTIME = 1,
-    /* SysTime delta. */
+    /** SysTime delta. */
     VPU_TIME_DELTA = 2
 };
 
@@ -287,26 +394,40 @@ typedef struct vpu_cmd_header {
 } vpu_cmd_header_t;
 
 /**
- * @brief Copy command format
+ * @brief Copy command format.
  *
- * @see VPU_CMD_COPY
+ * @see @ref VPU_CMD_COPY
+ *
+ * A single copy command can perform multiple copy operations, each one
+ * described by a copy descriptor.
+ *
+ * Copy descriptors are stored in the descriptor heap defined in the Command
+ * Buffer header (aka Batch Buffer), see @ref
+ * vpu_cmd_buffer_header_t::descriptor_heap_base_address).
+ *
+ * The copy command contains a reference to the start of its copy descriptors
+ * array and the number of descriptors in the array (see @ref
+ * vpu_cmd_copy_buffer::desc_start_offset and @ref
+ * vpu_cmd_copy_buffer::desc_count).
+ *
+ * The format of the copy descriptors depends on the NPU version:
+ * - For NPU 37xx, see @ref vpu_cmd_copy_descriptor_37xx_t
+ * - For NPU 40xx+, see @ref vpu_cmd_copy_descriptor_40xx_t
  */
 typedef struct vpu_cmd_copy_buffer {
     vpu_cmd_header_t header;
-    /**< Reserved */
+    /** Reserved */
     uint32_t reserved_0;
     /**
      * @brief Offset in the descriptor heap where the array of copy descriptors start
-     * @see vpu_cmd_copy_descriptor_37xx_t
-     * @see vpu_cmd_copy_descriptor_40xx_t
-     * @see vpu_cmd_buffer_header_t.descriptor_heap_base_address
-     * NOTE: Resulting address (heap base plus offset) must be aligned on a 64B boundary
-     * to allow proper handling of VPU cache operations.
+     *
+     * NOTE: Resulting address (heap base plus offset) must be aligned on a 64B
+     * boundary to allow proper handling of NPU cache operations.
      */
     uint64_t desc_start_offset;
     /** Number of descriptors in the desc_start_offset header */
     uint32_t desc_count;
-    /**< Reserved */
+    /** Reserved */
     uint32_t reserved_1;
 } vpu_cmd_copy_buffer_t;
 
@@ -353,19 +474,22 @@ typedef struct vpu_cmd_inference_execute {
 } vpu_cmd_inference_execute_t;
 
 /**
- * @brief Format of the timestamp command
- * @see VPU_CMD_TIMESTAMP
+ * @brief Timestamp command format
+ *
+ * @see @ref VPU_CMD_TIMESTAMP
  */
 typedef struct vpu_cmd_timestamp {
+    /** Common command header */
     vpu_cmd_header_t header;
-    /** @see enum vpu_time_type. */
+    /** @see @ref vpu_time_type. */
     uint32_t type;
     /**
-     * Timestamp address
-     * NOTE: (VPU 37xx) - Address must be aligned on a 64B boundary to allow proper handling of
-     * VPU cache operations.
-     * (VPU 40xx) - Address must be aligned on a 8B boundary as RISC-V facilitates cache-bypass,
-     * memory access.
+     * Timestamp address.
+     * NOTE:
+     * - (NPU 37xx) - Address must be aligned on a 64B boundary to allow proper handling of
+     *   NPU cache operations.
+     * - (NPU 40xx+) - Address must be aligned on a 8B boundary as RISC-V facilitates cache-bypass,
+     *   memory access.
      */
     uint64_t timestamp_address;
 } vpu_cmd_timestamp_t;
@@ -416,9 +540,10 @@ typedef struct vpu_cmd_barrier {
 } vpu_cmd_barrier_t;
 
 /**
- * @brief Metric command structure
- * @see VPU_CMD_METRIC_QUERY_BEGIN
- * @see VPU_CMD_METRIC_QUERY_END
+ * @brief Metric query command format
+ *
+ * @see @ref VPU_CMD_METRIC_QUERY_BEGIN
+ * @see @ref VPU_CMD_METRIC_QUERY_END
  */
 typedef struct vpu_cmd_metric_query {
     vpu_cmd_header_t header;

@@ -6,6 +6,17 @@
 #ifndef VPU_NNRT_API_40XX_H
 #define VPU_NNRT_API_40XX_H
 
+/**
+ * @file
+ * @brief header file containing the VpuHostParsedInference and the structs required for
+ * non workload management (non-WLM) inferences.
+ */
+
+/**
+ * @addtogroup NNRT
+ * @{
+ */
+
 #include "vpu_nce_hw_40xx.h"
 #include "vpu_dma_hw.h"
 #include "vpu_media_hw.h"
@@ -63,8 +74,7 @@
  */
 #define VPU_NNRT_40XX_API_VER_MAJOR 11
 #define VPU_NNRT_40XX_API_VER_MINOR 10
-#define VPU_NNRT_40XX_API_VER_PATCH 1
-
+#define VPU_NNRT_40XX_API_VER_PATCH 2
 #define VPU_NNRT_40XX_API_VER ((VPU_NNRT_40XX_API_VER_MAJOR << 16) | VPU_NNRT_40XX_API_VER_MINOR)
 
 /* Index in the API version table, same for all HW generations */
@@ -80,6 +90,9 @@
  *
  * Act Runtime changelog:
  * ----------------------
+ * 1.12:
+ *  - Cache operation fix
+ *
  * 1.11:
  *  - Improve compatibility
  *
@@ -88,7 +101,7 @@
  *     with the full 32 bit AKI address and NW_PAGE is already correct)
  *
  * 1.9:
- *   - Add NVL clock gating support
+ *   - Add clock gating support
  *
  * 1.8:
  *   - Support Shave Shutdown control message
@@ -130,6 +143,9 @@
 namespace nn_public {
 
 #pragma pack(push, 1)
+
+/* Do not document the legacy non-WLM API structs. */
+/** @cond */
 
 template <typename T>
 struct VPU_ALIGNED_STRUCT(8) VpuPtr {
@@ -213,15 +229,6 @@ struct VPU_ALIGNED_STRUCT(32) VpuDPUVariant {
 static_assert(sizeof(VpuDPUVariant) == 224, "VpuDPUVariant size != 224");
 static_assert(offsetof(VpuDPUVariant, invariant_) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuDPUVariant, invariant_index_) % 4 == 0, "Alignment error");
-
-struct VPU_ALIGNED_STRUCT(4) VpuResourceRequirements {
-    uint32_t nn_slice_length_;
-    uint8_t deprecated_[6]; // Deprecated member, do not reuse until next API major version update
-    uint8_t nn_slice_count_;
-    uint8_t nn_barriers_;
-};
-
-static_assert(sizeof(VpuResourceRequirements) == 12, "VpuResourceRequirements size != 12");
 
 struct VPU_ALIGNED_STRUCT(32) VpuDMATask {
     DmaDescriptor transaction_;
@@ -335,6 +342,14 @@ static_assert(offsetof(VpuMappedInference, shv_rt_configs) % 8 == 0, "Alignment 
 static_assert(offsetof(VpuMappedInference, hwp_workpoint_cfg_addr) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuMappedInference, managed_inference) % 8 == 0, "Alignment error");
 
+/* structs after this point are used by workload management inferences and should be included
+   in the documentation. */
+
+/** @endcond */
+
+/**
+ * @brief The struct passed to the firmware to run the inference.
+ */
 struct VPU_ALIGNED_STRUCT(32) VpuHostParsedInference {
     uint64_t reserved_;
     VpuResourceRequirements resource_requirements_;
@@ -351,5 +366,10 @@ static_assert(offsetof(VpuHostParsedInference, mapped_) % 8 == 0, "Alignment err
 #pragma pack(pop)
 
 } // namespace nn_public
+
+/**
+ * close the "addtogroup NNRT" block
+ * @}
+ */
 
 #endif
