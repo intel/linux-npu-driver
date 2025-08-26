@@ -10,7 +10,7 @@ if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.24")
     cmake_policy(SET CMP0135 NEW)
 endif()
 
-set(STACK_VERSION 1.22.0 CACHE STRING "Main project version")
+set(STACK_VERSION 1.23.0 CACHE STRING "Main project version")
 project(npu-linux-driver VERSION ${STACK_VERSION})
 
 set(BUILD_NUMBER "dev-0" CACHE STRING "Build number composed of name and unique number used as driver version")
@@ -37,10 +37,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(ENABLE_OPENVINO_PACKAGE "Enable building the OpenVINO package" OFF)
 option(ENABLE_NPU_COMPILER_BUILD "Enable building compiler in driver" OFF)
 option(ENABLE_NPU_PERFETTO_BUILD "Enable building with Perfetto library" OFF)
+option(ENABLE_OFFLINE_COMPILATION_SUPPORT "Enable model compilation support for user defined device" OFF)
 
 message(STATUS "option ENABLE_NPU_COMPILER_BUILD: ${ENABLE_NPU_COMPILER_BUILD}")
 message(STATUS "option ENABLE_NPU_PERFETTO_BUILD: ${ENABLE_NPU_PERFETTO_BUILD}")
 message(STATUS "option ENABLE_OPENVINO_PACKAGE: ${ENABLE_OPENVINO_PACKAGE}")
+message(STATUS "option ENABLE_OFFLINE_COMPILATION_SUPPORT: ${ENABLE_OFFLINE_COMPILATION_SUPPORT}")
 
 include(GNUInstallDirs)
 
