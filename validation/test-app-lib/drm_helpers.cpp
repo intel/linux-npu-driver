@@ -115,7 +115,12 @@ drm_device_desc open_intel_vpu(int instance) {
 
     // For about 100ms timeout, attempt to check if a device file exists.
     for (int i = 0; i < 100; i++) {
+#ifndef ANDROID
         ret = find_minor(instance, "/dev/accel/accel", 0, ACCEL_MAX_MINORS);
+#else
+        ret = find_minor(instance, "/dev/accel", 0, ACCEL_MAX_MINORS);
+#endif /* !ANDROID */
+
         if (ret.fd >= 0) {
             ret.major_id = ACCEL_MAJOR;
             return ret;

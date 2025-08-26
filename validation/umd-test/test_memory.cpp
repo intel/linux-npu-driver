@@ -315,6 +315,268 @@ TEST_F(MemoryExecution, CheckQueryContextMemory) {
     EXPECT_GT(memAllocated.allocated, userAllocatedMem);
 }
 
+enum CopyDimension { one_dimension, two_dimension };
+
+class MemoryCopyExecution : public MemoryAllocation {
+  public:
+    ze_command_queue_desc_t cmdQueueDesc{.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
+                                         .pNext = nullptr,
+                                         .ordinal = 0,
+                                         .index = 0,
+                                         .flags = 0,
+                                         .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
+                                         .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
+    ze_command_list_desc_t cmdListDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
+                                          .pNext = nullptr,
+                                          .commandQueueGroupOrdinal = 0,
+                                          .flags = 0};
+
+    void SetUp() override {
+        MemoryAllocation::SetUp();
+
+        ze_result_t ret;
+        scopedQueue = zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDesc, ret);
+        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+        queue = scopedQueue.get();
+
+        scopedList = zeScope::commandListCreate(zeContext, zeDevice, cmdListDesc, ret);
+        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+        list = scopedList.get();
+
+        const YAML::Node &node = GetParam();
+
+        if (node["dimension"].IsDefined() && node["dimension"].as<std::string>().size()) {
+            std::string dim = node["dimension"].as<std::string>();
+
+            if (dim == "one_dimension") {
+                copyDimension = CopyDimension::one_dimension;
+                srcNumElements = node["src_num_elements"].as<uint32_t>();
+                dstNumElements = node["dst_num_elements"].as<uint32_t>();
+            } else if (dim == "two_dimension") {
+                copyDimension = CopyDimension::two_dimension;
+                srcRows = node["src_rows"].as<uint32_t>();
+                srcCols = node["src_cols"].as<uint32_t>();
+                dstRows = node["dst_rows"].as<uint32_t>();
+                dstCols = node["dst_cols"].as<uint32_t>();
+            }
+        }
+    }
+
+    ze_command_queue_handle_t queue = nullptr;
+    ze_command_list_handle_t list = nullptr;
+
+    CopyDimension copyDimension = CopyDimension::one_dimension;
+    // 1D region
+    uint32_t srcNumElements = 0u;
+    uint32_t dstNumElements = 0u;
+    // 2D region
+    uint32_t srcRows = 0u;
+    uint32_t srcCols = 0u;
+    uint32_t dstRows = 0u;
+    uint32_t dstCols = 0u;
+
+    size_t srcSizeInBytes = 0u;
+    size_t dstSizeInBytes = 0u;
+
+    std::shared_ptr<void> srcMem = nullptr;
+    std::shared_ptr<void> dstMem = nullptr;
+
+    uint64_t *srcArray = nullptr;
+    uint64_t *dstArray = nullptr;
+
+    ze_copy_region_t srcRegion = {};
+    ze_copy_region_t dstRegion = {};
+
+    uint32_t srcPitchInBytes = 0u;
+    uint32_t dstPitchInBytes = 0u;
+    // only used for 3D case
+    uint32_t slicePitchInBytes = 0u;
+
+  private:
+    zeScope::SharedPtr<ze_command_queue_handle_t> scopedQueue = nullptr;
+    zeScope::SharedPtr<ze_command_list_handle_t> scopedList = nullptr;
+};
+
+static std::vector<YAML::Node> getMemoryCopyExecutionParameters() {
+    if (Environment::getConfiguration()["copy_region"].IsDefined())
+        return Environment::getConfiguration("copy_region");
+
+    return {
+        YAML::Load("{ dimension: one_dimension, src_num_elements: 10, dst_num_elements: 7 }"),
+        YAML::Load(
+            "{ dimension: two_dimension, src_rows: 6, src_cols: 6, dst_rows: 4, dst_cols: 6 }"),
+    };
+}
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MemoryCopyExecution);
+
+INSTANTIATE_TEST_SUITE_P(,
+                         MemoryCopyExecution,
+                         ::testing::ValuesIn(getMemoryCopyExecutionParameters()),
+                         [](const testing::TestParamInfo<YAML::Node> &p) {
+                             return p.param["dimension"].as<std::string>();
+                             ;
+                         });
+
+TEST_P(MemoryCopyExecution, AppendMemoryCopyRegion) {
+    switch (copyDimension) {
+    case CopyDimension::one_dimension: {
+        srcSizeInBytes = srcNumElements * sizeof(uint64_t);
+        dstSizeInBytes = dstNumElements * sizeof(uint64_t);
+
+        srcMem = AllocSharedMemory(srcSizeInBytes);
+        dstMem = AllocSharedMemory(dstSizeInBytes);
+
+        srcArray = reinterpret_cast<uint64_t *>(srcMem.get());
+        dstArray = reinterpret_cast<uint64_t *>(dstMem.get());
+
+        DataHandle::generateRandomData(srcArray, srcSizeInBytes);
+
+        memset(dstArray, 0, dstSizeInBytes);
+
+        // Define the source region:
+        // Copy 4 elements starting at index 2 in the source
+        srcRegion.originX = 2 * sizeof(uint64_t);
+        srcRegion.originY = 0;
+        srcRegion.originZ = 0;
+        srcRegion.width = 4 * sizeof(uint64_t);
+        srcRegion.height = 1;
+        srcRegion.depth = 1;
+
+        // Define the destination region:
+        // Copy into the beginning of the buffer
+        dstRegion.originX = 0;
+        dstRegion.originY = 0;
+        dstRegion.originZ = 0;
+        dstRegion.width = 4 * sizeof(uint64_t);
+        dstRegion.height = 1;
+        dstRegion.depth = 1;
+
+        // For a linear array, the pitch is the full array size
+        srcPitchInBytes = srcNumElements * sizeof(uint64_t);
+        dstPitchInBytes = dstNumElements * sizeof(uint64_t);
+
+        TRACE("Source buffer:\n");
+        for (uint32_t i = 0; i < srcNumElements; i++) {
+            TRACE("0x%020lx ", srcArray[i]);
+        }
+        TRACE("\n");
+
+        TRACE("Destination buffer before copy:\n");
+        for (uint32_t i = 0; i < dstNumElements; i++) {
+            TRACE("0x%020lx ", dstArray[i]);
+        }
+        TRACE("\n");
+    } break;
+    case CopyDimension::two_dimension: {
+        // Allocate a 6x6 matrix as source buffer and 4x6 matrix as destination buffer
+        srcSizeInBytes = srcRows * srcCols * sizeof(uint64_t);
+        dstSizeInBytes = dstRows * dstCols * sizeof(uint64_t);
+
+        srcMem = AllocSharedMemory(srcSizeInBytes);
+        dstMem = AllocSharedMemory(dstSizeInBytes);
+
+        srcArray = reinterpret_cast<uint64_t *>(srcMem.get());
+        dstArray = reinterpret_cast<uint64_t *>(dstMem.get());
+
+        DataHandle::generateRandomData(srcArray, srcSizeInBytes);
+        memset(dstArray, 0, dstSizeInBytes);
+
+        // Define the source region: 3x3 block
+        // Source region starts at row 1, column 2
+        srcRegion.originX = 2 * sizeof(uint64_t);
+        srcRegion.originY = 1;
+        srcRegion.originZ = 0;
+        srcRegion.width = 3 * sizeof(uint64_t);
+        srcRegion.height = 3;
+        srcRegion.depth = 1;
+
+        // Destination region starts at row 1, column 0
+        dstRegion.originX = 0;
+        dstRegion.originY = 1;
+        dstRegion.originZ = 0;
+        dstRegion.width = 3 * sizeof(uint64_t);
+        dstRegion.height = 3;
+        dstRegion.depth = 1;
+
+        // The pitch is the full row size
+        srcPitchInBytes = srcCols * sizeof(uint64_t);
+        dstPitchInBytes = dstCols * sizeof(uint64_t);
+
+        TRACE("Source buffer:\n");
+        for (uint32_t r = 0; r < srcRows; r++) {
+            for (uint32_t c = 0; c < srcCols; c++) {
+                TRACE("0x%020lx ", srcArray[r * srcCols + c]);
+            }
+            TRACE("\n");
+        }
+        TRACE("\n");
+
+        TRACE("Destination buffer before copy:\n");
+        for (uint32_t r = 0; r < dstRows; r++) {
+            for (uint32_t c = 0; c < dstCols; c++) {
+                TRACE("0x%020lx ", dstArray[r * dstCols + c]);
+            }
+            TRACE("\n");
+        }
+        TRACE("\n");
+    } break;
+    default:
+        break;
+    }
+    ASSERT_EQ(zeCommandListAppendMemoryCopyRegion(list,
+                                                  dstMem.get(),
+                                                  &dstRegion,
+                                                  dstPitchInBytes,
+                                                  slicePitchInBytes,
+                                                  srcMem.get(),
+                                                  &srcRegion,
+                                                  srcPitchInBytes,
+                                                  slicePitchInBytes,
+                                                  nullptr,
+                                                  0,
+                                                  nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(queue, syncTimeout), ZE_RESULT_SUCCESS);
+
+    // Displaying the destination buffer after the copy operation
+    switch (copyDimension) {
+    case CopyDimension::one_dimension: {
+        TRACE("Destination buffer after copy:\n");
+        for (uint32_t i = 0; i < dstNumElements; i++) {
+            TRACE("0x%020lx ", dstArray[i]);
+        }
+        TRACE("\n");
+
+        // Verification of the copied region
+        uint32_t srcOffset = srcRegion.originX + srcPitchInBytes;
+        uint32_t dstOffset = dstRegion.originX + dstPitchInBytes;
+        EXPECT_EQ(memcmp(srcArray + srcOffset, dstArray + dstOffset, dstRegion.width), 0);
+    } break;
+    case CopyDimension::two_dimension: {
+        TRACE("Destination buffer after copy:\n");
+        for (uint32_t r = 0; r < dstRows; r++) {
+            for (uint32_t c = 0; c < dstCols; c++) {
+                TRACE("0x%020lx ", dstArray[r * dstCols + c]);
+            }
+            TRACE("\n");
+        }
+        TRACE("\n");
+
+        // Verification of the copied region
+        for (uint32_t y = 0; y < dstRegion.height; y++) {
+            uint32_t srcOffset = srcRegion.originX + (srcRegion.originY + y) * srcPitchInBytes;
+            uint32_t dstOffset = dstRegion.originX + (dstRegion.originY + y) * dstPitchInBytes;
+            EXPECT_EQ(memcmp(srcArray + srcOffset, dstArray + dstOffset, dstRegion.width), 0);
+        }
+    } break;
+    default:
+        break;
+    }
+}
+
 class MemoryAllocationThreaded : public UmdTest {
   public:
     void SetUp() override {
