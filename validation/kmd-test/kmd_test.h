@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -78,6 +78,10 @@
     if (test_app::is_hardening_kernel()) \
     SKIP_(msg)
 
+#define SKIP_NO_MEMORY_FILL_SUPPORT()                                      \
+    if (!is_fw_api_version_supported(VPU_JSM_JOB_CMD_API_VER_INDEX, 4, 6)) \
+    SKIP_("No FW support for VPU_CMD_MEMORY_FILL on COMPUTE engine")
+
 #define SKIP_NO_HWS(msg)   \
     if (!is_hws_enabled()) \
     SKIP_(msg)
@@ -90,10 +94,25 @@
     if (is_patchset())  \
     SKIP_("Not supported by the upstream driver")
 
-#define EXPECT_BYTE_ARR_EQ(arr, size, value) EXPECT_PRED3(byte_array_eq, arr, size, value)
+template <typename T>
+bool array_eq(T *arr, size_t size, T value) {
+    for (unsigned i = 0; i < size / sizeof(T); i++) {
+        if (arr[i] != value)
+            return false;
+    }
+    return true;
+}
+
+#define EXPECT_BYTE_ARR_EQ(arr, size, value) EXPECT_PRED3(array_eq<uint8_t>, arr, size, value)
+#define EXPECT_UINT8_ARR_EQ(arr, size, value) EXPECT_PRED3(array_eq<uint8_t>, arr, size, value)
+#define EXPECT_UINT32_ARR_EQ(arr, size, value) EXPECT_PRED3(array_eq<uint32_t>, arr, size, value)
+
+#ifndef PAGE_SIZE
+#define PAGE_SIZE (4096u)
+#endif
 
 #define ALIGN(s, alignment) __ALIGN_KERNEL((s), (alignment))
-#define ALIGN_PAGE(s) (ALIGN(s, 4096))
+#define ALIGN_PAGE(s) (ALIGN(s, PAGE_SIZE))
 #define KB (1024llu)
 #define MB (1024llu * 1024)
 #define GB (1024llu * 1024 * 1024)
@@ -110,6 +129,8 @@
 #define ENGINE_COPY DRM_IVPU_ENGINE_COPY
 
 #define HAS_COPY_ENGINE 0
+
+#define API_VER(api_name) VPU_API_VERSION(api_name##_API_VER_MAJOR, api_name##_API_VER_MINOR)
 
 typedef struct copy_descriptor {
     union {
@@ -152,6 +173,9 @@ enum VPU_BUF_USAGE {
     VPU_BUF_USAGE_INPUT_DMA,
     VPU_BUF_USAGE_OUTPUT_DMA,
     VPU_BUF_USAGE_INPUT_OUTPUT_DMA,
+
+    VPU_BUF_USAGE_PREEMPT_LOW,
+    VPU_BUF_USAGE_PREEMPT_HIGH,
 
     VPU_BUF_USAGE_COUNT
 };
@@ -388,6 +412,7 @@ struct MemoryBuffer {
     void fill(uint8_t pattern = 0, size_t offset = 0, size_t len = -1);
     void clear(size_t offset = 0, size_t len = -1);
     size_t size() { return _size; }
+    void set_size(size_t size) { _size = size; }
 
   private:
     int create_shmem();
@@ -398,6 +423,7 @@ struct CmdBuffer : MemoryBuffer {
     CmdBuffer(KmdContext &context, size_t size, VPU_BUF_USAGE usage = VPU_BUF_USAGE_BATCHBUFFER);
 
     int create();
+    int create_from_fd(int fd);
     void start(int offset, int cmds_offset = 0);
     void resize(uint32_t bb_size);
 
@@ -407,7 +433,7 @@ struct CmdBuffer : MemoryBuffer {
         return (T *)add_cmd(type, sizeof(T));
     }
     vpu_cmd_buffer_header_t *hdr();
-    void add_handle(MemoryBuffer &buf);
+    uint32_t add_handle(MemoryBuffer &buf);
     ssize_t get_free_space();
     void add_nop_cmd(int size = 8);
     void add_barrier_cmd();
@@ -443,6 +469,7 @@ struct CmdBuffer : MemoryBuffer {
     int cmdq_submit(uint32_t cmdq_id);
     void prepare_bb_hdr(void);
     void prepare_params(int engine, int priority, drm_ivpu_submit *params);
+    void set_preempt_buffer(MemoryBuffer &buf);
     int wait(uint32_t timeout_ms = JOB_SYNC_TIMEOUT_MS);
 
     std::vector<uint32_t> referenced_handles;
@@ -455,6 +482,7 @@ struct CmdBuffer : MemoryBuffer {
 
     uint32_t _start;
     uint32_t _end;
+    uint32_t _preempt_buffer_index;
 };
 
 struct DmaBuffer {
@@ -485,4 +513,5 @@ struct DmaBuffer {
     uint64_t *buffer_ptr64(int offset = 0) { return (uint64_t *)buffer_ptr(offset); }
 };
 
-bool byte_array_eq(uint8_t *arr, size_t size, uint8_t value);
+template <typename T>
+bool array_eq(T *arr, size_t size, T value);

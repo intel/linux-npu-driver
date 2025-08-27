@@ -49,6 +49,9 @@ TEST_F(Device, GroupOwnership) {
     } else {
         expectedGroupName = "render";
     }
+#ifdef ANDROID
+    expectedGroupName = "system";
+#endif
     ASSERT_EQ(0, fstat(context.get_fd(), &fileInfo));
     struct group *fileGroup = getgrgid(fileInfo.st_gid);
     ASSERT_NE(nullptr, fileGroup);
@@ -120,6 +123,10 @@ TEST_F(Device, ResetComputeEngine) {
     if (hws) {
         ASSERT_EQ(write_debugfs_file("resume_engine", ENGINE_COMPUTE), 0);
     }
+}
+
+TEST_F(Device, Suspend) {
+    ASSERT_TRUE(wait_for_suspend());
 }
 
 // Failed with patchset KMD. Requires:

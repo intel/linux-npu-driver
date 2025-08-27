@@ -97,6 +97,7 @@ struct Graph : _ze_graph_handle_t, IContextObject {
     std::shared_ptr<VPU::VPUCommand> allocateGraphInitCommand(VPU::VPUDeviceContext *ctx);
     std::shared_ptr<VPU::VPUCommand>
     allocateGraphExecuteCommand(GraphProfilingQuery *profilingQueryPtr);
+    void addDeviceConfigToBuildFlags();
 
     static ze_result_t getLogString(uint32_t *pSize, char *pBuildLog);
 
@@ -109,9 +110,10 @@ struct Graph : _ze_graph_handle_t, IContextObject {
                                          const char *pOption,
                                          const char *pValue);
 
+    std::string getBuildFlags() { return buildFlags; }
+
   private:
     void initialize(std::string &log);
-    void addDeviceConfigToBuildFlags();
 
     Context *pContext;
     VPU::VPUDeviceContext *ctx;

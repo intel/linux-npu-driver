@@ -101,6 +101,9 @@ int MockOsInterfaceImp::osiIoctl(int fd, unsigned int request, void *data) {
         case DRM_IVPU_PARAM_ENGINE_HEARTBEAT:
             args->value = callCntIoctl;
             break;
+        case DRM_IVPU_PARAM_PREEMPT_BUFFER_SIZE:
+            args->value = 4096;
+            break;
         default:
             break;
         }

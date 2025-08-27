@@ -65,6 +65,17 @@ struct CommandList : _ze_command_list_handle_t, IContextObject {
                                  ze_event_handle_t hEvent,
                                  uint32_t numWaitEvents,
                                  ze_event_handle_t *phWaitEvents);
+    ze_result_t appendMemoryCopyRegion(void *dstptr,
+                                       const ze_copy_region_t *dstRegion,
+                                       uint32_t dstPitch,
+                                       uint32_t dstSlicePitch,
+                                       const void *srcptr,
+                                       const ze_copy_region_t *srcRegion,
+                                       uint32_t srcPitch,
+                                       uint32_t srcSlicePitch,
+                                       ze_event_handle_t hSignalEvent,
+                                       uint32_t numWaitEvents,
+                                       ze_event_handle_t *phWaitEvents);
     ze_result_t appendWriteGlobalTimestamp(std::shared_ptr<VPU::VPUBufferObject> timestampBo,
                                            ze_event_handle_t hSignalEvent,
                                            uint32_t numWaitEvents,

@@ -23,7 +23,11 @@ std::vector<std::unique_ptr<VPUDevice>> DeviceFactory::createDevices(OsInterface
     std::vector<std::unique_ptr<VPUDevice>> devices;
     std::string devPath;
 
+#ifdef ANDROID
+    constexpr std::string_view devPrefix = "/dev/accel";
+#else
     constexpr std::string_view devPrefix = "/dev/accel/accel";
+#endif
     int minMinor = 0;
     int maxMinor = minMinor + 63;
 

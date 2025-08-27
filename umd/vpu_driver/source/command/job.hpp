@@ -85,6 +85,12 @@ class VPUJob {
 
     bool updateOnSubmit();
 
+    void addPreemptionBuffer(std::shared_ptr<VPUBufferObject> &preemptionBuffer) {
+        for (auto &cmdBuffer : cmdBuffers) {
+            cmdBuffer->addPreemptionBuffer(preemptionBuffer);
+        }
+    }
+
   private:
     std::vector<std::shared_ptr<VPUCommand>>::iterator
     scheduleCommands(std::vector<std::shared_ptr<VPUCommand>>::iterator begin);

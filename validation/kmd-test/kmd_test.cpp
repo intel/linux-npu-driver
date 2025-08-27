@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -259,6 +259,7 @@ KmdTest::~KmdTest() {}
 
 void KmdTest::SetUp() {
     int fd = context.open();
+    SKIP_NO_DEBUGFS("reset_counter");
     ASSERT_GT(fd, -1) << "open() failed with error " << errno << " - " << strerror(errno);
 
     check_api_version();
@@ -443,6 +444,14 @@ bool KmdTest::wait_for_suspend(int timeout_ms) {
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     } while (std::chrono::steady_clock::now() < timeout);
+
+    std::string usage, status;
+
+    read_sysfs_file("power/runtime_usage", usage);
+    read_sysfs_file("power/runtime_status", status);
+
+    ADD_FAILURE() << "Failed to wait for suspend: " << "power_state=" << power_state
+                  << ", runtime_usage=" << usage << ", runtime_status=" << status;
 
     return false;
 }
@@ -700,6 +709,11 @@ static uint32_t buf_usage_to_flags(VPU_BUF_USAGE usage) {
     case VPU_BUF_USAGE_OUTPUT_DMA:
     case VPU_BUF_USAGE_INPUT_OUTPUT_DMA:
         return DRM_IVPU_BO_CACHED | DRM_IVPU_BO_DMA_MEM | DRM_IVPU_BO_MAPPABLE;
+    case VPU_BUF_USAGE_PREEMPT_LOW:
+        return DRM_IVPU_BO_WC;
+    case VPU_BUF_USAGE_PREEMPT_HIGH:
+        return DRM_IVPU_BO_WC | DRM_IVPU_BO_DMA_MEM;
+
     default:
         ADD_FAILURE();
         return UINT32_MAX;
@@ -892,7 +906,8 @@ MemoryBuffer::~MemoryBuffer() {
 CmdBuffer::CmdBuffer(KmdContext &context, size_t size, VPU_BUF_USAGE usage)
     : MemoryBuffer(context, size, usage)
     , _start(0)
-    , _end(sizeof(vpu_cmd_buffer_header_t)) {}
+    , _end(sizeof(vpu_cmd_buffer_header_t))
+    , _preempt_buffer_index(0) {}
 
 int CmdBuffer::create() {
     int ret = MemoryBuffer::create();
@@ -901,6 +916,20 @@ int CmdBuffer::create() {
 
     // Command buffer must be cleared by default, otherwise header
     // may contain random values that can confuse VPU
+    clear();
+    start(0);
+    return 0;
+}
+
+int CmdBuffer::create_from_fd(int fd) {
+    int ret = MemoryBuffer::prime_fd_to_handle(fd);
+    if (ret)
+        return ret;
+
+    ret = mmap();
+    if (ret)
+        return ret;
+
     clear();
     start(0);
     return 0;
@@ -921,6 +950,8 @@ void CmdBuffer::start(int offset, int cmds_offset) {
     _end = _start + bb_hdr->cmd_offset;
     referenced_handles.clear();
     add_handle(*this);
+
+    _preempt_buffer_index = 0;
 }
 
 // Resize the command buffer to a new size.
@@ -955,10 +986,14 @@ vpu_cmd_buffer_header_t *CmdBuffer::hdr() {
     return (vpu_cmd_buffer_header_t *)ptr(_start);
 }
 
-void CmdBuffer::add_handle(MemoryBuffer &buf) {
+uint32_t CmdBuffer::add_handle(MemoryBuffer &buf) {
     auto it = std::find(referenced_handles.begin(), referenced_handles.end(), buf.handle());
-    if (it == referenced_handles.end())
+    if (it == referenced_handles.end()) {
         referenced_handles.push_back(buf.handle());
+        return referenced_handles.size() - 1;
+    }
+
+    return std::distance(referenced_handles.begin(), it);
 }
 
 ssize_t CmdBuffer::get_free_space() {
@@ -1086,14 +1121,21 @@ void CmdBuffer::prepare_bb_hdr(void) {
     vpu_cmd_buffer_header_t *bb_hdr = hdr();
 
     bb_hdr->cmd_buffer_size = _end - _start;
+
+    // Don't set API version yet, it may cause compatibility issues with older FW versions
+    // bb_hdr->api_version = API_VER(VPU_JSM_JOB_CMD);
+
     bb_hdr->context_save_area_address = vpu_addr() + ALIGN(_end, 64);
 
-    TRACE("Submit: ssid %d, addr 0x%lx, bb size %d, cmds offset %d, api version 0x%08x\n",
+    TRACE("Submit: ssid %d, addr 0x%lx, bb size %d, cmds offset %d, apiver 0x%08x, bos %lu, "
+          "preempt %u\n",
           _context.get_id(),
           vpu_addr() + _start,
           bb_hdr->cmd_buffer_size,
           bb_hdr->cmd_offset,
-          bb_hdr->api_version);
+          bb_hdr->api_version,
+          referenced_handles.size(),
+          _preempt_buffer_index);
 }
 
 void CmdBuffer::prepare_params(int engine, int priority, drm_ivpu_submit *params) {
@@ -1105,6 +1147,10 @@ void CmdBuffer::prepare_params(int engine, int priority, drm_ivpu_submit *params
     params->buffers_ptr = (__u64)referenced_handles.data();
     params->commands_offset = _start;
     params->priority = priority;
+}
+
+void CmdBuffer::set_preempt_buffer(MemoryBuffer &buf) {
+    _preempt_buffer_index = add_handle(buf);
 }
 
 int CmdBuffer::submit(int engine, int priority, uint32_t submit_timeout_ms) {
@@ -1140,14 +1186,16 @@ int CmdBuffer::submit_retry(drm_ivpu_submit *params, uint32_t submit_timeout_ms)
 }
 
 int CmdBuffer::cmdq_submit(uint32_t cmdq_id) {
-    drm_ivpu_cmdq_submit args = {.buffers_ptr = (__u64)referenced_handles.data(),
-                                 .buffer_count = (__u32)referenced_handles.size(),
-                                 .cmdq_id = cmdq_id,
-                                 .flags = 0,
-                                 .commands_offset = _start};
+    drm_ivpu_cmdq_submit args = {};
 
     if (ALIGN(_end, 64) + VPU_CONTEXT_SAVE_AREA_SIZE > _size)
         return -ENOSPC;
+
+    args.buffers_ptr = (__u64)referenced_handles.data();
+    args.buffer_count = (__u32)referenced_handles.size();
+    args.cmdq_id = cmdq_id;
+    args.commands_offset = _start;
+    args.preempt_buffer_index = _preempt_buffer_index;
 
     prepare_bb_hdr();
 
@@ -1272,14 +1320,6 @@ void DmaBuffer::munmap() {
 
     EXPECT_EQ(::munmap(_buf_ptr, _size), 0);
     _buf_ptr = NULL;
-}
-
-bool byte_array_eq(uint8_t *arr, size_t size, uint8_t value) {
-    for (unsigned i = 0; i < size; i++) {
-        if (arr[i] != value)
-            return false;
-    }
-    return true;
 }
 
 TEST_F(KmdTest, Init) {

@@ -272,7 +272,7 @@ ze_result_t zeCommandListAppendMemoryCopyRegion(ze_command_list_handle_t hComman
                                                 const ze_copy_region_t *srcRegion,
                                                 uint32_t srcPitch,
                                                 uint32_t srcSlicePitch,
-                                                ze_event_handle_t hEvent,
+                                                ze_event_handle_t hSignalEvent,
                                                 uint32_t numWaitEvents,
                                                 ze_event_handle_t *phWaitEvents) {
     trace_zeCommandListAppendMemoryCopyRegion(hCommandList,
@@ -284,11 +284,29 @@ ze_result_t zeCommandListAppendMemoryCopyRegion(ze_command_list_handle_t hComman
                                               srcRegion,
                                               srcPitch,
                                               srcSlicePitch,
-                                              hEvent,
+                                              hSignalEvent,
                                               numWaitEvents,
                                               phWaitEvents);
-    ze_result_t ret = ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    ze_result_t ret;
 
+    if (hCommandList == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(ret,
+                        L0::CommandList::fromHandle(hCommandList)
+                            ->appendMemoryCopyRegion(dstptr,
+                                                     dstRegion,
+                                                     dstPitch,
+                                                     dstSlicePitch,
+                                                     srcptr,
+                                                     srcRegion,
+                                                     srcPitch,
+                                                     srcSlicePitch,
+                                                     hSignalEvent,
+                                                     numWaitEvents,
+                                                     phWaitEvents););
+exit:
     trace_zeCommandListAppendMemoryCopyRegion(ret,
                                               hCommandList,
                                               dstptr,
@@ -299,7 +317,7 @@ ze_result_t zeCommandListAppendMemoryCopyRegion(ze_command_list_handle_t hComman
                                               srcRegion,
                                               srcPitch,
                                               srcSlicePitch,
-                                              hEvent,
+                                              hSignalEvent,
                                               numWaitEvents,
                                               phWaitEvents);
     return ret;

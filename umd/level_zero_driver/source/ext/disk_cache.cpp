@@ -33,6 +33,9 @@
 namespace L0 {
 
 static std::filesystem::path getCacheDir() {
+#ifdef ANDROID
+    return std::filesystem::path("/data/data") / getprogname() / "ze_intel_npu_cache";
+#else
     const char *env = getenv("ZE_INTEL_NPU_CACHE_DIR");
     if (env)
         return env;
@@ -43,6 +46,7 @@ static std::filesystem::path getCacheDir() {
     if (env)
         return std::filesystem::path(env) / ".cache/ze_intel_npu_cache";
     return std::filesystem::current_path() / ".cache/ze_intel_npu_cache";
+#endif
 }
 
 static size_t getCacheMaxSize() {

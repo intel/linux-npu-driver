@@ -23,8 +23,14 @@ TracePerfetto::TracePerfetto() {
     enable = env == nullptr || env[0] == '0' || env[0] == '\0' ? false : true;
 
     if (enable) {
+        bool isSystemBackend = std::string(env) == "system";
+
         perfetto::TracingInitArgs args;
-        args.backends |= perfetto::kInProcessBackend;
+        if (!isSystemBackend) {
+            args.backends |= perfetto::kInProcessBackend;
+        } else {
+            args.backends |= perfetto::kSystemBackend;
+        }
         perfetto::Tracing::Initialize(args);
         perfetto::TrackEvent::Register();
 
@@ -35,15 +41,17 @@ TracePerfetto::TracePerfetto() {
         track_event_cfg.add_enabled_categories("NPU_ELF");
         track_event_cfg.add_enabled_categories("NPU_COMPILER");
 
-        perfetto::TraceConfig cfg;
-        cfg.add_buffers()->set_size_kb(64 * 1024);
-        auto *ds_cfg = cfg.add_data_sources()->mutable_config();
-        ds_cfg->set_name("track_event");
-        ds_cfg->set_track_event_config_raw(track_event_cfg.SerializeAsString());
+        if (!isSystemBackend) {
+            perfetto::TraceConfig cfg;
+            cfg.add_buffers()->set_size_kb(64 * 1024);
+            auto *ds_cfg = cfg.add_data_sources()->mutable_config();
+            ds_cfg->set_name("track_event");
+            ds_cfg->set_track_event_config_raw(track_event_cfg.SerializeAsString());
 
-        record = perfetto::Tracing::NewTrace();
-        record->Setup(cfg);
-        record->StartBlocking();
+            record = perfetto::Tracing::NewTrace();
+            record->Setup(cfg);
+            record->StartBlocking();
+        }
     }
 }
 

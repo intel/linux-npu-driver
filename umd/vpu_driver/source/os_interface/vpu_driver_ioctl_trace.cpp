@@ -137,9 +137,9 @@ static std::string struct_drm_ivpu_cmdq_submit_to_str(const drm_ivpu_cmdq_submit
     std::ostringstream oss;
     oss << std::hex << std::showbase << "(buffers_ptr: " << cmdq_submit->buffers_ptr << ", "
         << std::dec << "buffer_count: " << cmdq_submit->buffer_count << ", "
-        << "cmdq_id: " << cmdq_submit->cmdq_id << ", "
-        << "flags: " << cmdq_submit->flags << ", "
-        << "commands_offset: " << cmdq_submit->commands_offset << ")";
+        << "cmdq_id: " << cmdq_submit->cmdq_id << ", " << "flags: " << cmdq_submit->flags << ", "
+        << "commands_offset: " << cmdq_submit->commands_offset << ", "
+        << "preempt_buffer_index: " << cmdq_submit->preempt_buffer_index << ")";
     return oss.str();
 }
 

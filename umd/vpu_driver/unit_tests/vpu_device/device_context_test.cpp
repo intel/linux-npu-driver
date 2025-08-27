@@ -14,6 +14,7 @@
 #include "vpu_driver/source/command/command.hpp"
 #include "vpu_driver/source/command/copy_command.hpp"
 #include "vpu_driver/source/command/ts_command.hpp"
+#include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
@@ -555,4 +556,50 @@ TEST_F(DeviceContextTest, scratchBufferCacheShouldWorkAsExpected) {
         ctx->scratchCachePrune(size);
     }
     EXPECT_EQ(ctx->getAllocatedSize(), 0);
+}
+
+TEST_F(DeviceContextTest, preemptionBufferCacheShouldWorkAsExpected) {
+    // Load preemption buffer with different sizes
+    size_t numQueues = 4;
+    size_t preemptionSize = ctx->getDeviceCapabilities().fwPreemptBufSize;
+    size_t maxPreemptionSize = preemptionSize * numQueues;
+
+    // Expect no preemption buffers allocated when incrementing queues
+    for (size_t i = 0; i < numQueues; i++) {
+        ctx->preemptionCacheLoad();
+        EXPECT_EQ(ctx->getAllocatedSize(), 0u);
+    }
+
+    // Acquire preemption buffers
+    std::vector<std::shared_ptr<VPUBufferObject>> preemptionBuffers;
+    for (size_t i = 0; i < numQueues; i++) {
+        auto bo = ctx->preemptionCacheAcquire();
+        EXPECT_EQ(bo->getAllocSize(), preemptionSize);
+        EXPECT_EQ(ctx->getAllocatedSize(), preemptionSize * (i + 1));
+
+        preemptionBuffers.push_back(std::move(bo));
+    }
+
+    // Recycle preemption buffers
+    preemptionBuffers.clear();
+
+    // Reuse preemption buffers
+    for (size_t i = 0; i < numQueues; i++) {
+        auto bo = ctx->preemptionCacheAcquire();
+        EXPECT_EQ(bo->getAllocSize(), preemptionSize);
+        EXPECT_EQ(ctx->getAllocatedSize(), maxPreemptionSize);
+
+        preemptionBuffers.push_back(std::move(bo));
+    }
+
+    // Recycle preemption buffers
+    preemptionBuffers.clear();
+
+    // Cleanup preemption buffers
+    for (size_t i = 0; i < numQueues; i++) {
+        ctx->preemptionCachePrune();
+    }
+
+    // Expect no preemption buffers left
+    EXPECT_EQ(ctx->getAllocatedSize(), 0u);
 }

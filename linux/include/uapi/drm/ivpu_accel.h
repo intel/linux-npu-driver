@@ -90,6 +90,7 @@ extern "C" {
 #define DRM_IVPU_PARAM_TILE_CONFIG	    11
 #define DRM_IVPU_PARAM_SKU		    12
 #define DRM_IVPU_PARAM_CAPABILITIES	    13
+#define DRM_IVPU_PARAM_PREEMPT_BUFFER_SIZE  14
 
 #define DRM_IVPU_PLATFORM_TYPE_SILICON	    0
 
@@ -176,6 +177,9 @@ struct drm_ivpu_param {
 	 *
 	 * %DRM_IVPU_PARAM_CAPABILITIES:
 	 * Supported capabilities (read-only)
+	 *
+	 * %DRM_IVPU_PARAM_PREEMPT_BUFFER_SIZE:
+	 * Size of the preemption buffer (read-only)
 	 */
 	__u32 param;
 
@@ -337,6 +341,9 @@ struct drm_ivpu_submit {
 	 * %DRM_IVPU_JOB_PRIORITY_REALTIME
 	 */
 	__u32 priority;
+
+	/** @reserved: Reserved to ensure compat alignment on 32-bit and 64-bit CPUs. */
+	__u32 reserved;
 };
 
 /**
@@ -375,6 +382,13 @@ struct drm_ivpu_cmdq_submit {
 	 * to be executed. The offset has to be 8-byte aligned.
 	 */
 	__u32 commands_offset;
+	/**
+	 * @preempt_buffer_index:
+	 *
+	 * Index of the preemption buffer in the buffers_ptr array.
+	 */
+	__u32 preempt_buffer_index;
+	__u32 reserved;
 };
 
 /* drm_ivpu_bo_wait job status codes */
@@ -429,6 +443,8 @@ struct drm_ivpu_metric_streamer_start {
 	__u32 sample_size;
 	/** @max_data_size: Returned max @data_size from %DRM_IOCTL_IVPU_METRIC_STREAMER_GET_DATA */
 	__u32 max_data_size;
+	/** @reserved: Reserved to ensure compat alignment on 32-bit and 64-bit CPUs. */
+	__u32 reserved;
 };
 
 /**

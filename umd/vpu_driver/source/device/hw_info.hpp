@@ -52,6 +52,7 @@ struct VPUHwInfo {
     uint64_t fwMappedInferenceVersion = 0;
     uint64_t fwJsmCmdApiVersion = 0;
     uint32_t fwTimestampType = 0;
+    uint64_t fwPreemptBufSize = 0;
 
     bool metricStreamerCapability = false;
     bool dmaMemoryRangeCapability = false;

@@ -13,7 +13,6 @@
 
 #include "fence.hpp" // IWYU pragma: keep
 #include "level_zero_driver/include/l0_handler.hpp"
-#include "vpu_driver/source/device/vpu_command_queue.hpp"
 
 #include <chrono> // IWYU pragma: keep
 #include <level_zero/ze_api.h>
@@ -26,7 +25,9 @@
 struct _ze_command_queue_handle_t {};
 namespace VPU {
 class VPUJob;
-}
+class VPUBufferObject;
+class VPUDeviceQueue;
+} // namespace VPU
 
 namespace L0 {
 struct Context;
@@ -36,6 +37,7 @@ struct CommandQueue : _ze_command_queue_handle_t, IContextObject {
     CommandQueue(Context *context,
                  std::unique_ptr<VPU::VPUDeviceQueue> queue,
                  CommandQueueMode mode = CommandQueueMode::DEFAULT);
+    ~CommandQueue() override;
 
     static ze_result_t create(ze_context_handle_t hContext,
                               ze_device_handle_t hDevice,
@@ -67,6 +69,8 @@ struct CommandQueue : _ze_command_queue_handle_t, IContextObject {
     std::shared_mutex fenceMutex;
     std::unordered_map<Fence *, std::unique_ptr<Fence>> fences;
     CommandQueueMode queueMode;
+
+    std::shared_ptr<VPU::VPUBufferObject> preemptionBuffer = nullptr;
 };
 
 } // namespace L0

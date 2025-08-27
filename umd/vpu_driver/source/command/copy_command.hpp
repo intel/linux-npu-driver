@@ -28,7 +28,7 @@ class VPUCopyCommand : public VPUCommand {
     VPUCopyCommand(const std::shared_ptr<VPUBufferObject> srcBo,
                    std::shared_ptr<VPUBufferObject> dstBo,
                    size_t size,
-                   VPUDescriptor &descriptor);
+                   VPUDescriptor descriptor);
 
     static std::shared_ptr<VPUCopyCommand> create(VPUDeviceContext *ctx,
                                                   const void *srcPtr,

@@ -176,10 +176,10 @@ TEST_F(CommandQueueExecTest,
     auto status = nnQue->executeCommandLists(1, &hCommandList, nullptr);
     EXPECT_EQ(status, ZE_RESULT_SUCCESS);
 
+    nnCmdList->destroy();
+
     ctx->freeMemAlloc(srcPtr);
     ctx->freeMemAlloc(destPtr);
-
-    nnCmdList->destroy();
 }
 
 TEST_F(CommandQueueExecTest, syncWithoutJobSubmissionReturnsSuccess) {

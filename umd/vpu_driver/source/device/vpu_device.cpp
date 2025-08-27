@@ -45,6 +45,9 @@ bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
             drvApi->getDeviceParam(DRM_IVPU_PARAM_FW_API_VERSION, hwInfo.fwJsmCmdApiVerIndex);
         uint32_t tileConfigParam = drvApi->getDeviceParam<uint32_t>(DRM_IVPU_PARAM_TILE_CONFIG);
         hwInfo.tileConfig = ~tileConfigParam & hwInfo.tileFuseMask;
+
+        hwInfo.fwPreemptBufSize =
+            drvApi->getDeviceParam(DRM_IVPU_PARAM_PREEMPT_BUFFER_SIZE, 0, true);
     } catch (const std::exception &err) {
         LOG_E("Failed to initialize hardware info, error: %s", err.what());
         return false;
