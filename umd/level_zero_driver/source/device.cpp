@@ -552,6 +552,10 @@ void Device::loadMetricGroupsInfo(std::vector<VPU::GroupInfo> &metricGroupsInfo)
                 metricGroupInfo.metricGroupName.c_str(),
                 ZET_MAX_METRIC_GROUP_NAME - 1);
         groupProperties.name[ZET_MAX_METRIC_GROUP_NAME - 1] = '\0';
+        strncpy(groupProperties.description,
+                metricGroupInfo.metricGroupDescription.c_str(),
+                ZET_MAX_METRIC_GROUP_DESCRIPTION - 1);
+        groupProperties.description[ZET_MAX_METRIC_GROUP_DESCRIPTION - 1] = '\0';
         groupProperties.samplingType = ZET_METRIC_GROUP_SAMPLING_TYPE_FLAG_EVENT_BASED |
                                        ZET_METRIC_GROUP_SAMPLING_TYPE_FLAG_TIME_BASED;
         groupProperties.domain = metricGroupInfo.domain;
@@ -568,8 +572,20 @@ void Device::loadMetricGroupsInfo(std::vector<VPU::GroupInfo> &metricGroupsInfo)
             properties.stype = ZET_STRUCTURE_TYPE_METRIC_PROPERTIES;
             strncpy(properties.name, counter.metricName.c_str(), ZET_MAX_METRIC_NAME - 1);
             properties.name[ZET_MAX_METRIC_NAME - 1] = '\0';
+            strncpy(properties.description,
+                    counter.metricDescription.c_str(),
+                    ZET_MAX_METRIC_DESCRIPTION - 1);
+            properties.description[ZET_MAX_METRIC_DESCRIPTION - 1] = '\0';
+            strncpy(properties.component,
+                    counter.component.c_str(),
+                    ZET_MAX_METRIC_COMPONENT - 1);
+            properties.component[ZET_MAX_METRIC_COMPONENT - 1] = '\0';
             properties.metricType = Metric::getMetricType(counter.metricType);
             properties.resultType = Metric::getValueType(counter.valueType);
+            strncpy(properties.resultUnits,
+                    counter.units.c_str(),
+                    ZET_MAX_METRIC_RESULT_UNITS - 1);
+            properties.resultUnits[ZET_MAX_METRIC_RESULT_UNITS - 1] = '\0';
 
             allocationSize += Metric::getMetricValueSize(counter.valueType);
 
