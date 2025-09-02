@@ -238,9 +238,9 @@ Config file requires to download any OpenVINO model. Command line to setup a
 `basic.yaml`:
 ```bash
 # Prepare the add_abc model in path pointed by basic.yaml
-mkdir -p models/add_abc
-curl -o models/add_abc/add_abc.xml https://raw.githubusercontent.com/openvinotoolkit/openvino/master/src/core/tests/models/ir/add_abc.xml
-touch models/add_abc/add_abc.bin
+mkdir -p models/
+curl -o models/add_abc.xml https://raw.githubusercontent.com/openvinotoolkit/openvino/master/src/core/tests/models/ir/add_abc.xml
+touch models/add_abc.bin
 
 # Run tests with add_abc.xml
 npu-umd-test --config=validation/umd-test/configs/basic.yaml

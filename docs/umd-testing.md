@@ -52,12 +52,20 @@ cmake --build build/ -j11 --target npu-umd-test
 ln -rsf ./build/bin/npu-umd-test npu-umd-test
 ```
 
-## Prepare a model
+## Prepare model set
 
 The NPU driver supports models in the OpenVINO IR format. OpenVINO allows to convert model from
 different frameworks, see [Conventional Model Preparation](https://docs.openvino.ai/2025/openvino-workflow/model-preparation.html) docs.
 
 The npu-umd-test is able to run tests with single model or with a set of models. The models have to be converted to the OpenVINO IR format.
+
+As first model we can add `add_abc.xml` from [overview.md](overview.md)
+```bash
+# Prepare the add_abc model in path pointed by basic.yaml
+mkdir -p models/
+curl -o models/add_abc.xml https://raw.githubusercontent.com/openvinotoolkit/openvino/master/src/core/tests/models/ir/add_abc.xml
+touch models/add_abc.bin
+```
 
 ### Example: Imagenet Classification Model
 
@@ -252,8 +260,26 @@ Run all tests from the config file:
 $ ./npu-umd-test --config=extend.yaml
 ```
 
+### Run additional tests using options
+
+The npu-umd-test comes with extra test cases:
+* Driver initialization tests that requires to be run in new process
+```bash
+./npu-umd-test --ze-init-tests
+```
+* GPU and NPU tests using Level Zero API. Requires [compute-runtime](https://github.com/intel/compute-runtime/releases) to be installed 
+```bash
+./npu-umd-test --gpu
+```
+* External memory tests using System DMA Heap. Requires access to /dev/dma_heap/system that is limited to root access in Ubuntu
+```bash
+sudo ./npu-umd-test --dma-heap
+```
+
 ### Reference test results
 
-|Platform|System|Test Result|Test Skipped|
-|:---:|:---:|:---:|:---|
-|[Meteor Lake](https://ark.intel.com/content/www/us/en/ark/products/codename/90353/products-formerly-meteor-lake.html)|Ubuntu 24.04 HWE 6.11.0-26-generic|X/X passed|X skipped|
+Table is filled with test results gathered using [v1.23.0 release](https://github.com/intel/linux-npu-driver/releases/tag/v1.23.0)
+
+|Platform|System|Command|Test Result|Test Skipped|
+|:---:|:---:|:---:|:---:|:---:|
+|[Meteor Lake](https://ark.intel.com/content/www/us/en/ark/products/codename/90353/products-formerly-meteor-lake.html)|Ubuntu 24.04 6.16 development kernel|`npu-umd-test --config=extend.yaml`|276/291 passed|15 skipped|
