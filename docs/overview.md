@@ -111,7 +111,7 @@ set, the `ZE_INTEL_NPU_LOGMASK` allows to target specific log group. The log
 group are listed in
 [umd/vpu_driver/source/utilities/log.hpp](../umd/vpu_driver/source/utilities/log.hpp#L19)
 
-```
+```bash
 # Set log level to INFO
 export ZE_INTEL_NPU_LOGLEVEL=INFO
 
@@ -147,7 +147,7 @@ and set "modularize" for `Intel NPU (Neural Processing Unit)`.
 <details>
 <summary>Finding the intel_vpu kernel module in the system</summary>
 
-```
+```bash
 # check if the intel_vpu exists is in the system
 modinfo intel_vpu
 
@@ -168,13 +168,13 @@ ls /dev/accel/accel0
 ## Building a standalone driver
 
 Install the required dependencies in Ubuntu:
-```
+```bash
 sudo apt update
 sudo apt install -y build-essential git git-lfs cmake python3
 ```
 
 Commands to build the driver:
-```
+```bash
 cd linux-npu-driver
 git submodule update --init --recursive
 
@@ -197,8 +197,8 @@ Compiler-in-Driver component from [NPU compiler repository](https://github.com/o
 OpenVINO runtime is required by compiler. About the dependencies for building OpenVINO,
 please check the [OpenVINO build document](https://github.com/openvinotoolkit/openvino/blob/master/docs/dev/build.md).
 
-To build a compiler from the driver repository the `ENABLE_NPU_COMPILER_BUILD` flag has to be set:
-```
+To build a compiler the `ENABLE_NPU_COMPILER_BUILD` flag has to be set:
+```bash
 cd linux-npu-driver
 git submodule update --init --recursive
 
@@ -226,7 +226,7 @@ The binary `npu-umd-test` is located in the build folder, ex. `build/bin/`.
 
 Command line to run functional tests (after driver installation):
 
-```
+```bash
 npu-umd-test
 ```
 
@@ -236,11 +236,11 @@ control the inference test content. Those tests require compiler in system.
 
 Config file requires to download any OpenVINO model. Command line to setup a
 `basic.yaml`:
-```
+```bash
 # Prepare the add_abc model in path pointed by basic.yaml
-mkdir -p models/add_abc
-curl -o models/add_abc/add_abc.xml https://raw.githubusercontent.com/openvinotoolkit/openvino/master/src/core/tests/models/ir/add_abc.xml
-touch models/add_abc/add_abc.bin
+mkdir -p models/
+curl -o models/add_abc.xml https://raw.githubusercontent.com/openvinotoolkit/openvino/master/src/core/tests/models/ir/add_abc.xml
+touch models/add_abc.bin
 
 # Run tests with add_abc.xml
 npu-umd-test --config=validation/umd-test/configs/basic.yaml
@@ -251,11 +251,46 @@ More information about config can be found in [validation/umd-test/configs](/val
 ## Troubleshooting
 
 <details>
+<summary>Device is not detectable</summary>
+
+To check if device is available the user can use `npu-umd-test` or `hello_query_device` from the OpenVINO sample applications.
+To debug missing NPU device, the `strace` allows to trace system calls that initalize the device.
+
+```bash
+# Record system calls using strace and npu-umd-test
+$ strace -o strace.log --trace=file ./build/bin/npu-umd-test
+...
+# Or using OpenVINO python API
+$ strace -o strace.log --trace=file python -c "from openvino import Core; print(Core().available_devices)"
+...
+
+# Check system calls that opens NPU libraries and device
+$ grep -E "(accel|libnpu_|libze_)" strace.log
+...
+# Check if OneApi Level Zero loader is found in system
+openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libze_loader.so.1", O_RDONLY|O_CLOEXEC) = 3
+....
+# Ingore libze_intel_vpu.so.1, this is legacy library
+openat(AT_FDCWD, "/usr/lib/x86_64-linux-gnu/libze_intel_vpu.so.1", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+...
+# Check if driver library is found
+openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libze_intel_npu.so.1", O_RDONLY|O_CLOEXEC) = 3
+...
+# Check if driver successfully open accel0. Check next section if failed
+openat(AT_FDCWD, "/dev/accel/accel0", O_RDWR|O_NOFOLLOW|O_CLOEXEC) = 3
+...
+# Check if compiler is found
+openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libnpu_driver_compiler.so", O_RDONLY|O_CLOEXEC) = 3
+...
+```
+</details>
+
+<details>
 <summary>Non-root access to the NPU device</summary>
 
 To access the NPU device, the user must be in the "render" or "video" group.
 A group depends on system configuration:
-```
+```bash
 # check user groups
 groups
 
@@ -271,7 +306,7 @@ but might not be available in your Linux distribution. See
 
 If setting the "render" group does not resolve the non-root access issue,
 this must be done by an administrator manually:
-```
+```bash
 # check device permissions
 ls -l /dev/accel/
 
@@ -286,23 +321,16 @@ $ ls -lah /dev/accel/accel0
 crw-rw---- 1 root render 261, 0 Jan 31 15:58 /dev/accel/accel0
 ```
 </details>
+
 <details>
 <summary>Compilation problem due to lack of memory</summary>
 
-The compilation may fail due to memory shortage. The recommendation is to
-use the Ninja generator instead of Unix Makefiles. If it does not help, please
+The compilation may fail due to memory shortage. The recommendation is to use the Ninja generator
+instead of Unix Makefiles and extending swap memory. If it does not help, please
 [file a new issue](https://github.com/intel/linux-npu-driver/issues/new).
 
-```
-# install Ninja
-sudo apt update
-sudo apt install -y ninja-build
-
-# remove the old build and create a new one
-rm build -rf
-cmake -B build -S . -G Ninja
-```
 </details>
+
 <details>
 <summary>Enable driver log using an environment variable</summary>
 
@@ -310,12 +338,12 @@ Valid logging levels are `ERROR`, `WARNING`, `INFO` (and `VERBOSE` for driver
 older than v1.5.0 release)
 
 Seting the logging level using the `ZE_INTEL_NPU_LOGLEVEL` environment variable:
-```
+```bash
 export ZE_INTEL_NPU_LOGLEVEL=<logging_level>
 ```
 
 Command to clear an exported value:
-```
+```bash
 unset ZE_INTEL_NPU_LOGLEVEL
 ```
 
@@ -323,13 +351,14 @@ Setting `ZE_INTEL_NPU_LOGMASK` allows to print specific log groups in driver.
 The log group are listed in
 [umd/vpu_driver/source/utilities/log.hpp](../umd/vpu_driver/source/utilities/log.hpp#L19)
 
-```
+```bash
 # Set log level to INFO to enable LOGMASK
 export ZE_INTEL_NPU_LOGLEVEL=INFO
 
 # Set log mask to only print from DEVICE, DRIVER and CACHE groups
 export ZE_INTEL_NPU_LOGMASK=$((1<<4|1<<3|1<<17))
 ```
+
 </details>
 
 <details>
@@ -338,7 +367,7 @@ export ZE_INTEL_NPU_LOGMASK=$((1<<4|1<<3|1<<17))
 The user can use different kernel and firmware combination for NPU device. The
 user might receive the following error message:
 
-```
+```bash
 ERROR! MAPPED_INFERENCE_VERSION is NOT compatible with the ELF Expected: 6.1.0 vs received: 7.0.0
 ```
 
@@ -346,9 +375,8 @@ It means that NPU compiler mismatches the NPU firmware. To fix this issue the
 user needs to upgrade the firmware. Firmware update should be done from
 driver repository using release tag that matches the NPU compiler:
 
-```
+```bash
 cmake -B build -S .
 cmake --install build/ --component fw-npu --prefix /
 ```
-
 </details>
