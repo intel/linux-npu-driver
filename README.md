@@ -45,3 +45,4 @@ You may obtain a copy of the license at: https://opensource.org/licenses/MIT
 * [OpenVINO™ AI Plugins for GIMP](https://github.com/intel/openvino-ai-plugins-gimp)
 * [Canonical brings GenAI to GIMP 3.0 with Intel® OpenVINO™ AI Plugins](https://discourse.ubuntu.com/t/canonical-brings-genai-to-gimp-3-0-with-intel-openvino-ai-plugins/54799)
 * [OpenVINO™ AI Plugins for Audacity*](https://github.com/intel/openvino-plugins-ai-audacity)
+* [Building chatbot on Intel® NPU](https://medium.com/openvino-toolkit/building-a-simple-chatbot-on-npu-a-step-by-step-guide-30257fb85ef3)
