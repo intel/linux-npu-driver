@@ -264,10 +264,10 @@ $ strace -o strace.log --trace=file ./build/bin/npu-umd-test
 $ strace -o strace.log --trace=file python -c "from openvino import Core; print(Core().available_devices)"
 ...
 
-# Check system calls that opens NPU libraries and device
+# Check system calls that open NPU libraries and device
 $ grep -E "(accel|libnpu_|libze_)" strace.log
 ...
-# Check if OneApi Level Zero loader is found in system
+# Check if the Level Zero loader is found in system
 openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libze_loader.so.1", O_RDONLY|O_CLOEXEC) = 3
 ....
 # Ingore libze_intel_vpu.so.1, this is legacy library
@@ -276,10 +276,10 @@ openat(AT_FDCWD, "/usr/lib/x86_64-linux-gnu/libze_intel_vpu.so.1", O_RDONLY|O_CL
 # Check if driver library is found
 openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libze_intel_npu.so.1", O_RDONLY|O_CLOEXEC) = 3
 ...
-# Check if driver successfully open accel0. Check next section if failed
+# Check if driver successfully opened accel0. If unsuccessful, check next section
 openat(AT_FDCWD, "/dev/accel/accel0", O_RDWR|O_NOFOLLOW|O_CLOEXEC) = 3
 ...
-# Check if compiler is found
+# Check if compiler was found
 openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libnpu_driver_compiler.so", O_RDONLY|O_CLOEXEC) = 3
 ...
 ```

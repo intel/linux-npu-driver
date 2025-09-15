@@ -31,7 +31,7 @@ $ npu-umd-test --gtest_filter=Device.*
 
 ## Build npu-umd-test
 
-The npu-umd-test are built together with the driver. The build process is described in the
+The npu-umd-test is built together with the driver. The build process is described in the
 [Installation Guide](overview.md). If driver is already installed, you can build the npu-umd-test
 tool separately:
 
@@ -61,7 +61,7 @@ The npu-umd-test is able to run tests with single model or with a set of models.
 
 As first model we can add `add_abc.xml` from [overview.md](overview.md)
 ```bash
-# Prepare the add_abc model in path pointed by basic.yaml
+# Prepare the add_abc model in the path indicated by basic.yaml
 mkdir -p models/
 curl -o models/add_abc.xml https://raw.githubusercontent.com/openvinotoolkit/openvino/master/src/core/tests/models/ir/add_abc.xml
 touch models/add_abc.bin
@@ -119,7 +119,7 @@ resized_image = cv2.resize(image, (224,224))
 cv2.imwrite("images/dog.bmp", resized_image)
 ```
 
-Check model prediction
+Check the model prediction
 ```python
 import openvino
 import numpy as np
@@ -168,7 +168,9 @@ $ ./npu-umd-test --config=extend.yaml --verbose */resnet50
 
 ### Example: Object Detection Model - Yolo
 
-The npu-umd-test does not supports output validation for object detection models. The npu-umd-test framework can still be used to run inference on these models. Below is an example of how to download and convert a YOLOv8 object detection model to OpenVINO IR format.
+The npu-umd-test does not support output validation for object detection models. The npu-umd-test
+framework can still be used to run inference on these models. Below is an example of downloading and
+converting a YOLOv8 object detection model to OpenVINO IR format.
 
 ```bash
 # Activate the same virtual environment created in the image classification example
@@ -207,11 +209,12 @@ EOF
 $ ./npu-umd-test --config=extend.yaml --verbose */yolov8s
 ```
 
-For more information about Ultralytics and OpenVINO integration check https://docs.ultralytics.com/integrations/openvino/
+For more information on Ultralytics and OpenVINO integration, please visit
+https://docs.ultralytics.com/integrations/openvino/
 
 ### Run tests
 
-There is multiple section in the npu-umd-test config file. All sections are described in the
+There are many sections in the npu-umd-test configuration file. All sections are described in the
 [../validation/umd-test/configs/README.md documentation](../validation/umd-test/configs/README.md).
 Below is an example of config file with models downloaded in previous section [Prepare a model](#prepare-a-model).
 
@@ -263,22 +266,22 @@ $ ./npu-umd-test --config=extend.yaml
 ### Run additional tests using options
 
 The npu-umd-test comes with extra test cases:
-* Driver initialization tests that requires to be run in new process
+* Driver initialization tests that require to be run in new process
 ```bash
 ./npu-umd-test --ze-init-tests
 ```
-* GPU and NPU tests using Level Zero API. Requires [compute-runtime](https://github.com/intel/compute-runtime/releases) to be installed 
+* GPU and NPU tests using Level Zero API. Require [compute-runtime](https://github.com/intel/compute-runtime/releases) to be installed 
 ```bash
 ./npu-umd-test --gpu
 ```
-* External memory tests using System DMA Heap. Requires access to /dev/dma_heap/system that is limited to root access in Ubuntu
+* External memory tests using System DMA Heap. Require access to /dev/dma_heap/system that is limited to root access in Ubuntu
 ```bash
 sudo ./npu-umd-test --dma-heap
 ```
 
 ### Reference test results
 
-Table is filled with test results gathered using [v1.23.0 release](https://github.com/intel/linux-npu-driver/releases/tag/v1.23.0)
+The table contains test results collected using [v1.23.0 release](https://github.com/intel/linux-npu-driver/releases/tag/v1.23.0)
 
 |Platform|System|Command|Test Result|Test Skipped|
 |:---:|:---:|:---:|:---:|:---:|
