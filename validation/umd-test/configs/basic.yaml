@@ -16,5 +16,5 @@ model_dir: models/
 graph_execution:
   # add_abc.xml can be copied from OpenVINO repository:
   # https://raw.githubusercontent.com/openvinotoolkit/openvino/master/src/core/tests/models/ir/add_abc.xml
-  - path: add_abc/add_abc.xml
+  - path: add_abc.xml
     flags: --inputs_precisions="A:fp16 B:fp16 C:fp16" --inputs_layouts="A:C B:C C:C" --outputs_precisions="Y:fp16" --outputs_layouts="Y:C"
