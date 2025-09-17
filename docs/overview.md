@@ -30,7 +30,7 @@ SPDX-License-Identifier: MIT
      │ User Mode Driver                    │   │ NPU compiler                           │    
      │                                     │   │                                        │    
      │        intel-level-zero-npu         ◀═══▶     intel-driver-compiler-npu         │    
-     │        (libze_intel_vpu.so)         │   │     (libnpu_driver_compiler.so)        │    
+     │        (libze_intel_npu.so)         │   │     (libnpu_driver_compiler.so)        │    
      │                                     │   │                                        │    
      └──────────────────▲──────────────────┘   └────────────────────────────────────────┘    
                         ╚════════════════════╗                                               
@@ -51,6 +51,15 @@ SPDX-License-Identifier: MIT
 
 ## Changelog
 
+<details>
+<summary>Driver library name change from libze_intel_vpu.so to libze_intel_npu.so (from v1.16.0)</summary>
+
+Starting from v1.16.0 release the driver library name has been changed from `libze_intel_vpu.so` to
+`libze_intel_npu.so`. The old library name is still supported for backward compatibility in Level
+Zero loader, but it is recommended to use the new library name. Using an older version of Level Zero
+than v1.17.17 requires to keep the old library name.
+
+</details>
 
 <details>
 <summary>zeMutableCommandList extension implementation (from v1.6.0)</summary>
@@ -165,6 +174,14 @@ ls /dev/accel/accel0
 ```
 </details>
 
+## Driver package installation
+
+The driver binary package and installation process can be found in the [release
+page](https://github.com/intel/linux-npu-driver/releases). The list of disbributed packages:
+* intel-fw-npu: firmware binaries
+* intel-level-zero-npu: user space driver library with name libze_intel_npu.so
+* intel-driver-compiler-npu: NPU compiler library with name libnpu_driver_compiler.so
+
 ## Building a standalone driver
 
 Install the required dependencies in Ubuntu:
@@ -254,7 +271,7 @@ More information about config can be found in [validation/umd-test/configs](/val
 <summary>Device is not detectable</summary>
 
 To check if device is available the user can use `npu-umd-test` or `hello_query_device` from the OpenVINO sample applications.
-To debug missing NPU device, the `strace` allows to trace system calls that initalize the device.
+To debug missing NPU device, the `strace` allows to trace system calls that initalize the device. Run test command with `strace`:
 
 ```bash
 # Record system calls using strace and npu-umd-test
@@ -263,14 +280,21 @@ $ strace -o strace.log --trace=file ./build/bin/npu-umd-test
 # Or using OpenVINO python API
 $ strace -o strace.log --trace=file python -c "from openvino import Core; print(Core().available_devices)"
 ...
+```
+> [!WARNING]
+> After v1.16.0 release the driver library has a libze_intel_npu.so.1 name. If you are using
+> libze_intel_vpu.so.1 by mistake, please remove it from system
 
+Analyze the `strace.log` file for system calls that open NPU libraries and device:
+
+```bash
 # Check system calls that open NPU libraries and device
 $ grep -E "(accel|libnpu_|libze_)" strace.log
 ...
 # Check if the Level Zero loader is found in system
 openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libze_loader.so.1", O_RDONLY|O_CLOEXEC) = 3
 ....
-# Ingore libze_intel_vpu.so.1, this is legacy library
+# libze_intel_vpu.so.1 should not be used after v1.16.0 release, consider to remove it if it is in the system
 openat(AT_FDCWD, "/usr/lib/x86_64-linux-gnu/libze_intel_vpu.so.1", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
 ...
 # Check if driver library is found

@@ -12,7 +12,8 @@ This document provides a description how to test the NPU driver using npu-umd-te
 
 ## Prerequisites
 
-Install the driver and compile the npu-umd-test tool as described in the [Installation Guide](overview.md).
+Install the driver and compile the npu-umd-test tool as described in the [Installation
+Guide](overview.md#driver-package-installation).
 
 Check if the driver is loaded and the device is visible in the system:
 
@@ -29,14 +30,14 @@ $ ls /dev/accel/
 $ npu-umd-test --gtest_filter=Device.*
 ```
 
-## Build npu-umd-test
+## Prepare npu-umd-test
 
-The npu-umd-test is built together with the driver. The build process is described in the
-[Installation Guide](overview.md). If driver is already installed, you can build the npu-umd-test
-tool separately:
+The npu-umd-test is not provided in release packages. It has to be built separately. The build
+process is described in the [Installation Guide](overview.md#building-a-standalone-driver). If
+driver is already installed, you can build the npu-umd-test target only:
 
 ```bash
-# Prepare a repository
+# Download a repository
 git clone https://github.com/intel/linux-npu-driver.git
 cd linux-npu-driver/
 git submodule update --init --recursive
@@ -52,14 +53,16 @@ cmake --build build/ -j11 --target npu-umd-test
 ln -rsf ./build/bin/npu-umd-test npu-umd-test
 ```
 
-## Prepare model set
+## Prepare OpenVINO IR model set
 
 The NPU driver supports models in the OpenVINO IR format. OpenVINO allows to convert model from
-different frameworks, see [Conventional Model Preparation](https://docs.openvino.ai/2025/openvino-workflow/model-preparation.html) docs.
+different frameworks, see [Conventional Model
+Preparation](https://docs.openvino.ai/2025/openvino-workflow/model-preparation.html) docs.
 
-The npu-umd-test is able to run tests with single model or with a set of models. The models have to be converted to the OpenVINO IR format.
+The npu-umd-test is able to run tests with a set of models. The models have to be converted to the
+OpenVINO IR format.
 
-As first model we can add `add_abc.xml` from [overview.md](overview.md)
+First model we can add `add_abc.xml` from [overview.md](overview.md)
 ```bash
 # Prepare the add_abc model in the path indicated by basic.yaml
 mkdir -p models/
@@ -67,10 +70,11 @@ curl -o models/add_abc.xml https://raw.githubusercontent.com/openvinotoolkit/ope
 touch models/add_abc.bin
 ```
 
-### Example: Imagenet Classification Model
+### Imagenet Classification Model - ResNet-50
 
-The npu-umd-test allows to test output of image classification model trained on ImageNet dataset. Below is an
-example of how to download and convert a ResNet-50 model from Pytorch to OpenVINO IR format.
+The npu-umd-test allows to test output of image classification model trained on ImageNet dataset.
+Below is an example of how to download and convert a ResNet-50 model from Pytorch to OpenVINO IR
+format.
 
 ```bash
 python3 -m venv openvino-venv
@@ -80,7 +84,8 @@ pip install --upgrade pip
 pip install --extra-index-url=https://download.pytorch.org/whl/cpu openvino torch torchvision opencv-python
 ```
 
-Pick up ResNet-50 from PyTorch and apply image prepostprocessing using OpenVINO
+Pick up ResNet-50 from PyTorch and apply image prepostprocessing using OpenVINO:
+
 ```python
 import openvino
 import os
@@ -104,7 +109,8 @@ ov_model = ppp.build()
 openvino.save_model(ov_model, "models/resnet50.xml")
 ```
 
-Prepare an image
+Prepare an image, download and resize it to 224x224 using OpenCV:
+
 ```python
 import urllib
 import cv2
@@ -119,7 +125,8 @@ resized_image = cv2.resize(image, (224,224))
 cv2.imwrite("images/dog.bmp", resized_image)
 ```
 
-Check the model prediction
+Check the model prediction:
+
 ```python
 import openvino
 import numpy as np
@@ -144,13 +151,12 @@ print('-' * len(header))
 for class_id in top_10:
     probability_indent = ' ' * (len('class_id') - len(str(class_id)) + 1)
     print(f'{class_id}{probability_indent}{probs[class_id]:.7f}')
-
-print('')
 ```
 
 Add the model and the image to the new npu-umd-test config file:
+
 ```bash
-$ cat <<EOF > extend.yaml
+$ cat <<EOF > resnet_config.yaml
 
 model_dir: models/
 image_dir: images/
@@ -161,16 +167,20 @@ image_classification_imagenet:
     in: [ dog.bmp ]
     class_index: [ 258 ]
 EOF
-
-# Test the change
-$ ./npu-umd-test --config=extend.yaml --verbose */resnet50
 ```
 
-### Example: Object Detection Model - Yolo
+Test the image classification model:
+
+```bash
+# Test the change
+$ ./npu-umd-test --config=resnet_config.yaml --verbose */resnet50
+```
+
+### Object Detection Model - Yolo
 
 The npu-umd-test does not support output validation for object detection models. The npu-umd-test
-framework can still be used to run inference on these models. Below is an example of downloading and
-converting a YOLOv8 object detection model to OpenVINO IR format.
+framework can still be used to run inference on these models, but without accuracy tests. Let's
+download and convert a YOLOv8 object detection model to OpenVINO IR format:
 
 ```bash
 # Activate the same virtual environment created in the image classification example
@@ -189,10 +199,10 @@ os.rename("yolov8s_openvino_model/yolov8s.xml", "models/yolov8s.xml")
 os.rename("yolov8s_openvino_model/yolov8s.bin", "models/yolov8s.bin")
 ```
 
-Add the object detection model to your config file:
+Add the object detection model to config file:
 
 ```bash
-$ cat <<EOF > extend.yaml
+$ cat <<EOF > yolo_config.yaml
 
 model_dir: models/
 image_dir: images/
@@ -204,9 +214,12 @@ graph_execution:
     # TODO: Fix in the next release after v1.23.0
     flags: "--config"
 EOF
+```
 
-# Test the object detection model
-$ ./npu-umd-test --config=extend.yaml --verbose */yolov8s
+Test the object detection model:
+
+```bash
+$ ./npu-umd-test --config=yolo_config.yaml --verbose */yolov8s
 ```
 
 For more information on Ultralytics and OpenVINO integration, please visit
@@ -216,9 +229,11 @@ https://docs.ultralytics.com/integrations/openvino/
 
 There are many sections in the npu-umd-test configuration file. All sections are described in the
 [../validation/umd-test/configs/README.md documentation](../validation/umd-test/configs/README.md).
-Below is an example of config file with models downloaded in previous section [Prepare a model](#prepare-a-model).
+Let's set up a config file with models downloaded in previous section [Prepare a
+model](#prepare-a-model). New configuration file covers all available test sections:
 
 ```yaml
+# filename: extend.yaml
 model_dir: models/
 image_dir: images/
 
@@ -257,7 +272,7 @@ multi_inference:
       exec_time_in_secs: 10
 ```
 
-Run all tests from the config file:
+Run tests with the new config file:
 
 ```bash
 $ ./npu-umd-test --config=extend.yaml
@@ -266,15 +281,17 @@ $ ./npu-umd-test --config=extend.yaml
 ### Run additional tests using options
 
 The npu-umd-test comes with extra test cases:
-* Driver initialization tests that require to be run in new process
+* Driver initialization tests that require to be run in new process.
 ```bash
 ./npu-umd-test --ze-init-tests
 ```
-* GPU and NPU tests using Level Zero API. Require [compute-runtime](https://github.com/intel/compute-runtime/releases) to be installed 
+* GPU and NPU tests using Level Zero API. Require
+  [compute-runtime](https://github.com/intel/compute-runtime/releases) to be installed.
 ```bash
 ./npu-umd-test --gpu
 ```
-* External memory tests using System DMA Heap. Require access to /dev/dma_heap/system that is limited to root access in Ubuntu
+* External memory tests using System DMA Heap. Require access to /dev/dma_heap/system that is
+  limited to root access in Ubuntu.
 ```bash
 sudo ./npu-umd-test --dma-heap
 ```
