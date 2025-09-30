@@ -23,12 +23,12 @@
 /*
  * Minor version changes when API backward compatibility is preserved.
  */
-#define VPU_JSM_API_VER_MINOR 32
+#define VPU_JSM_API_VER_MINOR 33
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
  */
-#define VPU_JSM_API_VER_PATCH 8
+#define VPU_JSM_API_VER_PATCH 0
 
 /*
  * Index in the API version table
@@ -76,8 +76,11 @@
 #define VPU_JSM_STATUS_PREEMPTED_MID_INFERENCE 0xDU
 /* Job status returned when the job was preempted mid-command */
 #define VPU_JSM_STATUS_PREEMPTED_MID_COMMAND 0xDU
+/* Range of status codes that require engine reset */
+#define VPU_JSM_STATUS_ENGINE_RESET_REQUIRED_MIN 0xEU
 #define VPU_JSM_STATUS_MVNCI_CONTEXT_VIOLATION_HW 0xEU
 #define VPU_JSM_STATUS_MVNCI_PREEMPTION_TIMED_OUT 0xFU
+#define VPU_JSM_STATUS_ENGINE_RESET_REQUIRED_MAX 0x1FU
 
 /*
  * Host <-> VPU IPC channels.
@@ -406,7 +409,10 @@ struct vpu_hws_native_fence_log_header {
         struct {
             /** Index of the first free entry in buffer. */
             uint32_t first_free_entry_idx;
-            /** Incremented each time NPU wraps around the buffer to write next entry. */
+            /**
+             * Incremented whenever the NPU wraps around the buffer and writes
+             * to the first entry again.
+             */
             uint32_t wraparound_count;
         };
         /** Field allowing atomic update of both fields above. */

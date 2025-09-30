@@ -323,7 +323,7 @@ struct VPU_ALIGNED_STRUCT(8) VpuManagedMappedInferenceInfo {
     uint64_t ref_info_base_media;
 };
 
-static_assert(sizeof(VpuManagedMappedInferenceInfo) == 392, "BarrierReferenceMap size != 392");
+static_assert(sizeof(VpuManagedMappedInferenceInfo) == 392, "VpuManagedMappedInferenceInfo size != 392");
 static_assert(offsetof(VpuManagedMappedInferenceInfo, ref_info_base_vars) % 8 == 0, "Alignment error");
 
 /**

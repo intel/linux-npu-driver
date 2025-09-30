@@ -52,8 +52,9 @@ constexpr uint32_t VPU_BARRIERS_PER_GROUP = 16;
 constexpr uint32_t VPU_DPU_PER_TILE = 1;
 constexpr uint32_t VPU_SNN_PER_TILE = VPU_DPU_PER_TILE;
 constexpr uint32_t VPU_SNN_TOTAL = VPU_SNN_PER_TILE * VPU_MAX_TILES;
-constexpr uint32_t VPU_MAX_DMA_ENGINES = 2;
 constexpr uint32_t VPU_AS_PER_TILE = 2;
+// On NPU4, there is only one physical DMA engine, but it is logically split into two interfaces.
+constexpr uint32_t VPU_MAX_DMA_ENGINES = 2;
 constexpr uint32_t VPU_AS_TOTAL = VPU_AS_PER_TILE * VPU_MAX_TILES;
 
 #pragma pack(push, 1)

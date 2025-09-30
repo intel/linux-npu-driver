@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (c) 2022-2023, Intel Corporation.
+ * Copyright (c) 2022-2025, Intel Corporation.
  */
 
 #ifndef VPU_NCE_HW_40XX_H
@@ -434,7 +434,7 @@ typedef struct {
             uint32_t ppe_clk_en : 1;
             uint32_t odu_stat_en : 1;
             uint32_t idu_stat_en : 1;
-            uint32_t reserved_1 : 1;
+            uint32_t noc_clk_en : 1;
             uint32_t odu_stat_clr_mode : 1;
             uint32_t idu_stat_clr_mode : 1;
             uint32_t se_only_en : 1;
