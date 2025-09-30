@@ -1,14 +1,6 @@
-# Copyright 2022-2025 Intel Corporation.
+# Copyright (C) 2022-2025 Intel Corporation
 #
-# This software and the related documents are Intel copyrighted materials, and
-# your use of them is governed by the express license under which they were
-# provided to you ("License"). Unless the License provides otherwise, you may
-# not use, modify, copy, publish, distribute, disclose or transmit this
-# software or the related documents without Intel's prior written permission.
-#
-# This software and the related documents are provided as is, with no express
-# or implied warranties, other than those that are expressly stated in
-# the License.
+# SPDX-License-Identifier: MIT
 
 include(compiler_source.cmake)
 
@@ -25,54 +17,91 @@ set(NPU_COMPILER_PACKAGE_DIR ${NPU_COMPILER_INSTALL_PREFIX}/cid)
 
 include(ExternalProject)
 
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D CMAKE_BUILD_TYPE=Release")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D CMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D BUILD_COMPILER_FOR_DRIVER=ON")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D BUILD_SHARED_LIBS=OFF")
+# CLANG_FORMAT and NCC_STYLE is set to OFF to avoid LLVMDemangle doubled target issue
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_CLANG_FORMAT=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_CLANG_TIDY=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_NCC_STYLE=OFF")
+# Copied from "how_to_build_driver_compiler" document
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_AUTO=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_AUTO_BATCH=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_BLOB_DUMP=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_FUNCTIONAL_TESTS=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_HETERO=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_INTEL_CPU=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_INTEL_GPU=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_JS=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_MULTI=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_INTEL_NPU=ON")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_INTEL_NPU_INTERNAL=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_INTEL_NPU_PROTOPIPE=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_OV_IR_FRONTEND=ON")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_OV_JAX_FRONTEND=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_OV_ONNX_FRONTEND=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_OV_PADDLE_FRONTEND=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_OV_PYTORCH_FRONTEND=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_OV_TF_FRONTEND=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_OV_TF_LITE_FRONTEND=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_PROXY=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_SAMPLES=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_TBBBIND_2_5=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_TEMPLATE=OFF")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_TESTS=OFF")
+# WA in case libgflags is installed in system
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D gflags_DIR=${CMAKE_CURRENT_SOURCE_DIR}/openvino_modules")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D OPENVINO_EXTRA_MODULES=${NPU_COMPILER_SOURCE_DIR}")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D OUTPUT_ROOT=${NPU_COMPILER_BINARY_DIR}")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D THREADING=${THREADING}")
+
+if (ANDROID)
+  # First build native tools required for NPU compiler
+  set(NPU_COMPILER_NATIVE_TOOLS_BUILD npu_compiler_native_tools_build)
+  set(NPU_COMPILER_NATIVE_TOOLS_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/build_npu_compiler_native_tools)
+
+  ExternalProject_Add(
+    ${NPU_COMPILER_NATIVE_TOOLS_BUILD}
+    DOWNLOAD_COMMAND ""
+    DEPENDS npu_compiler_source ${NPU_COMPILER_BUILD_DEPENDS}
+    SOURCE_DIR ${NPU_COMPILER_OPENVINO_SOURCE_DIR}
+    BINARY_DIR ${NPU_COMPILER_NATIVE_TOOLS_BINARY_DIR}
+    CMAKE_ARGS
+      ${NPU_COMPILER_CMAKE_ARGS}
+    BUILD_COMMAND
+      ${CMAKE_COMMAND}
+        --build ${NPU_COMPILER_NATIVE_TOOLS_BINARY_DIR}
+        --target npureg-tblgen mlir-headers mlir-generic-headers mlir-linalg-ods-yaml-gen flatc
+        --parallel ${PARALLEL_PROCESSES}
+    INSTALL_COMMAND
+      mkdir -p ${NPU_COMPILER_BINARY_DIR}/build-modules/npu_compiler/thirdparty/llvm-project/llvm/NATIVE &&
+      cp -r ${NPU_COMPILER_NATIVE_TOOLS_BINARY_DIR}/build-modules/npu_compiler/thirdparty/llvm-project/llvm/bin ${NPU_COMPILER_BINARY_DIR}/build-modules/npu_compiler/thirdparty/llvm-project/llvm/NATIVE/
+    BYPRODUCTS
+      ${NPU_COMPILER_BINARY_DIR}/bin/intel64/Release/flatc
+      ${NPU_COMPILER_BINARY_DIR}/bin/intel64/Release/npureg-tblgen
+  )
+
+  # Android specific settings
+  list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ANDROID_ABI=${ANDROID_ABI}")
+  list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ANDROID_PLATFORM=${ANDROID_PLATFORM}")
+  list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ANDROID_STL=${ANDROID_STL}")
+  list(APPEND NPU_COMPILER_CMAKE_ARGS "-D CMAKE_CXX_FLAGS_INIT='-frtti'")
+endif()
+
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
+
 ExternalProject_Add(
   npu_compiler_build
   DOWNLOAD_COMMAND ""
-  DEPENDS npu_compiler_source ${NPU_COMPILER_BUILD_DEPENDS}
+  DEPENDS npu_compiler_source ${NPU_COMPILER_BUILD_DEPENDS} ${NPU_COMPILER_NATIVE_TOOLS_BUILD}
   SOURCE_DIR ${NPU_COMPILER_OPENVINO_SOURCE_DIR}
   BINARY_DIR ${NPU_COMPILER_BINARY_DIR}
   CMAKE_ARGS
-      -D CMAKE_BUILD_TYPE=Release
-      -D CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
-      -D CMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}
-      -D BUILD_COMPILER_FOR_DRIVER=ON
-      -D BUILD_SHARED_LIBS=OFF
-      # CLANG_FORMAT and NCC_STYLE is set to OFF to avoid LLVMDemangle doubled target issue
-      -D ENABLE_CLANG_FORMAT=OFF
-      -D ENABLE_CLANG_TIDY=OFF
-      -D ENABLE_NCC_STYLE=OFF
-      # Copied from "how_to_build_driver_compiler" document
-      -D ENABLE_AUTO=OFF
-      -D ENABLE_AUTO_BATCH=OFF
-      -D ENABLE_BLOB_DUMP=OFF
-      -D ENABLE_FUNCTIONAL_TESTS=OFF
-      -D ENABLE_HETERO=OFF
-      -D ENABLE_INTEL_CPU=OFF
-      -D ENABLE_INTEL_GPU=OFF
-      -D ENABLE_JS=OFF
-      -D ENABLE_MULTI=OFF
-      -D ENABLE_INTEL_NPU_PROTOPIPE=OFF
-      -D ENABLE_OV_IR_FRONTEND=ON
-      -D ENABLE_OV_JAX_FRONTEND=OFF
-      -D ENABLE_OV_ONNX_FRONTEND=OFF
-      -D ENABLE_OV_PADDLE_FRONTEND=OFF
-      -D ENABLE_OV_PYTORCH_FRONTEND=OFF
-      -D ENABLE_OV_TF_FRONTEND=OFF
-      -D ENABLE_OV_TF_LITE_FRONTEND=OFF
-      -D ENABLE_PROXY=OFF
-      -D ENABLE_SAMPLES=OFF
-      -D ENABLE_TBBBIND_2_5=OFF
-      -D ENABLE_TEMPLATE=OFF
-      -D ENABLE_TESTS=OFF
-      # WA in case libgflags is installed in system
-      -D gflags_DIR=${CMAKE_CURRENT_SOURCE_DIR}/openvino_modules
-      -D OPENVINO_EXTRA_MODULES=${NPU_COMPILER_SOURCE_DIR}
-      -D OUTPUT_ROOT=${NPU_COMPILER_BINARY_DIR}
-      -D THREADING=${THREADING}
+    ${NPU_COMPILER_CMAKE_ARGS}
   BUILD_COMMAND
     ${CMAKE_COMMAND}
       --build ${NPU_COMPILER_BINARY_DIR}
-      --config Release
       --target compilerTest profilingTest vpuxCompilerL0Test loaderTest
       --parallel ${PARALLEL_PROCESSES}
   INSTALL_COMMAND
