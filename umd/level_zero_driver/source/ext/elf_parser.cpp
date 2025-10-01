@@ -77,26 +77,29 @@ class DriverBufferManager : public elf::BufferManager {
             buffSpecs.procFlags);
 
         auto range = getBufferType(buffSpecs.procFlags);
-        if (buffSpecs.isSharable() && range == VPU::VPUBufferObject::Type::WriteCombineDma &&
-            buffSpecs.size > 0) {
+        // If zero-sized buffer is requested, return only NPU address from required range. Use
+        // unmappable allocation to quickly deallocate buffer at function exit
+        if (buffSpecs.size == 0) {
+            constexpr size_t allocSize = 1;
+            auto bo =
+                ctx->createUntrackedBufferObject(allocSize,
+                                                 VPU::VPUBufferObject::convertToUnmappable(range));
+            VPUX_ELF_THROW_WHEN(bo == nullptr, elf::AllocError, "Failed to get zero-sized buffer");
+
+            LOG(GRAPH, "Zero-sized buffer, returning only vpu address: %#lx", bo->getVPUAddr());
+            return elf::DeviceBuffer(nullptr, bo->getVPUAddr(), buffSpecs.size);
+        }
+
+        // If buffer is sharable, return empty DeviceBuffer. The buffer will be added on submission
+        if (buffSpecs.isSharable() && range == VPU::VPUBufferObject::Type::WriteCombineDma) {
             LOG(GRAPH, "Shared scratch buffer size: %lu", buffSpecs.size);
             sharedScratchSize = buffSpecs.size;
             ctx->scratchCachePreload(buffSpecs.size);
-            // Return empty scratch buffer, it will be added in updateSharedScratchBuffers
             return elf::DeviceBuffer();
         }
 
-        size_t size = buffSpecs.size;
-        if (size == 0) {
-            LOG(GRAPH, "WA for buffSpecs.size == 0 -> set size to 1");
-            size = 1;
-        }
-
-        auto bo = ctx->createUntrackedBufferObject(size, range);
-        if (bo == nullptr) {
-            LOG_E("Failed to allocate the memory");
-            return elf::DeviceBuffer();
-        }
+        auto bo = ctx->createUntrackedBufferObject(buffSpecs.size, range);
+        VPUX_ELF_THROW_WHEN(bo == nullptr, elf::AllocError, "Failed to allocate device buffer");
 
         LOG(GRAPH,
             "Allocated: cpu_addr: %p, vpu_addr: %#lx, size: %#lx",
@@ -107,10 +110,7 @@ class DriverBufferManager : public elf::BufferManager {
         void *ptr = bo->getBasePointer();
         const std::lock_guard<std::mutex> lock(mtx);
         auto [it, success] = tracedElfParserBuffers.emplace(ptr, std::move(bo));
-        if (!success) {
-            LOG_E("Failed to trace elf parser buffer");
-            return elf::DeviceBuffer();
-        }
+        VPUX_ELF_THROW_WHEN(!success, elf::AllocError, "Failed to trace new device buffer");
 
         return elf::DeviceBuffer(it->second->getBasePointer(),
                                  it->second->getVPUAddr(),
@@ -646,7 +646,6 @@ bool ElfParser::getArgumentProperties(std::vector<ze_graph_argument_properties_3
         prop.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES;
         prop.type = ZE_GRAPH_ARGUMENT_TYPE_INPUT;
 
-        // TODO: Add support for quantization parameters (EISW-72376)
         prop.quantReverseScale = 1.f;
         prop.quantZeroPoint = 0;
 
@@ -667,7 +666,6 @@ bool ElfParser::getArgumentProperties(std::vector<ze_graph_argument_properties_3
         prop.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES;
         prop.type = ZE_GRAPH_ARGUMENT_TYPE_OUTPUT;
 
-        // TODO: Add support for quantization parameters (EISW-72376)
         prop.quantReverseScale = 0.f;
         prop.quantZeroPoint = 0;
 
@@ -925,18 +923,18 @@ ElfParser::createInferenceExecuteCommand(const std::vector<const void *> &inputP
     bos.push_back(std::move(bo));
 
     for (const auto &buffer : cmdHpi->getAllocatedBuffers()) {
+        // Skip not allocated buffers
         if (buffer.size() == 0) {
+            continue;
+        }
+
+        // SharedScratchBuffer does not set the cpu address
+        if (buffer.cpu_addr() == nullptr && buffer.size() == getSharedScratchSize()) {
             continue;
         }
 
         auto bo = findBuffer(buffer.cpu_addr());
         if (bo == nullptr) {
-            // TODO: Shared scratch buffer is not allocated by DriverBufferManager.
-            // It is possible that there are two buffers with same size. Consider to
-            // add a better check for shared scratch buffer
-            if (buffer.size() == getSharedScratchSize())
-                continue;
-
             LOG_E("Failed to find a buffer in tracked memory");
             return nullptr;
         }

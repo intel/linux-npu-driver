@@ -28,6 +28,7 @@ class VPUBufferObject {
         WriteCombineFw = DRM_IVPU_BO_WC | DRM_IVPU_BO_MAPPABLE,
         WriteCombineFwUnmappable = DRM_IVPU_BO_WC,
         WriteCombineShave = DRM_IVPU_BO_WC | DRM_IVPU_BO_MAPPABLE | DRM_IVPU_BO_HIGH_MEM,
+        WriteCombineShaveUnmappable = DRM_IVPU_BO_WC | DRM_IVPU_BO_HIGH_MEM,
         WriteCombineDma = DRM_IVPU_BO_WC | DRM_IVPU_BO_MAPPABLE | DRM_IVPU_BO_DMA_MEM,
         WriteCombineDmaUnmappable = DRM_IVPU_BO_WC | DRM_IVPU_BO_DMA_MEM,
         ImportedMemory = 0,
@@ -158,6 +159,21 @@ class VPUBufferObject {
      */
     bool exportToFd(int32_t &fd);
     uint64_t getId() const { return id; }
+
+    static VPUBufferObject::Type convertDmaToShaveRange(VPUBufferObject::Type type) {
+        auto t = static_cast<int>(type);
+        if (!(t & DRM_IVPU_BO_DMA_MEM)) {
+            return type;
+        }
+
+        t &= ~DRM_IVPU_BO_DMA_MEM;
+        t |= DRM_IVPU_BO_HIGH_MEM;
+        return static_cast<VPUBufferObject::Type>(t);
+    }
+
+    static VPUBufferObject::Type convertToUnmappable(VPUBufferObject::Type type) {
+        return static_cast<VPUBufferObject::Type>(static_cast<int>(type) & ~DRM_IVPU_BO_MAPPABLE);
+    }
 
   private:
     const VPUDriverApi &drvApi;
