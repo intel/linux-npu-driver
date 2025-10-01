@@ -103,11 +103,44 @@ class InferenceRequest {
         return ret;
     }
 
+    bool validateOutput(const std::vector<char> &reference) {
+        if (associatedOutput.empty())
+            return true;
+
+        if (reference.size() !=
+            static_cast<size_t>(
+                std::accumulate(associatedOutput.begin(),
+                                associatedOutput.end(),
+                                0,
+                                [](size_t sum, const auto &pair) { return sum + pair.second; }))) {
+            return false;
+        }
+
+        const char *referenceData = reference.data();
+        for (const auto &output : associatedOutput) {
+            if (memcmp(output.first, referenceData, output.second) != 0) {
+                return false;
+            }
+            referenceData += output.second;
+        }
+
+        return true;
+    }
+
+    void clearOutput() {
+        for (const auto &output : associatedOutput) {
+            if (output.first != nullptr) {
+                memset(output.first, 0, output.second);
+            }
+        }
+    }
+
   public:
     ze_command_queue_handle_t queue = nullptr;
     ze_command_list_handle_t list = nullptr;
     ze_fence_handle_t fence = nullptr;
     double latencyMs = 0.f;
+    std::vector<std::pair<void *, size_t>> associatedOutput;
 
   private:
     zeScope::SharedPtr<ze_command_queue_handle_t> scopedQueue;
@@ -398,6 +431,35 @@ class Graph {
         }
     }
 
+    void setInput(const std::vector<char> &networkInput) {
+        ASSERT_EQ(networkInput.size(), std::accumulate(inputSize.begin(), inputSize.end(), 0u));
+        for (size_t i = 0; i < inputSize.size(); ++i) {
+            ASSERT_GT(inputSize[i], 0u);
+            memcpy(inArgs[i],
+                   networkInput.data() +
+                       std::accumulate(inputSize.begin(), inputSize.begin() + i, 0u),
+                   inputSize[i]);
+        }
+    }
+
+    void getCopyOfInput(std::vector<char> &networkInput) {
+        networkInput.clear();
+        for (size_t i = 0; i < inputSize.size(); ++i) {
+            networkInput.insert(networkInput.end(),
+                                static_cast<char *>(inArgs[i]),
+                                static_cast<char *>(inArgs[i]) + inputSize[i]);
+        }
+    }
+
+    void getCopyOfOutput(std::vector<char> &networkOutput) {
+        networkOutput.clear();
+        for (size_t i = 0; i < outputSize.size(); ++i) {
+            networkOutput.insert(networkOutput.end(),
+                                 static_cast<char *>(outArgs[i]),
+                                 static_cast<char *>(outArgs[i]) + outputSize[i]);
+        }
+    }
+
     void copyImageToInputArgument(void *dst) {
         if (dst == nullptr) {
             FAIL() << "Destination pointer is null";
@@ -528,6 +590,9 @@ class Graph {
         // Initialization is done in setUp to take advantage of ASSERT_*
         infer->setUpCommandQueue(hContext, hDevice);
         infer->setUpCommandList(hContext, hDevice, handle, graphDDI);
+        for (size_t i = 0; i < outArgs.size(); i++) {
+            infer->associatedOutput.push_back({outArgs[i], outputSize[i]});
+        }
         return infer;
     }
 
@@ -538,6 +603,10 @@ class Graph {
         // Initialization is done in setUp to take advantage of ASSERT_*
         infer->setUpCommandList(hContext, hDevice, handle, graphDDI);
         infer->setUpFence(hContext, hDevice);
+        for (size_t i = 0; i < outArgs.size(); i++) {
+            infer->associatedOutput.push_back({outArgs[i], outputSize[i]});
+        }
+
         return infer;
     }
 

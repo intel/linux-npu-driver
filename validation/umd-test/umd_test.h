@@ -21,6 +21,7 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <unistd.h>
 #include <vector>
 #include <yaml-cpp/yaml.h>
 
@@ -57,9 +58,10 @@ void PrintTo(const ze_result_t &result, std::ostream *os);
         SKIP_("Test is not supported in ChromeOS")         \
     }
 
-#define SKIP_NEEDS_SYSFS_FILE(x)                                          \
-    if (!isFileAvailableInSysFs(x)) {                                     \
-        SKIP_("Test is not supported because " x " is missing in SysFs"); \
+#define SKIP_NEEDS_SYSFS_FILE(x)                                                   \
+    if (!canReadFromSysFsFile(x)) {                                                \
+        SKIP_("Test is not supported because " x                                   \
+              " is missing in SysFs or does not have the appropriate permission"); \
     }
 
 #define SKIP_HARDENING(msg)                \
@@ -113,15 +115,27 @@ inline std::string getDeviceSysFsDirectory() {
     return path;
 }
 
-inline bool isFileAvailableInSysFs(const std::string &filename) {
+inline bool canReadFromSysFsFile(const std::string &filename) {
     std::filesystem::path deviceSysFs = getDeviceSysFsDirectory();
     if (deviceSysFs.empty()) {
         TRACE("WARNING: No SysFs available in system\n");
         return false;
     }
 
+    std::filesystem::path filePath = deviceSysFs / filename;
     std::error_code ec;
-    return std::filesystem::exists(deviceSysFs / filename, ec);
+
+    if (!std::filesystem::exists(filePath, ec)) {
+        return false;
+    }
+
+    std::string file = filePath.generic_string();
+    int fd = access(file.c_str(), R_OK);
+    if (fd == -1) {
+        return false;
+    }
+
+    return true;
 }
 
 class UmdTest : public ::testing::Test {

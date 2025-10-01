@@ -857,7 +857,8 @@ using PatternType = std::variant<uint8_t, uint16_t, uint32_t>;
 
 class CommandMemoryFill : public Command, public ::testing::WithParamInterface<PatternType> {
   public:
-    const size_t size = 12345u;
+    /* The driver split memfill commands into multiple operations if size is larger than 8MB */
+    const size_t size = (8 << 20) * 2 + 12345u;
 };
 
 INSTANTIATE_TEST_SUITE_P(,

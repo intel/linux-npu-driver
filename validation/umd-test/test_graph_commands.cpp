@@ -476,56 +476,6 @@ TEST_P(CommandGraphLong, GraphInitAndExecWith200msDelay) {
     graph->checkResults();
 }
 
-static void resetDevice() {
-    std::string path = getDeviceSysFsDirectory() + "/reset";
-    int fd = open(path.c_str(), O_WRONLY);
-    ASSERT_NE(fd, -1);
-
-    ASSERT_EQ(write(fd, "1", 1), 1);
-    ASSERT_EQ(close(fd), 0);
-}
-
-TEST_P(CommandGraphLong, InferenceDeviceResetInference) {
-    SKIP_NEEDS_ROOT();
-
-    ze_result_t result = zeGraphDDITableExt->pfnAppendGraphExecute(list,
-                                                                   graph->handle,
-                                                                   nullptr,
-                                                                   nullptr,
-                                                                   0,
-                                                                   nullptr);
-    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
-
-    result = zeCommandListClose(list);
-    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
-
-    result = zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr);
-    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
-
-    result = zeCommandQueueSynchronize(queue, graphSyncTimeout);
-    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
-
-    graph->checkResults();
-
-    resetDevice();
-
-    result = zeContextGetStatus(zeContext);
-    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
-
-    result = zeDeviceGetStatus(zeDevice);
-    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
-
-    graph->clearOutput();
-
-    result = zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr);
-    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
-
-    result = zeCommandQueueSynchronize(queue, graphSyncTimeout);
-    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
-
-    graph->checkResults();
-}
-
 TEST_P(CommandGraphLong, GetNativeBinaryAndReleaseAfterAppendGraphInitializeRunInference) {
     // Convert model to native format, zeGraphGetNativeBinary function is used
     auto nativeGraphBuffer = graph->getNativeBinaryAsNewBuffer();

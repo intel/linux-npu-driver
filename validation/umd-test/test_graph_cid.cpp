@@ -483,17 +483,34 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
         BREAK_ON_FAIL(ret, stats);
         auto queue = scopedQueue.get();
 
+        std::vector<std::unique_ptr<InferenceRequest>> inferReqs;
         inference.graph->allocateArguments(MemType::SHARED_MEMORY);
         inference.graph->copyInputData();
+        std::vector<char> commonInputData;
+        inference.graph->getCopyOfInput(commonInputData);
+        if (commonInputData.empty()) {
+            BREAK_ON_FAIL(ZE_RESULT_ERROR_UNKNOWN, stats);
+        }
         ret = zeGraphDDITableExt->pfnGraphInitialize(inference.graph->handle);
         BREAK_ON_FAIL(ret, stats);
+        inferReqs.push_back(inference.graph->newInferRequestUsingQueue(queue));
 
-        std::vector<std::unique_ptr<InferenceRequest>> inferReqs;
-        for (size_t i = 0; i < inference.parallelReqs; i++) {
-            if (i > 0) {
-                inference.graph->allocateArguments(MemType::SHARED_MEMORY);
-                inference.graph->copyInputData();
-            }
+        ret = inferReqs.back()->runAsync();
+        BREAK_ON_FAIL(ret, stats);
+
+        ret = inferReqs.back()->wait(UINT64_MAX);
+        BREAK_ON_FAIL(ret, stats);
+        /* Warm up and collect reference output */
+        std::vector<char> referenceOutput;
+        inference.graph->getCopyOfOutput(referenceOutput);
+        if (referenceOutput.empty()) {
+            BREAK_ON_FAIL(ZE_RESULT_ERROR_UNKNOWN, stats);
+        }
+        inference.graph->clearOutput();
+
+        for (size_t i = 1; i < inference.parallelReqs; i++) {
+            inference.graph->allocateArguments(MemType::SHARED_MEMORY);
+            inference.graph->setInput(commonInputData);
             inferReqs.push_back(inference.graph->newInferRequestUsingQueue(queue));
         }
 
@@ -504,12 +521,6 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
         if (workloadType != ZE_WORKLOAD_TYPE_FORCE_UINT32) {
             ret = zeCommandQueueDDITableExt->pfnSetWorkloadType(queue, ZE_WORKLOAD_TYPE_BACKGROUND);
             BREAK_ON_FAIL(ret, stats);
-
-            ret = inferReqs[0]->runAsync();
-            BREAK_ON_FAIL(ret, stats);
-
-            ret = inferReqs[0]->wait(UINT64_MAX);
-            BREAK_ON_FAIL(ret, stats);
         }
 
         std::this_thread::sleep_for(std::chrono::microseconds(inference.delayInUs));
@@ -517,6 +528,11 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
         stats.counter.startTimer(inference.execTimeSec, inference.targetFps);
         for (size_t i = 1; i < inferReqs.size(); i++) {
             ret = inferReqs[i]->runAsync();
+            BREAK_ON_FAIL(ret, stats);
+        }
+
+        if (workloadType != ZE_WORKLOAD_TYPE_FORCE_UINT32) {
+            ret = zeCommandQueueDDITableExt->pfnSetWorkloadType(queue, workloadType);
             BREAK_ON_FAIL(ret, stats);
         }
 
@@ -533,21 +549,22 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
             ret = inferReqs[inferReqIndex]->wait(UINT64_MAX);
             BREAK_ON_FAIL(ret, stats);
 
-            if (workloadType != ZE_WORKLOAD_TYPE_FORCE_UINT32) {
-                ret = zeCommandQueueDDITableExt->pfnSetWorkloadType(queue, workloadType);
-                BREAK_ON_FAIL(ret, stats);
-                workloadType = ZE_WORKLOAD_TYPE_FORCE_UINT32;
-            }
-
-            // TODO: Add multiple inference request output validation
             if (inference.parallelReqs == 1 && inference.graph->classIndexes.size()) {
                 inference.graph->checkResults();
                 inference.graph->clearOutput();
+            } else {
+                // Only accuracy verification
+                if (!inferReqs[inferReqIndex]->validateOutput(referenceOutput)) {
+                    TRACE("Output validation failed for inference request %s (%ld)",
+                          inference.modelName.c_str(),
+                          inferReqIndex);
+                    BREAK_ON_FAIL(ZE_RESULT_ERROR_UNKNOWN, stats);
+                }
+                inferReqs[inferReqIndex]->clearOutput();
             }
 
             stats.counter.recordFrame(inferReqs[inferReqIndex]->latencyMs);
         }
-
         stats.counter.stopTimer();
         return stats;
     };
