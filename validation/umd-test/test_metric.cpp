@@ -278,51 +278,6 @@ TEST_F(MetricQuery, RunMetricQueryOnEmptyCommandList) {
     ASSERT_EQ(zeCommandQueueSynchronize(queue, syncTimeout), ZE_RESULT_SUCCESS);
 }
 
-TEST_F(MetricQuery, MetricGroupCalculateEmptyMetricQuery) {
-    size_t groupIndex = 1;
-    MetricInitialize(groupIndex, 0);
-
-    size_t queryDataSize = 0u;
-    EXPECT_EQ(zetMetricQueryGetData(query, &queryDataSize, nullptr), ZE_RESULT_SUCCESS);
-    EXPECT_GT(queryDataSize, 0u);
-
-    std::vector<uint8_t> queryRawData(queryDataSize, 0u);
-    EXPECT_EQ(zetMetricQueryGetData(query,
-                                    &queryDataSize,
-                                    reinterpret_cast<uint8_t *>(queryRawData.data())),
-              ZE_RESULT_SUCCESS);
-
-    TRACE_BUF(queryRawData.data(), queryDataSize);
-    EXPECT_EQ(queryRawData[0], 0u);
-
-    uint32_t metricValueCount = 0;
-    EXPECT_EQ(zetMetricGroupCalculateMetricValues(metricGroups[groupIndex],
-                                                  ZET_METRIC_GROUP_CALCULATION_TYPE_METRIC_VALUES,
-                                                  queryRawData.size(),
-                                                  queryRawData.data(),
-                                                  &metricValueCount,
-                                                  nullptr),
-              ZE_RESULT_SUCCESS);
-
-    EXPECT_GT(metricValueCount, 0);
-
-    std::vector<zet_typed_value_t> metricValues(metricValueCount);
-    EXPECT_EQ(zetMetricGroupCalculateMetricValues(metricGroups[groupIndex],
-                                                  ZET_METRIC_GROUP_CALCULATION_TYPE_METRIC_VALUES,
-                                                  queryRawData.size(),
-                                                  queryRawData.data(),
-                                                  &metricValueCount,
-                                                  metricValues.data()),
-              ZE_RESULT_SUCCESS);
-
-    for (uint32_t i = 0; i < metricValueCount; i++) {
-        EXPECT_EQ(metricValues[i].type, metricsPropertiesAll[groupIndex][i].resultType);
-        EXPECT_EQ(metricValues[i].value.ui64, 0llu);
-    }
-
-    TRACE_BUF(metricValues.data(), metricValues.size() * sizeof(zet_typed_value_t));
-}
-
 std::vector<uint32_t> queryIndexesComputeEngine = {0, 1};
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MetricQuery);

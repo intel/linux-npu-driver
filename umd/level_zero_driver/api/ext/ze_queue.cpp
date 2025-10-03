@@ -28,7 +28,7 @@ zeCommandQueueSetWorkloadType(ze_command_queue_handle_t hCommandQueue,
         goto exit;
     }
 
-    ret = translateHandle(ZEL_HANDLE_COMMAND_LIST, hCommandQueue);
+    ret = translateHandle(ZEL_HANDLE_COMMAND_QUEUE, hCommandQueue);
     if (ret != ZE_RESULT_SUCCESS) {
         goto exit;
     }

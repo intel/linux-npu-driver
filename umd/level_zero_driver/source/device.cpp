@@ -576,15 +576,11 @@ void Device::loadMetricGroupsInfo(std::vector<VPU::GroupInfo> &metricGroupsInfo)
                     counter.metricDescription.c_str(),
                     ZET_MAX_METRIC_DESCRIPTION - 1);
             properties.description[ZET_MAX_METRIC_DESCRIPTION - 1] = '\0';
-            strncpy(properties.component,
-                    counter.component.c_str(),
-                    ZET_MAX_METRIC_COMPONENT - 1);
+            strncpy(properties.component, counter.component.c_str(), ZET_MAX_METRIC_COMPONENT - 1);
             properties.component[ZET_MAX_METRIC_COMPONENT - 1] = '\0';
             properties.metricType = Metric::getMetricType(counter.metricType);
             properties.resultType = Metric::getValueType(counter.valueType);
-            strncpy(properties.resultUnits,
-                    counter.units.c_str(),
-                    ZET_MAX_METRIC_RESULT_UNITS - 1);
+            strncpy(properties.resultUnits, counter.units.c_str(), ZET_MAX_METRIC_RESULT_UNITS - 1);
             properties.resultUnits[ZET_MAX_METRIC_RESULT_UNITS - 1] = '\0';
 
             allocationSize += Metric::getMetricValueSize(counter.valueType);

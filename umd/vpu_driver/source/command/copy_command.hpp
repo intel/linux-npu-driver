@@ -49,8 +49,10 @@ class VPUCopyCommand : public VPUCommand {
     template <class T>
     static bool
     fillDescriptor(uint64_t srcAddr, uint64_t dstAddr, size_t size, VPUDescriptor &descriptor) {
-        // The hardware limits the DMA descriptor copy size to 16 MB
-        static constexpr uint32_t COPY_SIZE_LIMIT = (16 << 20) - 1;
+        // The some hardware limits the DMA descriptor copy size 16MB
+        // because copy operation can not be interrupted
+        // for efficiency reason we limit single operation to 8 MB
+        static constexpr uint32_t COPY_SIZE_LIMIT = (8 << 20);
 
         if (srcAddr == 0 || dstAddr == 0) {
             LOG_E("Failed to get vpu address for copy descriptor");

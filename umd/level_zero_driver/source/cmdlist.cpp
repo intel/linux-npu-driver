@@ -24,6 +24,7 @@
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 
+#include <algorithm>
 #include <level_zero/ze_api.h>
 #include <level_zero/ze_graph_ext.h>
 #include <optional>
@@ -237,13 +238,34 @@ ze_result_t CommandList::appendMemoryFillCmd(void *ptr,
         return ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY;
     }
 
-    return appendCommandWithEvents<VPU::VPUFillCommand>(hSignalEvent,
-                                                        numWaitEvents,
-                                                        phWaitEvents,
-                                                        ptr,
-                                                        std::move(ptrBo),
-                                                        size,
-                                                        fill_pattern);
+    // Because fill operation can not be interrupted
+    // for efficiency reason we limit single operation to 8 MB
+    // If size is larger than FILL_SIZE_LIMIT, split it into multiple operations
+    static constexpr size_t FILL_SIZE_LIMIT = (8 << 20);
+
+    size_t sizeLeft = size;
+    size_t offset = 0;
+    ze_result_t result = ZE_RESULT_SUCCESS;
+    while (sizeLeft > 0) {
+        size_t fillSize = std::min(sizeLeft, FILL_SIZE_LIMIT);
+        result = appendCommandWithEvents<VPU::VPUFillCommand>(
+            sizeLeft <= FILL_SIZE_LIMIT ? hSignalEvent : nullptr,
+            numWaitEvents,
+            phWaitEvents,
+            static_cast<uint8_t *>(ptr) + offset,
+            ptrBo,
+            fillSize,
+            fill_pattern);
+        if (result != ZE_RESULT_SUCCESS) {
+            LOG_E("Failed to append fill command to list");
+            break;
+        }
+        sizeLeft -= fillSize;
+        offset += fillSize;
+        numWaitEvents = 0;
+        phWaitEvents = nullptr;
+    }
+    return result;
 }
 
 ze_result_t CommandList::appendMemoryFillAsCopyCmd(void *ptr,

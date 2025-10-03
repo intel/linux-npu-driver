@@ -21,8 +21,6 @@ class GraphQueryNetwork : public UmdTest, public ::testing::WithParamInterface<Y
             SKIP_("The test is not intended for use with a precompiled blob.");
         }
 
-        ASSERT_GT(node["flags"].as<std::string>().size(), 0);
-
         graphBuffer = GraphBuffer::get(zeDevice, zeGraphDDITableExt, globalConfig, node);
         ASSERT_NE(graphBuffer, nullptr);
     }

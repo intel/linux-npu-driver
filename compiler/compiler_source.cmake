@@ -1,14 +1,6 @@
-# Copyright 2022-2025 Intel Corporation.
+# Copyright (C) 2022-2025 Intel Corporation
 #
-# This software and the related documents are Intel copyrighted materials, and
-# your use of them is governed by the express license under which they were
-# provided to you ("License"). Unless the License provides otherwise, you may
-# not use, modify, copy, publish, distribute, disclose or transmit this
-# software or the related documents without Intel's prior written permission.
-#
-# This software and the related documents are provided as is, with no express
-# or implied warranties, other than those that are expressly stated in
-# the License.
+# SPDX-License-Identifier: MIT
 
 if(TARGET npu_compiler_source)
   return()
@@ -23,16 +15,16 @@ endif()
 include(ExternalProject)
 
 set(OPENVINO_REPOSITORY https://github.com/openvinotoolkit/openvino.git)
-set(OPENVINO_REVISION c01cd93e24d1cd78bfbb401eed51c08fb93e0816)
-set(OPENCV_REVISION 4d6d6fb18fb859f176e5ce2ad3295097a42cd8af)
-set(GENAI_REVISION 01f0fe1eded5934871fef866ed217a60fa2c6049)
-set(ONNXRUNTIME_TAG microsoft:9001123f6813409bce2d8ec24888ac73e348c26e)
-set(ONNXRUNTIME_REVISION 9001123f6813409bce2d8ec24888ac73e348c26e)
+set(OPENVINO_REVISION 44526285f241251e9543276572676365fbe542a4)
+set(OPENCV_REVISION 252403bbf2fc560007c2c9057db5a9a151e99dd7)
+set(GENAI_REVISION 3c0e2d3e7e13fa5e1dd5ea9ef1df59ce9fa852b5)
+set(ONNXRUNTIME_TAG microsoft:7a919c693692d50f7c222660b76fb5b0c9926738)
+set(ONNXRUNTIME_REVISION 7a919c693692d50f7c222660b76fb5b0c9926738)
 
-set(NPU_COMPILER_TAG npu_ud_2025_32_rc1)
-set(NPU_COMPILER_REVISION df25c7815507db20f903ce585f3976ff927890d6)
+set(NPU_COMPILER_TAG npu_ud_2025_38_rc1)
+set(NPU_COMPILER_REVISION 5aa47b4f67f9eec535316adf449a6aca58c635b2)
 # Compiler might use different OpenVINO revision
-set(NPU_COMPILER_OPENVINO_REVISION d97acfdce00ea5229e4c2d0ab03256ce0dff0a68)
+set(NPU_COMPILER_OPENVINO_REVISION 7ced823330831da23d1985ee27e32b96ebfcf110)
 
 set(OPENVINO_SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/src/openvino")
 file(MAKE_DIRECTORY ${OPENVINO_SOURCE_DIR})

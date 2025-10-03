@@ -25,20 +25,6 @@ VPUDeviceContext::VPUDeviceContext(std::unique_ptr<VPUDriverApi> drvApi, VPUHwIn
     LOG(DEVICE, "VPUDeviceContext is created");
 }
 
-VPUBufferObject::Type convertDmaToShaveRange(VPUBufferObject::Type type) {
-    switch (type) {
-    case VPUBufferObject::Type::WriteCombineDma:
-        return VPUBufferObject::Type::WriteCombineShave;
-    case VPUBufferObject::Type::UncachedDma:
-        return VPUBufferObject::Type::UncachedShave;
-    case VPUBufferObject::Type::CachedDma:
-        return VPUBufferObject::Type::CachedShave;
-    default:
-        break;
-    }
-    return type;
-}
-
 std::shared_ptr<VPUBufferObject>
 VPUDeviceContext::importBufferObject(VPUBufferObject::Location type, int32_t fd) {
     auto bo = VPUBufferObject::importFromFd(*drvApi, type, fd);
@@ -63,7 +49,7 @@ VPUDeviceContext::createBufferObject(size_t size,
                                      VPUBufferObject::Type type,
                                      VPUBufferObject::Location loc) {
     if (!hwInfo->dmaMemoryRangeCapability && (static_cast<uint32_t>(type) & DRM_IVPU_BO_DMA_MEM))
-        type = convertDmaToShaveRange(type);
+        type = VPUBufferObject::convertDmaToShaveRange(type);
 
     auto bo = VPUBufferObject::create(*drvApi, loc, type, size);
     if (bo == nullptr) {
@@ -155,7 +141,7 @@ VPUDeviceContext::createUntrackedBufferObject(size_t size, VPUBufferObject::Type
     }
 
     if (!hwInfo->dmaMemoryRangeCapability && (static_cast<uint32_t>(range) & DRM_IVPU_BO_DMA_MEM))
-        range = convertDmaToShaveRange(range);
+        range = VPUBufferObject::convertDmaToShaveRange(range);
 
     auto bo = VPUBufferObject::create(*drvApi, VPUBufferObject::Location::Internal, range, size);
     if (bo == nullptr) {

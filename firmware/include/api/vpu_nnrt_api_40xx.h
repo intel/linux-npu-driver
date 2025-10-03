@@ -44,6 +44,17 @@
  *
  * API changelog
  * -------------
+ * 11.13:
+ *   - Accept CMX Shave stack frames from the blob
+ * 11.12:
+ *   - 1KB Shave scratch region is moved to the end of CMX,
+ *     default CMX Shave stacks increased to 7.5kB per Shave
+ * 11.11:
+ *   - Add the ManagedMappedInference directly to the VpuHostParsedInference.
+ *
+ * 11.10.3:
+ *   - update Field name from reserved_1 to noc_clk_en in DPU Descriptor.
+ *
  * 11.10:
  *   - Increase the minor version number to uniquely identify the UD24 release from earlier versions
  *
@@ -72,9 +83,11 @@
  *     barrier_programming_mode and barrier_configuration_stride in VpuManagedMappedInference)
  *     to allow runtime to efficiently fill barrier FIFOs.
  */
+
 #define VPU_NNRT_40XX_API_VER_MAJOR 11
-#define VPU_NNRT_40XX_API_VER_MINOR 10
-#define VPU_NNRT_40XX_API_VER_PATCH 2
+#define VPU_NNRT_40XX_API_VER_MINOR 13
+#define VPU_NNRT_40XX_API_VER_PATCH 0
+
 #define VPU_NNRT_40XX_API_VER ((VPU_NNRT_40XX_API_VER_MAJOR << 16) | VPU_NNRT_40XX_API_VER_MINOR)
 
 /* Index in the API version table, same for all HW generations */
@@ -90,6 +103,9 @@
  *
  * Act Runtime changelog:
  * ----------------------
+ * 1.13:
+ *  - Window 1F reset to the beginning of CMX tile
+ *
  * 1.12:
  *  - Cache operation fix
  *
@@ -100,6 +116,9 @@
  *   - Support for executing shave tasks directly from DDR (expects two FIFO pushes
  *     with the full 32 bit AKI address and NW_PAGE is already correct)
  *
+ * 1.9.1 (NPU4 only):
+ *  - Window 1F reset to the beginning of CMX tile
+ *
  * 1.9:
  *   - Add clock gating support
  *
@@ -107,9 +126,11 @@
  *   - Support Shave Shutdown control message
  *
  */
+
 #define VPU_ACT_RT_VER_MAJOR 1
 #define VPU_ACT_RT_VER_MINOR 9
-#define VPU_ACT_RT_VER_PATCH 0
+#define VPU_ACT_RT_VER_PATCH 1
+
 #define VPU_ACT_RT_VER ((VPU_ACT_RT_VER_MAJOR << 16) | VPU_ACT_RT_VER_MINOR)
 
 /*
@@ -353,9 +374,25 @@ static_assert(offsetof(VpuMappedInference, managed_inference) % 8 == 0, "Alignme
 struct VPU_ALIGNED_STRUCT(32) VpuHostParsedInference {
     uint64_t reserved_;
     VpuResourceRequirements resource_requirements_;
-    uint8_t pad_[4];
+
+    /**
+     * @brief Determines whether the access to the VpuManagedMappedInference is direct or indirect.
+     */
+    enum VpuMmiAccessMode : uint8_t {
+        INDIRECT = 0, /**< The managed inference is accessed indirectly, through the managed_inference member of the
+                         VpuMappedInference struct. */
+        DIRECT,       /**< The managed inference is accessed directly from the managed_inference_ member of the
+                         VpuHostParsedInference  struct. */
+        UNKNOWN = 255
+    };
+
+    VpuMmiAccessMode mmi_access_;
+    uint8_t pad_[3];
     struct VpuPerformanceMetrics performance_metrics_;
-    VpuTaskReference<VpuMappedInference> mapped_;
+    union VPU_ALIGNED_STRUCT(8) {
+        VpuTaskReference<VpuMappedInference> mapped_;
+        VpuTaskReference<VpuManagedMappedInference> managed_inference_;
+    };
 };
 
 static_assert(sizeof(VpuHostParsedInference) == 384, "VpuHostParsedInference size != 384");
