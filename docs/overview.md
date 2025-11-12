@@ -238,7 +238,10 @@ The compiler binary `libnpu_driver_compiler.so` can be found in `build/lib/`.
 > c++: error: unrecognized command line option '-fcf-protection=full'; did you mean '-fstack-protector-all'?
 > ```
 > Reconfigure the project disabling this flag manually:
+> ```bash
 > cmake -B build -S . -DENABLE_NPU_COMPILER_BUILD=ON -DCMAKE_CXX_FLAGS="-fcf-protection=none" -DCMAKE_C_FLAGS="-fcf-protection=none"
+> ```bash
+> 
 > In case non standard compiler build (different then Release config), please follow the guideline
 > in [npu_compiler/src/vpux_driver_compiler/README.md](https://github.com/openvinotoolkit/npu_compiler/blob/develop/src/vpux_driver_compiler/README.md#how-to-build-related-targets-locally)
 
