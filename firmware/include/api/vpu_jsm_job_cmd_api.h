@@ -27,12 +27,12 @@
  * Minor version changes when API backward compatibility is preserved.
  * Resets to 0 if Major version is incremented.
  */
-#define VPU_JSM_JOB_CMD_API_VER_MINOR 14
+#define VPU_JSM_JOB_CMD_API_VER_MINOR 15
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
  */
-#define VPU_JSM_JOB_CMD_API_VER_PATCH 2
+#define VPU_JSM_JOB_CMD_API_VER_PATCH 0
 
 /*
  * Index in the API version table
@@ -287,20 +287,6 @@ typedef struct vpu_cmd_resource_descriptor {
 } vpu_cmd_resource_descriptor_t;
 
 /**
- * @brief Resource View Descriptor
- * This is used by the UMD to describe both shader
- * resource and unordered access views.
- *
- * @see vpu_cmd_resource_view_descriptor_t
- */
-typedef struct vpu_cmd_resource_view_descriptor {
-    uint64_t address;             /**< Resource view address */
-    uint64_t width;               /**< Resource view width */
-    uint64_t uav_counter_address; /**< UAV counter address */
-    uint64_t reserved_0[5];       /**< Unused, reserved for future */
-} vpu_cmd_resource_view_descriptor_t;
-
-/**
  * @brief Copy command descriptor on VPU 37xx
  *
  * NOTE: Due to the presence of optional fields
@@ -329,15 +315,17 @@ typedef struct vpu_cmd_copy_descriptor_37xx {
 /**
  * @brief Copy command descriptor on VPU 40xx or later
  *
+ * Copy operation is only supported inside of NPU DDR memory address range.
+ *
  * @see VPU_CMD_COPY
  */
 typedef struct vpu_cmd_copy_descriptor_40xx {
     uint64_t reserved_0[3];  /**< Unused */
-    uint32_t size;           /**< Copy Size in bytes */
+    uint32_t size;           /**< Copy Size in bytes - max 16 MB */
     uint32_t reserved_1;     /**< Unused */
     uint64_t reserved_2;     /**< Unused */
     uint64_t src_address;    /**< Source virtual address */
-    uint64_t dst_address;    /**< Destination address */
+    uint64_t dst_address;    /**< Destination virtual address */
     uint64_t reserved_3[17]; /**< Unused */
 } vpu_cmd_copy_descriptor_40xx_t;
 
@@ -442,11 +430,12 @@ typedef struct vpu_cmd_memory_fill {
     /** Reserved */
     uint32_t reserved_0;
     /**
-     * Start address to fill, should be in NPU DDR.
+     * Start address to fill, only NPU DDR memory address is supported
      * NOTE:
-     * - (NPU 37xx) - Address must be aligned on a 64B boundary to allow proper handling of
-     *   NPU cache operations.
-     * - (NPU 40xx+) - With DMA implementation, there are no alignment requirements.
+     * - (NPU 37xx) - Address must be aligned on a 64B boundary
+     *
+     * - (NPU 40xx+) - No address alignment requirement
+     *               - Max size 16 MB
      */
     uint64_t start_address;
     /** Size in bytes of memory buffer to fill */
@@ -528,7 +517,7 @@ typedef struct vpu_cmd_fence {
 } vpu_cmd_fence_t;
 
 /**
- * @brief Barier command structure
+ * @brief Barrier command structure
  *
  * @see VPU_CMD_BARRIER
  */

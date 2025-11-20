@@ -103,6 +103,12 @@
  *
  * Act Runtime changelog:
  * ----------------------
+ *  * 1.15:
+ *  - Add cleanup function to clear specific registers at the beginning of shave entry
+ *
+ * 1.14:
+ *  - Preemption handling fixes
+ *
  * 1.13:
  *  - Window 1F reset to the beginning of CMX tile
  *
@@ -116,11 +122,14 @@
  *   - Support for executing shave tasks directly from DDR (expects two FIFO pushes
  *     with the full 32 bit AKI address and NW_PAGE is already correct)
  *
+ * 1.9.2 (NPU4 only):
+ *  - Preemption handling fixes
+ *
  * 1.9.1 (NPU4 only):
  *  - Window 1F reset to the beginning of CMX tile
  *
  * 1.9:
- *   - Add clock gating support
+ *   - Add NVL clock gating support
  *
  * 1.8:
  *   - Support Shave Shutdown control message
@@ -129,7 +138,7 @@
 
 #define VPU_ACT_RT_VER_MAJOR 1
 #define VPU_ACT_RT_VER_MINOR 9
-#define VPU_ACT_RT_VER_PATCH 1
+#define VPU_ACT_RT_VER_PATCH 3
 
 #define VPU_ACT_RT_VER ((VPU_ACT_RT_VER_MAJOR << 16) | VPU_ACT_RT_VER_MINOR)
 
@@ -263,7 +272,8 @@ static_assert(offsetof(VpuDMATask, barriers_sched_) % 4 == 0, "Alignment error")
 // ActKernel structs
 struct VPU_ALIGNED_STRUCT(8) VpuActKernelRange {
     VpuActWLType type;
-    uint8_t pad0_[7];
+    uint8_t use_ram_barriers;
+    uint8_t pad0_[6];
     VpuPtr<actKernelEntryFunction> kernel_entry;
     VpuPtr<void> text_window_base;
     uint32_t code_size;
