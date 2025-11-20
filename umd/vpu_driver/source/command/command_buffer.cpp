@@ -5,6 +5,9 @@
  *
  */
 
+// IWYU pragma: no_include <bits/chrono.h>
+// IWYU pragma: no_include <emmintrin.h>
+
 #include "vpu_driver/source/command/command_buffer.hpp"
 
 #include "umd_common.hpp"
@@ -17,8 +20,11 @@
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <algorithm>
+#include <chrono> // IWYU pragma: keep
 #include <errno.h>
+#include <immintrin.h>
 #include <limits>
+#include <ratio>
 #include <string.h>
 #include <utility>
 
@@ -236,7 +242,6 @@ bool VPUCommandBuffer::addSelfSignalAtTail() {
                        sizeof(vpu_cmd_fence_t);
 
     auto signalCmd = VPUEventSignalCommand::create(&commandHeader->fenceValue, buffer);
-
     if (!addCommand(signalCmd.get(), cmdOffset, descOffset)) {
         LOG_E("Failed to append synchronization signal command to buffer");
         return false;
@@ -260,7 +265,35 @@ bool VPUCommandBuffer::setSyncFenceAddr(VPUCommand *cmd) {
     return true;
 }
 
+void VPUCommandBuffer::useBusyWait() {
+    if (!addSelfSignalAtTail())
+        return;
+
+    resetFenceValue();
+    useBusyWaitFlag = true;
+}
+
 bool VPUCommandBuffer::waitForCompletion(int64_t timeout_abs_ns) {
+    if (useBusyWaitFlag)
+        busyWait(timeout_abs_ns, VPUDeviceContext::getCpuTscFreqMHz());
+
+    bool result = wait(timeout_abs_ns);
+
+    if (!result)
+        return false;
+
+    useBusyWaitFlag = false;
+    inferenceScratchBuffer.reset();
+
+    if (preemptionBuffer && preemptionBufferIndex.has_value()) {
+        bufferHandles.erase(bufferHandles.begin() + preemptionBufferIndex.value());
+        preemptionBufferIndex.reset();
+        preemptionBuffer.reset();
+    }
+    return true;
+}
+
+bool VPUCommandBuffer::wait(int64_t timeout_abs_ns) {
     drm_ivpu_bo_wait args = {};
     args.handle = buffer->getHandle();
     args.timeout_ns = timeout_abs_ns;
@@ -272,14 +305,39 @@ bool VPUCommandBuffer::waitForCompletion(int64_t timeout_abs_ns) {
         return false;
 
     jobStatus = args.job_status;
-    inferenceScratchBuffer.reset();
-
-    if (preemptionBuffer && preemptionBufferIndex.has_value()) {
-        bufferHandles.erase(bufferHandles.begin() + preemptionBufferIndex.value());
-        preemptionBufferIndex.reset();
-        preemptionBuffer.reset();
-    }
     return true;
+}
+
+void VPUCommandBuffer::busyWait(int64_t timeout_abs_ns, uint32_t tscFreqMHz) {
+    /* Maximum period of busy waiting is 15ms then we enter normal wait */
+    auto timeoutNs =
+        std::min(std::chrono::steady_clock::time_point(std::chrono::nanoseconds(timeout_abs_ns)) -
+                     std::chrono::steady_clock::now(),
+                 std::chrono::nanoseconds(15'000'000));
+
+    if (timeoutNs <= std::chrono::nanoseconds::zero())
+        return;
+
+    CommandHeader *cmdHeader = reinterpret_cast<CommandHeader *>(buffer->getBasePointer());
+    if (cmdHeader && cmdHeader->fenceValue != VPUEventCommand::State::STATE_DEVICE_SIGNAL) {
+        // Use UMONITOR/UMWAIT to do efficient busy wait
+        // UMWAIT waits until the monitored address is written or the timeout expires
+        // The timeout is specified in CPU clock ticks
+        unsigned long long timeoutTime =
+            __rdtsc() + ((static_cast<unsigned long long>(timeoutNs.count()) *
+                          static_cast<unsigned long long>(tscFreqMHz)) /
+                         1'000ULL);
+        do {
+            if (__rdtsc() >= timeoutTime)
+                break;
+
+            _umonitor(&cmdHeader->fenceValue);
+            _umwait(0, timeoutTime);
+            _mm_mfence(); // ensure that the read is not moved before the UMWAIT
+        } while (cmdHeader->fenceValue != VPUEventCommand::State::STATE_DEVICE_SIGNAL);
+    }
+
+    return;
 }
 
 void VPUCommandBuffer::resetFenceValue() {

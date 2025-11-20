@@ -167,6 +167,10 @@ int VPUDeviceQueueManaged::submitCommandBuffer(const std::unique_ptr<VPUCommandB
     // If preempt_buffer_index is 0, then kernel allocates preemption buffer
     submitArgs.preempt_buffer_index = cmdBuf->getPreemptionBufferIndex();
     submitArgs.cmdq_id = currentId;
+
+    if (isTurbo())
+        cmdBuf->useBusyWait();
+
     return pDriverApi->commandQueueSubmit(&submitArgs);
 }
 

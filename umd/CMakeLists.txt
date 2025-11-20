@@ -22,12 +22,6 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     add_compile_options(-Wno-unknown-warning-option -Wno-unknown-pragmas)
 endif()
 
-if ("${LINUX_SYSTEM_NAME}" STREQUAL "ubuntu" AND "${LINUX_SYSTEM_VERSION_ID}" STREQUAL "22.04")
-    install(FILES 10-intel-vpu.rules
-            COMPONENT level-zero-npu
-            DESTINATION /etc/udev/rules.d)
-endif()
-
 if (NOT UMD_LOGLEVEL)
   set(UMD_LOGLEVEL ERROR)
 endif()
@@ -46,6 +40,7 @@ set(VPU_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 # Enable extra warning and -ftrapv that abort program on signed arithmetic overflow
 add_compile_options(-Winvalid-pch -Wconversion -Wuninitialized -ftrapv)
 add_compile_options(-fvisibility=hidden)
+add_compile_options(-mwaitpkg)
 add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>)
 
 # Project-wide include paths

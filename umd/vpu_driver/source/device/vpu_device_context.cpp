@@ -5,6 +5,9 @@
  *
  */
 
+// IWYU pragma: no_include <bits/chrono.h>
+// IWYU pragma: no_include <emmintrin.h>
+
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 
 #include "umd_common.hpp"
@@ -12,7 +15,9 @@
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
+#include <chrono> // IWYU pragma: keep
 #include <exception>
+#include <immintrin.h> // IWYU pragma: keep
 #include <memory>
 #include <uapi/drm/ivpu_accel.h>
 
@@ -23,6 +28,29 @@ VPUDeviceContext::VPUDeviceContext(std::unique_ptr<VPUDriverApi> drvApi, VPUHwIn
     : drvApi(std::move(drvApi))
     , hwInfo(info) {
     LOG(DEVICE, "VPUDeviceContext is created");
+}
+
+uint32_t VPUDeviceContext::getCpuTscFreqMHz() {
+    static uint32_t cpuTscFreqMHz = 0;
+
+    if (cpuTscFreqMHz == 0) {
+        // Estimate TSC frequency using RDTSC and steady clock
+        auto hwTimerStartPoint = __rdtsc();
+        auto osTimerStartPoint = std::chrono::steady_clock::now();
+
+        for (size_t i = 0; i < 200; i++) {
+            _mm_pause();
+        }
+        uint64_t deltaHw = __rdtsc() - hwTimerStartPoint;
+        int64_t deltaOs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                              std::chrono::steady_clock::now() - osTimerStartPoint)
+                              .count();
+
+        cpuTscFreqMHz = static_cast<uint32_t>(
+            (static_cast<double>(deltaHw) / static_cast<double>(deltaOs)) * 1000);
+        LOG(DEVICE, "Estimated TSC frequency: %u MHz", cpuTscFreqMHz);
+    }
+    return cpuTscFreqMHz;
 }
 
 std::shared_ptr<VPUBufferObject>

@@ -467,11 +467,12 @@ void Graph::initialize(std::string &log) {
         desc.flags,
         desc.pBuildFlags);
 
-    bool isInputPersistent = desc.flags & ZE_GRAPH_FLAG_INPUT_GRAPH_PERSISTENT;
+    bool isInputPersistent = false;
     switch (desc.format) {
     case ZE_GRAPH_FORMAT_NATIVE:
         blob = std::make_unique<BlobContainer>(const_cast<uint8_t *>(desc.pInput), desc.inputSize);
-        propFlags = ZE_GRAPH_PROPERTIES_FLAG_PRE_COMPILED;
+        propFlags =
+            ZE_GRAPH_PROPERTIES_FLAG_PRE_COMPILED | ZE_GRAPH_PROPERTIES_FLAG_NO_STANDARD_ALLOCATION;
         break;
     case ZE_GRAPH_FORMAT_NGRAPH_LITE:
         // Binary from compilation is owned by driver, so we can assume it is persistent

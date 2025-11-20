@@ -62,6 +62,7 @@ static const char *struct_param_name(unsigned int param) {
         CASE_RETURN_STR(DRM_IVPU_PARAM_TILE_CONFIG);
         CASE_RETURN_STR(DRM_IVPU_PARAM_SKU);
         CASE_RETURN_STR(DRM_IVPU_PARAM_CAPABILITIES);
+        CASE_RETURN_STR(DRM_IVPU_PARAM_PREEMPT_BUFFER_SIZE);
     default:
         return "Unknown";
     }

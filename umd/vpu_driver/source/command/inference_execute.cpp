@@ -31,8 +31,7 @@ VPUInferenceExecute::VPUInferenceExecute(std::shared_ptr<L0::ElfParser> &parser,
     , hpi(hpi)
     , inputs(inputs)
     , outputs(outputs)
-    , profilingQuery(profilingQuery)
-    , userArgIndex(bos.size()) {
+    , profilingQuery(profilingQuery) {
     vpu_cmd_inference_execute_t cmd = {};
     cmd.header.type = VPU_CMD_INFERENCE_EXECUTE;
     cmd.header.size = sizeof(vpu_cmd_inference_execute_t);
@@ -42,6 +41,8 @@ VPUInferenceExecute::VPUInferenceExecute(std::shared_ptr<L0::ElfParser> &parser,
     command.emplace<vpu_cmd_inference_execute_t>(cmd);
 
     appendAssociateBufferObject(bos);
+    userArgIndex = getAssociateBufferObjects().size();
+
     appendAssociateBufferObject(userBos);
 
     userArgHandles.reserve(userBos.size());

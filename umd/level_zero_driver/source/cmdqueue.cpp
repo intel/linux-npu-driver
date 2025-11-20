@@ -120,7 +120,11 @@ ze_result_t CommandQueue::create(ze_context_handle_t hContext,
                 if (pNext->options & ZE_NPU_COMMAND_QUEUE_OPTION_DEVICE_SYNC)
                     queueCreationMode |= VPU::VPUDeviceQueue::ModeFlags::IN_ORDER;
 
-                if (pNext->options & ZE_NPU_COMMAND_QUEUE_OPTION_TURBO)
+                /* Low level implementation uses the same fence object for device synchronization
+                   and for waiting on job completion in turbo(low latency) mode. When device
+                   synchronization is used turbo will not be enabled */
+                if (!(pNext->options & ZE_NPU_COMMAND_QUEUE_OPTION_DEVICE_SYNC) &&
+                    pNext->options & ZE_NPU_COMMAND_QUEUE_OPTION_TURBO)
                     queueCreationMode |= VPU::VPUDeviceQueue::ModeFlags::TURBO;
             } break;
             default:

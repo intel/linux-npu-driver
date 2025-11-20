@@ -89,6 +89,7 @@ class VPUCommandBuffer {
 
     void addPreemptionBuffer(std::shared_ptr<VPUBufferObject> bo);
     uint32_t getPreemptionBufferIndex() const { return preemptionBufferIndex.value_or(0); }
+    void useBusyWait();
 
   private:
     /**
@@ -106,6 +107,8 @@ class VPUCommandBuffer {
      */
     bool setSyncFenceAddr(VPUCommand *cmd);
     void addUniqueBoHandle(uint32_t handle);
+    bool wait(int64_t timeout_abs_ns);
+    void busyWait(int64_t timeout_abs_ns, uint32_t tscFreqMHz);
 
   public:
     /* CommandHeader address has to be aligned to 64 bytes (FW cache line size) */
@@ -147,6 +150,7 @@ class VPUCommandBuffer {
 
     std::shared_ptr<VPUBufferObject> preemptionBuffer;
     std::optional<uint32_t> preemptionBufferIndex = std::nullopt;
+    bool useBusyWaitFlag = false;
 };
 
 } // namespace VPU
