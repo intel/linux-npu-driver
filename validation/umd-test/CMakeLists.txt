@@ -54,7 +54,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/umd/leve
 
 if (TARGET openvino::runtime)
     target_sources(${PROJECT_NAME} PRIVATE test_ov_inference.cpp test_mutable_cmdlist.cpp)
-    target_link_libraries(${PROJECT_NAME} openvino::runtime fw_vpu_api_headers)
+    target_link_libraries(${PROJECT_NAME} openvino::runtime)
     target_compile_definitions(${PROJECT_NAME} PUBLIC UMD_TESTS_USE_OPENVINO=1)
 endif()
 
@@ -69,6 +69,6 @@ if (TARGET OpenCL::OpenCL)
 endif()
 
 target_compile_options(${PROJECT_NAME} PRIVATE -DVPU_GTEST_APP -Wall -Wextra -Werror)
-target_link_libraries(${PROJECT_NAME} ze_loader test_app_lib yaml-cpp data_handle)
+target_link_libraries(${PROJECT_NAME} ze_loader test_app_lib yaml-cpp data_handle fw_vpu_api_headers)
 install(TARGETS ${PROJECT_NAME}
         COMPONENT validation-npu)

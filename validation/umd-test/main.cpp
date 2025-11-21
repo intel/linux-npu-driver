@@ -15,6 +15,7 @@ bool forceGpu;
 bool disable_metrics;
 bool forceDmaHeap;
 bool forceZeInitTests;
+bool forcePreemptionTests;
 int userRequestedTimeoutMs;
 } // namespace test_vars
 
@@ -57,6 +58,10 @@ static void forceZeInitTests(const char *) {
         test_app::append_positive_filter("ZeInit*");
 }
 
+static void forcePreemptionTests(const char *) {
+    test_vars::forcePreemptionTests = true;
+}
+
 const char *helpMsg = "  -c/--config [CONFIGURATION_PATH]\n"
                       "       Test configuration file in yaml format\n"
                       "  -G/--gpu\n"
@@ -67,6 +72,8 @@ const char *helpMsg = "  -c/--config [CONFIGURATION_PATH]\n"
                       "       Run tests that requires /dev/dma_heap/system\n"
                       "  -I/--ze-init-tests\n"
                       "       Run tests that use zeInit and zeInitDrivers\n"
+                      "  -P/--preemption-tests\n"
+                      "       Run preemption tests even if traces are not available\n"
                       "  -T/--sync_timeout\n"
                       "       Change timeout used for synchronization operations [ms] \n"
                       "  -A/--all\n"
@@ -94,6 +101,7 @@ int main(int argc, char **argv) {
         {'R', {"dma-heap", no_argument, &forceDmaHeap}},
         {'T', {"sync_timeout", required_argument, &forceSyncTimeout}},
         {'I', {"ze-init-tests", no_argument, &forceZeInitTests}},
+        {'P', {"preemption-tests", no_argument, &forcePreemptionTests}},
         {'A', {"all", no_argument, &forceAllTests}},
     };
 

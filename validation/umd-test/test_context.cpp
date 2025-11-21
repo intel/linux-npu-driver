@@ -219,6 +219,7 @@ void MultiContextGraph::RunInference(ze_context_handle_t ctx) {
 
     std::shared_ptr<Graph> graph =
         Graph::create(ctx, zeDevice, zeGraphDDITableExt, globalConfig, node);
+    ASSERT_NE(graph, nullptr);
 
     graph->allocateArguments(MemType::SHARED_MEMORY);
     graph->copyInputData();

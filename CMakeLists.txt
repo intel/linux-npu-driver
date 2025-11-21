@@ -56,9 +56,7 @@ add_subdirectory(compiler)
 add_subdirectory(firmware)
 add_subdirectory(third_party)
 add_subdirectory(umd)
-if (ENABLE_VALIDATION_BUILD)
-  add_subdirectory(validation)
-endif()
+add_subdirectory(validation)
 
 include(cmake/packaging/setup.cmake)
 

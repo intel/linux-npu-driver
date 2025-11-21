@@ -59,6 +59,7 @@ class CompilerInDriverLong : public CompilerInDriverLongT,
         const YAML::Node node = GetParam();
 
         graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
+        ASSERT_NE(graph, nullptr);
 
         graph->allocateArguments(MemType::SHARED_MEMORY);
         graph->copyInputData();
@@ -115,7 +116,7 @@ class CompilerInDriverWithProfiling : public CompilerInDriverLongT,
                               globalConfig,
                               node,
                               ZE_GRAPH_FLAG_ENABLE_PROFILING);
-
+        ASSERT_NE(graph, nullptr);
         graph->allocateArguments(MemType::SHARED_MEMORY);
         graph->copyInputData();
     }
@@ -414,7 +415,11 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
     void SetUp() override {
         CompilerInDriverLongT::SetUp();
 
-        const YAML::Node modelsSet = GetParam()["pipeline"];
+        std::string testSubset("pipeline");
+        if (GetParam()["pipeline"].IsDefined() == false) {
+            testSubset = "benchmark";
+        }
+        const YAML::Node modelsSet = GetParam()[testSubset.c_str()];
 
         if (modelsSet.size() == 0)
             SKIP_("Missing models for testing");
@@ -452,6 +457,7 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
 
             std::shared_ptr<Graph> graph =
                 Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, model);
+            ASSERT_NE(graph, nullptr);
 
             inference.graph = std::move(graph);
             inference.modelName = model["path"].as<std::string>();
@@ -468,6 +474,22 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
             return ZE_COMMAND_QUEUE_PRIORITY_NORMAL;
         }
         throw std::runtime_error("Invalid priority, should be: high, low or normal");
+    }
+
+    void printInferenceStats(const std::string &model, const InferenceStats &stats) {
+        PRINTF("----------------------------------------------------\n");
+        PRINTF("Model:                %s\n", model.c_str());
+        if (stats.status == ZE_RESULT_SUCCESS)
+            PRINTF("Status:               SUCCESS\n");
+        else
+            PRINTF("Status:               FAIL (%#x)\n", stats.status);
+        PRINTF("FramesExecuted:       %lu\n", stats.counter.frameCount);
+        PRINTF("FramesDropped:        %lu\n", stats.counter.frameDrops);
+        PRINTF("CalculatedFPS:        %f\n", stats.counter.fps);
+        PRINTF("ExecutionTime[ms]:    %f\n", stats.counter.totalTimeMs);
+        PRINTF("MinFrameExecTime[ms]: %f\n", stats.counter.frameMinMs);
+        PRINTF("AvgFrameExecTime[ms]: %f\n", stats.counter.frameAvgMs);
+        PRINTF("MaxFrameExecTime[ms]: %f\n", stats.counter.frameMaxMs);
     }
 
     InferenceStats runInference(const CompilerInDriverMultiInference::LocalInference &inference) {
@@ -572,12 +594,11 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilerInDriverMultiInference);
 
-INSTANTIATE_TEST_SUITE_P(,
-                         CompilerInDriverMultiInference,
-                         ::testing::ValuesIn(Environment::getConfiguration("multi_inference")),
-                         [](const testing::TestParamInfo<YAML::Node> &p) {
-                             return p.param["name"].as<std::string>();
-                         });
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    CompilerInDriverMultiInference,
+    ::testing::ValuesIn(Environment::getConfiguration("multi_inference", "pipeline")),
+    [](const testing::TestParamInfo<YAML::Node> &p) { return p.param["name"].as<std::string>(); });
 
 TEST_P(CompilerInDriverMultiInference, Pipeline) {
     auto testInference =
@@ -589,51 +610,63 @@ TEST_P(CompilerInDriverMultiInference, Pipeline) {
     for (size_t i = 0; i < testInferences.size(); i++)
         results.push_back(std::async(std::launch::async, testInference, testInferences[i]));
 
-    std::pair<double, uint32_t> defaultFPSInferencesRate = {0, 0};
-    std::pair<double, uint32_t> backgroundFPSInferencesRate = {0, 0};
     for (size_t i = 0; i < results.size(); i++) {
         InferenceStats stats = results[i].get();
+        printInferenceStats(testInferences[i].modelName, stats);
+        EXPECT_EQ(stats.status, ZE_RESULT_SUCCESS);
+    }
+};
 
-        PRINTF("----------------------------------------------------\n");
-        PRINTF("Model:                %s\n", testInferences[i].modelName.c_str());
-        if (stats.status == ZE_RESULT_SUCCESS)
-            PRINTF("Status:               SUCCESS\n");
-        else
-            PRINTF("Status:               FAIL (%#x)\n", stats.status);
-        PRINTF("FramesExecuted:       %lu\n", stats.counter.frameCount);
-        PRINTF("FramesDropped:        %lu\n", stats.counter.frameDrops);
-        PRINTF("CalculatedFPS:        %f\n", stats.counter.fps);
-        PRINTF("ExecutionTime[ms]:    %f\n", stats.counter.totalTimeMs);
-        PRINTF("MinFrameExecTime[ms]: %f\n", stats.counter.frameMinMs);
-        PRINTF("AvgFrameExecTime[ms]: %f\n", stats.counter.frameAvgMs);
-        PRINTF("MaxFrameExecTime[ms]: %f\n", stats.counter.frameMaxMs);
+class CompilerInDriverInferenceBenchmark : public CompilerInDriverMultiInference {};
 
-        /*If defined acceptance criteraia for fps rate*/
-        if (testInferences[i].fpsDeviation) {
-            const double minFPS =
-                testInferences[i].targetFps * (1 - testInferences[i].fpsDeviation);
-            EXPECT_GE(static_cast<double>(stats.counter.fps), minFPS);
-        }
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilerInDriverInferenceBenchmark);
 
-        if (testInferences[i].workloadType == ZE_WORKLOAD_TYPE_DEFAULT) {
-            defaultFPSInferencesRate.first += stats.counter.fps;
-            defaultFPSInferencesRate.second++;
-        }
-        if (testInferences[i].workloadType == ZE_WORKLOAD_TYPE_BACKGROUND) {
-            backgroundFPSInferencesRate.first += stats.counter.fps;
-            backgroundFPSInferencesRate.second++;
-        }
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    CompilerInDriverInferenceBenchmark,
+    ::testing::ValuesIn(Environment::getConfiguration("multi_inference", "benchmark")),
+    [](const testing::TestParamInfo<YAML::Node> &p) { return p.param["name"].as<std::string>(); });
+
+TEST_P(CompilerInDriverInferenceBenchmark, Benchmark) {
+    if (!isHwsModeEnabled() || !Environment::getInstance()->isDriverExtensionSupported(
+                                   COMMAND_QUEUE_EXT_NAME,
+                                   ZE_COMMAND_QUEUE_NPU_EXT_VERSION_1_1)) {
+        GTEST_SKIP() << "HW configuration not sufficient for benchmark test.";
     }
 
-    /* For test with dynamic priority change when focus is set on dedicated inference there
-       is acceptance criteria that focused inference will be min 30% more effective
-     */
-    if (isHwsModeEnabled() && defaultFPSInferencesRate.second != 0 &&
-        backgroundFPSInferencesRate.second != 0) {
-        const double avgRateDefaultInferences =
-            defaultFPSInferencesRate.first / defaultFPSInferencesRate.second;
-        const double avgRateBackgroundInferences =
-            backgroundFPSInferencesRate.first / backgroundFPSInferencesRate.second;
-        EXPECT_GE(avgRateDefaultInferences, avgRateBackgroundInferences * 1.30);
+    auto testInference =
+        [&](const CompilerInDriverInferenceBenchmark::LocalInference &inference) -> InferenceStats {
+        return runInference(inference);
+    };
+
+    std::vector<std::future<InferenceStats>> results;
+    for (size_t i = 0; i < testInferences.size(); i++) {
+        results.push_back(std::async(std::launch::async, testInference, testInferences[i]));
+    }
+
+    double averageFps = 0;
+    uint32_t referenceFrames = 0;
+    std::vector<InferenceStats> statsCollection;
+    for (size_t i = 0; i < results.size(); i++) {
+        InferenceStats stats = results[i].get();
+        /* Calculate average fps only for models without benchmark acceptance threshold, they
+         * are called reference models */
+        if (testInferences[i].fpsDeviation == 0.0) {
+            averageFps = (averageFps * referenceFrames + stats.counter.fps) / (referenceFrames + 1);
+            referenceFrames++;
+        }
+        statsCollection.push_back(stats);
+        printInferenceStats(testInferences[i].modelName, stats);
+        EXPECT_EQ(stats.status, ZE_RESULT_SUCCESS);
+    }
+
+    /*If there are defined acceptance criteria for fps rate*/
+    for (size_t i = 0; i < testInferences.size(); i++) {
+        if (testInferences[i].fpsDeviation != 0.0) {
+            PRINTF("\nBenchmark summary:\n");
+            PRINTF("CalculatedFPS:        %f\n", statsCollection[i].counter.fps);
+            PRINTF("Acceptance criteria:  %f\n", averageFps * testInferences[i].fpsDeviation);
+            EXPECT_GE(statsCollection[i].counter.fps, averageFps * testInferences[i].fpsDeviation);
+        }
     }
 }

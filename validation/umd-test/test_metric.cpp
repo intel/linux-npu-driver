@@ -300,6 +300,7 @@ TEST_P(MetricQuery, GetDataValueCheck) {
 
     std::shared_ptr<Graph> graph =
         Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
+    ASSERT_NE(graph, nullptr);
 
     graph->allocateArguments(MemType::SHARED_MEMORY);
     graph->copyInputData();

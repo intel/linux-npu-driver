@@ -239,6 +239,7 @@ TEST_F(MutableCmdList, UpdateGraphFirstInput) {
                                zeGraphDDITableExt,
                                modelSetup.modelPath,
                                modelSetup.buildFlags);
+    ASSERT_NE(graph, nullptr);
 
     // allocate arguments and fill inputs
     graph->allocateArguments(MemType::SHARED_MEMORY);
@@ -334,6 +335,8 @@ TEST_F(MutableCmdList, UpdateGraphInputsAndOutputs) {
                                zeGraphDDITableExt,
                                modelSetup.modelPath,
                                modelSetup.buildFlags);
+    ASSERT_NE(graph, nullptr);
+
     graph->allocateArguments(MemType::SHARED_MEMORY);
 
     float16 *input0 = reinterpret_cast<float16 *>(graph->inArgs[0]);
@@ -448,6 +451,8 @@ TEST_F(MutableCmdList, UpdateTwoGraphsInSingleCmdList) {
                                 zeGraphDDITableExt,
                                 modelSetup.modelPath,
                                 modelSetup.buildFlags);
+    ASSERT_NE(graph1, nullptr);
+
     graph1->allocateArguments(MemType::SHARED_MEMORY);
     {
         float16 *input0 = reinterpret_cast<float16 *>(graph1->inArgs[0]);
@@ -464,6 +469,8 @@ TEST_F(MutableCmdList, UpdateTwoGraphsInSingleCmdList) {
                                 zeGraphDDITableExt,
                                 modelSetup.modelPath,
                                 modelSetup.buildFlags);
+    ASSERT_NE(graph2, nullptr);
+
     graph2->allocateArguments(MemType::SHARED_MEMORY);
     {
         float16 *input0 = reinterpret_cast<float16 *>(graph2->inArgs[0]);
@@ -584,6 +591,8 @@ TEST_F(MutableCmdList, UpdateGraphTwice) {
                                zeGraphDDITableExt,
                                modelSetup.modelPath,
                                modelSetup.buildFlags);
+    ASSERT_NE(graph, nullptr);
+
     graph->allocateArguments(MemType::SHARED_MEMORY);
 
     float16 *input0 = reinterpret_cast<float16 *>(graph->inArgs[0]);
@@ -704,6 +713,8 @@ TEST_F(MutableCmdList, UpdateMutableCommandsInvalidCommandId) {
                                zeGraphDDITableExt,
                                modelSetup.modelPath,
                                modelSetup.buildFlags);
+    ASSERT_NE(graph, nullptr);
+
     graph->allocateArguments(MemType::SHARED_MEMORY);
 
     ze_command_list_handle_t commandList = createMutableCmdList();
@@ -812,6 +823,7 @@ TEST_F(MutableCmdList, MutateGraphExecuteInMultipleCommandList) {
                                zeGraphDDITableExt,
                                modelSetup.modelPath,
                                modelSetup.buildFlags);
+    ASSERT_NE(graph, nullptr);
 
     const size_t cmdListCount = 4;
 

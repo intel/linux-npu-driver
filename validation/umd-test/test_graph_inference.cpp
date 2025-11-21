@@ -252,7 +252,7 @@ class GraphInference : public GraphInferenceT, public ::testing::WithParamInterf
         const YAML::Node node = GetParam();
 
         graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
-
+        ASSERT_NE(graph, nullptr);
         graph->allocateArguments(MemType::DEVICE_MEMORY);
     }
 };
