@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (c) 2024, Intel Corporation.
+ * Copyright (c) 2025, Intel Corporation.
  */
 
 /**

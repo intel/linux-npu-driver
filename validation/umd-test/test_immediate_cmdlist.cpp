@@ -18,6 +18,12 @@ class ImmediateCmdList : public UmdTest {
         ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
         list = scopedList.get();
         ASSERT_NE(list, nullptr);
+
+        syncScopedList =
+            zeScope::immediateCommandListCreate(zeContext, zeDevice, syncCmdQueueDesc, ret);
+        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+        syncList = syncScopedList.get();
+        ASSERT_NE(syncList, nullptr);
     }
 
     ze_command_queue_desc_t cmdQueueDesc{.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
@@ -28,11 +34,21 @@ class ImmediateCmdList : public UmdTest {
                                          .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
                                          .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
 
+    ze_command_queue_desc_t syncCmdQueueDesc{.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
+                                             .pNext = nullptr,
+                                             .ordinal = 0,
+                                             .index = 0,
+                                             .flags = 0,
+                                             .mode = ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS,
+                                             .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
+
     ze_command_list_handle_t list = nullptr;
+    ze_command_list_handle_t syncList = nullptr;
 
   protected:
     const size_t size = sizeof(uint64_t);
     zeScope::SharedPtr<ze_command_list_handle_t> scopedList;
+    zeScope::SharedPtr<ze_command_list_handle_t> syncScopedList;
     ze_result_t ret;
 };
 
@@ -235,6 +251,26 @@ TEST_F(ImmediateCmdList, MetricQuerryTest) {
     EXPECT_EQ(zetContextActivateMetricGroups(zeContext, zeDevice, 0u, nullptr), ZE_RESULT_SUCCESS);
 }
 
+TEST_F(ImmediateCmdList, CopySynchronousMode) {
+    ze_bool_t isImmediate = false;
+    ASSERT_EQ(zeCommandListIsImmediate(syncList, &isImmediate), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(isImmediate, true);
+
+    size_t size = 4 * MB;
+    auto mem1 = AllocSharedMemory(size);
+    ASSERT_TRUE(mem1.get()) << "Failed to allocate shared memory";
+    memset(mem1.get(), 0xaa, size);
+
+    auto mem2 = AllocSharedMemory(size);
+    ASSERT_TRUE(mem2.get()) << "Failed to allocate shared memory";
+
+    ASSERT_EQ(
+        zeCommandListAppendMemoryCopy(syncList, mem2.get(), mem1.get(), size, nullptr, 0, nullptr),
+        ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(0, memcmp(mem1.get(), mem2.get(), size));
+}
+
 class ImmediateCmdListInference : public ImmediateCmdList,
                                   public ::testing::WithParamInterface<YAML::Node> {
   public:
@@ -244,6 +280,7 @@ class ImmediateCmdListInference : public ImmediateCmdList,
         const YAML::Node node = GetParam();
 
         graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
+        ASSERT_NE(graph, nullptr);
 
         graph->allocateArguments(MemType::SHARED_MEMORY);
         graph->copyInputData();
@@ -278,5 +315,19 @@ TEST_P(ImmediateCmdListInference, CompileModelAndExecute) {
 
     ASSERT_EQ(zeCommandListHostSynchronize(list, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
+    graph->checkResults();
+}
+
+TEST_P(ImmediateCmdListInference, CompileModelAndExecuteSynchronousMode) {
+    ze_bool_t isImmediate = false;
+    ASSERT_EQ(zeCommandListIsImmediate(syncList, &isImmediate), ZE_RESULT_SUCCESS);
+    ASSERT_NE(isImmediate, false);
+    ASSERT_EQ(
+        zeGraphDDITableExt->pfnAppendGraphInitialize(syncList, graph->handle, nullptr, 0, nullptr),
+        ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeGraphDDITableExt
+                  ->pfnAppendGraphExecute(syncList, graph->handle, nullptr, nullptr, 0, nullptr),
+              ZE_RESULT_SUCCESS);
     graph->checkResults();
 }

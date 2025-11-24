@@ -103,6 +103,23 @@ class DriverCache : public UmdTest {
         }
     }
 
+    bool addConfigOption(std::string &flags, std::string option, std::string value) {
+        if (flags.find("--config") == std::string::npos)
+            flags.append(" --config");
+        if (flags.find(option) != std::string::npos)
+            return false;
+        flags += " " + option + "=" + "\"" + value + "\"";
+        return true;
+    }
+
+    void graphInputHashTestCase(void (*graphCreate)(ze_context_handle_t context,
+                                                    ze_device_handle_t device,
+                                                    ze_graph_dditable_ext_t *ddi,
+                                                    const std::shared_ptr<GraphBuffer> &graphBuffer,
+                                                    const std::string &buildFlags,
+                                                    uint64_t hash,
+                                                    ze_graph_handle_t *graph));
+
     std::shared_ptr<Graph> graph;
     char driverCacheDirectory[PATH_MAX];
     std::vector<YAML::Node> modelDataNodes;
@@ -338,6 +355,198 @@ TEST_F(DriverCache, CheckCacheUsingMultipleThreads) {
     ASSERT_EQ(cachedBlobs.size(), modelDataNodes.size());
 }
 
+void DriverCache::graphInputHashTestCase(
+    void (*graphCreate)(ze_context_handle_t context,
+                        ze_device_handle_t device,
+                        ze_graph_dditable_ext_t *ddi,
+                        const std::shared_ptr<GraphBuffer> &graphBuffer,
+                        const std::string &buildFlags,
+                        uint64_t hash,
+                        ze_graph_handle_t *graph)) {
+    clearCacheDirectory();
+    ASSERT_EQ(getUsedCacheSpace(), 0);
+
+    std::vector<std::shared_ptr<GraphBuffer>> graphBuffers;
+    for (size_t i = 0; i < modelDataNodes.size(); i++) {
+        const auto &modelNode = modelDataNodes[i];
+        auto graphBuffer = GraphBuffer::get(zeDevice, zeGraphDDITableExt, globalConfig, modelNode);
+        ASSERT_NE(graphBuffer, nullptr);
+        graphBuffers.push_back(graphBuffer);
+
+        uint64_t hash = 0x112233 + i;
+        ze_graph_handle_t graph;
+        graphCreate(zeContext,
+                    zeDevice,
+                    zeGraphDDITableExt,
+                    graphBuffer,
+                    graphBuffer->buildFlags,
+                    hash,
+                    &graph);
+
+        ze_graph_properties_3_t graphProperties = {};
+        ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties3(graph, &graphProperties),
+                  ZE_RESULT_SUCCESS);
+        ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
+                  ZE_GRAPH_PROPERTIES_FLAG_COMPILED);
+    }
+
+    auto cachedBlobsFirstIteration = getListOfCachedFiles();
+    ASSERT_EQ(cachedBlobsFirstIteration.size(), modelDataNodes.size());
+    auto cachedBlobsTimeFirstIteration = getCacheFilesLastWriteTime();
+
+    // check if we have a cache hit
+    for (size_t i = 0; i < graphBuffers.size(); i++) {
+        const auto &graphBuffer = graphBuffers[i];
+
+        uint64_t hash = 0x112233 + i;
+        ze_graph_handle_t graph;
+        graphCreate(zeContext,
+                    zeDevice,
+                    zeGraphDDITableExt,
+                    graphBuffer,
+                    graphBuffer->buildFlags,
+                    hash,
+                    &graph);
+
+        ze_graph_properties_3_t graphProperties = {};
+        ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties3(graph, &graphProperties),
+                  ZE_RESULT_SUCCESS);
+        ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
+                  ZE_GRAPH_PROPERTIES_FLAG_LOADED_FROM_CACHE);
+    }
+
+    auto cachedBlobsSecondIteration = getListOfCachedFiles();
+    ASSERT_EQ(cachedBlobsFirstIteration, cachedBlobsSecondIteration);
+
+    auto cachedBlobsTimeSecondIteration = getCacheFilesLastWriteTime();
+    ASSERT_EQ(cachedBlobsTimeFirstIteration, cachedBlobsTimeSecondIteration);
+
+    // change model name and check if we still have a cache hit
+    for (size_t i = 0; i < graphBuffers.size(); i++) {
+        const auto &graphBuffer = graphBuffers[i];
+        const char *pattern = "<net name=\"";
+        char *netName = strstr(graphBuffer->buffer.data() + graphBuffer->xmlOffset, pattern);
+        ASSERT_NE(netName, nullptr);
+        netName += strlen(pattern);
+        *netName = *netName == '0' ? '1' : '0';
+
+        uint64_t hash = 0x112233 + i;
+        ze_graph_handle_t graph;
+        graphCreate(zeContext,
+                    zeDevice,
+                    zeGraphDDITableExt,
+                    graphBuffer,
+                    graphBuffer->buildFlags,
+                    hash,
+                    &graph);
+
+        ze_graph_properties_3_t graphProperties = {};
+        ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties3(graph, &graphProperties),
+                  ZE_RESULT_SUCCESS);
+        ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
+                  ZE_GRAPH_PROPERTIES_FLAG_LOADED_FROM_CACHE);
+    }
+
+    auto cachedBlobsThirdIteration = getListOfCachedFiles();
+    ASSERT_EQ(cachedBlobsSecondIteration, cachedBlobsThirdIteration);
+
+    auto cachedBlobsTimeThirdIteration = getCacheFilesLastWriteTime();
+    ASSERT_EQ(cachedBlobsTimeSecondIteration, cachedBlobsTimeThirdIteration);
+
+    // change build flags and check if we have a cache miss
+    for (size_t i = 0; i < graphBuffers.size(); i++) {
+        const auto &graphBuffer = graphBuffers[i];
+
+        ze_graph_handle_t graph;
+        uint64_t hash = 0x112233 + i;
+        std::string buildFlags = graphBuffer->buildFlags;
+        ASSERT_TRUE(addConfigOption(buildFlags, "PERF_COUNT", "NO"));
+        graphCreate(zeContext, zeDevice, zeGraphDDITableExt, graphBuffer, buildFlags, hash, &graph);
+
+        ze_graph_properties_3_t graphProperties = {};
+        ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties3(graph, &graphProperties),
+                  ZE_RESULT_SUCCESS);
+        ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
+                  ZE_GRAPH_PROPERTIES_FLAG_COMPILED);
+    }
+
+    auto cachedBlobsFourthIteration = getListOfCachedFiles();
+    ASSERT_NE(cachedBlobsFirstIteration, cachedBlobsFourthIteration);
+    ASSERT_EQ(cachedBlobsFirstIteration.size() * 2, cachedBlobsFourthIteration.size());
+}
+
+static void graphCreateWithInputHash(ze_context_handle_t context,
+                                     ze_device_handle_t device,
+                                     ze_graph_dditable_ext_t *ddi,
+                                     const std::shared_ptr<GraphBuffer> &graphBuffer,
+                                     const std::string &buildFlags,
+                                     uint64_t hash,
+                                     ze_graph_handle_t *graph) {
+    ze_graph_input_hash_t graphInputHash = {};
+    graphInputHash.stype = ZE_STRUCTURE_TYPE_GRAPH_INPUT_HASH;
+    graphInputHash.hash = hash;
+    ze_graph_desc_t desc = {};
+    desc.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES;
+    desc.pNext = &graphInputHash;
+    desc.format = ZE_GRAPH_FORMAT_NGRAPH_LITE;
+    desc.inputSize = graphBuffer->buffer.size();
+    desc.pInput = reinterpret_cast<uint8_t *>(graphBuffer->buffer.data());
+    desc.pBuildFlags = buildFlags.c_str();
+    ASSERT_EQ(ddi->pfnCreate(context, device, &desc, graph), ZE_RESULT_SUCCESS);
+}
+
+TEST_F(DriverCache, GraphInputHashWithGraphCreate) {
+    graphInputHashTestCase(graphCreateWithInputHash);
+}
+
+static void graphCreate2WithInputHash(ze_context_handle_t context,
+                                      ze_device_handle_t device,
+                                      ze_graph_dditable_ext_t *ddi,
+                                      const std::shared_ptr<GraphBuffer> &graphBuffer,
+                                      const std::string &buildFlags,
+                                      uint64_t hash,
+                                      ze_graph_handle_t *graph) {
+    ze_graph_input_hash_t graphInputHash = {};
+    graphInputHash.stype = ZE_STRUCTURE_TYPE_GRAPH_INPUT_HASH;
+    graphInputHash.hash = hash;
+    ze_graph_desc_2_t desc = {};
+    desc.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES;
+    desc.pNext = &graphInputHash;
+    desc.format = ZE_GRAPH_FORMAT_NGRAPH_LITE;
+    desc.inputSize = graphBuffer->buffer.size();
+    desc.pInput = reinterpret_cast<uint8_t *>(graphBuffer->buffer.data());
+    desc.pBuildFlags = buildFlags.c_str();
+    ASSERT_EQ(ddi->pfnCreate2(context, device, &desc, graph), ZE_RESULT_SUCCESS);
+}
+
+TEST_F(DriverCache, GraphInputHashWithGraphCreate2) {
+    graphInputHashTestCase(graphCreate2WithInputHash);
+}
+
+static void graphCreate3WithInputHash(ze_context_handle_t context,
+                                      ze_device_handle_t device,
+                                      ze_graph_dditable_ext_t *ddi,
+                                      const std::shared_ptr<GraphBuffer> &graphBuffer,
+                                      const std::string &buildFlags,
+                                      uint64_t hash,
+                                      ze_graph_handle_t *graph) {
+    ze_graph_input_hash_t graphInputHash = {};
+    graphInputHash.stype = ZE_STRUCTURE_TYPE_GRAPH_INPUT_HASH;
+    graphInputHash.hash = hash;
+    ze_graph_desc_2_t desc = {};
+    desc.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES;
+    desc.pNext = &graphInputHash;
+    desc.format = ZE_GRAPH_FORMAT_NGRAPH_LITE;
+    desc.inputSize = graphBuffer->buffer.size();
+    desc.pInput = reinterpret_cast<uint8_t *>(graphBuffer->buffer.data());
+    desc.pBuildFlags = buildFlags.c_str();
+    ASSERT_EQ(ddi->pfnCreate3(context, device, &desc, graph, nullptr), ZE_RESULT_SUCCESS);
+}
+
+TEST_F(DriverCache, GraphInputHashWithGraphCreate3) {
+    graphInputHashTestCase(graphCreate3WithInputHash);
+}
+
 class CompilationLog : public DriverCache {
   public:
     void SetUp() override { DriverCache::SetUp(); }
@@ -369,15 +578,6 @@ class CompilationLog : public DriverCache {
 
     ze_result_t destroyBuildLog(ze_graph_build_log_handle_t buildLogHandle) {
         return zeGraphDDITableExt->pfnBuildLogDestroy(buildLogHandle);
-    }
-
-    bool addConfigOption(std::string &flags, std::string option, std::string value) {
-        if (flags.find("--config") == std::string::npos)
-            flags.append(" --config");
-        if (flags.find(option) != std::string::npos)
-            return false;
-        flags += " " + option + "=" + "\"" + value + "\"";
-        return true;
     }
 };
 

@@ -75,7 +75,7 @@ class CommandGraphLong : public CommandGraphBase, public ::testing::WithParamInt
         const YAML::Node node = GetParam();
 
         graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
-
+        ASSERT_NE(graph, nullptr);
         graph->allocateArguments(MemType::SHARED_MEMORY);
         graph->copyInputData();
     }
@@ -659,7 +659,7 @@ TEST_P(CommandGraphLongThreaded, RunInferenceUseCommandQueueSynchronize) {
         tasks.push_back(std::make_unique<std::thread>([this, node]() {
             std::shared_ptr<Graph> graph =
                 Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
-
+            ASSERT_NE(graph, nullptr);
             ze_result_t ret = ZE_RESULT_SUCCESS;
             auto scopedQueue = zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDesc, ret);
             ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
@@ -705,6 +705,7 @@ TEST_P(CommandGraphLongThreaded, RunInferenceUseFenceSynchronize) {
 
     std::shared_ptr<Graph> graph =
         Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
+    ASSERT_NE(graph, nullptr);
 
     graph->allocateArguments(MemType::SHARED_MEMORY);
     graph->copyInputData();

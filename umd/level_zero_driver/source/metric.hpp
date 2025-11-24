@@ -93,8 +93,7 @@ struct MetricContext {
     ze_result_t
     activateMetricGroups(int vpuFd, uint32_t count, zet_metric_group_handle_t *phMetricGroups);
 
-    // Value from FW - 10 [ms]
-    constexpr static uint32_t MIN_SAMPLING_RATE_NS = 10'000'000;
+    constexpr static uint32_t MIN_SAMPLING_RATE_NS = 1'000'000;
 
   protected:
     /**

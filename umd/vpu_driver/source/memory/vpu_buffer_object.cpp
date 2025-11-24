@@ -13,6 +13,7 @@
 #include "vpu_driver/source/utilities/stats.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <fcntl.h>
 #include <string.h>
 #include <sys/types.h>
@@ -34,7 +35,7 @@ VPUBufferObject::VPUBufferObject(const VPUDriverApi &drvApi,
     , allocSize(allocSize)
     , vpuAddr(vpuAddr)
     , handle(handle) {
-    static uint64_t counter = 0;
+    static std::atomic<uint64_t> counter = 0;
     id = ++counter;
 }
 

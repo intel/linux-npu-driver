@@ -5,8 +5,6 @@
  *
  */
 
-#include <stddef.h>
-
 #include "gtest/gtest.h"
 #include "level_zero_driver/source/context.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
@@ -16,6 +14,7 @@
 
 #include <level_zero/ze_api.h>
 #include <memory>
+#include <unistd.h>
 
 namespace L0 {
 namespace ult {
@@ -170,8 +169,7 @@ TEST_F(ContextMemoryTestProperties, passHostMemoryAddressToGetMemPropertiesExpec
     EXPECT_EQ(pMemAllocProperties.pNext, nullptr);
     EXPECT_EQ(pMemAllocProperties.type, ZE_MEMORY_TYPE_HOST);
     EXPECT_GT(pMemAllocProperties.id, 0u);
-    EXPECT_EQ(pMemAllocProperties.pageSize, size);
-
+    EXPECT_EQ(pMemAllocProperties.pageSize, 4096);
     context->freeMem(ptr);
 }
 
@@ -191,7 +189,7 @@ TEST_F(ContextMemoryTestProperties, passDeviceMemoryAddressToGetMemPropertiesExp
     EXPECT_EQ(pMemAllocProperties.pNext, nullptr);
     EXPECT_EQ(pMemAllocProperties.type, ZE_MEMORY_TYPE_DEVICE);
     EXPECT_GT(pMemAllocProperties.id, 0u);
-    EXPECT_EQ(pMemAllocProperties.pageSize, size);
+    EXPECT_EQ(pMemAllocProperties.pageSize, 4096);
 
     context->freeMem(ptr);
 }

@@ -14,18 +14,10 @@ class InOrderExecution : public UmdTest {
     void SetUp() override {
         UmdTest::SetUp();
 
-        uint32_t count = 0;
-        ASSERT_EQ(zeDriverGetExtensionProperties(zeDriver, &count, nullptr), ZE_RESULT_SUCCESS);
-        EXPECT_GT(count, 0);
-
-        std::vector<ze_driver_extension_properties_t> props(count);
-        ASSERT_EQ(zeDriverGetExtensionProperties(zeDriver, &count, props.data()),
-                  ZE_RESULT_SUCCESS);
-
-        for (auto &v : props) {
-            std::string name(v.name);
-            if (name == COMMAND_QUEUE_EXT_NAME && v.version != ZE_COMMAND_QUEUE_NPU_EXT_VERSION_1_1)
-                GTEST_SKIP() << "Command queue extension doesn't support in order execution";
+        if (!Environment::getInstance()->isDriverExtensionSupported(
+                COMMAND_QUEUE_EXT_NAME,
+                ZE_COMMAND_QUEUE_NPU_EXT_VERSION_1_1)) {
+            GTEST_SKIP() << "Command queue extension doesn't support in order execution";
         }
 
         cmdQueueDesc.pNext = &inOrderQueueDescriptorExt;
@@ -440,6 +432,7 @@ class InOrderInference : public InOrderExecution, public ::testing::WithParamInt
         list = scopedList.get();
 
         graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
+        ASSERT_NE(graph, nullptr);
 
         graph->allocateArguments(MemType::SHARED_MEMORY);
         graph->copyInputData();

@@ -65,7 +65,7 @@ class VPUDeviceContext {
 
     VPUDeviceContext(VPUDeviceContext const &) = delete;
     VPUDeviceContext &operator=(VPUDeviceContext const &) = delete;
-
+    static uint32_t getCpuTscFreqMHz();
     inline void *
     createMemAlloc(size_t size, VPUBufferObject::Type type, VPUBufferObject::Location loc) {
         auto bo = createBufferObject(size, type, loc);

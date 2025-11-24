@@ -20,6 +20,7 @@ namespace test_vars {
 extern bool forceGpu;
 extern bool disable_metrics;
 extern bool forceZeInitTests;
+extern bool forcePreemptionTests;
 extern int userRequestedTimeoutMs;
 } // namespace test_vars
 
@@ -55,8 +56,7 @@ class Environment : public ::testing::Environment {
         if (test_vars::forceGpu) {
             config = configWithGpu;
             PRINTF("Testing with GPU L0.\n");
-            PRINTF("Disabling metrics (ZET_ENABLE_METRICS=%d) (EISW-131452).\n",
-                   config.metricsEnable);
+            PRINTF("Disabling metrics (ZET_ENABLE_METRICS=%d).\n", config.metricsEnable);
         }
 
         if (test_vars::disable_metrics) {
@@ -135,6 +135,13 @@ class Environment : public ::testing::Environment {
             ASSERT_NE(zeDriverGpu, nullptr) << "Failed to initialize Driver GPU L0";
             ASSERT_NE(zeDeviceGpu, nullptr) << "Failed to initialize Device GPU L0";
         }
+        uint32_t count = 0;
+        ASSERT_EQ(zeDriverGetExtensionProperties(zeDriver, &count, nullptr), ZE_RESULT_SUCCESS);
+        EXPECT_GT(count, 0);
+
+        driverExtensionProps.resize(count);
+        ASSERT_EQ(zeDriverGetExtensionProperties(zeDriver, &count, driverExtensionProps.data()),
+                  ZE_RESULT_SUCCESS);
 
         ASSERT_EQ(
             zeDriverGetExtensionFunctionAddress(zeDriver,
@@ -167,6 +174,16 @@ class Environment : public ::testing::Environment {
         return zeGraphProfilingDDITableExt;
     }
     command_queue_dditable_t *getCommandQueueDDITable() { return zeCommandQueueDDITableExt; }
+
+    bool isDriverExtensionSupported(const char *extensionName, uint32_t extensionVersion = 0) {
+        for (auto &v : driverExtensionProps) {
+            std::string name(v.name);
+            if (name == extensionName && v.version >= extensionVersion)
+                return true;
+        }
+        return false;
+    }
+
     uint64_t getMaxMemAllocSize() { return maxMemAllocSize; }
     uint16_t getPciDevId() { return pciDevId; }
     uint16_t getPlatformType() { return platformType; }
@@ -200,6 +217,26 @@ class Environment : public ::testing::Environment {
             PRINTF("Bad node: %s reason: %s\n", nodeName, e.what());
             return emptyNodeVector;
         }
+    }
+
+    static std::vector<YAML::Node> getConfiguration(const char *nodeName, std::string hasKey) {
+        std::vector<YAML::Node> resultNodes;
+
+        auto nodes = getConfiguration(nodeName);
+        if (nodes.empty())
+            return resultNodes;
+
+        try {
+            for (const auto &node : nodes) {
+                if (node[hasKey].IsDefined()) {
+                    resultNodes.push_back(node);
+                }
+            }
+        } catch (YAML::Exception &e) {
+            PRINTF("Bad node: %s reason: %s\n", nodeName, e.what());
+            resultNodes.clear();
+        }
+        return resultNodes;
     }
 
     static bool loadConfiguration(const char *configFilePath) {
@@ -277,6 +314,7 @@ class Environment : public ::testing::Environment {
     ze_graph_profiling_dditable_ext_t *zeGraphProfilingDDITableExt = nullptr;
     /** @brief Pointer to the Level Zero API command queue extension DDI table */
     command_queue_dditable_t *zeCommandQueueDDITableExt = nullptr;
+    std::vector<ze_driver_extension_properties_t> driverExtensionProps = {};
     uint64_t maxMemAllocSize = 0;
     uint16_t pciDevId = 0;
     uint32_t platformType = 0;

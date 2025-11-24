@@ -10,7 +10,7 @@ if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.24")
     cmake_policy(SET CMP0135 NEW)
 endif()
 
-set(STACK_VERSION 1.24.0 CACHE STRING "Main project version")
+set(STACK_VERSION 1.26.0 CACHE STRING "Main project version")
 project(npu-linux-driver VERSION ${STACK_VERSION})
 
 set(BUILD_NUMBER "dev-0" CACHE STRING "Build number composed of name and unique number used as driver version")
@@ -56,9 +56,7 @@ add_subdirectory(compiler)
 add_subdirectory(firmware)
 add_subdirectory(third_party)
 add_subdirectory(umd)
-if (ENABLE_VALIDATION_BUILD)
-  add_subdirectory(validation)
-endif()
+add_subdirectory(validation)
 
 include(cmake/packaging/setup.cmake)
 

@@ -138,6 +138,10 @@ inline bool canReadFromSysFsFile(const std::string &filename) {
     return true;
 }
 
+inline uint64_t getPageSize() {
+    return static_cast<uint64_t>(sysconf(_SC_PAGESIZE));
+}
+
 class UmdTest : public ::testing::Test {
   public:
     /**

@@ -168,7 +168,7 @@ class MetricStreamer : public UmdTest, public ::testing::WithParamInterface<metr
     }
 
     void openMetricStreamer(uint32_t notify = 20,
-                            uint32_t periodMs = 10,
+                            uint32_t periodMs = 1,
                             ze_event_handle_t hEvent = nullptr) {
         zet_metric_streamer_desc_t metricStreamerDesc = {
             .stype = ZET_STRUCTURE_TYPE_METRIC_STREAMER_DESC,
@@ -270,6 +270,7 @@ TEST_P(MetricStreamer, RunInferenceExpectAnyReport) {
 
     std::shared_ptr<Graph> graph =
         Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
+    ASSERT_NE(graph, nullptr);
 
     graph->allocateArguments(MemType::SHARED_MEMORY);
     graph->copyInputData();
@@ -305,6 +306,7 @@ TEST_P(MetricStreamer, RunInferenceSleepThanExpectAnyReport) {
 
     std::shared_ptr<Graph> graph =
         Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
+    ASSERT_NE(graph, nullptr);
 
     graph->allocateArguments(MemType::SHARED_MEMORY);
     graph->copyInputData();
@@ -341,6 +343,7 @@ TEST_P(MetricStreamer, RunInferenceExpectReportNotification) {
 
     std::shared_ptr<Graph> graph =
         Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
+    ASSERT_NE(graph, nullptr);
 
     graph->allocateArguments(MemType::SHARED_MEMORY);
     graph->copyInputData();
@@ -414,6 +417,7 @@ TEST_P(MetricStreamer, RunInferenceExpectReportNotificationFromEventHostSynchron
 
     std::shared_ptr<Graph> graph =
         Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
+    ASSERT_NE(graph, nullptr);
 
     graph->allocateArguments(MemType::SHARED_MEMORY);
     graph->copyInputData();

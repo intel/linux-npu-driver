@@ -110,7 +110,15 @@ DiskCache::Key DiskCache::computeKey(const ze_graph_desc_2_t &desc) {
                     sizeof(vclProp.supportedOpsets));
     }
     hash.update(reinterpret_cast<const uint8_t *>(&desc.format), sizeof(desc.format));
-    hash.update(desc.pInput, desc.inputSize);
+    const ze_structure_type_graph_ext_t *type =
+        static_cast<const ze_structure_type_graph_ext_t *>(desc.pNext);
+    if (type != nullptr && *type == ZE_STRUCTURE_TYPE_GRAPH_INPUT_HASH) {
+        const ze_graph_input_hash_t *inputHash =
+            static_cast<const ze_graph_input_hash_t *>(desc.pNext);
+        hash.update(reinterpret_cast<const uint8_t *>(&inputHash->hash), sizeof(inputHash->hash));
+    } else {
+        hash.update(desc.pInput, desc.inputSize);
+    }
     if (desc.pBuildFlags) {
         hash.update(reinterpret_cast<const uint8_t *>(desc.pBuildFlags), strlen(desc.pBuildFlags));
     }
@@ -189,14 +197,16 @@ removeLeastUsedFiles(VPU::OsInterface &osInfc, std::filesystem::path &cachePath,
 }
 
 void DiskCache::setBlob(const Key &key, const std::unique_ptr<BlobContainer> &blob) {
-    if (blob == nullptr || cachePath.empty() || blob->size > maxSize)
+    if (blob == nullptr || cachePath.empty())
         return;
 
     // Add checksum after blob
     size_t cachedBlobSize = blob->size + HashSha1::DigestLength;
-
     size_t cacheSize = getCacheSize();
-    if (cacheSize + cachedBlobSize > maxSize) {
+
+    if (cachedBlobSize > maxSize) {
+        return;
+    } else if (cacheSize + cachedBlobSize > maxSize) {
         cacheSize -= removeLeastUsedFiles(osInfc, cachePath, cacheSize + cachedBlobSize - maxSize);
     }
 

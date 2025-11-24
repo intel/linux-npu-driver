@@ -14,6 +14,7 @@
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
+#include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <memory>
@@ -129,7 +130,7 @@ ze_result_t Context::getMemAllocProperties(const void *ptr,
     }
 
     pMemAllocProperties->id = bo->getId();
-    pMemAllocProperties->pageSize = bo->getAllocSize();
+    pMemAllocProperties->pageSize = ctx->getDriverApi().getPageSize();
 
     if (pMemAllocProperties->pNext &&
         checkPtrAlignment<ze_external_memory_export_fd_t *>(pMemAllocProperties->pNext)) {

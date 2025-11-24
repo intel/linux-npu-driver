@@ -259,6 +259,7 @@ class GraphBuffer {
 
         memcpy(&buffer[offset], &sizeXml, sizeof(sizeXml));
         offset += sizeof(sizeXml);
+        xmlOffset = offset;
 
         memcpy(&buffer[offset], bufferXml.data(), sizeXml);
         offset += sizeXml;
@@ -273,9 +274,9 @@ class GraphBuffer {
     std::filesystem::path path;
     ze_graph_desc_2_t desc = {};
 
-  private:
     std::vector<char> buffer = {};
     std::string buildFlags = {};
+    size_t xmlOffset = 0;
 };
 
 class Graph {

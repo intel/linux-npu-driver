@@ -1,6 +1,6 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation.
-// SPDX-License-Identifier: Apache-2.0
+// Copyright (C) 2023 Intel Corporation.
+// SPDX-License-Identifier: Apache 2.0
 //
 
 #ifndef VPUX_COMPILER_L0_H
@@ -244,8 +244,9 @@ VCL_APIEXPORT vcl_result_t VCL_APICALL vclQueryNetworkDestroy(vcl_query_handle_t
 ///////////////////////////////////////////////////////////////////////////////
 /// @brief Creates an executable object and returns the executable handle.
 /// Parse modelIRData in the executable descriptor to blob and store it in the executable.
-VCL_APIEXPORT vcl_result_t VCL_APICALL vclExecutableCreate(vcl_compiler_handle_t compiler, vcl_executable_desc_t desc,
-                                                           vcl_executable_handle_t* executable);
+DEPRECATED VCL_APIEXPORT vcl_result_t VCL_APICALL vclExecutableCreate(vcl_compiler_handle_t compiler,
+                                                                      vcl_executable_desc_t desc,
+                                                                      vcl_executable_handle_t* executable);
 
 DEPRECATED typedef struct __vcl_allocator_t {
     uint8_t* (*allocate)(uint64_t);

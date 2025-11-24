@@ -478,13 +478,14 @@ static ze_graph_argument_precision_t getTensorPrecision(elf::DType type) {
         return ZE_GRAPH_ARGUMENT_PRECISION_INT8;
     case elf::DType::DType_I4:
         return ZE_GRAPH_ARGUMENT_PRECISION_INT4;
+    case elf::DType::DType_I2:
+        return ZE_GRAPH_ARGUMENT_PRECISION_INT2;
     case elf::DType::DType_BIN:
         return ZE_GRAPH_ARGUMENT_PRECISION_BIN;
     case elf::DType::DType_BFP16:
         return ZE_GRAPH_ARGUMENT_PRECISION_BF16;
     case elf::DType::DType_I4X:
         return ZE_GRAPH_ARGUMENT_PRECISION_NF4;
-    case elf::DType::DType_I2:
     case elf::DType::DType_LOG:
         return ZE_GRAPH_ARGUMENT_PRECISION_UNKNOWN;
     }
