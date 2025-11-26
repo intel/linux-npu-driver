@@ -163,7 +163,7 @@ TEST_F(MemoryAllocation, GetMemPropertiesWithAllocHostMemExpectSuccess) {
     EXPECT_EQ(pMemAllocProperties.pNext, nullptr);
     EXPECT_EQ(pMemAllocProperties.type, ZE_MEMORY_TYPE_HOST);
     EXPECT_GT(pMemAllocProperties.id, 0u);
-    EXPECT_EQ(pMemAllocProperties.pageSize, size);
+    EXPECT_EQ(pMemAllocProperties.pageSize, getPageSize());
 }
 
 TEST_F(MemoryAllocation, GetMemPropertiesWithAllocDeviceMemExpectSuccess) {
@@ -182,7 +182,7 @@ TEST_F(MemoryAllocation, GetMemPropertiesWithAllocDeviceMemExpectSuccess) {
     EXPECT_EQ(pMemAllocProperties.pNext, nullptr);
     EXPECT_EQ(pMemAllocProperties.type, ZE_MEMORY_TYPE_DEVICE);
     EXPECT_GT(pMemAllocProperties.id, 0u);
-    EXPECT_EQ(pMemAllocProperties.pageSize, size);
+    EXPECT_EQ(pMemAllocProperties.pageSize, getPageSize());
 }
 
 class MemoryExecution : public MemoryAllocation {
@@ -259,31 +259,6 @@ TEST_P(MemoryExecution, AllocMemoryExecuteCopyCommand) {
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, syncTimeout), ZE_RESULT_SUCCESS);
     ASSERT_EQ(memcmp(dst.get(), src.get(), size), 0);
-}
-
-// TODO: Allow copy from user pointer, EISW-19284
-TEST_F(MemoryExecution, DISABLED_CopyingFromUnpinnedHostMemoryShouldBeAllowed) {
-    size_t size = 4 * 1024;
-
-    // Unpinned host memory.
-    std::vector<uint8_t> hostMem(size);
-    auto destDevMem = AllocSharedMemory(size);
-    memset(hostMem.data(), 0xCD, size);
-
-    EXPECT_EQ(zeCommandListAppendMemoryCopy(list,
-                                            destDevMem.get(),
-                                            hostMem.data(),
-                                            size,
-                                            nullptr,
-                                            0,
-                                            nullptr),
-              ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
-
-    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS)
-        << "Failed to pin memory using size " << size;
-    ASSERT_EQ(zeCommandQueueSynchronize(queue, syncTimeout), ZE_RESULT_SUCCESS);
-    EXPECT_EQ(memcmp(destDevMem.get(), hostMem.data(), size), 0);
 }
 
 TEST_F(MemoryExecution, CheckQueryContextMemory) {
@@ -620,7 +595,17 @@ TEST_F(MemoryAllocationThreaded, HostMem) {
     for (const auto &t : tasks) {
         t.get()->join();
     }
+
+    std::set<uint64_t> allIds;
     for (const auto &m : mem) {
+        ze_memory_allocation_properties_t prop = {};
+        prop.stype = ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES;
+        EXPECT_EQ(zeMemGetAllocProperties(zeContext, m, &prop, nullptr), ZE_RESULT_SUCCESS);
+        EXPECT_EQ(prop.type, ZE_MEMORY_TYPE_HOST);
+        EXPECT_GT(prop.id, 0u);
+        auto [_, success] = allIds.insert(prop.id);
+        EXPECT_TRUE(success) << "Duplicate memory allocation id found: " << prop.id;
+
         ASSERT_EQ(ZE_RESULT_SUCCESS, zeMemFree(zeContext, m));
     }
 }
@@ -633,7 +618,17 @@ TEST_F(MemoryAllocationThreaded, DeviceMem) {
     for (const auto &t : tasks) {
         t.get()->join();
     }
+
+    std::set<uint64_t> allIds;
     for (const auto &m : mem) {
+        ze_memory_allocation_properties_t prop = {};
+        prop.stype = ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES;
+        EXPECT_EQ(zeMemGetAllocProperties(zeContext, m, &prop, nullptr), ZE_RESULT_SUCCESS);
+        EXPECT_EQ(prop.type, ZE_MEMORY_TYPE_DEVICE);
+        EXPECT_GT(prop.id, 0u);
+        auto [_, success] = allIds.insert(prop.id);
+        EXPECT_TRUE(success) << "Duplicate memory allocation id found: " << prop.id;
+
         ASSERT_EQ(ZE_RESULT_SUCCESS, zeMemFree(zeContext, m));
     }
 }

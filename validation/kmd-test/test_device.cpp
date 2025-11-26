@@ -16,7 +16,20 @@
 class Device : public KmdTest {
   public:
     void Heartbeat(int thread_id);
+    void ResetEngine();
 };
+
+void Device::ResetEngine() {
+    SKIP_NO_DEBUGFS("reset_engine");
+    SKIP_NO_DEBUGFS("resume_engine");
+
+    ASSERT_EQ(write_debugfs_file("reset_engine", ENGINE_COMPUTE), 0);
+    if (is_hws_enabled()) {
+        ASSERT_EQ(write_debugfs_file("resume_engine", ENGINE_COMPUTE), 0);
+    }
+
+    ASSERT_TRUE(wait_for_suspend());
+}
 
 TEST_F(Device, Open) {
     static const int COUNT = 128;
@@ -110,35 +123,36 @@ TEST_F(Device, GetDeviceParams) {
     EXPECT_EQ(get_param(DRM_IVPU_PARAM_FW_API_VERSION, &value), 0);
 }
 
-TEST_F(Device, ResetComputeEngine) {
-    bool hws = is_hws_enabled();
-    SKIP_NO_DEBUGFS("reset_engine");
+TEST_F(Device, ResetEngine) {
+    ResetEngine();
+}
 
-    if (hws) {
-        SKIP_NO_DEBUGFS("resume_engine");
-    }
+TEST_F(Device, ResetEngineAfterCmd) {
+    SendCheckTimestamp();
+    ResetEngine();
+}
 
-    ASSERT_EQ(write_debugfs_file("reset_engine", ENGINE_COMPUTE), 0);
+TEST_F(Device, ResetEngineAfterHB) {
+    uint64_t hb;
 
-    if (hws) {
-        ASSERT_EQ(write_debugfs_file("resume_engine", ENGINE_COMPUTE), 0);
-    }
+    ASSERT_EQ(get_param(DRM_IVPU_PARAM_ENGINE_HEARTBEAT, &hb, ENGINE_COMPUTE), 0);
+    ResetEngine();
 }
 
 TEST_F(Device, Suspend) {
     ASSERT_TRUE(wait_for_suspend());
 }
 
-// Failed with patchset KMD. Requires:
-// c613ba134 accel/ivpu: Fix reset_engine debugfs file logic
-TEST_F(Device, DISABLED_ResetInvalidEngine) {
+TEST_F(Device, ResetInvalidEngine) {
+    SKIP_PATCHSET();
     SKIP_NO_DEBUGFS("reset_engine");
+    SKIP_NO_DEBUGFS("resume_engine");
 
-    ASSERT_EQ(write_debugfs_file("reset_engine", 3), -1);
-    ASSERT_EQ(errno, EINVAL);
+    EXPECT_EQ(write_debugfs_file("reset_engine", 3), EINVAL);
+    EXPECT_EQ(write_debugfs_file("resume_engine", 3), EINVAL);
 }
 
-TEST_F(Device, Heartbeat_ComputeEngine) {
+TEST_F(Device, Heartbeat) {
     uint64_t hb;
 
     ASSERT_EQ(get_param(DRM_IVPU_PARAM_ENGINE_HEARTBEAT, &hb, ENGINE_COMPUTE), 0);

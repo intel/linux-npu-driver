@@ -69,7 +69,7 @@ TEST_P(ExternalMemoryDmaHeap, DmaHeapToNpu) {
                                       nullptr));
     ASSERT_EQ(pMemAllocProperties.type, ZE_MEMORY_TYPE_DEVICE);
     ASSERT_GT(pMemAllocProperties.id, 0u);
-    ASSERT_EQ(pMemAllocProperties.pageSize, ALIGN_TO_PAGE(dmaBufferSize));
+    ASSERT_EQ(pMemAllocProperties.pageSize, getPageSize());
 
     /* mmap original dma buffer and write pattern to it */
     const int32_t pattern = 0xDEADAABB;

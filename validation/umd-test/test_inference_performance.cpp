@@ -72,6 +72,7 @@ TEST_P(InferencePerformance, MeasureTimeBetweenTwoInferencesAfterPutVPUInIdleSta
 
     std::shared_ptr<Graph> graph =
         Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
+    ASSERT_NE(graph, nullptr);
 
     graph->allocateArguments(MemType::HOST_MEMORY);
 

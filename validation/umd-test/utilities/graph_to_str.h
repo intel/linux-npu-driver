@@ -15,6 +15,8 @@ inline const char *zeGraphArgumentToStr(ze_graph_argument_type_t a) {
         return "ZE_GRAPH_ARGUMENT_TYPE_INPUT";
     case ZE_GRAPH_ARGUMENT_TYPE_OUTPUT:
         return "ZE_GRAPH_ARGUMENT_TYPE_OUTPUT";
+    case ZE_GRAPH_ARGUMENT_TYPE_FORCE_UINT32:
+        return "ZE_GRAPH_ARGUMENT_TYPE_FORCE_UINT32";
     }
     return "UNKNOWN";
 }
@@ -69,6 +71,8 @@ inline const char *zeGraphArgumentPrecisionToStr(ze_graph_argument_precision_t a
         return "ZE_GRAPH_ARGUMENT_PRECISION_BOOLEAN";
     case ZE_GRAPH_ARGUMENT_PRECISION_NF4:
         return "ZE_GRAPH_ARGUMENT_PRECISION_NF4";
+    case ZE_GRAPH_ARGUMENT_PRECISION_FORCE_UINT32:
+        return "ZE_GRAPH_ARGUMENT_PRECISION_FORCE_UINT32";
     }
     return "UNKNOWN";
 }
@@ -99,6 +103,8 @@ inline const char *zeGraphArgumentLayoutToStr(ze_graph_argument_layout_t a) {
         return "ZE_GRAPH_ARGUMENT_LAYOUT_CN";
     case ZE_GRAPH_ARGUMENT_LAYOUT_BLOCKED:
         return "ZE_GRAPH_ARGUMENT_LAYOUT_BLOCKED";
+    case ZE_GRAPH_ARGUMENT_LAYOUT_FORCE_UINT32:
+        return "ZE_GRAPH_ARGUMENT_LAYOUT_FORCE_UINT32";
     }
     return "UNKNOWN";
 }

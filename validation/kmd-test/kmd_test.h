@@ -23,6 +23,7 @@
 #include <fstream>
 #include <linux/kernel.h>
 #include <linux/magic.h>
+#include <sched.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/utsname.h>
@@ -85,6 +86,10 @@
 #define SKIP_NO_HWS(msg)   \
     if (!is_hws_enabled()) \
     SKIP_(msg)
+
+#define SKIP_NO_USERPTR()        \
+    if (!is_userptr_supported()) \
+    SKIP_("DRM_IVPU_CAP_BO_CREATE_FROM_USERPTR not supported")
 
 #define SKIP_NO_DMA_HEAP()        \
     if (!dma_heap_is_available()) \
@@ -205,6 +210,11 @@ class KmdContext {
     int get_param(uint32_t param, uint64_t *value, uint32_t index = 0);
     int set_param(uint32_t param, uint64_t value, uint32_t index);
     int bo_create(uint64_t size, uint32_t flags, uint32_t *handle, uint64_t *vpu_addr);
+    int bo_create_from_userptr(void *ptr,
+                               uint64_t size,
+                               uint32_t flags,
+                               uint32_t *handle,
+                               uint64_t *vpu_addr);
 
     int bo_info(drm_ivpu_bo_info *args);
     int bo_close(uint32_t handle);
@@ -285,7 +295,7 @@ class KmdTest : public ::testing::Test {
 
     bool resume();
     bool wait_for_resume(int timeout_ms = PM_STATE_TIMEOUT_MS);
-    bool wait_for_suspend(int timeout_ms = PM_STATE_TIMEOUT_MS);
+    bool wait_for_suspend(int timeout_ms = PM_STATE_TIMEOUT_MS, bool expect_timeout = false);
     bool wait_for_recovery_event(int timeout_ms = PM_STATE_TIMEOUT_MS);
     int force_recovery();
     int get_autosuspend_delay(int &delay);
@@ -293,6 +303,7 @@ class KmdTest : public ::testing::Test {
 
     bool get_TDR_timeout(int &tdr);
     bool is_hws_enabled();
+    bool is_userptr_supported();
     int write_bind_unbind_sysfs(std::string param) const;
     int bind_module() const;
     int unbind_module();
@@ -300,6 +311,7 @@ class KmdTest : public ::testing::Test {
 
     void fw_store();
     void fw_restore();
+    void set_pcores_affinity();
 
     int WaitPid(pid_t pid, int secTimeout);
     int RunCommand(char *const commandLine[], int secTimeout);
@@ -315,8 +327,11 @@ class KmdTest : public ::testing::Test {
 
     bool debugfs_is_available() {
         struct statfs sfs = {};
+        static const char *DEBUGFS_DIR = "/sys/kernel/debug/accel";
+        if (!file_exists(DEBUGFS_DIR))
+            return false;
 
-        statfs("/sys/kernel/debug", &sfs);
+        statfs(DEBUGFS_DIR, &sfs);
         return sfs.f_type == DEBUGFS_MAGIC;
     }
 
@@ -328,7 +343,9 @@ class KmdTest : public ::testing::Test {
         return lockdown_status.find("[none]") == std::string::npos;
     }
 
-    bool dma_heap_is_available() { return file_exists("/dev/dma_heap/system"); }
+    bool dma_heap_is_available() {
+        return file_exists("/dev/dma_heap/system") && test_app::has_root_access();
+    }
 
     std::string get_sysfs_device_path() const;
     std::string get_debugfs_path() const;
@@ -376,6 +393,9 @@ class KmdTest : public ::testing::Test {
     std::string fw_name;
     int initial_reset_counter = 0;
     int expected_resets = 0;
+    bool custom_affinity = false;
+    cpu_set_t original_affinity;
+    bool has_debugfs = false;
 };
 
 struct MemoryBuffer {
@@ -387,12 +407,63 @@ struct MemoryBuffer {
     uint64_t _vpu_addr;
     uint64_t _mmap_offset;
 
+    // Userptr specific members
+    void *_user_ptr;
+
     MemoryBuffer(KmdContext &context, size_t size, VPU_BUF_USAGE usage = VPU_BUF_USAGE_BATCHBUFFER);
     MemoryBuffer(KmdContext &context);
     MemoryBuffer(KmdTest &owner, size_t size, VPU_BUF_USAGE usage); // Deprecated
+    MemoryBuffer(KmdContext &context, size_t size, int flags);
 
     MemoryBuffer(const MemoryBuffer &) = delete;
     MemoryBuffer &operator=(MemoryBuffer const &) = delete;
+
+    // Move constructor and move assignment operator
+    MemoryBuffer(MemoryBuffer &&other) noexcept
+        : _context(other._context)
+        , _buffer(other._buffer)
+        , _size(other._size)
+        , _flags(other._flags)
+        , _handle(other._handle)
+        , _vpu_addr(other._vpu_addr)
+        , _mmap_offset(other._mmap_offset)
+        , _user_ptr(other._user_ptr) {
+        // Reset the moved-from object
+        other._buffer = nullptr;
+        other._size = 0;
+        other._flags = 0;
+        other._handle = 0;
+        other._vpu_addr = 0;
+        other._mmap_offset = 0;
+        other._user_ptr = nullptr;
+    }
+
+    MemoryBuffer &operator=(MemoryBuffer &&other) noexcept {
+        if (this != &other) {
+            // Clean up current object
+            destroy();
+
+            // Note: _context is a reference and cannot be reassigned
+            // We assume the contexts are compatible for move operations
+            _buffer = other._buffer;
+            _size = other._size;
+            _flags = other._flags;
+            _handle = other._handle;
+            _vpu_addr = other._vpu_addr;
+            _mmap_offset = other._mmap_offset;
+            _user_ptr = other._user_ptr;
+
+            // Reset the moved-from object
+            other._buffer = nullptr;
+            other._size = 0;
+            other._flags = 0;
+            other._handle = 0;
+            other._vpu_addr = 0;
+            other._mmap_offset = 0;
+            other._user_ptr = nullptr;
+        }
+        return *this;
+    }
 
     virtual ~MemoryBuffer();
 
@@ -413,6 +484,11 @@ struct MemoryBuffer {
     void clear(size_t offset = 0, size_t len = -1);
     size_t size() { return _size; }
     void set_size(size_t size) { _size = size; }
+
+    // Userptr specific methods
+    int create_from_userptr(void *userptr);
+    bool verify_pattern(uint8_t pattern);
+    void verify_bo_info(uint32_t expected_flags = 0);
 
   private:
     int create_shmem();

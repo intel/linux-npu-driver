@@ -46,6 +46,7 @@ set(VPU_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 # Enable extra warning and -ftrapv that abort program on signed arithmetic overflow
 add_compile_options(-Winvalid-pch -Wconversion -Wuninitialized -ftrapv)
 add_compile_options(-fvisibility=hidden)
+add_compile_options(-mwaitpkg)
 add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>)
 
 # Project-wide include paths

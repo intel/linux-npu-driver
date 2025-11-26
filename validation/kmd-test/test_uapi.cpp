@@ -328,25 +328,6 @@ TEST_F(UapiSubmit, BufHandleForDeletedBuf) {
     ASSERT_NE(cmd_buf->submit_retry(&params), 0);
 }
 
-TEST_F(UapiSubmit, BufHandleFromOtherContext) {
-    KmdContext context2;
-    int fd2 = other_ctx.open();
-    ASSERT_GT(fd2, -1) << "open() failed with error " << errno << " - " << strerror(errno);
-
-    // create many bufs in other_ctx to arrive at handle numbers that don't exist in first context
-    MemoryBuffer other_buf1(other_ctx, map_len, VPU_BUF_USAGE_TIMESTAMP_HEAP);
-    MemoryBuffer other_buf2(other_ctx, map_len, VPU_BUF_USAGE_TIMESTAMP_HEAP);
-    MemoryBuffer other_buf3(other_ctx, map_len, VPU_BUF_USAGE_TIMESTAMP_HEAP);
-
-    ASSERT_EQ(other_buf1.create(), 0);
-    ASSERT_EQ(other_buf2.create(), 0);
-    ASSERT_EQ(other_buf3.create(), 0);
-
-    cmd_buf->add_handle(other_buf3);
-
-    ASSERT_NE(cmd_buf->submit_retry(&params), 0);
-}
-
 // Cmd buf's referenced_handles are stored as array of u32. This test checks
 // what happens when the array starts at address that's not aligned to sizeof(u32)
 TEST_F(UapiSubmit, BufPointerMisaligned) {

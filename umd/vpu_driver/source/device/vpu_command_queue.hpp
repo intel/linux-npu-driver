@@ -38,6 +38,7 @@ class VPUDeviceQueue {
     virtual bool toBackgroundPriority() = 0;
     virtual bool toDefaultPriority() = 0;
     virtual bool isInOrder() = 0;
+    virtual bool isTurbo() const = 0;
 
   protected:
     VPUDeviceQueue(VPUDriverApi *api);
@@ -55,6 +56,7 @@ class VPUDeviceQueueLegacy final : public VPUDeviceQueue {
     bool toBackgroundPriority() override;
     bool toDefaultPriority() override;
     bool isInOrder() override { return false; }
+    bool isTurbo() const override { return false; }
 
   protected:
     int submitCommandBuffer(const std::unique_ptr<VPUCommandBuffer> &cmdBuf) override;
@@ -73,6 +75,7 @@ class VPUDeviceQueueManaged final : public VPUDeviceQueue {
     bool toBackgroundPriority() override;
     bool toDefaultPriority() override;
     bool isInOrder() override { return modeFlags & IN_ORDER ? true : false; }
+    bool isTurbo() const override { return modeFlags & TURBO ? true : false; }
 
   protected:
     int submitCommandBuffer(const std::unique_ptr<VPUCommandBuffer> &cmdBuf) override;

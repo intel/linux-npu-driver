@@ -106,10 +106,15 @@ image_classification_imagenet:
 ```
 
 ## Section multi\_inference
-This section is mainly used in the CompilerInDriverMultiInference.Pipeline test.
+This section is mainly used in the CompilerInDriverMultiInference.Pipeline and
+CompilerInDriverInferenceBenchmark.Benchmark tests.
 All defined models are compiled and then executed simultaneously in separate threads
 with a target frame rate. The input and class index are optional. When **in** is not defined,
 the input will be filled with random values.
+For benchmark tests can be set how much the fps rate should be higher than the average value
+of the other run inferences, then the "fps\_deviation" should provide factor to calculate
+minimum expected fps rate. The test pass condition is calculated as below:
+model\_fps\_rate >= fps\_deviation * average\_fps\_rate\_other\_run\_models
 
 A section may consist of fields:
 - **path:** path to XML file
@@ -117,7 +122,8 @@ A section may consist of fields:
 - **in:** optional, image used as an input for network
 - **class_index:** optional, expected image class index
 - **target\_fps:** target fps rate
-- **fps\_deviation:** maximum deviation from target fps rate to define test as passed
+- **fps\_deviation:** for pipeline tests maximum deviation from target fps rate to define test as passed
+                      for benchmark tests provides the factor to calculate minimum fps rate to define test as passed
 - **workload\_type:** the workload type, available two types: default, background
 - **exec\_time\_in\_secs:** execution time in seconds
 - **priority:** command queue priority, available priority levels: high, low, normal
@@ -146,6 +152,23 @@ multi_inference:
       target_fps: 30
       exec_time_in_secs: 10
       parallel_reqs: 2
+  - name: "ResnetWithTurboMode"
+    benchmark:
+    - path: public/resnet-50-pytorch/onnx/model/dense/FP16/resnet-50-pytorch.xml
+      flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NCHW" --outputs_precisions="495:fp32" --outputs_layouts="495:NC" --config PERFORMANCE_HINT="THROUGHPUT"
+      in: [ cat3.bmp ]
+      class_index: [ 284 ]
+      turbo_mode: true
+      target_fps: 10000000
+      exec_time_in_secs: 5
+      fps_deviation: 1.1 #acceptance criteria is this_model_fps_rate >= 1.1 * average_fps_rate
+    - path: public/resnet-50-pytorch/onnx/model/dense/FP16/resnet-50-pytorch.xml
+      flags: --inputs_precisions="result.1:u8" --inputs_layouts="result.1:NCHW" --outputs_precisions="495:fp32" --outputs_layouts="495:NC" --config PERFORMANCE_HINT="THROUGHPUT"
+      in: [ cat3.bmp ]
+      class_index: [ 284 ]
+      turbo_mode: true
+      target_fps: 10000000
+      exec_time_in_secs: 5
 ```
 
 ## Section openvino

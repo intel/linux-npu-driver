@@ -123,6 +123,29 @@ int KmdContext::bo_create(uint64_t size, uint32_t flags, uint32_t *handle, uint6
     return ret;
 }
 
+int KmdContext::bo_create_from_userptr(void *ptr,
+                                       uint64_t size,
+                                       uint32_t flags,
+                                       uint32_t *handle,
+                                       uint64_t *vpu_addr) {
+    drm_ivpu_bo_create_from_userptr args = {};
+    int ret;
+
+    args.user_ptr = (uint64_t)ptr;
+    args.size = size;
+    args.flags = flags;
+
+    ret = ioctl(DRM_IOCTL_IVPU_BO_CREATE_FROM_USERPTR, &args);
+    if (ret) {
+        EXPECT_EQ(args.handle, 0u);
+        EXPECT_EQ(args.vpu_addr, 0u);
+    }
+
+    *handle = args.handle;
+    *vpu_addr = args.vpu_addr;
+    return ret;
+}
+
 int KmdContext::bo_info(drm_ivpu_bo_info *args) {
     int ret = ioctl(DRM_IOCTL_IVPU_BO_INFO, args);
     if (ret) {
@@ -259,30 +282,38 @@ KmdTest::~KmdTest() {}
 
 void KmdTest::SetUp() {
     int fd = context.open();
-    SKIP_NO_DEBUGFS("reset_counter");
     ASSERT_GT(fd, -1) << "open() failed with error " << errno << " - " << strerror(errno);
+
+    has_debugfs = debugfs_is_available();
 
     check_api_version();
     get_context_num();
     get_vpu_bus_id();
     get_param(DRM_IVPU_PARAM_DEVICE_ID, &pci_id);
     get_param(DRM_IVPU_PARAM_PLATFORM_TYPE, &platform_type);
-    read_debugfs_file("reset_counter", initial_reset_counter);
+    if (has_debugfs) {
+        read_debugfs_file("reset_counter", initial_reset_counter);
+    }
+    ASSERT_EQ(sched_getaffinity(getpid(), sizeof(original_affinity), &original_affinity), 0);
 }
 
 void KmdTest::TearDown() {
     int current_reset_counter = 0;
     int reset_pending = 0;
 
+    if (custom_affinity) {
+        ASSERT_EQ(sched_setaffinity(getpid(), sizeof(original_affinity), &original_affinity), 0);
+    }
+
     context.close();
 
-    if (!read_debugfs_file("reset_pending", reset_pending)) {
+    if (has_debugfs && !read_debugfs_file("reset_pending", reset_pending)) {
         EXPECT_EQ(reset_pending, 0) << "Unexpected VPU reset/recovery after test execution";
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(test_app::pause_after_test_ms));
 
-    if (!read_debugfs_file("reset_counter", current_reset_counter)) {
+    if (has_debugfs && !read_debugfs_file("reset_counter", current_reset_counter)) {
         int actual_resets = current_reset_counter - initial_reset_counter;
         EXPECT_EQ(expected_resets, actual_resets)
             << "The test failed because it caused " << actual_resets
@@ -425,7 +456,7 @@ bool KmdTest::resume() {
     return true;
 }
 
-bool KmdTest::wait_for_suspend(int timeout_ms) {
+bool KmdTest::wait_for_suspend(int timeout_ms, bool expect_timeout) {
     test_app::overwrite_timeout(timeout_ms);
     auto timeout = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
     std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
@@ -439,19 +470,24 @@ bool KmdTest::wait_for_suspend(int timeout_ms) {
                   power_state.c_str(),
                   static_cast<long long>(
                       std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count()));
+            if (expect_timeout) {
+                ADD_FAILURE() << "Expected to timeout waiting for suspend, but suspend occurred";
+            }
             return true;
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     } while (std::chrono::steady_clock::now() < timeout);
 
-    std::string usage, status;
+    if (!expect_timeout) {
+        std::string usage, status;
 
-    read_sysfs_file("power/runtime_usage", usage);
-    read_sysfs_file("power/runtime_status", status);
+        read_sysfs_file("power/runtime_usage", usage);
+        read_sysfs_file("power/runtime_status", status);
 
-    ADD_FAILURE() << "Failed to wait for suspend: " << "power_state=" << power_state
-                  << ", runtime_usage=" << usage << ", runtime_status=" << status;
+        ADD_FAILURE() << "Failed to wait for suspend: " << "power_state=" << power_state
+                      << ", runtime_usage=" << usage << ", runtime_status=" << status;
+    }
 
     return false;
 }
@@ -523,6 +559,12 @@ bool KmdTest::is_hws_enabled() {
         return false;
 
     return sched_mode == "HW";
+}
+
+bool KmdTest::is_userptr_supported() {
+    uint64_t value;
+    int ret = get_param(DRM_IVPU_PARAM_CAPABILITIES, &value, DRM_IVPU_CAP_BO_CREATE_FROM_USERPTR);
+    return (ret == 0 && value == 1);
 }
 
 void KmdTest::SendCheckTimestamp(int engine, KmdContext &ctx) {
@@ -630,6 +672,22 @@ void KmdTest::fw_restore() {
     context.open();
 }
 
+void KmdTest::set_pcores_affinity() {
+    // Ensure this is called only once
+    ASSERT_EQ(custom_affinity, false);
+
+    cpu_set_t mask;
+    CPU_ZERO(&mask);
+    CPU_SET(0, &mask);
+    CPU_SET(1, &mask);
+
+    custom_affinity = true;
+
+    // Set affinity to performance cores only to ensure stable unbind/bind time
+    // which could get impacted by much slower TLB flush on efficient cores
+    ASSERT_EQ(sched_setaffinity(getpid(), sizeof(mask), &mask), 0);
+}
+
 int KmdTest::WaitPid(pid_t pid, int secTimeout) {
     constexpr std::chrono::milliseconds sleep_time_ms = std::chrono::milliseconds(10);
     std::chrono::steady_clock::time_point timeout =
@@ -726,7 +784,8 @@ MemoryBuffer::MemoryBuffer(KmdContext &context, size_t size, VPU_BUF_USAGE usage
     , _size(size)
     , _handle(0)
     , _vpu_addr(0)
-    , _mmap_offset(0) {
+    , _mmap_offset(0)
+    , _user_ptr(nullptr) {
     _flags = buf_usage_to_flags(usage);
 }
 
@@ -736,6 +795,17 @@ MemoryBuffer::MemoryBuffer(KmdContext &context)
 MemoryBuffer::MemoryBuffer(KmdTest &owner, size_t size, VPU_BUF_USAGE usage)
     : MemoryBuffer(owner.context, size, usage) {}
 
+// Userptr constructor - simplified, only sets _user_ptr to non-null to indicate userptr usage
+MemoryBuffer::MemoryBuffer(KmdContext &context, size_t size, int flags)
+    : _context(context)
+    , _buffer(nullptr)
+    , _size(size)
+    , _flags(flags)
+    , _handle(0)
+    , _vpu_addr(0)
+    , _mmap_offset(0)
+    , _user_ptr(nullptr) {}
+
 void MemoryBuffer::set_flags(uint32_t flags) {
     _flags = flags;
 }
@@ -744,6 +814,7 @@ int MemoryBuffer::create() {
     int ret;
 
     EXPECT_EQ(_buffer, nullptr);
+    EXPECT_EQ(_user_ptr, nullptr);
     EXPECT_NE(_size, 0u);
     EXPECT_EQ(_handle, 0u);
     EXPECT_EQ(_vpu_addr, 0u);
@@ -763,6 +834,40 @@ int MemoryBuffer::create() {
         ret = mmap();
         if (ret)
             destroy();
+    }
+
+    return ret;
+}
+
+int MemoryBuffer::create_from_userptr(void *userptr) {
+    int ret;
+
+    EXPECT_EQ(_buffer, nullptr);
+    EXPECT_EQ(_user_ptr, nullptr);
+    EXPECT_NE(_size, 0u);
+    EXPECT_EQ(_handle, 0u);
+    EXPECT_EQ(_vpu_addr, 0u);
+    EXPECT_EQ(_mmap_offset, 0u);
+
+    // userptr is now mandatory
+    if (!userptr) {
+        ADD_FAILURE() << "Userptr cannot be null";
+        return -EINVAL;
+    }
+
+    _user_ptr = userptr;
+
+    ret = _context.bo_create_from_userptr(_user_ptr, _size, _flags, &_handle, &_vpu_addr);
+    if (ret)
+        return ret;
+
+    EXPECT_NE(_handle, 0u);
+    EXPECT_NE(_vpu_addr, 0u);
+
+    ret = init_info();
+    if (ret) {
+        destroy();
+        return ret;
     }
 
     return ret;
@@ -804,6 +909,8 @@ void MemoryBuffer::destroy() {
     if (_handle)
         close();
 
+    _user_ptr = nullptr;
+
     EXPECT_EQ(_handle, 0u);
 }
 
@@ -833,7 +940,11 @@ int MemoryBuffer::close() {
 
     _vpu_addr = 0;
     _handle = 0;
-    _mmap_offset = 0;
+
+    // For userptr buffers, we don't want to clear mmap_offset since it's not used
+    if (!_user_ptr) {
+        _mmap_offset = 0;
+    }
     return 0;
 }
 
@@ -870,6 +981,9 @@ int MemoryBuffer::munmap() {
 }
 
 uint8_t *MemoryBuffer::ptr(int offset) {
+    if (_user_ptr) {
+        return (uint8_t *)((uintptr_t)_user_ptr + offset);
+    }
     return (uint8_t *)((uintptr_t)_buffer + offset);
 }
 
@@ -897,6 +1011,30 @@ void MemoryBuffer::fill(uint8_t pattern, size_t offset, size_t len) {
 
 void MemoryBuffer::clear(size_t offset, size_t len) {
     fill(0, offset, len);
+}
+
+bool MemoryBuffer::verify_pattern(uint8_t pattern) {
+    uint8_t *ptr = this->ptr();
+    for (size_t i = 0; i < ALIGN_PAGE(_size); i++) {
+        if (ptr[i] != pattern) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void MemoryBuffer::verify_bo_info(uint32_t expected_flags) {
+    struct drm_ivpu_bo_info info;
+    memset(&info, 0, sizeof(info));
+    info.handle = handle();
+    ASSERT_EQ(_context.bo_info(&info), 0);
+    ASSERT_EQ(info.handle, handle());
+    ASSERT_EQ(info.vpu_addr, vpu_addr());
+    ASSERT_EQ(info.size, ALIGN_PAGE(_size));
+
+    if (expected_flags != 0) {
+        ASSERT_EQ(info.flags & expected_flags, expected_flags);
+    }
 }
 
 MemoryBuffer::~MemoryBuffer() {
