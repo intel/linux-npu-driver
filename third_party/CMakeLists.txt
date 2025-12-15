@@ -7,7 +7,7 @@
 # Ignore compiler warnings from third party libraries
 add_compile_options(-Wno-error -include cstdint)
 
-include(cmake/vpux_elf.cmake)
+include(cmake/npu_compiler_elf.cmake)
 include(cmake/level-zero.cmake)
 include(cmake/level-zero-npu-extensions.cmake)
 if (ENABLE_NPU_PERFETTO_BUILD)
