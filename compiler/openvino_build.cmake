@@ -90,7 +90,7 @@ if (ENABLE_ONNXRUNTIME_PACKAGE)
     set(ONNXRUNTIME_SOURCE_DIR "${CMAKE_BINARY_DIR}/third_party/onnxruntime")
     ExternalProject_Add(
         onnxruntime_build
-        GIT_REPOSITORY https://github.com/intel/onnxruntime.git
+        GIT_REPOSITORY https://github.com/microsoft/onnxruntime.git
         GIT_TAG ${ONNXRUNTIME_REVISION}
         DEPENDS openvino_build
         SOURCE_DIR ${ONNXRUNTIME_SOURCE_DIR}
