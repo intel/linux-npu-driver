@@ -53,9 +53,10 @@ constexpr uint32_t VPU_DPU_PER_TILE = 1;
 constexpr uint32_t VPU_SNN_PER_TILE = VPU_DPU_PER_TILE;
 constexpr uint32_t VPU_SNN_TOTAL = VPU_SNN_PER_TILE * VPU_MAX_TILES;
 constexpr uint32_t VPU_AS_PER_TILE = 2;
-// On NPU4, there is only one physical DMA engine, but it is logically split into two interfaces.
+// On NPU4-5, there is only one physical DMA engine, but it is logically split into two interfaces.
 constexpr uint32_t VPU_MAX_DMA_ENGINES = 2;
 constexpr uint32_t VPU_AS_TOTAL = VPU_AS_PER_TILE * VPU_MAX_TILES;
+constexpr uint32_t VPU_STACK_FRAMES_ARRAY_SIZE = 12;
 
 #pragma pack(push, 1)
 
@@ -110,10 +111,25 @@ struct VPU_ALIGNED_STRUCT(8) VpuNNShaveRuntimeConfigs {
      */
     uint64_t act_rt_window_base;
     /**
-     * @brief The addresses of the stacks (one per shave) in DDR.
-     * If the stacks are not in DDR then this field is ignored.
+     * @brief The addresses of the stacks (one per shave).
+     * The stack frame pointers specify the memory locations (in DDR or CMX) for each shave's stack.
      */
-    uint32_t stack_frames[VPU_AS_TOTAL];
+    union VPU_ALIGNED_STRUCT(8) {
+        /**
+         *
+         * The 'ref' member holds the address and count of the stack frame pointers array.
+         */
+        struct VPU_ALIGNED_STRUCT(8) {
+            VpuTaskReference<uint32_t> ref;
+            uint8_t pad_[8];
+        } stack_frames_ref;
+
+        /**
+         *
+         * The stack frame pointers are stored directly in the struct, not as a reference.
+         */
+        uint32_t stack_frames[VPU_STACK_FRAMES_ARRAY_SIZE];
+    };
     /**
      * @brief The size of the stacks in bytes.
      */
@@ -141,6 +157,8 @@ struct VPU_ALIGNED_STRUCT(8) VpuNNShaveRuntimeConfigs {
     uint8_t pad1_[6];
 };
 
+static_assert(offsetof(VpuNNShaveRuntimeConfigs, stack_frames_ref) % 8 == 0, "Alignment error");
+static_assert(offsetof(VpuNNShaveRuntimeConfigs, stack_frames) % 8 == 0, "Alignment error");
 static_assert(sizeof(VpuNNShaveRuntimeConfigs) == 96, "VpuNNShaveRuntimeConfigs size != 96");
 
 /**

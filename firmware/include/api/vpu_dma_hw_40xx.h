@@ -30,6 +30,7 @@
 #define DMA_DESC_LRA_WID (1)
 #define DMA_DESC_SRA_WID (1)
 #define DMA_DESC_DRA_WID (1)
+#define DMA_DESC_NUM_DIM_WID (3)
 
 // Engine ID enum
 typedef enum {
@@ -261,7 +262,7 @@ typedef union {
 
 // Descriptor configuration fields struct
 typedef struct {
-    uint64_t num_dim : 3;                           // Number of dimensions enabled on descriptor
+    uint64_t num_dim : DMA_DESC_NUM_DIM_WID;        // Number of dimensions enabled on descriptor
     uint64_t int_en : 1;                            // Interrupt enable
     uint64_t int_id : DMA_DESC_CFG_INT_ID_WID;      // Interrupt ID [0,127] for physical, [128,255] for virtual
     uint64_t src_burst_length : 4;                  // Number of consecutive accesses requests
@@ -297,7 +298,7 @@ typedef struct {
     uint64_t axi_user_bits_cfg : 2;                 // Configuration for AXI User Bits
     uint64_t hwp_id_en : 1;                         // Enable use of SW provided ID for HW profiling
     uint64_t hwp_id : 12;                           // ID for HW profiling (if feature is set)
-    uint64_t hwp_skip : 1;                          // skip hw log generation of given descriptor
+    uint64_t hwp_skip : 1;                          // skip hw log generation of given descriptor (VPU5+ only)
     uint64_t dynamic_task_en : 1;                   // Enable Dynamic tasks
     uint64_t ptr_wr_en : 1;                         // Enable Descriptor Pointer Write
 } DmaConfigFields;
