@@ -4,9 +4,9 @@
 [submodule "third_party/level-zero-vpu-extensions"]
 	path = third_party/level-zero-npu-extensions
 	url = https://github.com/intel/level-zero-vpu-extensions.git
-[submodule "third_party/vpux_elf"]
-	path = third_party/vpux_elf
-	url = https://github.com/openvinotoolkit/vpux_plugin_elf.git
+[submodule "third_party/npu_compiler_elf"]
+	path = third_party/npu_compiler_elf
+	url = https://github.com/openvinotoolkit/npu_compiler_elf.git
 [submodule "third_party/googletest"]
 	path = third_party/googletest
 	url = https://github.com/google/googletest.git
