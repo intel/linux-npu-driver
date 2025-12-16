@@ -411,6 +411,7 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
 
     std::vector<LocalInference> testInferences = {};
     ze_command_queue_desc_npu_ext_t cmdQueueNpuDesc = {};
+    std::string dumpOnErrorDir;
 
     void SetUp() override {
         CompilerInDriverLongT::SetUp();
@@ -423,6 +424,9 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
 
         if (modelsSet.size() == 0)
             SKIP_("Missing models for testing");
+
+        Environment *testEnv = Environment::getInstance();
+        dumpOnErrorDir = testEnv->getDumpInputDir();
 
         for (auto &model : modelsSet) {
             LocalInference inference(model);
@@ -508,7 +512,7 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
         std::vector<std::unique_ptr<InferenceRequest>> inferReqs;
         inference.graph->allocateArguments(MemType::SHARED_MEMORY);
         inference.graph->copyInputData();
-        std::vector<char> commonInputData;
+        std::vector<std::vector<char>> commonInputData;
         inference.graph->getCopyOfInput(commonInputData);
         if (commonInputData.empty()) {
             BREAK_ON_FAIL(ZE_RESULT_ERROR_UNKNOWN, stats);
@@ -522,9 +526,13 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
 
         ret = inferReqs.back()->wait(UINT64_MAX);
         BREAK_ON_FAIL(ret, stats);
-        /* Warm up and collect reference output */
-        std::vector<char> referenceOutput;
-        inference.graph->getCopyOfOutput(referenceOutput);
+        std::vector<std::vector<char>> referenceOutput;
+        inference.graph->getReferenceOutput(referenceOutput);
+        if (referenceOutput.empty()) {
+            /* When reference is not provided use warm up output as reference */
+            inference.graph->getCopyOfOutput(referenceOutput);
+        }
+
         if (referenceOutput.empty()) {
             BREAK_ON_FAIL(ZE_RESULT_ERROR_UNKNOWN, stats);
         }
@@ -571,22 +579,31 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
             ret = inferReqs[inferReqIndex]->wait(UINT64_MAX);
             BREAK_ON_FAIL(ret, stats);
 
+            bool result = false;
             if (inference.parallelReqs == 1 && inference.graph->classIndexes.size()) {
-                inference.graph->checkResults();
-                inference.graph->clearOutput();
+                result = inference.graph->checkResults();
             } else {
                 // Only accuracy verification
-                if (!inferReqs[inferReqIndex]->validateOutput(referenceOutput)) {
-                    TRACE("Output validation failed for inference request %s (%ld)",
-                          inference.modelName.c_str(),
-                          inferReqIndex);
-                    BREAK_ON_FAIL(ZE_RESULT_ERROR_UNKNOWN, stats);
-                }
-                inferReqs[inferReqIndex]->clearOutput();
+                result = inferReqs[inferReqIndex]->validateOutput(referenceOutput);
             }
 
+            if (result == false) {
+                TRACE("Output validation failed for inference request %s (%ld)",
+                      inference.modelName.c_str(),
+                      inferReqIndex);
+                if (dumpOnErrorDir.size() > 0) {
+                    auto bin = inference.graph->getNativeBinaryAsNewBuffer();
+                    inferReqs[inferReqIndex]->dumpInferenceData(dumpOnErrorDir,
+                                                                inference.modelName,
+                                                                referenceOutput,
+                                                                bin->data());
+                }
+                BREAK_ON_FAIL(ZE_RESULT_ERROR_UNKNOWN, stats);
+            }
             stats.counter.recordFrame(inferReqs[inferReqIndex]->latencyMs);
+            inferReqs[inferReqIndex]->clearOutput();
         }
+
         stats.counter.stopTimer();
         return stats;
     };

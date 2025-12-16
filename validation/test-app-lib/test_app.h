@@ -39,6 +39,7 @@
 #define PCI_ID_MTL 0x7D1D
 #define PCI_ID_ARL 0xAD1D
 #define PCI_ID_LNL 0x643E
+#define PCI_ID_PTL_P 0xB03E
 
 namespace test_app {
 
@@ -71,6 +72,7 @@ void overwrite_timeout(T &timeout) {
 
 bool is_vpu37xx(uint16_t pci_id);
 bool is_vpu40xx(uint16_t pci_id);
+bool is_vpu50xx(uint16_t pci_id);
 bool is_vpu(uint16_t pci_id);
 
 inline bool is_hardening_kernel() {

@@ -10,6 +10,7 @@
 #include "blob_params.hpp"
 #include "drm_helpers.h"
 #include "model_params.hpp"
+#include "perf_counter.h"
 #include "test_app.h"
 #include "testenv.hpp"
 #include "umd_extensions.h"
@@ -43,6 +44,11 @@ void PrintTo(const ze_result_t &result, std::ostream *os);
         SKIP_(msg);       \
     }
 
+#define SKIP_VPU50XX(msg) \
+    if (isVPU50xx()) {    \
+        SKIP_(msg);       \
+    }
+
 #define SKIP_NO_HWS(msg)       \
     if (!isHwsModeEnabled()) { \
         SKIP_(msg);            \
@@ -64,6 +70,11 @@ void PrintTo(const ze_result_t &result, std::ostream *os);
               " is missing in SysFs or does not have the appropriate permission"); \
     }
 
+#define SKIP_NEEDS_DEBUGFS_FILE(x)                                          \
+    if (!isFileAvailableInDebugFs(x)) {                                     \
+        SKIP_("Test is not supported because " x " is missing in DebugFs"); \
+    }
+
 #define SKIP_HARDENING(msg)                \
     if (test_app::is_hardening_kernel()) { \
         SKIP_(msg);                        \
@@ -71,11 +82,14 @@ void PrintTo(const ze_result_t &result, std::ostream *os);
 
 #define KB (1024llu)
 #define MB (1024llu * 1024)
+#define GB (1024llu * 1024 * 1024)
 
 #define ALIGN_TO_PAGE(x) __ALIGN_KERNEL((x), UmdTest::pageSize)
 
 inline std::string memSizeToStr(uint64_t size) {
     std::string str;
+    if (size >= GB)
+        return std::to_string(size / GB) + "GB";
     if (size >= MB)
         return std::to_string(size / MB) + "MB";
     if (size >= KB)
@@ -142,6 +156,23 @@ inline uint64_t getPageSize() {
     return static_cast<uint64_t>(sysconf(_SC_PAGESIZE));
 }
 
+inline std::string getDeviceDebugFsDirectory() {
+    drm_device_desc desc = drm::open_intel_vpu();
+    close(desc.fd);
+    return drm::get_debugfs_path(desc.major_id, desc.minor_id);
+}
+
+inline bool isFileAvailableInDebugFs(const std::string &filename) {
+    std::filesystem::path deviceDebugFs = getDeviceDebugFsDirectory();
+    if (deviceDebugFs.empty()) {
+        TRACE("WARNING: No DebugFs available in system\n");
+        return false;
+    }
+
+    std::error_code ec;
+    return std::filesystem::exists(deviceDebugFs / filename, ec);
+}
+
 class UmdTest : public ::testing::Test {
   public:
     /**
@@ -171,11 +202,14 @@ class UmdTest : public ::testing::Test {
     std::shared_ptr<void> AllocSharedMemory(size_t size, ze_host_mem_alloc_flags_t flagsHost = 0);
     std::shared_ptr<void> AllocDeviceMemory(size_t size);
     std::shared_ptr<void> AllocHostMemory(size_t size, ze_host_mem_alloc_flags_t flagsHost = 0);
+    bool isImportSystemMemorySupported();
+    std::shared_ptr<void> importSystemMemory(void *ptr, size_t size, bool readOnly = false);
 
     bool isSilicon();
     bool isHwsModeEnabled();
     bool isVPU37xx() { return test_app::is_vpu37xx(pciDevId); }
     bool isVPU40xx() { return test_app::is_vpu40xx(pciDevId); }
+    bool isVPU50xx() { return test_app::is_vpu50xx(pciDevId); }
 
     ze_driver_handle_t zeDriver = nullptr;
     ze_device_handle_t zeDevice = nullptr;
@@ -192,6 +226,7 @@ class UmdTest : public ::testing::Test {
     void CommandQueueGroupSetUpNpu(ze_device_handle_t dev);
     void
     CommandQueueGroupSetUpGpu(ze_device_handle_t dev, uint32_t &compOrdinal, uint32_t &copyOrdinal);
+    void printMemoryUsage(const char *prefix);
 
     uint16_t pciDevId = 0u;
     uint32_t platformType = 0u;

@@ -337,8 +337,17 @@ bool is_vpu40xx(uint16_t pci_id) {
     }
 }
 
+bool is_vpu50xx(uint16_t pci_id) {
+    switch (pci_id) {
+    case PCI_ID_PTL_P:
+        return true;
+    default:
+        return false;
+    }
+}
+
 bool is_vpu(uint16_t pci_id) {
-    return is_vpu37xx(pci_id) || is_vpu40xx(pci_id);
+    return is_vpu37xx(pci_id) || is_vpu40xx(pci_id) || is_vpu50xx(pci_id);
 }
 
 bool has_root_access() {

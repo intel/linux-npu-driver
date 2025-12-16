@@ -40,6 +40,7 @@ add_executable(${PROJECT_NAME}
     test_graph_inference.cpp
     test_graph_query.cpp
     test_immediate_cmdlist.cpp
+    test_import_system_memory.cpp
     test_inference_performance.cpp
     test_init_drivers.cpp
     test_inorder_exec.cpp

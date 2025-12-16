@@ -7,6 +7,7 @@
 
 #include "umd_test.h"
 
+#include <fcntl.h>
 #include <sys/mman.h>
 
 class ExternalMemory : public UmdTest, public ::testing::WithParamInterface<uint64_t> {

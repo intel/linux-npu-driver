@@ -489,8 +489,10 @@ class MetricStreamerMemoryCopy : public MetricStreamer {
 
         if (isVPU37xx()) {
             generateVPU37xxMetricsBitmap();
-        } else {
+        } else if (isVPU40xx()) {
             generateVPU40xxMetricsBitmap();
+        } else {
+            generateVPU50xxMetricsBitmap();
         }
 
         TRACE("Counters Bitmap: %s\n", nonZeroMetricsBitmap.to_string().c_str());
@@ -525,6 +527,30 @@ class MetricStreamerMemoryCopy : public MetricStreamer {
             } else if (strcmp(metricProperties[i].name, "NOC_DMA_00") == 0) {
                 TRACE("NOC_DMA_00: non-zero value\n");
                 nonZeroMetricsBitmap.set(i);
+            } else if (strcmp(metricProperties[i].name, "NOC_DMA_01") == 0) {
+                TRACE("NOC_DMA_01: non-zero value\n");
+                nonZeroMetricsBitmap.set(i);
+            } else if (strcmp(metricProperties[i].name, "L2C_Riscv") == 0) {
+                TRACE("L2C_Riscv: non-zero value\n");
+                nonZeroMetricsBitmap.set(i);
+            } else if (strcmp(metricProperties[i].name, "L2C_Shave") == 0) {
+                TRACE("L2C_Shave: zero value\n");
+            } else if (strcmp(metricProperties[i].name, "NOC_timestamp") == 0) {
+                TRACE("NOC_timestamp: non-zero value\n");
+                nonZeroMetricsBitmap.set(i);
+            } else {
+                FAIL() << "Unrecognized counter in the NOC group." << std::endl;
+            }
+        }
+    }
+
+    void generateVPU50xxMetricsBitmap() {
+        for (size_t i = 0; i < metricProperties.size(); i++) {
+            if (strcmp(metricProperties[i].name, "NOC_noc") == 0) {
+                TRACE("NOC_noc: non-zero value\n");
+                nonZeroMetricsBitmap.set(i);
+            } else if (strcmp(metricProperties[i].name, "NOC_DMA_00") == 0) {
+                TRACE("NOC_DMA_00: zero value\n");
             } else if (strcmp(metricProperties[i].name, "NOC_DMA_01") == 0) {
                 TRACE("NOC_DMA_01: non-zero value\n");
                 nonZeroMetricsBitmap.set(i);
