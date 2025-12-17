@@ -15,6 +15,8 @@ find_package(OpenVINO QUIET COMPONENTS Runtime)
 find_package(OpenCV QUIET)
 find_package(OpenCL QUIET)
 
+add_compile_options(-Wno-error=ignored-qualifiers)
+
 add_executable(${PROJECT_NAME}
     blob_params.cpp
     image.cpp
