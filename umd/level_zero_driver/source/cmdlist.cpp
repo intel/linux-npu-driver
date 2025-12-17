@@ -186,7 +186,7 @@ ze_result_t CommandList::appendMemoryFill(void *ptr,
         return ZE_RESULT_ERROR_INVALID_SIZE;
     }
 
-    if (ctx->getDeviceCapabilities().npuArch == VPU::NPU40XX)
+    if (ctx->getDeviceCapabilities().npuArch >= VPU::NPU40XX)
         return appendMemoryFillCmd(ptr,
                                    pattern,
                                    patternSize,

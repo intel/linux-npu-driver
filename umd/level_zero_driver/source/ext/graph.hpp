@@ -114,6 +114,8 @@ struct Graph : _ze_graph_handle_t, IContextObject {
 
   private:
     void initialize(std::string &log);
+    std::unique_ptr<BlobContainer> getBlobContainerNative();
+    std::unique_ptr<BlobContainer> getBlobContainerNGraphLite(std::string &log);
 
     Context *pContext;
     VPU::VPUDeviceContext *ctx;

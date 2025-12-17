@@ -1,11 +1,12 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include "level_zero_driver/api/trace/trace_ze_api.hpp"
 #include "level_zero_driver/api/trace/trace_ze_api_ddi.hpp"
@@ -17,6 +18,7 @@
 
 #include <level_zero/ze_api.h>
 #include <level_zero/ze_ddi.h>
+#include <level_zero/ze_mem_import_system_memory_ext.h>
 
 namespace L0 {
 static VPU::VPUBufferObject::Type flagToBufferObjectType(ze_host_mem_alloc_flags_t flag) {
@@ -188,7 +190,7 @@ ze_result_t zeMemAllocHost(ze_context_handle_t hContext,
                            size_t alignment,
                            void **pptr) {
     trace_zeMemAllocHost(hContext, hostDesc, size, alignment, pptr);
-    ze_structure_type_t extendedAllocType = ZE_STRUCTURE_TYPE_FORCE_UINT32;
+    uint32_t extendedAllocType = ZE_STRUCTURE_TYPE_FORCE_UINT32;
     ze_result_t ret;
 
     if (hContext == nullptr) {
@@ -238,6 +240,17 @@ ze_result_t zeMemAllocHost(ze_context_handle_t hContext,
             goto exit;
         }
         ret = ZE_RESULT_ERROR_INVALID_ENUMERATION;
+        break;
+    }
+    case ZE_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMPORT_SYSTEM_MEMORY: {
+        const ze_external_memory_import_system_memory_t *pImportMemDesc =
+            reinterpret_cast<const ze_external_memory_import_system_memory_t *>(hostDesc->pNext);
+        L0_HANDLE_EXCEPTION(
+            ret,
+            L0::Context::fromHandle(hContext)->importUserPtr(pImportMemDesc->pSystemMemory,
+                                                             pImportMemDesc->size,
+                                                             hostDesc->flags,
+                                                             pptr));
         break;
     }
     default:

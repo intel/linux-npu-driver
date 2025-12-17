@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -160,6 +160,12 @@ TEST_F(CompilerInDriver, creatingNgraphLiteWithNullBuildOptionsReturnsSuccess) {
 
     auto res = L0::Graph::create(context, device, &graphDesc, &hGraph);
     ASSERT_EQ(ZE_RESULT_SUCCESS, res);
+
+    ze_graph_properties_3_t graphProps;
+    EXPECT_EQ(L0::Graph::fromHandle(hGraph)->getProperties3(&graphProps), ZE_RESULT_SUCCESS);
+    EXPECT_EQ(graphProps.numGraphArgs, 4u);
+    EXPECT_EQ(graphProps.initStageRequired, ZE_GRAPH_STAGE_INITIALIZE);
+    EXPECT_EQ(graphProps.flags, ZE_GRAPH_PROPERTIES_FLAG_COMPILED);
 }
 
 TEST_F(CompilerInDriver, creatingNgraphLiteWithNoBuildOptionsReturnsSuccess) {

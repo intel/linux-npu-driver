@@ -14,6 +14,6 @@ endif()
 
 set_property(TARGET ${TARGET_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-target_link_libraries(${TARGET_NAME} fw_vpu_api_headers vpux_elf npu_compiler)
+target_link_libraries(${TARGET_NAME} fw_vpu_api_headers npu_elf npu_compiler)
 
 add_subdirectories()

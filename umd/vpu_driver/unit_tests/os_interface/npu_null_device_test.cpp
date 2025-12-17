@@ -11,6 +11,7 @@
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_37xx/vpu_hw_37xx.hpp"
 #include "vpu_driver/source/device/vpu_40xx/vpu_hw_40xx.hpp"
+#include "vpu_driver/source/device/vpu_50xx/vpu_hw_50xx.hpp"
 #include "vpu_driver/source/os_interface/null_interface_imp.hpp"
 #include "vpu_driver/source/os_interface/os_interface.hpp"
 
@@ -28,6 +29,8 @@ const std::vector<std::pair<std::string, uint64_t>> testedPlatforms = {
     {"LUNARLAKE", PCI_DEVICE_ID_LNL},
     {"INPU_MTL", PCI_DEVICE_ID_MTL},
     {"METEORLAKE", PCI_DEVICE_ID_MTL},
+    {"INPU_PTL", PCI_DEVICE_ID_PTL_P},
+    {"PANTHERLAKE", PCI_DEVICE_ID_PTL_P},
     {"ARROWLAKE", PCI_DEVICE_ID_ARL}};
 
 struct NPUNullDeviceTest : public ::testing::Test {

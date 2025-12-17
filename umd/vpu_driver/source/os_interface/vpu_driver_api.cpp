@@ -385,4 +385,8 @@ std::string VPUDriverApi::getSysDeviceAbsolutePath() {
     return path + getDeviceLink() + "/../../";
 }
 
+int VPUDriverApi::createBufferFromUserPtr(drm_ivpu_bo_create_from_userptr *arg) const {
+    return doIoctl(DRM_IOCTL_IVPU_BO_CREATE_FROM_USERPTR, arg);
+}
+
 } // namespace VPU

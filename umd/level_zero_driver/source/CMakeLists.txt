@@ -12,7 +12,7 @@ set_property(TARGET ${TARGET_NAME_L0_DRV} PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(${TARGET_NAME_L0_DRV}
     fw_vpu_api_headers
     vpu_driver
-    vpux_elf
+    npu_elf
 )
 
 string(TIMESTAMP UNIX_SECONDS %s UTC)
@@ -20,6 +20,9 @@ set(DRIVER_VERSION ${UNIX_SECONDS} CACHE STRING "Decimal value that set Level Ze
 message(STATUS "Level Zero driver version: ${DRIVER_VERSION}")
 
 target_compile_definitions(${TARGET_NAME_L0_DRV} PUBLIC DRIVER_VERSION=${DRIVER_VERSION})
+if(NOT ENABLE_COMPILATION_FLAGS_OVERRIDE)
+    target_compile_definitions(${TARGET_NAME_L0_DRV} PRIVATE NO_COMPILER_FLAGS_OVERRIDE)
+endif()
 
 target_sources(${TARGET_NAME_L0_DRV} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/cmdlist.cpp

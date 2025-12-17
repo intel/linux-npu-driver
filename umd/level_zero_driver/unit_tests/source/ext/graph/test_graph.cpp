@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -150,11 +150,15 @@ TEST_F(GraphNativeTest, whenCallsetArgumentValueWithInvalidArgumentErrorIsReturn
 }
 
 TEST_F(GraphNativeTest, givenCallgetPropertiesSuccessfullyParsesGraphInformation) {
-    ze_graph_properties_t graphProp;
+    ze_graph_properties_3_t graphProp;
 
-    auto res = graph->getProperties(&graphProp);
+    auto res = graph->getProperties3(&graphProp);
     EXPECT_EQ(ZE_RESULT_SUCCESS, res);
     EXPECT_EQ(2u, graphProp.numGraphArgs);
+    EXPECT_EQ(ZE_GRAPH_STAGE_INITIALIZE, graphProp.initStageRequired);
+    EXPECT_EQ(ZE_GRAPH_PROPERTIES_FLAG_NO_STANDARD_ALLOCATION |
+                  ZE_GRAPH_PROPERTIES_FLAG_PRE_COMPILED,
+              graphProp.flags);
 }
 
 TEST_F(GraphNativeTest, whenCallgetArgumentPropertiesSuccessIsReturning) {
@@ -258,7 +262,9 @@ TEST_F(GraphNativeTest, whenCallgetArgumentProperties3ExpectSuccess) {
 TEST_F(GraphNativeTest, DISABLED_expectThatContextDestroyDestructGraphObject) {
     graph = nullptr;
 }
-
+#if defined(NO_COMPILER_FLAGS_OVERRIDE)
+#define setCompilerOptionsFromEnvVariable DISABLED_setCompilerOptionsFromEnvVariable
+#endif
 TEST_F(GraphNativeTest, setCompilerOptionsFromEnvVariable) {
     char *storedExtraBuildFlags = getenv("ZE_INTEL_NPU_COMPILER_EXTRA_BUILD_FLAGS");
     setenv("ZE_INTEL_NPU_COMPILER_EXTRA_BUILD_FLAGS",

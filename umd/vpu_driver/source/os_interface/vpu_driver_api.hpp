@@ -91,6 +91,8 @@ class VPUDriverApi final {
         return safe_cast<T>(arg.value);
     }
 
+    int createBufferFromUserPtr(drm_ivpu_bo_create_from_userptr *arg) const;
+
   private:
     bool openDevice();
     bool closeDevice();

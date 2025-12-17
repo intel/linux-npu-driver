@@ -23,6 +23,8 @@
 #include "umd_common.hpp"
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_device.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 #include "vpux_elf/utils/version.hpp"
 #include "vpux_hpi.hpp"
@@ -39,7 +41,7 @@ namespace L0 {
 static thread_local std::string lastFailLog;
 
 GraphBuildLog::GraphBuildLog(Context *pCtx)
-    : pContext(pCtx){};
+    : pContext(pCtx) {}
 
 ze_result_t GraphBuildLog::getLogString(uint32_t *pSize, char *pBuildLog) {
     if (pSize == nullptr) {
@@ -369,6 +371,9 @@ addOptionToBuildFlags(std::string_view key, std::string_view value, std::string 
 }
 
 static void setUpFlagsFromEnvVariable(std::string &graphBuildFlags) {
+#ifdef NO_COMPILER_FLAGS_OVERRIDE
+    return;
+#else
     std::string buildFlags(graphBuildFlags);
 
     const char *env = getenv("ZE_INTEL_NPU_COMPILER_EXTRA_BUILD_FLAGS");
@@ -441,6 +446,7 @@ static void setUpFlagsFromEnvVariable(std::string &graphBuildFlags) {
     LOG_W("Compilation options were modified by environment settings. Configuration string passed "
           "to compiler:");
     LOG_W("%s", graphBuildFlags.c_str());
+#endif
 }
 
 void Graph::addDeviceConfigToBuildFlags() {
@@ -450,14 +456,106 @@ void Graph::addDeviceConfigToBuildFlags() {
     setUpFlagsFromEnvVariable(buildFlags);
 }
 
+std::unique_ptr<BlobContainer> Graph::getBlobContainerNative() {
+    propFlags = ZE_GRAPH_PROPERTIES_FLAG_PRE_COMPILED;
+    if (desc.flags & ZE_GRAPH_FLAG_INPUT_GRAPH_PERSISTENT) {
+        // Check if buffer is allocated in NPU address space
+        if (auto bo = ctx->findBufferObject(desc.pInput); bo != nullptr) {
+            LOG(GRAPH,
+                "Got native blob, buffer imported by user, cpu va: %p, npu va: %#lx, size: %lu",
+                bo->getBasePointer(),
+                bo->getVPUAddr(),
+                bo->getAllocSize());
+            return std::make_unique<BlobContainer>(const_cast<uint8_t *>(desc.pInput),
+                                                   desc.inputSize,
+                                                   bo);
+        }
+        // Try to create buffer from user ptr
+        auto bo = ctx->createUntrackedBufferObjectFromUserPtr(const_cast<uint8_t *>(desc.pInput),
+                                                              desc.inputSize,
+                                                              true);
+        if (bo != nullptr) {
+            LOG(GRAPH,
+                "Got native blob, buffer imported by driver, cpuva: %p, npu va: %#lx, size: %lu",
+                bo->getBasePointer(),
+                bo->getVPUAddr(),
+                bo->getAllocSize());
+            return std::make_unique<BlobContainer>(const_cast<uint8_t *>(desc.pInput),
+                                                   desc.inputSize,
+                                                   bo);
+        }
+    }
+    // Fallback to copy of blob to NPU allocated memory
+    LOG(GRAPH,
+        "Got native blob, buffer not imported, cpu va: %p, size: %lu",
+        desc.pInput,
+        desc.inputSize);
+    return std::make_unique<BlobContainer>(const_cast<uint8_t *>(desc.pInput), desc.inputSize);
+}
+
+static void addImportedBufferFromBlob(VPU::VPUDeviceContext *ctx, BlobContainer *blob) {
+    auto bo = ctx->createUntrackedBufferObjectFromUserPtr(blob->ptr, blob->size, true);
+    if (bo != nullptr) {
+        LOG(GRAPH,
+            "Got NGraph blob, buffer imported by driver, cpuva: %p, npuva: %#lx, size: %lu",
+            bo->getBasePointer(),
+            bo->getVPUAddr(),
+            bo->getAllocSize());
+        blob->setNpuBuffer(std::move(bo));
+    } else {
+        LOG(GRAPH,
+            "Got NGraph blob, buffer not imported, cpu va: %p, size: %lu",
+            blob->ptr,
+            blob->size);
+    }
+}
+
+std::unique_ptr<BlobContainer> Graph::getBlobContainerNGraphLite(std::string &log) {
+    std::unique_ptr<BlobContainer> blob;
+    DiskCache &cache = Driver::getInstance()->getDiskCache();
+    DiskCache::Key key;
+    bool cacheDisabled = desc.flags & ZE_GRAPH_FLAG_DISABLE_CACHING;
+
+    addDeviceConfigToBuildFlags();
+    desc.pBuildFlags = buildFlags.c_str();
+
+    if (!cacheDisabled) {
+        key = cache.computeKey(desc);
+        blob = cache.getBlob(key);
+        if (blob) {
+            log += "ZE DynamicCaching cache_status_t: cache_status_t::found\n";
+            /* Cache status is stored also in fail log due to back compatibility */
+            lastFailLog = "ZE DynamicCaching cache_status_t: cache_status_t::found\n";
+            propFlags = ZE_GRAPH_PROPERTIES_FLAG_LOADED_FROM_CACHE;
+
+            addImportedBufferFromBlob(ctx, blob.get());
+            return blob;
+        }
+    }
+
+    auto ret = Compiler::getCompiledBlob(ctx, desc, blob, log);
+    if (ret != ZE_RESULT_SUCCESS || !blob) {
+        LOG_E("Failed to get compiled blob! Result:%#x", ret);
+        throw DriverError(ret);
+    }
+
+    if (!cacheDisabled) {
+        cache.setBlob(key, blob);
+        log += "ZE DynamicCaching cache_status_t: cache_status_t::stored\n";
+        /* Cache status is stored also in fail log due to back compatibility */
+        lastFailLog = "ZE DynamicCaching cache_status_t: cache_status_t::stored\n";
+    }
+
+    addImportedBufferFromBlob(ctx, blob.get());
+    propFlags = ZE_GRAPH_PROPERTIES_FLAG_COMPILED;
+    return blob;
+}
+
 void Graph::initialize(std::string &log) {
     L0_THROW_WHEN(desc.pInput == nullptr,
                   "Invalid input pointer",
                   ZE_RESULT_ERROR_INVALID_NULL_POINTER);
     L0_THROW_WHEN(desc.inputSize == 0, "Invalid size", ZE_RESULT_ERROR_INVALID_SIZE);
-
-    DiskCache &cache = Driver::getInstance()->getDiskCache();
-    DiskCache::Key key;
 
     LOG(GRAPH,
         "ze_graph_desc_2_t = format: %#x, pInput: %p, inputSize: %lu, flags: %#x, pBuildFlags: %s",
@@ -467,45 +565,12 @@ void Graph::initialize(std::string &log) {
         desc.flags,
         desc.pBuildFlags);
 
-    bool isInputPersistent = false;
     switch (desc.format) {
     case ZE_GRAPH_FORMAT_NATIVE:
-        blob = std::make_unique<BlobContainer>(const_cast<uint8_t *>(desc.pInput), desc.inputSize);
-        propFlags =
-            ZE_GRAPH_PROPERTIES_FLAG_PRE_COMPILED | ZE_GRAPH_PROPERTIES_FLAG_NO_STANDARD_ALLOCATION;
+        blob = getBlobContainerNative();
         break;
     case ZE_GRAPH_FORMAT_NGRAPH_LITE:
-        // Binary from compilation is owned by driver, so we can assume it is persistent
-        isInputPersistent = true;
-        addDeviceConfigToBuildFlags();
-        desc.pBuildFlags = buildFlags.c_str();
-
-        if (!(desc.flags & ZE_GRAPH_FLAG_DISABLE_CACHING)) {
-            key = cache.computeKey(desc);
-            blob = cache.getBlob(key);
-            if (blob) {
-                propFlags = ZE_GRAPH_PROPERTIES_FLAG_LOADED_FROM_CACHE;
-                log += "ZE DynamicCaching cache_status_t: cache_status_t::found\n";
-                /* Cache status is stored also in fail log due to back compatibility */
-                lastFailLog = "ZE DynamicCaching cache_status_t: cache_status_t::found\n";
-            }
-        }
-
-        if (blob == nullptr) {
-            auto ret = Compiler::getCompiledBlob(ctx, desc, blob, log);
-            if (ret != ZE_RESULT_SUCCESS) {
-                LOG_E("Failed to get compiled blob! Result:%#x", ret);
-                throw DriverError(ret);
-            }
-
-            propFlags = ZE_GRAPH_PROPERTIES_FLAG_COMPILED;
-            if (!(desc.flags & ZE_GRAPH_FLAG_DISABLE_CACHING)) {
-                cache.setBlob(key, blob);
-                log += "ZE DynamicCaching cache_status_t: cache_status_t::stored\n";
-                /* Cache status is stored also in fail log due to back compatibility */
-                lastFailLog = "ZE DynamicCaching cache_status_t: cache_status_t::stored\n";
-            }
-        }
+        blob = getBlobContainerNGraphLite(log);
         break;
     default:
         LOG_E("Graph desc (ze_graph_desc_2_t) format invalid.");
@@ -513,15 +578,16 @@ void Graph::initialize(std::string &log) {
         throw DriverError(ZE_RESULT_ERROR_INVALID_ARGUMENT);
     }
 
-    if (ElfParser::checkMagic(blob)) {
-        LOG(GRAPH, "Detected Elf format");
-        parser = ElfParser::getElfParser(ctx, blob, log, isInputPersistent);
-    } else {
+    if (!ElfParser::checkMagic(blob)) {
         LOG_E("Failed to recognize blob format");
         log += "[NPU_DRV] Failed to recognize native binary format\n";
         throw DriverError(ZE_RESULT_ERROR_INVALID_ARGUMENT);
     }
 
+    if (!blob->hasBackingStore()) {
+        propFlags |= ZE_GRAPH_PROPERTIES_FLAG_NO_STANDARD_ALLOCATION;
+    }
+    parser = ElfParser::getElfParser(ctx, blob, log);
     L0_THROW_WHEN(!parser.get(), "Failed to get parser", ZE_RESULT_ERROR_INVALID_ARGUMENT);
 
     ze_result_t result = parser->parse(argumentProperties, argumentMetadata, profilingOutputSize);

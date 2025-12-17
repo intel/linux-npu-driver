@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -59,9 +59,12 @@ bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
         hwInfo.metricStreamerCapability = true;
     if (drvApi->checkDeviceCapability(DRM_IVPU_CAP_DMA_MEMORY_RANGE))
         hwInfo.dmaMemoryRangeCapability = true;
-    if (drvApi->checkDeviceCapability(DRM_IVPU_CAP_MANAGE_CMDQ)) {
+    if (drvApi->checkDeviceCapability(DRM_IVPU_CAP_MANAGE_CMDQ))
         hwInfo.cmdQueueCreationCapability = true;
-    }
+    // Disable userptr for NPU37XX to avoid performance degradation
+    if (hwInfo.npuArch > NPU37XX &&
+        drvApi->checkDeviceCapability(DRM_IVPU_CAP_BO_CREATE_FROM_USERPTR))
+        hwInfo.userPtrCapability = true;
 
     mappedInferenceVersion = drvApi->getFWComponentVersion(hwInfo.fwMappedInferenceIndex);
     jsmApiVersion = drvApi->getFWComponentVersion(hwInfo.fwJsmCmdApiVerIndex);

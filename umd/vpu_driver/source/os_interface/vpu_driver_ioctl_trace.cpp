@@ -73,6 +73,7 @@ const char *driver_struct_param_cap_index_str(unsigned index) {
         CASE_RETURN_STR(DRM_IVPU_CAP_METRIC_STREAMER);
         CASE_RETURN_STR(DRM_IVPU_CAP_DMA_MEMORY_RANGE);
         CASE_RETURN_STR(DRM_IVPU_CAP_MANAGE_CMDQ);
+        CASE_RETURN_STR(DRM_IVPU_CAP_BO_CREATE_FROM_USERPTR);
     default:
         return "Unknown";
     }
@@ -97,6 +98,17 @@ static std::string struct_drm_ivpu_bo_create_to_str(const drm_ivpu_bo_create *bo
         << "flags: " << bo_create->flags << ", "
         << "handle: " << bo_create->handle << ", "
         << "vpu_addr: " << bo_create->vpu_addr << ")";
+    return oss.str();
+}
+
+static std::string struct_drm_ivpu_bo_create_from_userptr_to_str(
+    const drm_ivpu_bo_create_from_userptr *bo_create_from_userptr) {
+    std::ostringstream oss;
+    oss << std::hex << std::showbase << "(userptr: " << bo_create_from_userptr->user_ptr << ", "
+        << "size: " << bo_create_from_userptr->size << ", "
+        << "flags: " << bo_create_from_userptr->flags << ", "
+        << "handle: " << bo_create_from_userptr->handle << ", "
+        << "vpu_addr: " << bo_create_from_userptr->vpu_addr << ")";
     return oss.str();
 }
 
@@ -216,6 +228,7 @@ const char *driver_ioctl_request_str(unsigned int request) {
         CASE_RETURN_STR(DRM_IOCTL_IVPU_CMDQ_CREATE);
         CASE_RETURN_STR(DRM_IOCTL_IVPU_CMDQ_DESTROY);
         CASE_RETURN_STR(DRM_IOCTL_IVPU_CMDQ_SUBMIT);
+        CASE_RETURN_STR(DRM_IOCTL_IVPU_BO_CREATE_FROM_USERPTR);
     default:
         return "IOCTL_UNKNOWN";
     }
@@ -300,6 +313,11 @@ std::string driver_ioctl_trace(int fd, unsigned int request, void *arg) {
     case DRM_IOCTL_IVPU_CMDQ_SUBMIT:
         oss << "DRM_IOCTL_IVPU_CMDQ_SUBMIT, arg: "
             << struct_drm_ivpu_cmdq_submit_to_str(static_cast<drm_ivpu_cmdq_submit *>(arg));
+        break;
+    case DRM_IOCTL_IVPU_BO_CREATE_FROM_USERPTR:
+        oss << "DRM_IOCTL_IVPU_BO_CREATE_FROM_USERPTR, arg: "
+            << struct_drm_ivpu_bo_create_from_userptr_to_str(
+                   static_cast<drm_ivpu_bo_create_from_userptr *>(arg));
         break;
     default:
         oss << "Unknown (" << std::hex << std::showbase << request << "), arg: " << arg;

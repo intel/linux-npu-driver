@@ -31,6 +31,7 @@
 #include <errno.h>
 #include <level_zero/ze_graph_ext.h>
 #include <level_zero/ze_intel_npu_uuid.h>
+#include <level_zero/ze_mem_import_system_memory_ext.h>
 #include <limits>
 #include <linux/sysinfo.h>
 #include <optional>
@@ -294,6 +295,11 @@ ze_result_t Device::getGetExternalMemoryProperties(
     }
     pExternalMemoryProperties->memoryAllocationImportTypes = ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF;
     pExternalMemoryProperties->memoryAllocationExportTypes = ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF;
+
+    if (vpuDevice && vpuDevice->getHwInfo().userPtrCapability) {
+        pExternalMemoryProperties->memoryAllocationImportTypes |=
+            static_cast<uint32_t>(ZE_EXTERNAL_MEMORY_TYPE_FLAG_STANDARD_ALLOCATION); // NOLINT
+    }
 
     pExternalMemoryProperties->imageImportTypes = 0;
     pExternalMemoryProperties->imageExportTypes = 0;

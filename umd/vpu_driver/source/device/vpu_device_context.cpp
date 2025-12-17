@@ -90,9 +90,10 @@ VPUDeviceContext::createBufferObject(size_t size,
         bo.get(),
         bo->getBasePointer(),
         bo->getVPUAddr());
+    void *ptr = bo->getBasePointer();
 
     const std::lock_guard<std::mutex> lock(mtx);
-    auto [it, success] = trackedBuffers.emplace(bo->getBasePointer(), std::move(bo));
+    auto [it, success] = trackedBuffers.emplace(ptr, std::move(bo));
     if (!success) {
         LOG_E("Failed to add buffer object to trackedBuffers");
         return nullptr;
@@ -107,7 +108,8 @@ bool VPUDeviceContext::freeMemAlloc(void *ptr) {
     }
 
     auto bo = findBufferObject(ptr);
-    if (bo == nullptr || bo->getBasePointer() != ptr) {
+    if (bo == nullptr ||
+        (bo->getBasePointer() != ptr && bo->getLocation() != VPUBufferObject::Location::UserPtr)) {
         LOG_E("Pointer is not tracked or not a based pointer is passed");
         return false;
     }
@@ -176,6 +178,91 @@ VPUDeviceContext::createUntrackedBufferObject(size_t size, VPUBufferObject::Type
         LOG_E("Failed to allocate shared memory, size = %lu, type = %i",
               size,
               static_cast<int>(range));
+        return nullptr;
+    }
+
+    const std::lock_guard<std::mutex> lock(mtx);
+    untrackedBuffers.emplace_back(bo);
+
+    MemoryStatistics::get().snapshot();
+    return bo;
+}
+
+std::shared_ptr<VPUBufferObject>
+VPUDeviceContext::createBufferObjectFromUserPtr(void *userPtr, size_t size, bool readOnly) {
+    if (userPtr == nullptr) {
+        LOG_E("User pointer is nullptr");
+        return nullptr;
+    }
+    if (size == 0) {
+        LOG_E("Invalid size - %lu", size);
+        return nullptr;
+    }
+    if (hwInfo->userPtrCapability == false) {
+        LOG(CONTEXT, "User pointer memory type is not supported");
+        return nullptr;
+    }
+
+    auto alignSize = getPageAlignedSize(size);
+    auto alignPtr = reinterpret_cast<uintptr_t>(userPtr);
+    if (getPageAlignedSize(alignPtr) != alignPtr) {
+        alignPtr = getPageAlignedSize(alignPtr - drvApi->getPageSize());
+        if (alignSize < size + (reinterpret_cast<uintptr_t>(userPtr) - alignPtr))
+            alignSize += drvApi->getPageSize();
+
+        LOG(CONTEXT,
+            "Aligned userPtr (%p) to %p, aligned user size (%lu) to %lu",
+            userPtr,
+            reinterpret_cast<void *>(alignPtr),
+            size,
+            alignSize);
+    }
+    auto bo = VPUBufferObject::createFromUserPtr(*drvApi,
+                                                 reinterpret_cast<uint8_t *>(alignPtr),
+                                                 alignSize,
+                                                 readOnly);
+    if (bo == nullptr) {
+        LOG_E("Failed to allocate memory from user ptr, userPtr: %p, size: %lu", userPtr, size);
+        return nullptr;
+    }
+    return bo;
+}
+
+std::shared_ptr<VPUBufferObject>
+VPUDeviceContext::createTrackedBufferObjectFromUserPtr(void *userPtr, size_t size, bool readOnly) {
+    auto bo = createBufferObjectFromUserPtr(userPtr, size, readOnly);
+    if (bo == nullptr) {
+        return nullptr;
+    }
+
+    auto *ptr = bo->getBasePointer();
+    const std::lock_guard<std::mutex> lock(mtx);
+    auto [it, success] = trackedBuffers.emplace(ptr, std::move(bo));
+    if (!success) {
+        LOG_E("Failed to add buffer object to trackedBuffers");
+        return nullptr;
+    }
+
+    MemoryStatistics::get().snapshot();
+    return it->second;
+}
+
+std::shared_ptr<VPUBufferObject>
+VPUDeviceContext::createUntrackedBufferObjectFromUserPtr(void *userPtr,
+                                                         size_t size,
+                                                         bool readOnly) {
+    auto bo = findBufferObject(userPtr);
+    if (bo != nullptr) {
+        LOG_E("UserPtr %p has already been imported, req size: %lu, bo: %p, bo size: %lu",
+              userPtr,
+              size,
+              bo.get(),
+              bo->getAllocSize());
+        return nullptr;
+    }
+
+    bo = createBufferObjectFromUserPtr(userPtr, size, readOnly);
+    if (bo == nullptr) {
         return nullptr;
     }
 

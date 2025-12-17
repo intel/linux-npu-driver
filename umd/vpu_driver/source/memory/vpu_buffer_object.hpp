@@ -22,6 +22,9 @@ class VPUBufferObject {
         CachedFw = DRM_IVPU_BO_CACHED | DRM_IVPU_BO_MAPPABLE,
         CachedShave = DRM_IVPU_BO_CACHED | DRM_IVPU_BO_MAPPABLE | DRM_IVPU_BO_HIGH_MEM,
         CachedDma = DRM_IVPU_BO_CACHED | DRM_IVPU_BO_MAPPABLE | DRM_IVPU_BO_DMA_MEM,
+        CachedDmaUnmappable = DRM_IVPU_BO_CACHED | DRM_IVPU_BO_DMA_MEM,
+        CachedDmaUnmappableReadOnly =
+            DRM_IVPU_BO_CACHED | DRM_IVPU_BO_DMA_MEM | DRM_IVPU_BO_READ_ONLY,
         UncachedFw = DRM_IVPU_BO_UNCACHED,
         UncachedShave = DRM_IVPU_BO_UNCACHED | DRM_IVPU_BO_HIGH_MEM,
         UncachedDma = DRM_IVPU_BO_UNCACHED | DRM_IVPU_BO_DMA_MEM,
@@ -42,6 +45,7 @@ class VPUBufferObject {
         ExternalHost = 0x8002,
         ExternalDevice = 0x8004,
         ExternalShared = 0x8008,
+        UserPtr = 0x10000,
     };
 
     static std::shared_ptr<VPUBufferObject>
@@ -53,6 +57,9 @@ class VPUBufferObject {
      */
     static std::shared_ptr<VPUBufferObject>
     importFromFd(const VPUDriverApi &drvApi, Location type, int32_t fd);
+
+    static std::shared_ptr<VPUBufferObject>
+    createFromUserPtr(const VPUDriverApi &drvApi, uint8_t *userPtr, size_t size, bool readOnly);
 
     VPUBufferObject(const VPUDriverApi &drvApi,
                     Location memoryType,
