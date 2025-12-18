@@ -89,6 +89,38 @@ ze_result_t Context::importMemory(VPU::VPUBufferObject::Location type, int32_t f
     return ZE_RESULT_SUCCESS;
 }
 
+ze_result_t
+Context::importUserPtr(void *userPtr, size_t size, ze_host_mem_alloc_flags_t flags, void **ptr) {
+    if (userPtr == nullptr || ptr == nullptr) {
+        LOG_E("Passed nullptr as argument");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    if (size == 0) {
+        LOG_E("Invalid size value");
+        return ZE_RESULT_ERROR_UNSUPPORTED_SIZE;
+    }
+    if (!getDeviceContext()->getDeviceCapabilities().userPtrCapability) {
+        LOG_E("Standard allocation import is not supported");
+        return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    }
+
+    auto bo = ctx->findBufferObject(userPtr);
+    if (bo != nullptr) {
+        LOG_E("Pointer %p has already been imported", userPtr);
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    bool isReadOnly = (flags & ZE_HOST_MEM_ALLOC_FLAG_BIAS_WRITE_COMBINED) != 0;
+    bo = ctx->createTrackedBufferObjectFromUserPtr(userPtr, size, isReadOnly);
+    if (bo == nullptr) {
+        LOG_E("Failed to create buffer object from user pointer");
+        return ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY;
+    }
+
+    *ptr = userPtr;
+    return ZE_RESULT_SUCCESS;
+}
+
 ze_result_t Context::freeMem(void *ptr) {
     if (!ctx->freeMemAlloc(ptr))
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
@@ -119,6 +151,7 @@ ze_result_t Context::getMemAllocProperties(const void *ptr,
         break;
     case VPU::VPUBufferObject::Location::Host:
     case VPU::VPUBufferObject::Location::ExternalHost:
+    case VPU::VPUBufferObject::Location::UserPtr:
         pMemAllocProperties->type = ZE_MEMORY_TYPE_HOST;
         break;
     case VPU::VPUBufferObject::Location::Shared:

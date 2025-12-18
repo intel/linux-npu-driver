@@ -48,6 +48,8 @@ struct Context : _ze_context_handle_t {
                             VPU::VPUBufferObject::Location location,
                             VPU::VPUBufferObject::Type type);
     ze_result_t importMemory(VPU::VPUBufferObject::Location type, int32_t fd, void **ptr);
+    ze_result_t
+    importUserPtr(void *userPtr, size_t size, ze_host_mem_alloc_flags_t flags, void **ptr);
     ze_result_t freeMem(void *ptr);
 
     ze_result_t getMemAllocProperties(const void *ptr,

@@ -8,9 +8,8 @@
 #include "graph_utilities.hpp"
 
 #include <fcntl.h>
-#include <fstream>
-#include <functional>
 #include <future>
+#include <sys/mman.h>
 #include <thread>
 
 class CommandGraphBase : public UmdTest {

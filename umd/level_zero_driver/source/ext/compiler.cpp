@@ -270,7 +270,8 @@ static ze_result_t getCompilerExecutableAllocation(VPU::VPUDeviceContext *ctx,
             return ret;
         }
     }
-    blob = std::make_unique<BlobAllocContainer>(std::unique_ptr<uint8_t[]>(graphBuffer), graphSize);
+
+    blob = std::make_unique<BlobContainer>(std::unique_ptr<uint8_t[]>(graphBuffer), graphSize);
     return ZE_RESULT_SUCCESS;
 }
 

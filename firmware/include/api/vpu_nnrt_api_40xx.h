@@ -44,6 +44,10 @@
  *
  * API changelog
  * -------------
+ * 11.13.1:
+ *   - Replaced stack frame storage in VpuNNShaveRuntimeConfigs with a union,
+ *     providing both a VpuTaskReference<uint32_t> stack_frames_ref for NPU7+ and a fixed-size array for NPU4-6.
+ *
  * 11.13:
  *   - Accept CMX Shave stack frames from the blob
  * 11.12:
@@ -86,8 +90,8 @@
 
 #define VPU_NNRT_40XX_API_VER_MAJOR 11
 #define VPU_NNRT_40XX_API_VER_MINOR 13
-#define VPU_NNRT_40XX_API_VER_PATCH 0
 
+#define VPU_NNRT_40XX_API_VER_PATCH 1
 #define VPU_NNRT_40XX_API_VER ((VPU_NNRT_40XX_API_VER_MAJOR << 16) | VPU_NNRT_40XX_API_VER_MINOR)
 
 /* Index in the API version table, same for all HW generations */
@@ -136,9 +140,15 @@
  *
  */
 
+#if !defined(CONFIG_TARGET_SOC_5000)
 #define VPU_ACT_RT_VER_MAJOR 1
 #define VPU_ACT_RT_VER_MINOR 9
 #define VPU_ACT_RT_VER_PATCH 3
+#else
+#define VPU_ACT_RT_VER_MAJOR 1
+#define VPU_ACT_RT_VER_MINOR 15
+#define VPU_ACT_RT_VER_PATCH 0
+#endif
 
 #define VPU_ACT_RT_VER ((VPU_ACT_RT_VER_MAJOR << 16) | VPU_ACT_RT_VER_MINOR)
 
@@ -381,7 +391,7 @@ static_assert(offsetof(VpuMappedInference, managed_inference) % 8 == 0, "Alignme
 /**
  * @brief The struct passed to the firmware to run the inference.
  */
-struct VPU_ALIGNED_STRUCT(32) VpuHostParsedInference {
+struct VPU_ALIGNED_STRUCT(64) VpuHostParsedInference {
     uint64_t reserved_;
     VpuResourceRequirements resource_requirements_;
 

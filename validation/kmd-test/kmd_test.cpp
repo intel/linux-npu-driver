@@ -430,11 +430,11 @@ void KmdTest::check_api_version() {
 bool KmdTest::wait_for_resume(int timeout_ms) {
     test_app::overwrite_timeout(timeout_ms);
     auto timeout = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
-    std::string state;
+    std::string status;
 
     do {
-        int err = read_sysfs_file("power_state", state);
-        if (!err && state == PM_STATE_D0)
+        int err = read_sysfs_file("power/runtime_status", status);
+        if (!err && status == "active")
             return true;
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     } while (std::chrono::steady_clock::now() < timeout);

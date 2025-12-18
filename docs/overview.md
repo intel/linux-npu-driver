@@ -51,6 +51,8 @@ SPDX-License-Identifier: MIT
 
 ## Changelog
 
+<details><summary>The Panther Lake support is available from version v1.28.0</summary></details>
+
 <details>
 <summary>Driver library name change from libze_intel_vpu.so to libze_intel_npu.so (from v1.16.0)</summary>
 
@@ -137,6 +139,7 @@ The Intel® NPU driver supports following Intel® processor families:
 * [Meteor Lake](https://ark.intel.com/content/www/us/en/ark/products/codename/90353/products-formerly-meteor-lake.html)
 * [Arrow Lake](https://www.intel.com/content/www/us/en/ark/products/codename/225837/products-formerly-arrow-lake.html)
 * [Lunar Lake](https://www.intel.com/content/www/us/en/ark/products/codename/213792/products-formerly-lunar-lake.html)
+* Panther Lake
 
 For detailed information on kernel support and NPU driver releases, please refer to the [release
 page](https://github.com/intel/linux-npu-driver/releases).

@@ -231,3 +231,182 @@ TEST_F(Device, Utilization) {
     ASSERT_LT(std::chrono::microseconds(sample_2 - sample_1),
               std::chrono::duration_cast<std::chrono::microseconds>(job_end - job_start));
 }
+
+struct FdInfo {
+    uint64_t drm_total_memory = 0;
+    uint64_t drm_shared_memory = 0;
+    uint64_t drm_resident_memory = 0;
+    uint64_t drm_active_memory = 0;
+    uint64_t drm_purgeable_memory = 0;
+
+    void trace() const {
+        TRACE("Parsed:\n");
+        TRACE("  %s:\t%lu\n", "drm-total-memory", drm_total_memory);
+        TRACE("  %s:\t%lu\n", "drm-shared-memory", drm_shared_memory);
+        TRACE("  %s:\t%lu\n", "drm-resident-memory", drm_resident_memory);
+        TRACE("  %s:\t%lu\n", "drm-active-memory", drm_active_memory);
+        TRACE("  %s:\t%lu\n", "drm-purgeable-memory", drm_purgeable_memory);
+        TRACE("\n");
+    }
+};
+
+void parse_fdinfo(int fd, FdInfo &info) {
+    std::string fdinfo_path = "/proc/" + std::to_string(getpid()) + "/fdinfo/" + std::to_string(fd);
+    std::ifstream fdinfo_file(fdinfo_path);
+
+    // Reset all values
+    info = {};
+    std::string line;
+
+    TRACE("Source:\n");
+    while (std::getline(fdinfo_file, line)) {
+        auto parse_memory_line = [&](const std::string &prefix) -> uint64_t {
+            TRACE("  %s\n", line.c_str());
+
+            if (line.find(prefix) != std::string::npos) {
+                size_t colon_pos = line.find(':');
+
+                if (colon_pos != std::string::npos) {
+                    std::string value_str = line.substr(colon_pos + 1);
+                    value_str.erase(0, value_str.find_first_not_of(" \t"));
+
+                    // Extract the integer part and detect suffix
+                    std::stringstream ss(value_str);
+                    uint64_t value;
+                    ss >> value;
+
+                    // Prevent overflow when converting MB to bytes,
+                    // if value is too large, return max value
+                    if (value > std::numeric_limits<decltype(value)>::max() / MB)
+                        return std::numeric_limits<decltype(value)>::max();
+
+                    // Check for suffix and apply appropriate multiplier
+                    if (value_str.find("MiB") != std::string::npos) {
+                        return value * MB;
+                    } else if (value_str.find("KiB") != std::string::npos) {
+                        return value * KB;
+                    } else {
+                        return value;
+                    }
+                }
+            }
+            return 0;
+        };
+
+        // Parse different memory types
+        if (line.find("drm-total-memory:") != std::string::npos) {
+            info.drm_total_memory = parse_memory_line("drm-total-memory:");
+        } else if (line.find("drm-shared-memory:") != std::string::npos) {
+            info.drm_shared_memory = parse_memory_line("drm-shared-memory:");
+        } else if (line.find("drm-resident-memory:") != std::string::npos) {
+            info.drm_resident_memory = parse_memory_line("drm-resident-memory:");
+        } else if (line.find("drm-active-memory:") != std::string::npos) {
+            info.drm_active_memory = parse_memory_line("drm-active-memory:");
+        } else if (line.find("drm-purgeable-memory:") != std::string::npos) {
+            info.drm_purgeable_memory = parse_memory_line("drm-purgeable-memory:");
+        }
+    }
+
+    info.trace();
+    fdinfo_file.close();
+}
+
+void parse_and_validate_fdinfo(int fd,
+                               uint64_t expected_total,
+                               uint64_t expected_shared,
+                               uint64_t expected_resident,
+                               uint64_t expected_active,
+                               uint64_t expected_purgeable) {
+    FdInfo info;
+
+    parse_fdinfo(fd, info);
+    ASSERT_EQ(info.drm_total_memory, expected_total);
+    ASSERT_EQ(info.drm_shared_memory, expected_shared);
+    ASSERT_EQ(info.drm_resident_memory, expected_resident);
+    ASSERT_EQ(info.drm_active_memory, expected_active);
+    ASSERT_EQ(info.drm_purgeable_memory, expected_purgeable);
+}
+
+TEST_F(Device, FdInfo) {
+    SKIP_PATCHSET(); // Restore when fdinfo will be supported in patchset
+
+    struct FdInfoExpected {
+        uint64_t total_size = 0;
+        uint64_t shared_size = 0;
+        uint64_t resident_size = 0;
+        uint64_t active_size = 0;
+        uint64_t purgeable_size = 0;
+
+        void validate(int fd) const {
+            parse_and_validate_fdinfo(fd,
+                                      total_size,
+                                      shared_size,
+                                      resident_size,
+                                      active_size,
+                                      purgeable_size);
+        }
+    };
+
+    KmdContext ctx;
+    auto fd = ctx.open();
+    ASSERT_GT(fd, -1) << "open() failed with error " << errno << " - " << strerror(errno);
+
+    FdInfoExpected expected;
+
+    // Initial state - no buffers allocated
+    expected.validate(fd);
+
+    // Create non-mappable buffer - no resident memory expected
+    MemoryBuffer buf1(ctx, 4096, VPU_BUF_USAGE_PREEMPT_LOW);
+    ASSERT_EQ(buf1.create(), 0);
+    expected.total_size += buf1.size();
+    expected.validate(fd);
+
+    // Create MB-aligned buffer to validate MB suffix parsing
+    MemoryBuffer buf2(ctx, (2 * MB) - expected.total_size, VPU_BUF_USAGE_PREEMPT_LOW);
+    ASSERT_EQ(buf2.create(), 0);
+    expected.total_size += buf2.size();
+    expected.validate(fd);
+
+    // Add another non-mappable buffer
+    MemoryBuffer buf3(ctx, 8192, VPU_BUF_USAGE_PREEMPT_LOW);
+    ASSERT_EQ(buf3.create(), 0);
+    expected.total_size += buf3.size();
+    expected.validate(fd);
+
+    // Add mappable buffer - increases resident memory
+    MemoryBuffer buf4(ctx, 4096);
+    ASSERT_EQ(buf4.create(), 0);
+    expected.total_size += buf4.size();
+    expected.resident_size += buf4.size();
+    expected.validate(fd);
+
+    // Add userptr buffer - no resident memory increase
+    auto userptr = mmap(nullptr, 4096, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    ASSERT_NE(userptr, MAP_FAILED);
+    MemoryBuffer user_buf(ctx, 4096, 0);
+    ASSERT_EQ(user_buf.create_from_userptr(userptr), 0);
+    expected.total_size += user_buf.size();
+    expected.validate(fd);
+
+    // Submit command buffer with fence wait - increases resident memory for all added buffers
+    // except userptr, and active memory for command buffer
+    CmdBuffer cmd_wait(ctx, 4096);
+    ASSERT_EQ(cmd_wait.create(), 0);
+    cmd_wait.add_fence_wait_cmd(buf1, 0);
+    cmd_wait.add_handle(buf2);
+    cmd_wait.add_handle(user_buf);
+    ASSERT_EQ(cmd_wait.submit(), 0);
+
+    expected.total_size += cmd_wait.size(); // other buffers are already counted
+    expected.resident_size += cmd_wait.size() + buf1.size() + buf2.size(); // userptr not resident
+    expected.active_size += cmd_wait.size(); // only submitted cmd buffer impacts active memory
+    expected.validate(fd);
+
+    // Signal fence to avoid TDR
+    CmdBuffer cmd_signal(ctx, 4096);
+    ASSERT_EQ(cmd_signal.create(), 0);
+    cmd_signal.add_fence_signal_cmd(buf1, 0);
+    ASSERT_EQ(cmd_signal.submit(), 0);
+    ASSERT_EQ(cmd_signal.wait(), 0);
+}

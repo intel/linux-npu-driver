@@ -10,6 +10,7 @@
 #include "umd_common.hpp"
 #include "vpu_driver/source/device/vpu_37xx/vpu_hw_37xx.hpp"
 #include "vpu_driver/source/device/vpu_40xx/vpu_hw_40xx.hpp"
+#include "vpu_driver/source/device/vpu_50xx/vpu_hw_50xx.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <bitset>
@@ -47,6 +48,10 @@ bool NullOsInterfaceImp::configureNullDevice() {
         nullHwInfo = getHwInfoByDeviceId(PCI_DEVICE_ID_LNL);
         nullHwInfo.deviceId = PCI_DEVICE_ID_LNL;
         LOG_W("LNL(%#x) null device is set.", nullHwInfo.deviceId);
+    } else if (std::string("INPU_PTL") == env || std::string("PANTHERLAKE") == env) {
+        nullHwInfo = getHwInfoByDeviceId(PCI_DEVICE_ID_PTL_P);
+        nullHwInfo.deviceId = PCI_DEVICE_ID_PTL_P;
+        LOG_W("PTL(%#x) null device is set.", nullHwInfo.deviceId);
     } else if (std::string("ARROWLAKE") == env) {
         nullHwInfo = getHwInfoByDeviceId(PCI_DEVICE_ID_ARL);
         nullHwInfo.deviceId = PCI_DEVICE_ID_ARL;

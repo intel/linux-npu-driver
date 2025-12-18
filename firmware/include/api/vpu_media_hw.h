@@ -23,6 +23,7 @@ extern "C" {
 
 #pragma pack(push, 1)
 
+// Structure for the hardware profiling VPU5
 typedef struct ALIGN_MEDIA(16) {
     uint64_t descAddr : 64;
     uint64_t fetchTime : 64;
@@ -39,6 +40,7 @@ typedef struct ALIGN_MEDIA(16) {
     uint64_t RDCycleCount : 32;
 } Media_HWPDescriptor_t;
 
+// Extended header structure for setting VPU5 CSC coefficients
 typedef struct {
     uint64_t Coeff11 : 16;
     uint64_t Coeff12 : 16;

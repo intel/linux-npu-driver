@@ -40,7 +40,8 @@ VPUBufferObject::VPUBufferObject(const VPUDriverApi &drvApi,
 }
 
 VPUBufferObject::~VPUBufferObject() {
-    if (basePtr != nullptr && drvApi.unmap(basePtr, allocSize) != 0) {
+    if (location != Location::UserPtr && basePtr != nullptr &&
+        drvApi.unmap(basePtr, allocSize) != 0) {
         LOG_E("Failed to unmap handle %d", handle);
     }
 
@@ -140,6 +141,35 @@ VPUBufferObject::importFromFd(const VPUDriverApi &drvApi, Location type, int32_t
                                              size,
                                              handle,
                                              vpuAddr);
+}
+
+std::shared_ptr<VPUBufferObject> VPUBufferObject::createFromUserPtr(const VPUDriverApi &drvApi,
+                                                                    uint8_t *userPtr,
+                                                                    size_t size,
+                                                                    bool readOnly) {
+    Type type = Type::CachedDmaUnmappable;
+    if (readOnly) {
+        type = static_cast<Type>(static_cast<int>(type) | DRM_IVPU_BO_READ_ONLY);
+    }
+
+    drm_ivpu_bo_create_from_userptr args = {};
+    args.flags = static_cast<uint32_t>(type);
+    args.user_ptr = reinterpret_cast<uint64_t>(userPtr);
+    args.size = size;
+
+    int err = drvApi.createBufferFromUserPtr(&args);
+    if (err != 0) {
+        LOG_E("Failed to create buffer from user pointer, system error code = %d", err);
+        return nullptr;
+    }
+
+    return std::make_shared<VPUBufferObject>(drvApi,
+                                             Location::UserPtr,
+                                             type,
+                                             userPtr,
+                                             size,
+                                             args.handle,
+                                             args.vpu_addr);
 }
 
 bool VPUBufferObject::copyToBuffer(const void *data, size_t size, size_t offset) {

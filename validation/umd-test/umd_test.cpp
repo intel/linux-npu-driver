@@ -11,9 +11,14 @@
 #include "ze_stringify.hpp"
 
 #include <exception>
+#include <fcntl.h>
 #include <fstream>
 #include <functional>
+#include <level_zero/ze_api.h>
+#include <level_zero/ze_mem_import_system_memory_ext.h>
 #include <random>
+#include <sys/resource.h>
+#include <sys/sysinfo.h>
 
 void PrintTo(const ze_result_t &result, std::ostream *os) {
     *os << ze_result_to_str(result) << " (0x" << std::hex << result << ")" << std::dec;
@@ -135,6 +140,19 @@ bool UmdTest::isSilicon() {
     return (platformType == 0u);
 }
 
+bool UmdTest::isImportSystemMemorySupported() {
+    ze_device_external_memory_properties_t extMemProps = {};
+    extMemProps.stype = ZE_STRUCTURE_TYPE_DEVICE_EXTERNAL_MEMORY_PROPERTIES;
+    auto ret = zeDeviceGetExternalMemoryProperties(zeDevice, &extMemProps);
+    if (ret != ZE_RESULT_SUCCESS) {
+        TRACE("Failed to get external memory properties");
+        return false;
+    }
+
+    return extMemProps.memoryAllocationImportTypes &
+           ZE_EXTERNAL_MEMORY_TYPE_FLAG_STANDARD_ALLOCATION; // NOLINT
+}
+
 std::shared_ptr<void> UmdTest::AllocSharedMemory(size_t size, ze_host_mem_alloc_flags_t flagsHost) {
     return zeMemory::allocShared(zeContext, zeDevice, size, flagsHost);
 }
@@ -145,6 +163,32 @@ std::shared_ptr<void> UmdTest::AllocDeviceMemory(size_t size) {
 
 std::shared_ptr<void> UmdTest::AllocHostMemory(size_t size, ze_host_mem_alloc_flags_t flagsHost) {
     return zeMemory::allocHost(zeContext, size, flagsHost);
+}
+
+std::shared_ptr<void>
+UmdTest::importSystemMemory(void *ptr, size_t size, bool readOnly /* = false */) {
+    ze_external_memory_import_system_memory_t importSystemMemory = {
+        ZE_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMPORT_SYSTEM_MEMORY, // NOLINT
+        nullptr,
+        ptr,
+        size};
+    ze_host_mem_alloc_desc_t hostMemAllocDesc = {
+        ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC,
+        &importSystemMemory,
+        readOnly ? ZE_HOST_MEM_ALLOC_FLAG_BIAS_WRITE_COMBINED : ZE_HOST_MEM_ALLOC_FLAG_BIAS_CACHED,
+    };
+
+    auto ret = ZE_RESULT_SUCCESS;
+    auto mem = zeScope::memAllocHost(zeContext, hostMemAllocDesc, size, 0, ret);
+    if (ret != ZE_RESULT_SUCCESS) {
+        TRACE("Failed to import standard allocation, error: %s\n", ze_result_to_str(ret));
+        return nullptr;
+    }
+    if (mem.get() != ptr) {
+        TRACE("Imported pointer does not match the original pointer\n");
+        return nullptr;
+    }
+    return mem;
 }
 
 bool UmdTest::isHwsModeEnabled() {
@@ -163,6 +207,60 @@ bool UmdTest::isHwsModeEnabled() {
     if (modeAsString.compare("HW") == 0)
         return true;
     return false;
+}
+
+void UmdTest::printMemoryUsage(const char *prefix) {
+    if (!test_app::verbose_logs) {
+        return;
+    }
+
+    std::string stats;
+    ze_graph_memory_query_t memoryUsage = {};
+    if (zeGraphDDITableExt->pfnQueryContextMemory(zeContext,
+                                                  ZE_GRAPH_QUERY_MEMORY_DDR,
+                                                  &memoryUsage) == ZE_RESULT_SUCCESS) {
+        stats += "NPU UMD usage: " + std::to_string(memoryUsage.allocated / 1024) + " KB";
+    } else {
+        TRACE("Failed to get graph memory usage.\n");
+    }
+
+    struct sysinfo sysStats = {};
+    if (sysinfo(&sysStats) == 0) {
+        stats +=
+            ", System memory used: " +
+            std::to_string(((sysStats.totalram - sysStats.freeram) * sysStats.mem_unit) / 1024) +
+            " KB";
+    } else {
+        TRACE("Failed to get system memory usage.\n");
+    }
+
+    struct rusage usage = {};
+    if (getrusage(RUSAGE_SELF, &usage) == 0) {
+        stats += ", Process MaxRSS: " + std::to_string(usage.ru_maxrss) + " KB";
+    } else {
+        TRACE("Failed to get process memory usage.\n");
+    }
+
+    int fd = open("/proc/self/statm", O_RDONLY);
+    if (fd != -1) {
+        char buffer[64] = {};
+        if (read(fd, buffer, sizeof(buffer) - 1) > 0) {
+            unsigned long size = 0, resident = 0, shared = 0;
+            if (sscanf(buffer, "%lu %lu %lu", &size, &resident, &shared) == 3) {
+                long pageSize = sysconf(_SC_PAGESIZE);
+                if (pageSize > 0) {
+                    stats += ", VmSize: " + std::to_string((size * pageSize) / 1024) + " KB";
+                    stats += ", VmRSS: " + std::to_string((resident * pageSize) / 1024) + " KB";
+                    stats += ", VmShared: " + std::to_string((shared * pageSize) / 1024) + " KB";
+                }
+            }
+        }
+        close(fd);
+    } else {
+        TRACE("Failed to get process memory usage from statm.\n");
+    }
+
+    TRACE("%s: %s\n", prefix, stats.c_str());
 }
 
 TEST(Umd, ZeDevTypeStr) {

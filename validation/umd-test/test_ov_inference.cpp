@@ -1,18 +1,24 @@
 /*
- * Copyright (C) 2023-2024 Intel Corporation
+ * Copyright (C) 2023-2025 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
-#include "umd_test.h"
-#include "openvino/openvino.hpp"
 #include "image.hpp"
+#include "openvino/op/ops.hpp"
+#include "openvino/openvino.hpp"
+#include "openvino/runtime/intel_npu/level_zero/level_zero.hpp"
+#include "umd_dma_heap_system.hpp"
+#include "umd_test.h"
+
+#include <fcntl.h>
+#include <memory>
+#include <sys/mman.h>
 
 class OpenVinoBasic : public UmdTest, public ::testing::WithParamInterface<YAML::Node> {
   protected:
     void SetUp() override {
         UmdTest::SetUp();
-
         YAML::Node &configuration = Environment::getConfiguration();
         if (configuration["ov_log_level"].IsDefined()) {
             std::string lvl = configuration["ov_log_level"].as<std::string>();
@@ -31,6 +37,58 @@ class OpenVinoBasic : public UmdTest, public ::testing::WithParamInterface<YAML:
                 logLevel = ov::log::Level::NO;
 
             core.set_property(ov::log::level(logLevel));
+        }
+
+        ov::Version version = ov::get_openvino_version();
+        TRACE("OpenVINO name:      %s\n", version.description);
+        TRACE("OpenVINO build:     %s\n", version.buildNumber);
+
+        const std::vector<std::string> devices = core.get_available_devices();
+        for (auto &&device : devices) {
+            if (device == "NPU") {
+                auto deviceVersion = core.get_versions(device);
+                for (auto &v : deviceVersion) {
+                    TRACE("Plugin name:        %s\n", v.second.description);
+                    TRACE("Plugin build:       %s\n", v.second.buildNumber);
+                }
+                return;
+            }
+        }
+        GTEST_FAIL() << "NPU device not available" << std::endl;
+    }
+
+    auto createBaseModel() {
+        // Model:
+        //  Parameter(1,3) --> Add --> Relu
+        //      Constant(1,3) /
+        // Example results:
+        // * [0.0, 0.0, 0.0]    --> [0.5, 1.0, 0.0]
+        // * [1.0, 1.0, 1.0]    --> [1.5, 2.0, 0.0]
+        // * [-1.0, -1.0, -1.0] --> [0.0, 0.0, 0.0]
+        auto param = std::make_shared<ov::op::v0::Parameter>(ov::element::f32, ov::Shape{1, 3});
+        auto constant = ov::op::v0::Constant::create(ov::element::f32, ov::Shape{1, 3}, refConst);
+        auto add = std::make_shared<ov::op::v1::Add>(param, constant);
+        auto relu = std::make_shared<ov::op::v0::Relu>(add);
+
+        return std::make_shared<ov::Model>(ov::NodeVector{relu},
+                                           ov::ParameterVector{std::move(param)});
+    }
+
+    float refResult(float x, float c) {
+        float res = x + c;
+        return res > 0.0f ? res : 0.0f;
+    }
+
+    void inferBaseModel(const std::shared_ptr<ov::Model> &model, const ov::Tensor &inTensor) {
+        auto compiledModel = core.compile_model(model, "NPU");
+        auto inferReq = compiledModel.create_infer_request();
+        inferReq.set_input_tensor(inTensor);
+        inferReq.infer();
+        auto outTensor = inferReq.get_output_tensor();
+        auto result = outTensor.data<float>();
+
+        for (size_t i = 0; i < outTensor.get_size(); i++) {
+            EXPECT_FLOAT_EQ(result[i], refResult(refInData[i], refConst[i]));
         }
     }
 
@@ -95,33 +153,10 @@ class OpenVinoBasic : public UmdTest, public ::testing::WithParamInterface<YAML:
     }
 
     ov::Core core;
+    // Reference input data for base model tests
+    const std::array<float, 3> refInData = {1.0f, 1.0f, 1.0f};
+    const std::vector<float> refConst = {0.5f, 1.0f, -1.f};
 };
-
-TEST_F(OpenVinoBasic, CheckDevice) {
-    if (!isVPU37xx())
-        SKIP_("Test for MTL (37xx) platform only.");
-
-    try {
-        ov::Version version = ov::get_openvino_version();
-        TRACE("OpenVINO name:      %s\n", version.description);
-        TRACE("OpenVINO build:     %s\n", version.buildNumber);
-
-        const std::vector<std::string> devices = core.get_available_devices();
-        for (auto &&device : devices) {
-            if (device == "NPU") {
-                auto deviceVersion = core.get_versions(device);
-                for (auto &v : deviceVersion) {
-                    TRACE("Plugin name:        %s\n", v.second.description);
-                    TRACE("Plugin build:       %s\n", v.second.buildNumber);
-                }
-                return;
-            }
-        }
-        GTEST_FAIL() << "NPU device not available" << std::endl;
-    } catch (const std::exception &e) {
-        GTEST_FAIL() << "Exception: " << e.what() << std::endl;
-    }
-}
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(OpenVinoBasic);
 
@@ -205,4 +240,62 @@ TEST_P(OpenVinoBasic, CompileModelWithGraphInitAndExecute) {
             }
         }
     }
+}
+
+TEST_F(OpenVinoBasic, RemoteHostTensorAsNpuModelInput) {
+    auto model = createBaseModel();
+
+    auto zeroContext = ov::intel_npu::level_zero::ZeroContext(core);
+    auto inTensor = zeroContext.create_l0_host_tensor(model->input().get_element_type(),
+                                                      model->input().get_shape());
+    // Only NPU Remote Tensor allows to use `get()` method to access underlying buffer
+    memcpy(inTensor.get(), refInData.data(), refInData.size() * sizeof(float));
+
+    inferBaseModel(model, inTensor);
+}
+
+using OpenVinoDmaHeap = OpenVinoBasic;
+
+TEST_F(OpenVinoDmaHeap, RemoteTensorFromDmaBufAsNpuModelInput) {
+    DmaHeapSystem dmaHeapSystem;
+    CHECK_DMA_HEAP_SUPPORT(dmaHeapSystem);
+
+    auto model = createBaseModel();
+
+    auto dmaBufSize =
+        model->input().get_element_type().size() * ov::shape_size(model->input().get_shape());
+    auto dmaBuf = dmaHeapSystem.allocDmaHeapBuffer(dmaBufSize);
+    ASSERT_NE(dmaBuf, nullptr);
+
+    auto zeroContext = ov::intel_npu::level_zero::ZeroContext(core);
+    auto inTensor = zeroContext.create_tensor(model->input().get_element_type(),
+                                              model->input().get_shape(),
+                                              dmaBuf->fd);
+    // Only NPU Remote Tensor allows to use `get()` method to access underlying buffer
+    memcpy(inTensor.get(), refInData.data(), refInData.size() * sizeof(float));
+
+    inferBaseModel(model, inTensor);
+}
+
+TEST_F(OpenVinoBasic, RemoteTensorFromFileAsNpuModelInput) {
+    auto model = createBaseModel();
+
+    auto fd = open("input_tensor.bin", O_CREAT | O_RDWR | O_TRUNC, S_IRUSR | S_IWUSR);
+    ASSERT_NE(fd, -1) << "Failed to create file for mmap tensor";
+    std::shared_ptr<int> fdPtr(&fd, [fd](auto) { close(fd); });
+
+    auto fileSize = refInData.size() * sizeof(float);
+    ASSERT_EQ(write(fd, refInData.data(), fileSize), static_cast<ssize_t>(fileSize))
+        << "Failed to write data to mmap tensor file";
+
+    // Pass FileDescriptor forces the plugin to import system memory to NPU.
+    // If import fails, the plugin falls back to use driver host allocation
+    ov::intel_npu::FileDescriptor fileDescriptor{"input_tensor.bin", 0};
+    auto zeroContext = ov::intel_npu::level_zero::ZeroContext(core);
+    auto inTensor = zeroContext.create_tensor(model->input().get_element_type(),
+                                              model->input().get_shape(),
+                                              fileDescriptor);
+
+    inferBaseModel(model, inTensor);
+    unlink("input_tensor.bin");
 }

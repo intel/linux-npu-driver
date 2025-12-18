@@ -21,7 +21,7 @@ int loadFile(const std::string &filePath, std::vector<char> &dataOut);
 
 int loadImageFile(const std::string &filePath, std::vector<char> &dataOut);
 
-int writeFile(const std::string &filePath, void *dataIn, size_t inputSize);
+int writeFile(const std::string &filePath, const void *dataIn, size_t inputSize);
 
 float rawFp16ToFp32(const uint16_t &data);
 

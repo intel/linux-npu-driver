@@ -71,8 +71,7 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
     static bool checkMagic(const std::unique_ptr<BlobContainer> &blob);
     static std::unique_ptr<ElfParser> getElfParser(VPU::VPUDeviceContext *ctx,
                                                    const std::unique_ptr<BlobContainer> &blob,
-                                                   std::string &logBuffer,
-                                                   bool isInputPersistent);
+                                                   std::string &logBuffer);
     static elf::VersionsProvider getElfVer(uint32_t deviceId);
 
     bool getArgumentProperties(std::vector<ze_graph_argument_properties_3_t> &props) const;

@@ -21,6 +21,7 @@
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_37xx/vpu_hw_37xx.hpp"
 #include "vpu_driver/source/device/vpu_40xx/vpu_hw_40xx.hpp"
+#include "vpu_driver/source/device/vpu_50xx/vpu_hw_50xx.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
@@ -125,6 +126,7 @@ class DriverBufferManager : public elf::BufferManager {
             devAddress.vpu_addr(),
             devAddress.size());
 
+        // Check if shared scratch buffer
         if (devAddress.cpu_addr() == nullptr) {
             return;
         }
@@ -183,9 +185,27 @@ class DriverBufferManager : public elf::BufferManager {
         if (it == tracedElfParserBuffers.end()) {
             return nullptr;
         }
-        return it->second;
+
+        auto &bo = it->second;
+        if (!bo->isInRange(ptr)) {
+            return nullptr;
+        }
+
+        return bo;
     }
 
+    void append(std::shared_ptr<VPU::VPUBufferObject> bo) {
+        auto *ptr = bo->getBasePointer();
+        if (findBuffer(ptr) != nullptr) {
+            return;
+        }
+
+        const std::lock_guard<std::mutex> lock(mtx);
+        auto [it, success] = tracedElfParserBuffers.emplace(ptr, std::move(bo));
+        VPUX_ELF_THROW_WHEN(!success, elf::AllocError, "Failed to trace external buffer");
+    }
+
+  public:
     size_t sharedScratchSize = 0;
 
   private:
@@ -197,14 +217,10 @@ class DriverBufferManager : public elf::BufferManager {
 
 class DriverAccessManager : public elf::AccessManager {
   public:
-    DriverAccessManager(uint8_t *ptr,
-                        size_t size,
-                        DriverBufferManager *manager,
-                        bool isInputPersist)
-        : AccessManager(size)
-        , blob(ptr)
+    DriverAccessManager(BlobContainer *blob, DriverBufferManager *manager)
+        : AccessManager(blob->size)
         , bufferManager(manager)
-        , useStaticBuffer(isInputPersist) {}
+        , blobContainer(blob) {}
 
     DriverAccessManager(const DriverAccessManager &) = delete;
     DriverAccessManager(DriverAccessManager &&) = delete;
@@ -218,23 +234,36 @@ class DriverAccessManager : public elf::AccessManager {
                             elf::AccessError,
                             "Read request out of bounds");
 
-        uint8_t *start = blob + offset;
+        uint8_t *start = blobContainer->ptr + offset;
+
+        if (blobContainer->hasBackingStore() &&
+            specs.procFlags == (elf::VPU_SHF_PROC_DMA | elf::SHF_ALLOC)) {
+            auto bo = blobContainer->getNpuBuffer();
+            if (bo != nullptr) {
+                // StaticBuffer stores CPU VA only, using "resetBuffer" we can assign NPU VA to it
+                auto npuBuffer = std::make_unique<elf::StaticBuffer>(start, specs);
+                npuBuffer->resetBuffer({start, bo->getVPUAddr(start), specs.size});
+
+                bufferManager->append(std::move(bo));
+                return npuBuffer;
+            }
+        }
 
         if (hasNPUAccess(specs.procFlags)) {
-            // AllocatedDeviceBuffer is a wrapper for a buffer allocated by DriverBufferManager
+            // AllocatedDeviceBuffer is a wrapper over a buffer allocated by DriverBufferManager
             auto buffer = std::make_unique<elf::AllocatedDeviceBuffer>(bufferManager, specs);
             elf::DeviceBuffer devBuffer = buffer->getBuffer();
             bufferManager->copy(devBuffer, start, devBuffer.size());
             return buffer;
         }
 
-        if (useStaticBuffer) {
-            // StaticBuffer is a wrapper for a raw pointer
+        if (blobContainer->hasBackingStore()) {
+            // StaticBuffer is a wrapper over a raw pointer
             auto statBuffer = std::make_unique<elf::StaticBuffer>(start, specs);
             return statBuffer;
         }
 
-        // DynamicBuffer is a wrapper for a std::vector
+        // DynamicBuffer is a wrapper over a std::vector
         auto dynBuffer = std::make_unique<elf::DynamicBuffer>(specs);
         elf::DeviceBuffer devBuffer = dynBuffer->getBuffer();
         memcpy(devBuffer.cpu_addr(), start, devBuffer.size());
@@ -248,7 +277,7 @@ class DriverAccessManager : public elf::AccessManager {
                             "Read request out of bounds");
 
         elf::DeviceBuffer devBuffer = buffer.getBuffer();
-        memcpy(devBuffer.cpu_addr(), blob + offset, devBuffer.size());
+        memcpy(devBuffer.cpu_addr(), blobContainer->ptr + offset, devBuffer.size());
     }
 
   private:
@@ -257,9 +286,8 @@ class DriverAccessManager : public elf::AccessManager {
                          elf::SHF_ALLOC)) != 0;
     }
 
-    uint8_t *blob = nullptr;
     DriverBufferManager *bufferManager = nullptr;
-    bool useStaticBuffer;
+    BlobContainer *blobContainer = nullptr;
 };
 
 ElfParser::ElfParser(VPU::VPUDeviceContext *ctx,
@@ -289,6 +317,8 @@ static inline elf::platform::ArchKind toArchKind(uint32_t deviceId) {
         return elf::platform::ArchKind::VPUX37XX;
     case PCI_DEVICE_ID_LNL:
         return elf::platform::ArchKind::VPUX40XX;
+    case PCI_DEVICE_ID_PTL_P:
+        return elf::platform::ArchKind::VPUX501X;
     default:
         return elf::platform::ArchKind::UNKNOWN;
     }
@@ -419,13 +449,9 @@ std::shared_ptr<elf::HostParsedInference> HostParsedInferenceManager::acquire() 
 
 std::unique_ptr<ElfParser> ElfParser::getElfParser(VPU::VPUDeviceContext *ctx,
                                                    const std::unique_ptr<BlobContainer> &blob,
-                                                   std::string &logBuffer,
-                                                   bool isInputPersistent) {
+                                                   std::string &logBuffer) {
     auto bufferManager = std::make_unique<DriverBufferManager>(ctx);
-    auto accessManager = std::make_unique<DriverAccessManager>(blob->ptr,
-                                                               blob->size,
-                                                               bufferManager.get(),
-                                                               isInputPersistent);
+    auto accessManager = std::make_unique<DriverAccessManager>(blob.get(), bufferManager.get());
     auto hpi = createHostParsedInference(bufferManager.get(), accessManager.get(), ctx, logBuffer);
     if (hpi != nullptr)
         return std::make_unique<ElfParser>(ctx,

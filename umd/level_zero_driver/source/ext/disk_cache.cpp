@@ -159,9 +159,9 @@ std::unique_ptr<BlobContainer> DiskCache::getBlob(const Key &key) {
     }
 
     LOG(CACHE, "Cache hit using %s key", filename.c_str());
-    return std::make_unique<BlobFileContainer>(static_cast<uint8_t *>(file->mmap()),
-                                               file->size() - HashSha1::DigestLength,
-                                               std::move(file));
+    return std::make_unique<BlobContainer>(static_cast<uint8_t *>(file->mmap()),
+                                           file->size() - HashSha1::DigestLength,
+                                           std::move(file));
 }
 
 static size_t

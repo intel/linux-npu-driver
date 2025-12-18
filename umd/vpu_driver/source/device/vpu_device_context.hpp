@@ -196,6 +196,12 @@ class VPUDeviceContext {
         return hwInfo->fwPreemptBufSize > 0 && hwInfo->cmdQueueCreationCapability;
     }
 
+    std::shared_ptr<VPUBufferObject>
+    createTrackedBufferObjectFromUserPtr(void *userPtr, size_t size, bool readOnly);
+
+    std::shared_ptr<VPUBufferObject>
+    createUntrackedBufferObjectFromUserPtr(void *userPtr, size_t size, bool readOnly);
+
   private:
     /**
        Create VPUBufferObject and assign it to tracking structure
@@ -207,6 +213,8 @@ class VPUDeviceContext {
     std::shared_ptr<VPUBufferObject> createBufferObject(size_t size,
                                                         VPUBufferObject::Type range,
                                                         VPUBufferObject::Location location);
+    std::shared_ptr<VPUBufferObject>
+    createBufferObjectFromUserPtr(void *userPtr, size_t size, bool readOnly);
 
     std::unique_ptr<VPUDriverApi> drvApi;
     VPUHwInfo *hwInfo;

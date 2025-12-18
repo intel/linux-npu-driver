@@ -17,6 +17,7 @@ bool forceDmaHeap;
 bool forceZeInitTests;
 bool forcePreemptionTests;
 int userRequestedTimeoutMs;
+std::string dumpInputDir;
 } // namespace test_vars
 
 static void setConfig(const char *optarg) {
@@ -62,6 +63,9 @@ static void forcePreemptionTests(const char *) {
     test_vars::forcePreemptionTests = true;
 }
 
+static void setDumpInputDir(const char *arg) {
+    test_vars::dumpInputDir = arg;
+}
 const char *helpMsg = "  -c/--config [CONFIGURATION_PATH]\n"
                       "       Test configuration file in yaml format\n"
                       "  -G/--gpu\n"
@@ -77,7 +81,9 @@ const char *helpMsg = "  -c/--config [CONFIGURATION_PATH]\n"
                       "  -T/--sync_timeout\n"
                       "       Change timeout used for synchronization operations [ms] \n"
                       "  -A/--all\n"
-                      "       Run all conditional tests(includes dma-heap)\n";
+                      "       Run all conditional tests(includes dma-heap)\n"
+                      "  -F/--dump-on-fail [DUMP DIRECTORY]\n"
+                      "       Dump test data to file on fail(only for multi_inference tests)\n";
 
 int main(int argc, char **argv) {
     ::testing::AddGlobalTestEnvironment(Environment::getInstance());
@@ -103,6 +109,7 @@ int main(int argc, char **argv) {
         {'I', {"ze-init-tests", no_argument, &forceZeInitTests}},
         {'P', {"preemption-tests", no_argument, &forcePreemptionTests}},
         {'A', {"all", no_argument, &forceAllTests}},
+        {'F', {"dump-on-fail", required_argument, &setDumpInputDir}},
     };
 
     test_app::parse_args(args, helpMsg, argc, argv);

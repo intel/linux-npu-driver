@@ -90,6 +90,9 @@ int MockOsInterfaceImp::osiIoctl(int fd, unsigned int request, void *data) {
             if (args->index == DRM_IVPU_CAP_METRIC_STREAMER) {
                 args->value = 1ULL;
             }
+            if (args->index == DRM_IVPU_CAP_BO_CREATE_FROM_USERPTR) {
+                args->value = 1ULL;
+            }
             break;
         case DRM_IVPU_PARAM_UNIQUE_INFERENCE_ID:
             args->value = unique_id++;
@@ -144,6 +147,14 @@ int MockOsInterfaceImp::osiIoctl(int fd, unsigned int request, void *data) {
             args->job_status = DRM_IVPU_JOB_STATUS_SUCCESS;
         }
         jobFailed >>= 1;
+    } else if (request == DRM_IOCTL_IVPU_BO_CREATE_FROM_USERPTR) {
+        auto *args = static_cast<struct drm_ivpu_bo_create_from_userptr *>(data);
+        if (args->user_ptr == 0 || args->size == 0) {
+            errno = EINVAL;
+            return -1;
+        }
+        args->vpu_addr = deviceAddress;
+        deviceAddress += ALIGN(args->size, osiGetSystemPageSize());
     } else if (request == DRM_IOCTL_IVPU_METRIC_STREAMER_GET_INFO) {
         drm_ivpu_metric_streamer_get_data *args =
             static_cast<struct drm_ivpu_metric_streamer_get_data *>(data);
