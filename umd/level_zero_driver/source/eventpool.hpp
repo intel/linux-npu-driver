@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -13,9 +13,9 @@
 #include "level_zero_driver/include/l0_handler.hpp"
 #include "vpu_driver/source/command/event_command.hpp"
 
-#include <level_zero/ze_api.h>
 #include <memory>
 #include <vector>
+#include <ze_api.h>
 
 namespace L0 {
 struct Context;

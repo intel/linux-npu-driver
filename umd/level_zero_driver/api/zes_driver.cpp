@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -12,9 +12,9 @@
 #include "level_zero_driver/include/l0_exception.hpp"
 #include "level_zero_driver/source/driver.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/zes_api.h>
-#include <level_zero/zes_ddi.h>
+#include <ze_api.h>
+#include <zes_api.h>
+#include <zes_ddi.h>
 
 namespace L0 {
 ze_result_t zesInit(zes_init_flags_t flags) {
@@ -65,7 +65,10 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetGlobalProcAddrTable(
     }
 
     ret = ZE_RESULT_SUCCESS;
-    pDdiTable->pfnInit = L0::zesInit;
+
+    if (version >= ZE_API_VERSION_1_5) {
+        pDdiTable->pfnInit = L0::zesInit;
+    }
 
 exit:
     trace_zesGetGlobalProcAddrTable(ret, version, pDdiTable);
@@ -99,11 +102,17 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetDriverProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGet = L0::zesDriverGet;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnEventListen = nullptr;
+    }
 
-    pDdiTable->pfnEventListen = nullptr;
+    if (version >= ZE_API_VERSION_1_1) {
+        pDdiTable->pfnEventListenEx = nullptr;
+    }
 
-    pDdiTable->pfnEventListenEx = nullptr;
+    if (version >= ZE_API_VERSION_1_5) {
+        pDdiTable->pfnGet = L0::zesDriverGet;
+    }
 
 exit:
     trace_zesGetDriverProcAddrTable(ret, version, pDdiTable);

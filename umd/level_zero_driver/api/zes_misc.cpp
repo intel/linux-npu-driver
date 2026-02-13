@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,8 +7,8 @@
 
 #include "level_zero_driver/api/trace/trace_zes_api_ddi.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/zes_ddi.h>
+#include <ze_api.h>
+#include <zes_ddi.h>
 
 extern "C" {
 ///////////////////////////////////////////////////////////////////////////////
@@ -38,11 +38,11 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetDiagnosticsProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGetProperties = nullptr;
-
-    pDdiTable->pfnGetTests = nullptr;
-
-    pDdiTable->pfnRunTests = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGetProperties = nullptr;
+        pDdiTable->pfnGetTests = nullptr;
+        pDdiTable->pfnRunTests = nullptr;
+    }
 
 exit:
     trace_zesGetDiagnosticsProcAddrTable(ret, version, pDdiTable);
@@ -76,17 +76,14 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetFabricPortProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGetProperties = nullptr;
-
-    pDdiTable->pfnGetLinkType = nullptr;
-
-    pDdiTable->pfnGetConfig = nullptr;
-
-    pDdiTable->pfnSetConfig = nullptr;
-
-    pDdiTable->pfnGetState = nullptr;
-
-    pDdiTable->pfnGetThroughput = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGetProperties = nullptr;
+        pDdiTable->pfnGetLinkType = nullptr;
+        pDdiTable->pfnGetConfig = nullptr;
+        pDdiTable->pfnSetConfig = nullptr;
+        pDdiTable->pfnGetState = nullptr;
+        pDdiTable->pfnGetThroughput = nullptr;
+    }
 
 exit:
     trace_zesGetFabricPortProcAddrTable(ret, version, pDdiTable);
@@ -120,17 +117,14 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetFanProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGetProperties = nullptr;
-
-    pDdiTable->pfnGetConfig = nullptr;
-
-    pDdiTable->pfnSetDefaultMode = nullptr;
-
-    pDdiTable->pfnSetFixedSpeedMode = nullptr;
-
-    pDdiTable->pfnSetSpeedTableMode = nullptr;
-
-    pDdiTable->pfnGetState = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGetProperties = nullptr;
+        pDdiTable->pfnGetConfig = nullptr;
+        pDdiTable->pfnSetDefaultMode = nullptr;
+        pDdiTable->pfnSetFixedSpeedMode = nullptr;
+        pDdiTable->pfnSetSpeedTableMode = nullptr;
+        pDdiTable->pfnGetState = nullptr;
+    }
 
 exit:
     trace_zesGetFanProcAddrTable(ret, version, pDdiTable);
@@ -164,16 +158,16 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetFirmwareProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGetProperties = nullptr;
-
-    pDdiTable->pfnFlash = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGetProperties = nullptr;
+        pDdiTable->pfnFlash = nullptr;
+    }
 
 exit:
     trace_zesGetFirmwareProcAddrTable(ret, version, pDdiTable);
     return ret;
 }
 
-///////////////////////////////////////////////////////////////////////////////
 /// @brief Exported function for filling application's Frequency table
 ///        with current process' addresses
 ///
@@ -200,39 +194,25 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetFrequencyProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGetProperties = nullptr;
-
-    pDdiTable->pfnGetAvailableClocks = nullptr;
-
-    pDdiTable->pfnGetRange = nullptr;
-
-    pDdiTable->pfnSetRange = nullptr;
-
-    pDdiTable->pfnGetState = nullptr;
-
-    pDdiTable->pfnGetThrottleTime = nullptr;
-
-    pDdiTable->pfnOcGetCapabilities = nullptr;
-
-    pDdiTable->pfnOcGetFrequencyTarget = nullptr;
-
-    pDdiTable->pfnOcSetFrequencyTarget = nullptr;
-
-    pDdiTable->pfnOcGetVoltageTarget = nullptr;
-
-    pDdiTable->pfnOcSetVoltageTarget = nullptr;
-
-    pDdiTable->pfnOcSetMode = nullptr;
-
-    pDdiTable->pfnOcGetMode = nullptr;
-
-    pDdiTable->pfnOcGetIccMax = nullptr;
-
-    pDdiTable->pfnOcSetIccMax = nullptr;
-
-    pDdiTable->pfnOcGetTjMax = nullptr;
-
-    pDdiTable->pfnOcSetTjMax = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGetProperties = nullptr;
+        pDdiTable->pfnGetAvailableClocks = nullptr;
+        pDdiTable->pfnGetRange = nullptr;
+        pDdiTable->pfnSetRange = nullptr;
+        pDdiTable->pfnGetState = nullptr;
+        pDdiTable->pfnGetThrottleTime = nullptr;
+        pDdiTable->pfnOcGetCapabilities = nullptr;
+        pDdiTable->pfnOcGetFrequencyTarget = nullptr;
+        pDdiTable->pfnOcSetFrequencyTarget = nullptr;
+        pDdiTable->pfnOcGetVoltageTarget = nullptr;
+        pDdiTable->pfnOcSetVoltageTarget = nullptr;
+        pDdiTable->pfnOcSetMode = nullptr;
+        pDdiTable->pfnOcGetMode = nullptr;
+        pDdiTable->pfnOcGetIccMax = nullptr;
+        pDdiTable->pfnOcSetIccMax = nullptr;
+        pDdiTable->pfnOcGetTjMax = nullptr;
+        pDdiTable->pfnOcSetTjMax = nullptr;
+    }
 
 exit:
     trace_zesGetFrequencyProcAddrTable(ret, version, pDdiTable);
@@ -266,13 +246,12 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetLedProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGetProperties = nullptr;
-
-    pDdiTable->pfnGetState = nullptr;
-
-    pDdiTable->pfnSetState = nullptr;
-
-    pDdiTable->pfnSetColor = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGetProperties = nullptr;
+        pDdiTable->pfnGetState = nullptr;
+        pDdiTable->pfnSetState = nullptr;
+        pDdiTable->pfnSetColor = nullptr;
+    }
 
 exit:
     trace_zesGetLedProcAddrTable(ret, version, pDdiTable);
@@ -306,11 +285,11 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetMemoryProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGetProperties = nullptr;
-
-    pDdiTable->pfnGetState = nullptr;
-
-    pDdiTable->pfnGetBandwidth = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGetProperties = nullptr;
+        pDdiTable->pfnGetState = nullptr;
+        pDdiTable->pfnGetBandwidth = nullptr;
+    }
 
 exit:
     trace_zesGetMemoryProcAddrTable(ret, version, pDdiTable);
@@ -345,11 +324,11 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetPerformanceFactorProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGetProperties = nullptr;
-
-    pDdiTable->pfnGetConfig = nullptr;
-
-    pDdiTable->pfnSetConfig = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGetProperties = nullptr;
+        pDdiTable->pfnGetConfig = nullptr;
+        pDdiTable->pfnSetConfig = nullptr;
+    }
 
 exit:
     trace_zesGetPerformanceFactorProcAddrTable(ret, version, pDdiTable);
@@ -383,17 +362,14 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetPowerProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGetProperties = nullptr;
-
-    pDdiTable->pfnGetEnergyCounter = nullptr;
-
-    pDdiTable->pfnGetLimits = nullptr;
-
-    pDdiTable->pfnSetLimits = nullptr;
-
-    pDdiTable->pfnGetEnergyThreshold = nullptr;
-
-    pDdiTable->pfnSetEnergyThreshold = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGetProperties = nullptr;
+        pDdiTable->pfnGetEnergyCounter = nullptr;
+        pDdiTable->pfnGetLimits = nullptr;
+        pDdiTable->pfnSetLimits = nullptr;
+        pDdiTable->pfnGetEnergyThreshold = nullptr;
+        pDdiTable->pfnSetEnergyThreshold = nullptr;
+    }
 
 exit:
     trace_zesGetPowerProcAddrTable(ret, version, pDdiTable);
@@ -427,9 +403,10 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetPsuProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGetProperties = nullptr;
-
-    pDdiTable->pfnGetState = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGetProperties = nullptr;
+        pDdiTable->pfnGetState = nullptr;
+    }
 
 exit:
     trace_zesGetPsuProcAddrTable(ret, version, pDdiTable);
@@ -463,13 +440,12 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetRasProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGetProperties = nullptr;
-
-    pDdiTable->pfnGetConfig = nullptr;
-
-    pDdiTable->pfnSetConfig = nullptr;
-
-    pDdiTable->pfnGetState = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGetProperties = nullptr;
+        pDdiTable->pfnGetConfig = nullptr;
+        pDdiTable->pfnSetConfig = nullptr;
+        pDdiTable->pfnGetState = nullptr;
+    }
 
 exit:
     trace_zesGetRasProcAddrTable(ret, version, pDdiTable);
@@ -503,21 +479,16 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetSchedulerProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGetProperties = nullptr;
-
-    pDdiTable->pfnGetCurrentMode = nullptr;
-
-    pDdiTable->pfnGetTimeoutModeProperties = nullptr;
-
-    pDdiTable->pfnGetTimesliceModeProperties = nullptr;
-
-    pDdiTable->pfnSetTimeoutMode = nullptr;
-
-    pDdiTable->pfnSetTimesliceMode = nullptr;
-
-    pDdiTable->pfnSetExclusiveMode = nullptr;
-
-    pDdiTable->pfnSetComputeUnitDebugMode = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGetProperties = nullptr;
+        pDdiTable->pfnGetCurrentMode = nullptr;
+        pDdiTable->pfnGetTimeoutModeProperties = nullptr;
+        pDdiTable->pfnGetTimesliceModeProperties = nullptr;
+        pDdiTable->pfnSetTimeoutMode = nullptr;
+        pDdiTable->pfnSetTimesliceMode = nullptr;
+        pDdiTable->pfnSetExclusiveMode = nullptr;
+        pDdiTable->pfnSetComputeUnitDebugMode = nullptr;
+    }
 
 exit:
     trace_zesGetSchedulerProcAddrTable(ret, version, pDdiTable);
@@ -551,11 +522,11 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetStandbyProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGetProperties = nullptr;
-
-    pDdiTable->pfnGetMode = nullptr;
-
-    pDdiTable->pfnSetMode = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGetProperties = nullptr;
+        pDdiTable->pfnGetMode = nullptr;
+        pDdiTable->pfnSetMode = nullptr;
+    }
 
 exit:
     trace_zesGetStandbyProcAddrTable(ret, version, pDdiTable);
@@ -589,13 +560,12 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetTemperatureProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGetProperties = nullptr;
-
-    pDdiTable->pfnGetConfig = nullptr;
-
-    pDdiTable->pfnSetConfig = nullptr;
-
-    pDdiTable->pfnGetState = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGetProperties = nullptr;
+        pDdiTable->pfnGetConfig = nullptr;
+        pDdiTable->pfnSetConfig = nullptr;
+        pDdiTable->pfnGetState = nullptr;
+    }
 
 exit:
     trace_zesGetTemperatureProcAddrTable(ret, version, pDdiTable);
@@ -617,9 +587,15 @@ zesGetDeviceExpProcAddrTable(ze_api_version_t version, zes_device_exp_dditable_t
         goto exit;
     }
 
-    pDdiTable->pfnEnumEnabledVFExp = nullptr;
-    pDdiTable->pfnGetSubDevicePropertiesExp = nullptr;
-    pDdiTable->pfnEnumActiveVFExp = nullptr;
+    if (version >= ZE_API_VERSION_1_9) {
+        pDdiTable->pfnGetSubDevicePropertiesExp = nullptr;
+        pDdiTable->pfnEnumActiveVFExp = nullptr;
+    }
+
+    if (version >= ZE_API_VERSION_1_11) {
+        pDdiTable->pfnEnumEnabledVFExp = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -642,7 +618,10 @@ zesGetDriverExpProcAddrTable(ze_api_version_t version, zes_driver_exp_dditable_t
         goto exit;
     }
 
-    pDdiTable->pfnGetDeviceByUuidExp = nullptr;
+    if (version >= ZE_API_VERSION_1_9) {
+        pDdiTable->pfnGetDeviceByUuidExp = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -665,8 +644,11 @@ zesGetFirmwareExpProcAddrTable(ze_api_version_t version, zes_firmware_exp_dditab
         goto exit;
     }
 
-    pDdiTable->pfnGetSecurityVersionExp = nullptr;
-    pDdiTable->pfnSetSecurityVersionExp = nullptr;
+    if (version >= ZE_API_VERSION_1_9) {
+        pDdiTable->pfnGetSecurityVersionExp = nullptr;
+        pDdiTable->pfnSetSecurityVersionExp = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -689,8 +671,11 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zesGetRasExpProcAddrTable(ze_api_version_t v
         goto exit;
     }
 
-    pDdiTable->pfnGetStateExp = nullptr;
-    pDdiTable->pfnClearStateExp = nullptr;
+    if (version >= ZE_API_VERSION_1_7) {
+        pDdiTable->pfnGetStateExp = nullptr;
+        pDdiTable->pfnClearStateExp = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -714,14 +699,20 @@ zesGetVFManagementExpProcAddrTable(ze_api_version_t version,
         goto exit;
     }
 
-    pDdiTable->pfnGetVFCapabilitiesExp = nullptr;
-    pDdiTable->pfnGetVFMemoryUtilizationExp2 = nullptr;
-    pDdiTable->pfnGetVFEngineUtilizationExp2 = nullptr;
-    pDdiTable->pfnGetVFPropertiesExp = nullptr;
-    pDdiTable->pfnGetVFMemoryUtilizationExp = nullptr;
-    pDdiTable->pfnGetVFEngineUtilizationExp = nullptr;
-    pDdiTable->pfnSetVFTelemetryModeExp = nullptr;
-    pDdiTable->pfnSetVFTelemetrySamplingIntervalExp = nullptr;
+    if (version >= ZE_API_VERSION_1_9) {
+        pDdiTable->pfnGetVFPropertiesExp = nullptr;
+        pDdiTable->pfnGetVFMemoryUtilizationExp = nullptr;
+        pDdiTable->pfnGetVFEngineUtilizationExp = nullptr;
+        pDdiTable->pfnSetVFTelemetryModeExp = nullptr;
+        pDdiTable->pfnSetVFTelemetrySamplingIntervalExp = nullptr;
+    }
+
+    if (version >= ZE_API_VERSION_1_11) {
+        pDdiTable->pfnGetVFCapabilitiesExp = nullptr;
+        pDdiTable->pfnGetVFMemoryUtilizationExp2 = nullptr;
+        pDdiTable->pfnGetVFEngineUtilizationExp2 = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -744,15 +735,18 @@ zesGetOverclockProcAddrTable(ze_api_version_t version, zes_overclock_dditable_t 
         goto exit;
     }
 
-    pDdiTable->pfnGetDomainProperties = nullptr;
-    pDdiTable->pfnGetDomainVFProperties = nullptr;
-    pDdiTable->pfnGetDomainControlProperties = nullptr;
-    pDdiTable->pfnGetControlCurrentValue = nullptr;
-    pDdiTable->pfnGetControlPendingValue = nullptr;
-    pDdiTable->pfnSetControlUserValue = nullptr;
-    pDdiTable->pfnGetControlState = nullptr;
-    pDdiTable->pfnGetVFPointValues = nullptr;
-    pDdiTable->pfnSetVFPointValues = nullptr;
+    if (version >= ZE_API_VERSION_1_5) {
+        pDdiTable->pfnGetDomainProperties = nullptr;
+        pDdiTable->pfnGetDomainVFProperties = nullptr;
+        pDdiTable->pfnGetDomainControlProperties = nullptr;
+        pDdiTable->pfnGetControlCurrentValue = nullptr;
+        pDdiTable->pfnGetControlPendingValue = nullptr;
+        pDdiTable->pfnSetControlUserValue = nullptr;
+        pDdiTable->pfnGetControlState = nullptr;
+        pDdiTable->pfnGetVFPointValues = nullptr;
+        pDdiTable->pfnSetVFPointValues = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:

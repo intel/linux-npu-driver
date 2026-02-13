@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 Intel Corporation
+ * Copyright (C) 2025-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,10 +7,13 @@
 
 #include "level_zero_driver/api/prv/zex_driver.hpp"
 
+#include "level_zero_driver/api/zet_misc.hpp"
+#include "level_zero_driver/source/context.hpp"
 #include "level_zero_driver/source/driver.hpp"
 #include "level_zero_driver/source/ext/disk_cache.hpp"
 
 #include <filesystem>
+#include <loader/ze_loader.h>
 #include <string>
 
 extern "C" {
@@ -36,6 +39,19 @@ ze_result_t ZE_APICALL zexDiskCacheGetDirectory(char *path, size_t *len) {
     std::string cacheDir = diskCache.getCacheDirPath().string();
     *len = cacheDir.copy(path, *len - 1);
     path[*len] = 0;
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t ZE_APICALL zexContextSetIdlePruningTimeout(ze_context_handle_t hContext,
+                                                       uint64_t timeoutMs) {
+    if (hContext == nullptr)
+        return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+
+    auto ret = L0::translateHandle(ZEL_HANDLE_CONTEXT, hContext);
+    if (ret != ZE_RESULT_SUCCESS)
+        return ret;
+
+    L0::Context::fromHandle(hContext)->setIdlePruningTimeout(timeoutMs);
     return ZE_RESULT_SUCCESS;
 }
 }

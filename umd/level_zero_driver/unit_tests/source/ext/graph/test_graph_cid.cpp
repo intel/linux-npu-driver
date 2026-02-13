@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -9,7 +9,6 @@
 #include <cstdint>
 
 #include "gtest/gtest.h"
-#include "level_zero/ze_graph_ext.h"
 #include "level_zero_driver/source/context.hpp"
 #include "level_zero_driver/source/device.hpp"
 #include "level_zero_driver/source/ext/compiler.hpp"
@@ -22,12 +21,13 @@
 #include <api/vpu_nnrt_api_37xx.h>
 #include <filesystem>
 #include <fstream>
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_graph_profiling_ext.h>
 #include <string.h>
 #include <string>
 #include <utility>
 #include <vector>
+#include <ze_api.h>
+#include <ze_graph_ext.h>
+#include <ze_graph_profiling_ext.h>
 
 namespace L0 {
 namespace ult {
@@ -116,7 +116,7 @@ struct CompilerInDriverFixture : public ContextFixture {
         appendFileToModel(std::move(binaryPath), modelIR);
 
         buildFlags = TestOptions::modelFlags;
-        graphDesc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES,
+        graphDesc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_2,
                      .pNext = nullptr,
                      .format = ZE_GRAPH_FORMAT_NGRAPH_LITE,
                      .inputSize = modelIR.size(),

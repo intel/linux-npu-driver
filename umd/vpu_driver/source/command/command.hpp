@@ -11,6 +11,7 @@
 #include <cstdint>
 
 #include "api/vpu_jsm_job_cmd_api.h"
+#include "umd_common.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <any>
@@ -82,9 +83,15 @@ class VPUCommand {
 
     inline bool isSynchronizeCommand() const { return sType == ScheduleType::Synchronize; }
 
+    struct ArgumentUpdates {
+        std::optional<const void *> ptr;
+        std::optional<ArgumentStrides> strides;
+    };
+
     using ArgumentUpdatesMap =
-        std::unordered_map<uint32_t, const void *>; // key - argument index
-                                                    // value - new pointer for the argument
+        std::unordered_map<uint32_t, ArgumentUpdates>; // key - argument index
+                                                       // value - argument ptr and/or strides
+
     virtual bool setUpdates(const ArgumentUpdatesMap &updatesMap) {
         LOG_E("Command with type %#x does not support changing arguments", getCommandType());
         return false;

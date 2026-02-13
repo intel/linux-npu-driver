@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -13,7 +13,6 @@
 #include "context.hpp"
 #include "device.hpp"
 #include "fence.hpp"
-#include "level_zero/ze_api.h"
 #include "level_zero_driver/include/l0_exception.hpp"
 #include "vpu_driver/source/command/job.hpp"
 #include "vpu_driver/source/device/vpu_command_queue.hpp"
@@ -28,6 +27,7 @@
 #include <limits>
 #include <mutex>
 #include <utility>
+#include <ze_api.h>
 
 namespace L0 {
 
@@ -218,9 +218,11 @@ ze_result_t CommandQueue::executeCommandLists(uint32_t nCommandLists,
         }
     }
 
-    if (preemptionBuffer == nullptr &&
-        pContext->getDeviceContext()->isPreemptionBufferSupported()) {
-        preemptionBuffer = pContext->getDeviceContext()->preemptionCacheAcquire();
+    if (pContext->getDeviceContext()->isPreemptionBufferSupported()) {
+        std::lock_guard<std::mutex> lock(preemptionMutex);
+        if (preemptionBuffer == nullptr) {
+            preemptionBuffer = pContext->getDeviceContext()->preemptionCacheAcquire();
+        }
     }
 
     std::vector<std::shared_ptr<VPU::VPUJob>> jobs;
@@ -319,9 +321,15 @@ ze_result_t CommandQueue::waitForJobs(std::chrono::steady_clock::time_point absT
 
     // Put back the preemption buffer if no jobs are using it.
     // This covers "zeFence" and "zeCommandQueue" synchronization cases
-    if (preemptionBuffer && preemptionBuffer.use_count() == 2) {
-        preemptionBuffer.reset();
+    if (pContext->getDeviceContext()->isPreemptionBufferSupported()) {
+        std::lock_guard<std::mutex> lock(preemptionMutex);
+        if (preemptionBuffer && preemptionBuffer.use_count() == 2) {
+            preemptionBuffer.reset();
+        }
     }
+
+    pContext->setIdle();
+
     return Device::jobStatusToResult(jobs);
 }
 

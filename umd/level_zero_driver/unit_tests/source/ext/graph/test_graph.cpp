@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -8,7 +8,6 @@
 #include <stdint.h>
 
 #include "gtest/gtest.h"
-#include "level_zero/ze_graph_ext.h"
 #include "level_zero_driver/source/context.hpp"
 #include "level_zero_driver/source/device.hpp"
 #include "level_zero_driver/source/ext/graph.hpp"
@@ -20,12 +19,13 @@
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
 
 #include <filesystem>
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_graph_profiling_ext.h>
 #include <stdlib.h>
 #include <string.h>
 #include <string>
 #include <vector>
+#include <ze_api.h>
+#include <ze_graph_ext.h>
+#include <ze_graph_profiling_ext.h>
 
 namespace L0 {
 namespace ult {
@@ -59,7 +59,7 @@ struct GraphNativeFixture : ContextFixture {
     L0::Graph *graph = nullptr;
     std::vector<uint8_t> blob;
     ze_graph_desc_2_t graphDesc = {
-        .stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES,
+        .stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_2,
         .pNext = nullptr,
         .format = ZE_GRAPH_FORMAT_NATIVE,
         .inputSize = 0,

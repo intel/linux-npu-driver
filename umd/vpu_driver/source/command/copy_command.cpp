@@ -55,7 +55,7 @@ VPUCopyCommand::VPUCopyCommand(const std::shared_ptr<VPUBufferObject> srcBo,
     : VPUCommand() {
     vpu_cmd_copy_buffer_t cmd = {};
 
-    cmd.header.type = VPU_CMD_COPY_LOCAL_TO_LOCAL;
+    cmd.header.type = VPU_CMD_COPY;
     cmd.header.size = sizeof(vpu_cmd_copy_buffer_t);
     cmd.desc_start_offset = 0u;
     cmd.desc_count = descriptor.numDescriptors;

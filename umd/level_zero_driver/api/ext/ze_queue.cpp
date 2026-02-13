@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -12,9 +12,9 @@
 #include "level_zero_driver/include/l0_exception.hpp"
 #include "level_zero_driver/source/cmdqueue.hpp"
 
-#include <level_zero/loader/ze_loader.h>
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_command_queue_npu_ext.h>
+#include <loader/ze_loader.h>
+#include <ze_api.h>
+#include <ze_command_queue_npu_ext.h>
 
 namespace L0 {
 ze_result_t ZE_APICALL

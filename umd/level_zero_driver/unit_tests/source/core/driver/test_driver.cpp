@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -8,7 +8,6 @@
 #include <stdint.h>
 
 #include "gtest/gtest.h"
-#include "level_zero/ze_intel_npu_uuid.h"
 #include "level_zero_driver/source/driver.hpp"
 #include "level_zero_driver/source/driver_handle.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
@@ -16,10 +15,11 @@
 #include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
 
-#include <level_zero/ze_api.h>
 #include <memory>
 #include <stdlib.h>
 #include <string.h>
+#include <ze_api.h>
+#include <ze_intel_npu_uuid.h>
 
 namespace L0 {
 namespace ult {

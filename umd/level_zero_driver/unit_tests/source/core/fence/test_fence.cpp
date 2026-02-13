@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -17,8 +17,8 @@
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
 
-#include <level_zero/ze_api.h>
 #include <string>
+#include <ze_api.h>
 
 namespace L0 {
 namespace ult {

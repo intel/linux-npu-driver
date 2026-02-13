@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "umd_common.hpp"
 #include "vpu_driver/source/command/command.hpp"
 
 #include <any>
@@ -37,6 +38,8 @@ class VPUInferenceExecute : public VPUCommand {
                         std::shared_ptr<elf::HostParsedInference> &hpi,
                         const std::vector<const void *> &inputs,
                         const std::vector<const void *> &outputs,
+                        const ArgumentStridesMap &inputStrides,
+                        const ArgumentStridesMap &outputStrides,
                         L0::GraphProfilingQuery *profilingQuery,
                         uint64_t inferenceId,
                         std::vector<std::shared_ptr<VPUBufferObject>> &bos,
@@ -51,6 +54,8 @@ class VPUInferenceExecute : public VPUCommand {
            std::shared_ptr<elf::HostParsedInference> &hpi,
            const std::vector<const void *> &inputs,
            const std::vector<const void *> &outputs,
+           const ArgumentStridesMap &inputStrides,
+           const ArgumentStridesMap &outputStrides,
            L0::GraphProfilingQuery *profilingQuery,
            uint64_t inferenceId,
            std::vector<std::shared_ptr<VPUBufferObject>> &bos);
@@ -71,6 +76,8 @@ class VPUInferenceExecute : public VPUCommand {
     std::shared_ptr<elf::HostParsedInference> hpi;
     std::vector<const void *> inputs;
     std::vector<const void *> outputs;
+    ArgumentStridesMap inputStrides;
+    ArgumentStridesMap outputStrides;
     L0::GraphProfilingQuery *profilingQuery;
 
     /* inputs, outputs and graph profiling buffer */

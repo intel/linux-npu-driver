@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -12,9 +12,9 @@
 #include <stdint.h>
 
 #include <chrono> // IWYU pragma: keep
-#include <level_zero/ze_api.h>
 #include <memory>
 #include <vector>
+#include <ze_api.h>
 
 namespace VPU {
 class VPUJob;

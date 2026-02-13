@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -23,10 +23,10 @@
 #include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
 
-#include <level_zero/ze_api.h>
 #include <memory>
 #include <utility>
 #include <vector>
+#include <ze_api.h>
 
 namespace L0 {
 namespace ult {
@@ -92,7 +92,7 @@ struct ContextFixture : DeviceFixture {
         DeviceFixture::SetUp();
 
         ze_context_handle_t hContext = {};
-        ze_context_desc_t desc;
+        ze_context_desc_t desc = {};
         ze_result_t res = driverHandle->createContext(&desc, &hContext);
         EXPECT_EQ(ZE_RESULT_SUCCESS, res);
         ASSERT_NE(nullptr, hContext);

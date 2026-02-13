@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -12,10 +12,10 @@
 #include "driver_handle.hpp"
 #include "ext/disk_cache.hpp"
 
-#include <level_zero/ze_api.h>
 #include <memory>
 #include <mutex>
 #include <string_view>
+#include <ze_api.h>
 
 namespace VPU {
 class OsInterface;
@@ -30,6 +30,7 @@ class Driver {
         bool metrics;
         bool pciIdDeviceOrder;
         bool sharedForceDeviceAlloc;
+        bool extensionValidation;
     };
 
     Driver() {

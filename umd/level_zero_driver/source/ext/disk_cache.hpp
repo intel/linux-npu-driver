@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -10,11 +10,11 @@
 #include <stddef.h>
 
 #include "blob_container.hpp"
-#include "level_zero/ze_graph_ext.h"
 
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <ze_graph_ext.h>
 
 namespace VPU {
 class OsInterface;

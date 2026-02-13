@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,10 +7,6 @@
 
 #include "level_zero_driver/api/ext/ze_graph.hpp"
 
-#include "level_zero/loader/ze_loader.h"
-#include "level_zero/ze_api.h"
-#include "level_zero/ze_graph_ext.h"
-#include "level_zero/ze_graph_profiling_ext.h"
 #include "level_zero_driver/api/trace/trace_ze_graph_ext.hpp"
 #include "level_zero_driver/api/trace/trace_ze_graph_profiling_ext.hpp"
 #include "level_zero_driver/api/zet_misc.hpp"
@@ -18,15 +14,123 @@
 #include "level_zero_driver/source/cmdlist.hpp"
 #include "level_zero_driver/source/context.hpp"
 #include "level_zero_driver/source/device.hpp"
+#include "level_zero_driver/source/driver.hpp"
 #include "level_zero_driver/source/event.hpp"
 #include "level_zero_driver/source/ext/graph.hpp"
 #include "level_zero_driver/source/ext/profiling_data.hpp"
 #include "level_zero_driver/source/ext/query_network.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
+#include <algorithm>
+#include <loader/ze_loader.h>
 #include <memory>
+#include <vector>
+#include <ze_api.h>
+#include <ze_graph_ext.h>
+#include <ze_graph_profiling_ext.h>
 
 namespace L0 {
+
+template <typename T>
+const char *getGraphExtStructureName() {
+    if constexpr (std::is_same_v<::ze_device_graph_properties_t, T>)
+        return "ze_device_graph_properties_t";
+    if constexpr (std::is_same_v<::ze_device_graph_properties_2_t, T>)
+        return "ze_device_graph_properties_2_t";
+    if constexpr (std::is_same_v<::ze_graph_desc_t, T>)
+        return "ze_graph_desc_t";
+    if constexpr (std::is_same_v<::ze_graph_desc_2_t, T>)
+        return "ze_graph_desc_2_t";
+    if constexpr (std::is_same_v<::ze_graph_properties_t, T>)
+        return "ze_graph_properties_t";
+    if constexpr (std::is_same_v<::ze_graph_properties_2_t, T>)
+        return "ze_graph_properties_2_t";
+    if constexpr (std::is_same_v<::ze_graph_properties_3_t, T>)
+        return "ze_graph_properties_3_t";
+    if constexpr (std::is_same_v<::ze_graph_argument_properties_t, T>)
+        return "ze_graph_argument_properties_t";
+    if constexpr (std::is_same_v<::ze_graph_argument_properties_2_t, T>)
+        return "ze_graph_argument_properties_2_t";
+    if constexpr (std::is_same_v<::ze_graph_argument_properties_3_t, T>)
+        return "ze_graph_argument_properties_3_t";
+    if constexpr (std::is_same_v<::ze_graph_argument_metadata_t, T>)
+        return "ze_graph_argument_metadata_t";
+    if constexpr (std::is_same_v<::ze_graph_input_hash_t, T>)
+        return "ze_graph_input_hash_t";
+    if constexpr (std::is_same_v<::ze_graph_argument_property_strides_t, T>)
+        return "ze_graph_argument_property_strides_t";
+    if constexpr (std::is_same_v<::ze_graph_argument_value_tensor_t, T>)
+        return "ze_graph_argument_value_tensor_t";
+    if constexpr (std::is_same_v<::ze_graph_argument_value_strides_t, T>)
+        return "ze_graph_argument_value_strides_t";
+    return "unknown_graph_structure";
+}
+
+template <typename T>
+ze_structure_type_graph_ext_t getGraphExtStructureType() {
+    if constexpr (std::is_same_v<::ze_device_graph_properties_t, T>)
+        return ZE_STRUCTURE_TYPE_DEVICE_GRAPH_PROPERTIES;
+    if constexpr (std::is_same_v<::ze_device_graph_properties_2_t, T>)
+        return ZE_STRUCTURE_TYPE_DEVICE_GRAPH_PROPERTIES_2;
+    if constexpr (std::is_same_v<::ze_graph_desc_t, T>)
+        return ZE_STRUCTURE_TYPE_GRAPH_DESC;
+    if constexpr (std::is_same_v<::ze_graph_desc_2_t, T>)
+        return ZE_STRUCTURE_TYPE_GRAPH_DESC_2;
+    if constexpr (std::is_same_v<::ze_graph_properties_t, T>)
+        return ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
+    if constexpr (std::is_same_v<::ze_graph_properties_2_t, T>)
+        return ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES_2;
+    if constexpr (std::is_same_v<::ze_graph_properties_3_t, T>)
+        return ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES_3;
+    if constexpr (std::is_same_v<::ze_graph_argument_properties_t, T>)
+        return ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES;
+    if constexpr (std::is_same_v<::ze_graph_argument_properties_2_t, T>)
+        return ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_2;
+    if constexpr (std::is_same_v<::ze_graph_argument_properties_3_t, T>)
+        return ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_3;
+    if constexpr (std::is_same_v<::ze_graph_argument_metadata_t, T>)
+        return ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_METADATA;
+    if constexpr (std::is_same_v<::ze_graph_input_hash_t, T>)
+        return ZE_STRUCTURE_TYPE_GRAPH_INPUT_HASH;
+    if constexpr (std::is_same_v<::ze_graph_argument_property_strides_t, T>)
+        return ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTY_STRIDES;
+    if constexpr (std::is_same_v<::ze_graph_argument_value_tensor_t, T>)
+        return ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_TENSOR;
+    if constexpr (std::is_same_v<::ze_graph_argument_value_strides_t, T>)
+        return ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_STRIDES;
+    return ZE_STRUCTURE_TYPE_GRAPH_FORCE_UINT32;
+}
+
+template <typename T>
+ze_result_t validateGraphStructure(const T *pStruct,
+                                   std::vector<ze_structure_type_graph_ext_t> validPNext = {}) {
+    if (pStruct == nullptr) {
+        LOG_E("Invalid %s structure pointer", getGraphExtStructureName<T>());
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    if (!Driver::getInstance()->getEnvVariables().extensionValidation) {
+        return ZE_RESULT_SUCCESS;
+    }
+    if (pStruct->stype != getGraphExtStructureType<T>()) {
+        LOG_E("Invalid %s structure stype", getGraphExtStructureName<T>());
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+    for (const auto *pNext = pStruct->pNext; pNext != nullptr;) {
+        auto *stype = reinterpret_cast<const ze_structure_type_graph_ext_t *>(pNext);
+        if (!std::any_of(
+                validPNext.begin(),
+                validPNext.end(),
+                [stype](ze_structure_type_graph_ext_t validType) { return *stype == validType; })) {
+            LOG_E("Unsupported %x structure in pNext chain of %s",
+                  *stype,
+                  getGraphExtStructureName<T>());
+            return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+        }
+
+        pNext = reinterpret_cast<const ze_base_desc_t *>(pNext)->pNext;
+    }
+    return ZE_RESULT_SUCCESS;
+}
 
 ze_result_t ZE_APICALL zeGraphCreate(ze_context_handle_t hContext,
                                      ze_device_handle_t hDevice,
@@ -36,9 +140,18 @@ ze_result_t ZE_APICALL zeGraphCreate(ze_context_handle_t hContext,
     ze_graph_desc_2_t desc{};
     ze_result_t ret;
 
-    if (pDesc == nullptr) {
-        LOG_E("Invalid graph descriptor");
-        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    ret = validateGraphStructure(pDesc, {ZE_STRUCTURE_TYPE_GRAPH_INPUT_HASH});
+    if (ret != ZE_RESULT_SUCCESS) {
+        goto exit;
+    }
+
+    ret = translateHandle(ZEL_HANDLE_CONTEXT, hContext);
+    if (ret != ZE_RESULT_SUCCESS) {
+        goto exit;
+    }
+
+    ret = translateHandle(ZEL_HANDLE_DEVICE, hDevice);
+    if (ret != ZE_RESULT_SUCCESS) {
         goto exit;
     }
 
@@ -50,7 +163,7 @@ ze_result_t ZE_APICALL zeGraphCreate(ze_context_handle_t hContext,
     desc.pBuildFlags = pDesc->pBuildFlags;
     desc.flags = 0;
 
-    ret = zeGraphCreate2(hContext, hDevice, &desc, phGraph);
+    L0_HANDLE_EXCEPTION(ret, L0::Graph::create(hContext, hDevice, &desc, phGraph));
 
 exit:
     trace_zeGraphCreate(ret, hContext, hDevice, pDesc, phGraph);
@@ -83,6 +196,11 @@ ze_result_t ZE_APICALL zeGraphGetProperties(ze_graph_handle_t hGraph,
         goto exit;
     }
 
+    ret = validateGraphStructure(pGraphProperties);
+    if (ret != ZE_RESULT_SUCCESS) {
+        goto exit;
+    }
+
     L0_HANDLE_EXCEPTION(ret, L0::Graph::fromHandle(hGraph)->getProperties(pGraphProperties));
 
 exit:
@@ -100,8 +218,8 @@ ze_result_t ZE_APICALL zeGraphGetProperties2(ze_graph_handle_t hGraph,
         goto exit;
     }
 
-    if (pGraphProperties == nullptr) {
-        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    ret = validateGraphStructure(pGraphProperties);
+    if (ret != ZE_RESULT_SUCCESS) {
         goto exit;
     }
 
@@ -121,6 +239,12 @@ zeGraphGetArgumentProperties(ze_graph_handle_t hGraph,
 
     if (hGraph == nullptr) {
         ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+
+    ret = validateGraphStructure(pGraphArgumentProperties,
+                                 {ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTY_STRIDES});
+    if (ret != ZE_RESULT_SUCCESS) {
         goto exit;
     }
 
@@ -148,6 +272,24 @@ ze_result_t ZE_APICALL zeGraphSetArgumentValue(ze_graph_handle_t hGraph,
 
 exit:
     trace_zeGraphSetArgumentValue(ret, hGraph, argIndex, pArgValue);
+    return ret;
+}
+
+ze_result_t ZE_APICALL zeGraphSetArgumentValue2(ze_graph_handle_t hGraph,
+                                                uint32_t argIndex,
+                                                const void *pArgValue) {
+    trace_zeGraphSetArgumentValue2(hGraph, argIndex, pArgValue);
+    ze_result_t ret;
+
+    if (hGraph == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+
+    L0_HANDLE_EXCEPTION(ret, L0::Graph::fromHandle(hGraph)->setArgumentValue2(argIndex, pArgValue));
+
+exit:
+    trace_zeGraphSetArgumentValue2(ret, hGraph, argIndex, pArgValue);
     return ret;
 }
 
@@ -371,6 +513,11 @@ zeDeviceGetGraphProperties(ze_device_handle_t hDevice,
         goto exit;
     }
 
+    ret = validateGraphStructure(pDeviceGraphProperties);
+    if (ret != ZE_RESULT_SUCCESS) {
+        goto exit;
+    }
+
     L0_HANDLE_EXCEPTION(ret, L0::Graph::getDeviceGraphProperties(hDevice, pDeviceGraphProperties));
 
 exit:
@@ -386,6 +533,11 @@ zeDeviceGetGraphProperties2(ze_device_handle_t hDevice,
 
     if (hDevice == nullptr) {
         ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+
+    ret = validateGraphStructure(pDeviceGraphProperties2);
+    if (ret != ZE_RESULT_SUCCESS) {
         goto exit;
     }
 
@@ -414,6 +566,11 @@ zeGraphGetArgumentMetadata(ze_graph_handle_t hGraph,
         goto exit;
     }
 
+    ret = validateGraphStructure(pGraphArgumentMetadata);
+    if (ret != ZE_RESULT_SUCCESS) {
+        goto exit;
+    }
+
     L0_HANDLE_EXCEPTION(
         ret,
         L0::Graph::fromHandle(hGraph)->getArgumentMetadata(argIndex, pGraphArgumentMetadata));
@@ -432,6 +589,12 @@ zeGraphGetArgumentProperties2(ze_graph_handle_t hGraph,
 
     if (hGraph == nullptr) {
         ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+
+    ret = validateGraphStructure(pGraphArgumentProperties,
+                                 {ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTY_STRIDES});
+    if (ret != ZE_RESULT_SUCCESS) {
         goto exit;
     }
 
@@ -456,6 +619,12 @@ zeGraphGetArgumentProperties3(ze_graph_handle_t hGraph,
         goto exit;
     }
 
+    ret = validateGraphStructure(pGraphArgumentProperties,
+                                 {ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTY_STRIDES});
+    if (ret != ZE_RESULT_SUCCESS) {
+        goto exit;
+    }
+
     L0_HANDLE_EXCEPTION(
         ret,
         L0::Graph::fromHandle(hGraph)->getArgumentProperties3(argIndex, pGraphArgumentProperties));
@@ -474,9 +643,8 @@ zeGraphQueryNetworkCreate(ze_context_handle_t hContext,
     ze_graph_desc_2_t desc{};
     ze_result_t ret;
 
-    if (pDesc == nullptr) {
-        LOG_E("Invalid graph descriptor");
-        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    ret = validateGraphStructure(pDesc, {ZE_STRUCTURE_TYPE_GRAPH_INPUT_HASH});
+    if (ret != ZE_RESULT_SUCCESS) {
         goto exit;
     }
 
@@ -564,6 +732,11 @@ ze_result_t ZE_APICALL zeGraphCreate2(ze_context_handle_t hContext,
         goto exit;
     }
 
+    ret = validateGraphStructure(desc, {ZE_STRUCTURE_TYPE_GRAPH_INPUT_HASH});
+    if (ret != ZE_RESULT_SUCCESS) {
+        goto exit;
+    }
+
     ret = translateHandle(ZEL_HANDLE_CONTEXT, hContext);
     if (ret != ZE_RESULT_SUCCESS) {
         goto exit;
@@ -591,6 +764,11 @@ zeGraphQueryNetworkCreate2(ze_context_handle_t hContext,
 
     if (hDevice == nullptr || hContext == nullptr) {
         ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+
+    ret = validateGraphStructure(desc, {ZE_STRUCTURE_TYPE_GRAPH_INPUT_HASH});
+    if (ret != ZE_RESULT_SUCCESS) {
         goto exit;
     }
 
@@ -742,6 +920,25 @@ ze_result_t ZE_APICALL zeDeviceGetProfilingDataProperties(
         ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
         goto exit;
     }
+    if (pDeviceProfilingDataProperties == nullptr) {
+        LOG_E("Invalid device profiling data properties pointer");
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
+
+    if (Driver::getInstance()->getEnvVariables().extensionValidation) {
+        if (pDeviceProfilingDataProperties->stype !=
+            ZE_STRUCTURE_TYPE_DEVICE_PROFILING_DATA_PROPERTIES) {
+            LOG_E("Invalid device profiling data properties stype");
+            ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+            goto exit;
+        }
+        if (pDeviceProfilingDataProperties->pNext != nullptr) {
+            LOG_E("pNext in device profiling data properties not supported");
+            ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+            goto exit;
+        }
+    }
 
     ret = translateHandle(ZEL_HANDLE_DEVICE, hDevice);
     if (ret != ZE_RESULT_SUCCESS) {
@@ -845,6 +1042,12 @@ ze_result_t ZE_APICALL zeGraphCreate3(ze_context_handle_t hContext,
         goto exit;
     }
 
+    ret = validateGraphStructure(desc, {ZE_STRUCTURE_TYPE_GRAPH_INPUT_HASH});
+    ;
+    if (ret != ZE_RESULT_SUCCESS) {
+        goto exit;
+    }
+
     ret = translateHandle(ZEL_HANDLE_CONTEXT, hContext);
     if (ret != ZE_RESULT_SUCCESS) {
         goto exit;
@@ -908,8 +1111,8 @@ ze_result_t ZE_APICALL zeGraphGetProperties3(ze_graph_handle_t hGraph,
         goto exit;
     }
 
-    if (pGraphProperties == nullptr) {
-        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    ret = validateGraphStructure(pGraphProperties);
+    if (ret != ZE_RESULT_SUCCESS) {
         goto exit;
     }
 
@@ -917,6 +1120,22 @@ ze_result_t ZE_APICALL zeGraphGetProperties3(ze_graph_handle_t hGraph,
 
 exit:
     trace_zeGraphGetProperties3(ret, hGraph, pGraphProperties);
+    return ret;
+}
+
+ze_result_t ZE_APICALL zeGraphEvict(ze_graph_handle_t hGraph) {
+    trace_zeGraphEvict(hGraph);
+    ze_result_t ret;
+
+    if (hGraph == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+
+    // NOP operation due to lack of kernel module driver support for memory eviction
+    ret = ZE_RESULT_SUCCESS;
+exit:
+    trace_zeGraphEvict(ret, hGraph);
     return ret;
 }
 } // namespace L0

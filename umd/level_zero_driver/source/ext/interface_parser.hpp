@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -9,18 +9,19 @@
 
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_graph_ext.h>
 #include <memory>
 #include <vpux_hpi.hpp>
+#include <ze_api.h>
+#include <ze_graph_ext.h>
 
 namespace L0 {
 struct GraphProfilingQuery;
+struct GraphArgumentProperties;
 
 class IParser {
   public:
     virtual ~IParser() = default;
-    virtual ze_result_t parse(std::vector<ze_graph_argument_properties_3_t> &props,
+    virtual ze_result_t parse(std::vector<GraphArgumentProperties> &props,
                               std::vector<ze_graph_argument_metadata_t> &args,
                               uint32_t &size) = 0;
     virtual ze_result_t initialize() = 0;
@@ -29,6 +30,8 @@ class IParser {
     virtual std::shared_ptr<VPU::VPUCommand>
     allocateExecuteCommand(const std::vector<const void *> &inputArgs,
                            const std::vector<const void *> &outputArgs,
+                           const ArgumentStridesMap &inputStrides,
+                           const ArgumentStridesMap &outputStrides,
                            GraphProfilingQuery *profilingQuery) = 0;
 };
 

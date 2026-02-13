@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -10,9 +10,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "level_zero/ze_api.h"
-#include "level_zero/ze_graph_ext.h"
-#include "level_zero/ze_graph_profiling_ext.h"
+#include <ze_api.h>
+#include <ze_graph_ext.h>
+#include <ze_graph_profiling_ext.h>
 
 namespace L0 {
 
@@ -37,6 +37,10 @@ zeGraphGetArgumentProperties(ze_graph_handle_t hGraph,
 ze_result_t ZE_APICALL zeGraphSetArgumentValue(ze_graph_handle_t hGraph,
                                                uint32_t argIndex,
                                                const void *pArgValue);
+
+ze_result_t ZE_APICALL zeGraphSetArgumentValue2(ze_graph_handle_t hGraph,
+                                                uint32_t argIndex,
+                                                const void *pArgValue);
 
 ze_result_t ZE_APICALL zeAppendGraphInitialize(ze_command_list_handle_t hCommandList,
                                                ze_graph_handle_t hGraph,
@@ -171,4 +175,6 @@ ze_result_t ZE_APICALL zeGraphBuildLogDestroy(ze_graph_build_log_handle_t hGraph
 
 ze_result_t ZE_APICALL zeGraphGetProperties3(ze_graph_handle_t hGraph,
                                              ze_graph_properties_3_t *pGraphProperties);
+
+ze_result_t ZE_APICALL zeGraphEvict(ze_graph_handle_t hGraph);
 } // namespace L0

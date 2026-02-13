@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -13,9 +13,10 @@
 #include "vpu_driver/source/utilities/trace_perfetto.hpp"
 
 #include <iostream>
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_command_queue_npu_ext.h>
 #include <sstream>
+#include <ze_api.h>
+#include <ze_command_queue_npu_ext.h>
+#include <ze_context_npu_ext.h>
 
 #define IS_API_TRACE() (VPU::getLogLevel() == INFO && VPU::getLogMask() & API)
 #define IS_API_DDI_TRACE() (VPU::getLogLevel() == INFO && VPU::getLogMask() & API_DDI)

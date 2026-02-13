@@ -76,7 +76,7 @@ TEST_F(VPUCommandTest, copyCommandShouldReturnExpectedProperties) {
                                                                  sizeof(uint64_t));
     ASSERT_NE(copyCmd, nullptr);
 
-    EXPECT_EQ(VPU_CMD_COPY_LOCAL_TO_LOCAL, copyCmd->getCommandType());
+    EXPECT_EQ(VPU_CMD_COPY, copyCmd->getCommandType());
     EXPECT_EQ(sizeof(vpu_cmd_copy_buffer_t), copyCmd->getCommitSize());
 
     // Compare buffer handle
@@ -90,8 +90,11 @@ TEST_F(VPUCommandTest, copyCommandShouldReturnExpectedProperties) {
     EXPECT_EQ(copyCmdAssocVec.at(1).get(), bo);
 
     // Compare command stream return value in byte wise.
-    vpu_cmd_copy_buffer_t
-        expKMDCopyCmd{{VPU_CMD_COPY_LOCAL_TO_LOCAL, sizeof(vpu_cmd_copy_buffer_t)}, 0u, 0u, 1u, 0u};
+    vpu_cmd_copy_buffer_t expKMDCopyCmd{{VPU_CMD_COPY, sizeof(vpu_cmd_copy_buffer_t)},
+                                        0u,
+                                        0u,
+                                        1u,
+                                        0u};
     uint8_t *exp = reinterpret_cast<uint8_t *>(&expKMDCopyCmd);
 
     EXPECT_EQ(memcmp(exp, copyCmd->getCommitStream(), sizeof(vpu_cmd_copy_buffer_t)), 0);

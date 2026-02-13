@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -29,13 +29,13 @@
 
 #include <array>
 #include <filesystem>
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_graph_ext.h>
-#include <level_zero/ze_graph_profiling_ext.h>
-#include <level_zero/zet_api.h>
 #include <memory>
 #include <string>
 #include <vector>
+#include <ze_api.h>
+#include <ze_graph_ext.h>
+#include <ze_graph_profiling_ext.h>
+#include <zet_api.h>
 
 namespace L0 {
 namespace ult {
@@ -141,7 +141,7 @@ struct CommandListGraphFixture : CommandListFixture {
         loadBlobFromFile(TestOptions::blobPath, blob);
         ASSERT_NE(0u, blob.size());
 
-        const ze_graph_desc_2_t graphDesc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES,
+        const ze_graph_desc_2_t graphDesc = {.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_2,
                                              .pNext = nullptr,
                                              .format = ZE_GRAPH_FORMAT_NATIVE,
                                              .inputSize = blob.size(),
@@ -300,8 +300,8 @@ TEST_F(CommandListApiTest, eventSyncObjectsAttachedWithTSCommand) {
         VPU_CMD_FENCE_WAIT,
         VPU_CMD_FENCE_WAIT,
         VPU_CMD_FENCE_WAIT,
-        VPU_CMD_TIMESTAMP,           // TS to aligned buf
-        VPU_CMD_COPY_LOCAL_TO_LOCAL, // Copy result of TS to unaligned buf
+        VPU_CMD_TIMESTAMP, // TS to aligned buf
+        VPU_CMD_COPY,      // Copy result of TS to unaligned buf
         VPU_CMD_FENCE_SIGNAL};
 
     ASSERT_EQ(expectedCommandTypes.size(), commandList->getCommands().size());
@@ -353,7 +353,7 @@ TEST_F(CommandListApiTest, eventSyncObjectsAttachedWithMemoryCopyCommand) {
     std::array<vpu_cmd_type, 5> expectedCommandTypes = {VPU_CMD_FENCE_WAIT,
                                                         VPU_CMD_FENCE_WAIT,
                                                         VPU_CMD_FENCE_WAIT,
-                                                        VPU_CMD_COPY_LOCAL_TO_LOCAL,
+                                                        VPU_CMD_COPY,
                                                         VPU_CMD_FENCE_SIGNAL};
 
     ASSERT_EQ(expectedCommandTypes.size(), commandList->getCommands().size());

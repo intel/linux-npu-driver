@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -29,9 +29,6 @@
 #include <bitset>
 #include <chrono> // IWYU pragma: keep
 #include <errno.h>
-#include <level_zero/ze_graph_ext.h>
-#include <level_zero/ze_intel_npu_uuid.h>
-#include <level_zero/ze_mem_import_system_memory_ext.h>
 #include <limits>
 #include <linux/sysinfo.h>
 #include <optional>
@@ -39,6 +36,9 @@
 #include <string>
 #include <sys/sysinfo.h>
 #include <utility>
+#include <ze_graph_ext.h>
+#include <ze_intel_npu_uuid.h>
+#include <ze_mem_import_system_memory_ext.h>
 
 namespace L0 {
 

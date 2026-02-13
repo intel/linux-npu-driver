@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -13,8 +13,8 @@
 #include "level_zero_driver/source/event.hpp"
 #include "level_zero_driver/source/eventpool.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_ddi.h>
+#include <ze_api.h>
+#include <ze_ddi.h>
 
 namespace L0 {
 ze_result_t zeEventPoolCreate(ze_context_handle_t hContext,
@@ -196,11 +196,14 @@ zeGetEventPoolProcAddrTable(ze_api_version_t version, ze_event_pool_dditable_t *
         goto exit;
     }
 
-    pDdiTable->pfnCreate = L0::zeEventPoolCreate;
-    pDdiTable->pfnDestroy = L0::zeEventPoolDestroy;
-    pDdiTable->pfnGetIpcHandle = L0::zeEventPoolGetIpcHandle;
-    pDdiTable->pfnOpenIpcHandle = L0::zeEventPoolOpenIpcHandle;
-    pDdiTable->pfnCloseIpcHandle = L0::zeEventPoolCloseIpcHandle;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnCreate = L0::zeEventPoolCreate;
+        pDdiTable->pfnDestroy = L0::zeEventPoolDestroy;
+        pDdiTable->pfnGetIpcHandle = L0::zeEventPoolGetIpcHandle;
+        pDdiTable->pfnOpenIpcHandle = L0::zeEventPoolOpenIpcHandle;
+        pDdiTable->pfnCloseIpcHandle = L0::zeEventPoolCloseIpcHandle;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -223,13 +226,16 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetEventProcAddrTable(ze_api_version_t ver
         goto exit;
     }
 
-    pDdiTable->pfnCreate = L0::zeEventCreate;
-    pDdiTable->pfnDestroy = L0::zeEventDestroy;
-    pDdiTable->pfnHostSignal = L0::zeEventHostSignal;
-    pDdiTable->pfnHostSynchronize = L0::zeEventHostSynchronize;
-    pDdiTable->pfnQueryStatus = L0::zeEventQueryStatus;
-    pDdiTable->pfnHostReset = L0::zeEventHostReset;
-    pDdiTable->pfnQueryKernelTimestamp = L0::zeEventQueryKernelTimestamp;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnCreate = L0::zeEventCreate;
+        pDdiTable->pfnDestroy = L0::zeEventDestroy;
+        pDdiTable->pfnHostSignal = L0::zeEventHostSignal;
+        pDdiTable->pfnHostSynchronize = L0::zeEventHostSynchronize;
+        pDdiTable->pfnQueryStatus = L0::zeEventQueryStatus;
+        pDdiTable->pfnHostReset = L0::zeEventHostReset;
+        pDdiTable->pfnQueryKernelTimestamp = L0::zeEventQueryKernelTimestamp;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:

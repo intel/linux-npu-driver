@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -12,9 +12,9 @@
 #include "trace_ze_api.hpp"
 
 #include <iostream>
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_command_queue_npu_ext.h>
 #include <sstream>
+#include <ze_api.h>
+#include <ze_command_queue_npu_ext.h>
 
 inline std::string
 _trace_zeCommandQueueSetWorkloadType(ze_command_queue_handle_t hCommandQueue,

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -19,9 +19,9 @@
 #include "level_zero_driver/source/metric_query.hpp"
 #include "level_zero_driver/source/metric_streamer.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/zet_api.h>
-#include <level_zero/zet_ddi.h>
+#include <ze_api.h>
+#include <zet_api.h>
+#include <zet_ddi.h>
 
 namespace L0 {
 ze_result_t zetMetricGroupGet(zet_device_handle_t hDevice,
@@ -418,7 +418,9 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetContextProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnActivateMetricGroups = L0::zetContextActivateMetricGroups;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnActivateMetricGroups = L0::zetContextActivateMetricGroups;
+    }
 
 exit:
     trace_zetGetContextProcAddrTable(ret, version, pDdiTable);
@@ -443,7 +445,9 @@ zetGetCommandListExpProcAddrTable(ze_api_version_t version,
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnAppendMarkerExp = nullptr;
+    if (version >= ZE_API_VERSION_1_13) {
+        pDdiTable->pfnAppendMarkerExp = nullptr;
+    }
 
 exit:
     trace_zetGetCommandListExpProcAddrTable(ret, version, pDdiTable);
@@ -477,13 +481,12 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetCommandListProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnAppendMetricStreamerMarker = L0::zetCommandListAppendMetricStreamerMarker;
-
-    pDdiTable->pfnAppendMetricQueryBegin = L0::zetCommandListAppendMetricQueryBegin;
-
-    pDdiTable->pfnAppendMetricQueryEnd = L0::zetCommandListAppendMetricQueryEnd;
-
-    pDdiTable->pfnAppendMetricMemoryBarrier = L0::zetCommandListAppendMetricMemoryBarrier;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnAppendMetricStreamerMarker = L0::zetCommandListAppendMetricStreamerMarker;
+        pDdiTable->pfnAppendMetricQueryBegin = L0::zetCommandListAppendMetricQueryBegin;
+        pDdiTable->pfnAppendMetricQueryEnd = L0::zetCommandListAppendMetricQueryEnd;
+        pDdiTable->pfnAppendMetricMemoryBarrier = L0::zetCommandListAppendMetricMemoryBarrier;
+    }
 
 exit:
     trace_zetGetCommandListProcAddrTable(ret, version, pDdiTable);
@@ -517,9 +520,10 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetMetricProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGet = L0::zetMetricGet;
-
-    pDdiTable->pfnGetProperties = L0::zetMetricGetProperties;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGet = L0::zetMetricGet;
+        pDdiTable->pfnGetProperties = L0::zetMetricGetProperties;
+    }
 
 exit:
     trace_zetGetMetricProcAddrTable(ret, version, pDdiTable);
@@ -553,11 +557,11 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetMetricGroupProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGet = L0::zetMetricGroupGet;
-
-    pDdiTable->pfnGetProperties = L0::zetMetricGroupGetProperties;
-
-    pDdiTable->pfnCalculateMetricValues = L0::zetMetricGroupCalculateMetricValues;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGet = L0::zetMetricGroupGet;
+        pDdiTable->pfnGetProperties = L0::zetMetricGroupGetProperties;
+        pDdiTable->pfnCalculateMetricValues = L0::zetMetricGroupCalculateMetricValues;
+    }
 
 exit:
     trace_zetGetMetricGroupProcAddrTable(ret, version, pDdiTable);
@@ -591,13 +595,12 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetMetricQueryProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnCreate = L0::zetMetricQueryCreate;
-
-    pDdiTable->pfnDestroy = L0::zetMetricQueryDestroy;
-
-    pDdiTable->pfnReset = L0::zetMetricQueryReset;
-
-    pDdiTable->pfnGetData = L0::zetMetricQueryGetData;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnCreate = L0::zetMetricQueryCreate;
+        pDdiTable->pfnDestroy = L0::zetMetricQueryDestroy;
+        pDdiTable->pfnReset = L0::zetMetricQueryReset;
+        pDdiTable->pfnGetData = L0::zetMetricQueryGetData;
+    }
 
 exit:
     trace_zetGetMetricQueryProcAddrTable(ret, version, pDdiTable);
@@ -632,9 +635,10 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetMetricQueryPoolProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnCreate = L0::zetMetricQueryPoolCreate;
-
-    pDdiTable->pfnDestroy = L0::zetMetricQueryPoolDestroy;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnCreate = L0::zetMetricQueryPoolCreate;
+        pDdiTable->pfnDestroy = L0::zetMetricQueryPoolDestroy;
+    }
 
 exit:
     trace_zetGetMetricQueryPoolProcAddrTable(ret, version, pDdiTable);
@@ -669,11 +673,11 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetMetricStreamerProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnOpen = L0::zetMetricStreamerOpen;
-
-    pDdiTable->pfnClose = L0::zetMetricStreamerClose;
-
-    pDdiTable->pfnReadData = L0::zetMetricStreamerReadData;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnOpen = L0::zetMetricStreamerOpen;
+        pDdiTable->pfnClose = L0::zetMetricStreamerClose;
+        pDdiTable->pfnReadData = L0::zetMetricStreamerReadData;
+    }
 
 exit:
     trace_zetGetMetricStreamerProcAddrTable(ret, version, pDdiTable);

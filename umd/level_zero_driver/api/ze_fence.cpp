@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -13,8 +13,8 @@
 #include "level_zero_driver/source/cmdqueue.hpp"
 #include "level_zero_driver/source/fence.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_ddi.h>
+#include <ze_api.h>
+#include <ze_ddi.h>
 
 namespace L0 {
 ze_result_t zeFenceCreate(ze_command_queue_handle_t hCommandQueue,
@@ -111,11 +111,14 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetFenceProcAddrTable(ze_api_version_t ver
         goto exit;
     }
 
-    pDdiTable->pfnCreate = L0::zeFenceCreate;
-    pDdiTable->pfnDestroy = L0::zeFenceDestroy;
-    pDdiTable->pfnHostSynchronize = L0::zeFenceHostSynchronize;
-    pDdiTable->pfnQueryStatus = L0::zeFenceQueryStatus;
-    pDdiTable->pfnReset = L0::zeFenceReset;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnCreate = L0::zeFenceCreate;
+        pDdiTable->pfnDestroy = L0::zeFenceDestroy;
+        pDdiTable->pfnHostSynchronize = L0::zeFenceHostSynchronize;
+        pDdiTable->pfnQueryStatus = L0::zeFenceQueryStatus;
+        pDdiTable->pfnReset = L0::zeFenceReset;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:

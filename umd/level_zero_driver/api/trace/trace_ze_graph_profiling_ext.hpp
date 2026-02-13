@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -12,9 +12,9 @@
 #include "trace_ze_api.hpp"
 
 #include <iostream>
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_graph_profiling_ext.h>
 #include <sstream>
+#include <ze_api.h>
+#include <ze_graph_profiling_ext.h>
 
 inline std::string _trace_zeDeviceGetProfilingDataProperties(
     ze_device_handle_t hDevice,

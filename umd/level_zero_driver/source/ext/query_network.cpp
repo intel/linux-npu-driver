@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023-2024 Intel Corporation
+ * Copyright (C) 2023-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -10,13 +10,13 @@
 #include <stdint.h>
 
 #include "compiler.hpp"
-#include "level_zero/ze_api.h"
-#include "level_zero/ze_graph_ext.h"
 #include "level_zero_driver/source/context.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <string.h>
+#include <ze_api.h>
+#include <ze_graph_ext.h>
 
 namespace L0 {
 
@@ -24,11 +24,6 @@ ze_result_t QueryNetwork::create(ze_context_handle_t hContext,
                                  ze_device_handle_t hDevice,
                                  const ze_graph_desc_2_t *desc,
                                  ze_graph_query_network_handle_t *phGraphQueryNetwork) {
-    if (desc->stype != ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES) {
-        LOG_E("Invalid structure type");
-        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
     if (desc->format != ZE_GRAPH_FORMAT_NGRAPH_LITE) {
         LOG_E("Query Network only supports NGraph format");
         return ZE_RESULT_ERROR_UNSUPPORTED_ENUMERATION;

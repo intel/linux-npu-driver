@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -14,10 +14,10 @@
 #include "metric.hpp"
 
 #include <functional>
-#include <level_zero/ze_api.h>
-#include <level_zero/zet_api.h>
 #include <memory>
 #include <vector>
+#include <ze_api.h>
+#include <zet_api.h>
 
 namespace L0 {
 struct Context;

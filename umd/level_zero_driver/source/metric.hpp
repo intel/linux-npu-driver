@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -12,11 +12,11 @@
 
 #include "vpu_driver/source/device/metric_info.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/zet_api.h>
 #include <memory>
 #include <utility>
 #include <vector>
+#include <ze_api.h>
+#include <zet_api.h>
 
 struct _zet_metric_group_handle_t {};
 struct _zet_metric_handle_t {};

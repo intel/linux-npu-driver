@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -19,8 +19,6 @@
 #include <charconv>
 #include <filesystem>
 #include <functional>
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_graph_ext.h>
 #include <map>
 #include <memory>
 #include <stdlib.h>
@@ -29,6 +27,8 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <utility>
+#include <ze_api.h>
+#include <ze_graph_ext.h>
 
 namespace L0 {
 
@@ -99,32 +99,39 @@ DiskCache::Key DiskCache::computeKey(const ze_graph_desc_2_t &desc) {
     if (cachePath.empty())
         return {};
 
-    HashSha1 hash;
+    HashCity hash;
     constexpr uint32_t driverVersion = DRIVER_VERSION;
-    hash.update(reinterpret_cast<const uint8_t *>(&driverVersion), sizeof(driverVersion));
+    hash.updateConfigurationHash(reinterpret_cast<const uint8_t *>(&driverVersion),
+                                 sizeof(driverVersion));
     vcl_compiler_properties_t vclProp = {};
     if (Compiler::getCompilerProperties(&vclProp) == ZE_RESULT_SUCCESS) {
-        hash.update(reinterpret_cast<const uint8_t *>(vclProp.id), strlen(vclProp.id));
-        hash.update(reinterpret_cast<const uint8_t *>(&vclProp.version), sizeof(vclProp.version));
-        hash.update(reinterpret_cast<const uint8_t *>(&vclProp.supportedOpsets),
-                    sizeof(vclProp.supportedOpsets));
+        hash.updateConfigurationHash(reinterpret_cast<const uint8_t *>(vclProp.id),
+                                     strlen(vclProp.id));
+        hash.updateConfigurationHash(reinterpret_cast<const uint8_t *>(&vclProp.version),
+                                     sizeof(vclProp.version));
+        hash.updateConfigurationHash(reinterpret_cast<const uint8_t *>(&vclProp.supportedOpsets),
+                                     sizeof(vclProp.supportedOpsets));
     }
-    hash.update(reinterpret_cast<const uint8_t *>(&desc.format), sizeof(desc.format));
+    hash.updateConfigurationHash(reinterpret_cast<const uint8_t *>(&desc.format),
+                                 sizeof(desc.format));
+
+    if (desc.pBuildFlags) {
+        hash.updateConfigurationHash(reinterpret_cast<const uint8_t *>(desc.pBuildFlags),
+                                     strlen(desc.pBuildFlags));
+    }
+    hash.updateConfigurationHash(reinterpret_cast<const uint8_t *>(&desc.flags),
+                                 sizeof(desc.flags));
+
     const ze_structure_type_graph_ext_t *type =
         static_cast<const ze_structure_type_graph_ext_t *>(desc.pNext);
     if (type != nullptr && *type == ZE_STRUCTURE_TYPE_GRAPH_INPUT_HASH) {
         const ze_graph_input_hash_t *inputHash =
             static_cast<const ze_graph_input_hash_t *>(desc.pNext);
-        hash.update(reinterpret_cast<const uint8_t *>(&inputHash->hash), sizeof(inputHash->hash));
-    } else {
-        hash.update(desc.pInput, desc.inputSize);
+        return hash.final(reinterpret_cast<const uint8_t *>(&inputHash->hash),
+                          sizeof(inputHash->hash));
     }
-    if (desc.pBuildFlags) {
-        hash.update(reinterpret_cast<const uint8_t *>(desc.pBuildFlags), strlen(desc.pBuildFlags));
-    }
-    hash.update(reinterpret_cast<const uint8_t *>(&desc.flags), sizeof(desc.flags));
 
-    return hash.final();
+    return hash.final(desc.pInput, desc.inputSize);
 }
 
 static bool validBlobChecksum(VPU::OsFile &file) {
@@ -132,10 +139,10 @@ static bool validBlobChecksum(VPU::OsFile &file) {
     if (filePtr == nullptr)
         return false;
 
-    uint64_t offsetSum = file.size() - HashSha1::DigestLength;
-    HashSha1::DigestType fileSum = reinterpret_cast<HashSha1::DigestType>(filePtr + offsetSum);
-    std::string computedSum = HashSha1::getDigest(filePtr, offsetSum);
-    return computedSum == std::string_view(fileSum, HashSha1::DigestLength);
+    uint64_t offsetSum = file.size() - HashCity::DigestLength;
+    HashCity::DigestType fileSum = reinterpret_cast<HashCity::DigestType>(filePtr + offsetSum);
+    std::string computedSum = HashCity::getDigest(filePtr, offsetSum);
+    return computedSum == std::string_view(fileSum, HashCity::DigestLength);
 }
 
 std::unique_ptr<BlobContainer> DiskCache::getBlob(const Key &key) {
@@ -160,7 +167,7 @@ std::unique_ptr<BlobContainer> DiskCache::getBlob(const Key &key) {
 
     LOG(CACHE, "Cache hit using %s key", filename.c_str());
     return std::make_unique<BlobContainer>(static_cast<uint8_t *>(file->mmap()),
-                                           file->size() - HashSha1::DigestLength,
+                                           file->size() - HashCity::DigestLength,
                                            std::move(file));
 }
 
@@ -201,7 +208,7 @@ void DiskCache::setBlob(const Key &key, const std::unique_ptr<BlobContainer> &bl
         return;
 
     // Add checksum after blob
-    size_t cachedBlobSize = blob->size + HashSha1::DigestLength;
+    size_t cachedBlobSize = blob->size + HashCity::DigestLength;
     size_t cacheSize = getCacheSize();
 
     if (cachedBlobSize > maxSize) {
@@ -220,8 +227,8 @@ void DiskCache::setBlob(const Key &key, const std::unique_ptr<BlobContainer> &bl
         return;
     }
 
-    auto blobSum = HashSha1::getDigest(blob->ptr, blob->size);
-    if (!file->write(blobSum.data(), blobSum.size())) {
+    auto blobSum = HashCity::getDigest(blob->ptr, blob->size);
+    if (blobSum.empty() || !file->write(blobSum.data(), blobSum.size())) {
         osInfc.osiFileRemove(dstPath);
         return;
     }

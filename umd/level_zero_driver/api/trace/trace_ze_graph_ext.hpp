@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -9,13 +9,14 @@
 
 #pragma once
 
+#include "level_zero_driver/include/nested_structs_handler.hpp"
 #include "trace_ze_api.hpp"
 
 #include <iostream>
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_graph_ext.h>
-#include <level_zero/ze_graph_profiling_ext.h>
 #include <sstream>
+#include <ze_api.h>
+#include <ze_graph_ext.h>
+#include <ze_graph_profiling_ext.h>
 
 inline std::string
 _trace_zeDeviceGetGraphProperties(ze_device_handle_t hDevice,
@@ -278,6 +279,67 @@ inline void trace_zeGraphSetArgumentValue(ze_result_t ret,
     TRACE_EVENT_END("API");
     if (IS_API_EXT_TRACE())
         std::cerr << _trace_zeGraphSetArgumentValue(hGraph, argIndex, pArgValue) +
+                         trace_ze_result_t(ret);
+}
+
+static std::optional<const void *> printArgumentValue(const void *pNext, std::stringstream &ss) {
+    const auto stype =
+        *reinterpret_cast<const std::underlying_type_t<ze_structure_type_graph_ext_t> *>(pNext);
+
+    switch (stype) {
+    case ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_TENSOR: {
+        const ze_graph_argument_value_tensor_t *value =
+            static_cast<const ze_graph_argument_value_tensor_t *>(pNext);
+        ss << " ze_graph_argument_value_tensor_t{" << "stype: " << value->stype
+           << ", pNext: " << value->pNext << ", pTensor: " << value->pTensor << "}";
+        return value->pNext;
+    }
+    case ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_STRIDES: {
+        const ze_graph_argument_value_strides_t *value =
+            static_cast<const ze_graph_argument_value_strides_t *>(pNext);
+        ss << " ze_graph_argument_value_strides_t{" << "stype: " << value->stype
+           << ", pNext: " << value->pNext << ", userStrides: {";
+        for (int i = 0; i < ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE; i++) {
+            ss << value->userStrides[i];
+            if (i < ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE - 1)
+                ss << ",";
+        }
+        ss << "}}";
+        return value->pNext;
+    }
+    default: {
+        ss << pNext;
+        return {};
+    }
+    }
+}
+
+inline std::string _trace_zeGraphSetArgumentValue2(ze_graph_handle_t hGraph,
+                                                   uint32_t argIndex,
+                                                   const void *pArgValue) {
+    std::stringstream ss;
+    ss << std::hex << std::showbase;
+    ss << "NPU_LOG: [API_EXT] zeGraphSetArgumentValue2(";
+    ss << "hGraph: " << hGraph;
+    ss << ", argIndex: " << argIndex;
+    ss << ", pArgValue: " << pArgValue;
+    L0::handleNestedStructs(pArgValue, printArgumentValue, ss);
+    ss << ")";
+    return ss.str();
+}
+inline void
+trace_zeGraphSetArgumentValue2(ze_graph_handle_t hGraph, uint32_t argIndex, const void *pArgValue) {
+    TRACE_EVENT_BEGIN("API", "zeGraphSetArgumentValue2");
+    if (IS_API_EXT_TRACE())
+        std::cerr << _trace_zeGraphSetArgumentValue2(hGraph, argIndex, pArgValue) + "..\n";
+}
+inline void trace_zeGraphSetArgumentValue2(ze_result_t ret,
+                                           ze_graph_handle_t hGraph,
+                                           uint32_t argIndex,
+                                           const void *pArgValue) {
+    TRACE_EVENT_END("API");
+    if (IS_API_EXT_TRACE())
+        std::cerr << _trace_zeGraphSetArgumentValue2(hGraph, argIndex, pArgValue) +
                          trace_ze_result_t(ret);
 }
 
@@ -1247,4 +1309,23 @@ inline void trace_zeGraphGetProperties3(ze_result_t ret,
     if (IS_API_EXT_TRACE())
         std::cerr << _trace_zeGraphGetProperties3(hGraph, pGraphProperties) +
                          trace_ze_result_t(ret);
+}
+
+inline std::string _trace_zeGraphEvict(ze_graph_handle_t hGraph) {
+    std::stringstream ss;
+    ss << std::hex << std::showbase;
+    ss << "NPU_LOG: [API_EXT] zeGraphEvict(";
+    ss << "hGraph: " << hGraph;
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeGraphEvict(ze_graph_handle_t hGraph) {
+    TRACE_EVENT_BEGIN("API", "zeGraphEvict");
+    if (IS_API_EXT_TRACE())
+        std::cerr << _trace_zeGraphEvict(hGraph) + "..\n";
+}
+inline void trace_zeGraphEvict(ze_result_t ret, ze_graph_handle_t hGraph) {
+    TRACE_EVENT_END("API");
+    if (IS_API_EXT_TRACE())
+        std::cerr << _trace_zeGraphEvict(hGraph) + trace_ze_result_t(ret);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -12,7 +12,6 @@
 #include <stddef.h>
 
 #include "blob_container.hpp"
-#include "level_zero/ze_api.h"
 #include "npu_driver_compiler.h"
 #include "umd_common.hpp"
 #include "vcl_symbols.hpp"
@@ -25,6 +24,7 @@
 #include <bitset>
 #include <memory>
 #include <string.h>
+#include <ze_api.h>
 
 namespace L0 {
 
@@ -206,14 +206,6 @@ static void appendCompilerLog(vcl_log_handle_t logHandle, std::string &buffer) {
     LOG(GRAPH, "Saved compiler message to log buffer, message: %s", buffer.c_str());
 }
 
-static uint8_t *vclAllocate(uint64_t size) {
-    return new uint8_t[size];
-}
-
-static void vclDeallocate(uint8_t *ptr) {
-    delete[] ptr;
-}
-
 static uint8_t *vclAllocate2(vcl_allocator2_t *allocator, uint64_t size) {
     return new uint8_t[size];
 }
@@ -239,36 +231,19 @@ static ze_result_t getCompilerExecutableAllocation(VPU::VPUDeviceContext *ctx,
     uint8_t *graphBuffer = nullptr;
     size_t graphSize = 0;
 
-    if (Vcl::sym().allocatedExecutableCreate2 != nullptr) {
-        vcl_allocator2_t allocator = {.allocate = &vclAllocate2, .deallocate = &vclDeallocate2};
-        TRACE_EVENT("NPU_COMPILER", "vclAllocatedExecutableCreate2");
-        ze_result_t ret = vclToL0Err(Vcl::sym().allocatedExecutableCreate2(compiler,
-                                                                           exeDesc,
-                                                                           &allocator,
-                                                                           &graphBuffer,
-                                                                           &graphSize));
-        if (ret != ZE_RESULT_SUCCESS) {
-            log += "[NPU_DRV] Driver reports a failure from vclAllocatedExecutableCreate2, return "
-                   "code: " +
-                   std::to_string(ret) + '\n';
-            LOG_E("Failed to create compiler executable! Result:%#x", ret);
-            return ret;
-        }
-    } else {
-        vcl_allocator_t allocator = {.allocate = &vclAllocate, .deallocate = &vclDeallocate};
-        TRACE_EVENT("NPU_COMPILER", "vclAllocatedExecutableCreate");
-        ze_result_t ret = vclToL0Err(Vcl::sym().allocatedExecutableCreate(compiler,
-                                                                          exeDesc,
-                                                                          &allocator,
-                                                                          &graphBuffer,
-                                                                          &graphSize));
-        if (ret != ZE_RESULT_SUCCESS) {
-            log += "[NPU_DRV] Driver reports a failure from vclAllocatedExecutableCreate, return "
-                   "code: " +
-                   std::to_string(ret) + '\n';
-            LOG_E("Failed to create compiler executable! Result:%#x", ret);
-            return ret;
-        }
+    vcl_allocator2_t allocator = {.allocate = &vclAllocate2, .deallocate = &vclDeallocate2};
+    TRACE_EVENT("NPU_COMPILER", "vclAllocatedExecutableCreate2");
+    ze_result_t ret = vclToL0Err(Vcl::sym().allocatedExecutableCreate2(compiler,
+                                                                       exeDesc,
+                                                                       &allocator,
+                                                                       &graphBuffer,
+                                                                       &graphSize));
+    if (ret != ZE_RESULT_SUCCESS) {
+        log += "[NPU_DRV] Driver reports a failure from vclAllocatedExecutableCreate2, return "
+               "code: " +
+               std::to_string(ret) + '\n';
+        LOG_E("Failed to create compiler executable! Result:%#x", ret);
+        return ret;
     }
 
     blob = std::make_unique<BlobContainer>(std::unique_ptr<uint8_t[]>(graphBuffer), graphSize);

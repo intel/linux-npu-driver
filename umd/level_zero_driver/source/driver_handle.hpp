@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -11,10 +11,10 @@
 
 #include "device.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_command_queue_npu_ext.h>
 #include <memory>
 #include <vector>
+#include <ze_api.h>
+#include <ze_command_queue_npu_ext.h>
 
 struct _ze_driver_handle_t {};
 
