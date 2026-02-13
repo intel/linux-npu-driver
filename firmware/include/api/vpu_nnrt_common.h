@@ -116,7 +116,6 @@ struct VPU_ALIGNED_STRUCT(8) VpuNNShaveRuntimeConfigs {
      */
     union VPU_ALIGNED_STRUCT(8) {
         /**
-         *
          * The 'ref' member holds the address and count of the stack frame pointers array.
          */
         struct VPU_ALIGNED_STRUCT(8) {
@@ -125,7 +124,7 @@ struct VPU_ALIGNED_STRUCT(8) VpuNNShaveRuntimeConfigs {
         } stack_frames_ref;
 
         /**
-         *
+         * @brief NPU4-5 platforms: Direct array of stack frame pointers.
          * The stack frame pointers are stored directly in the struct, not as a reference.
          */
         uint32_t stack_frames[VPU_STACK_FRAMES_ARRAY_SIZE];
