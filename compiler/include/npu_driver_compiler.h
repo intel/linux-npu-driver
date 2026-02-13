@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation.
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -23,7 +23,7 @@ extern "C" {
 #endif
 
 #define VCL_COMPILER_VERSION_MAJOR 7
-#define VCL_COMPILER_VERSION_MINOR 5
+#define VCL_COMPILER_VERSION_MINOR 6
 #define VCL_PROFILING_VERSION_MAJOR 2
 #define VCL_PROFILING_VERSION_MINOR 0
 
@@ -267,6 +267,10 @@ VCL_APIEXPORT vcl_result_t VCL_APICALL vclAllocatedExecutableCreate2(vcl_compile
                                                                      vcl_executable_desc_t desc,
                                                                      vcl_allocator2_t* allocator, uint8_t** blobBuffer,
                                                                      uint64_t* blobSize);
+
+VCL_APIEXPORT vcl_result_t VCL_APICALL vclAllocatedExecutableCreateWSOneShot(vcl_compiler_handle_t compiler,
+                                                                             vcl_executable_desc_t desc,
+                                                                             vcl_allocator2_t* allocator);
 
 ///////////////////////////////////////////////////////////////////////////////
 /// @brief Destroys the executable and releases the cached blob.
