@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2022-2024 Intel Corporation
+# Copyright (C) 2022-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 #
@@ -40,8 +40,6 @@ list(REMOVE_ITEM CPACK_COMPONENTS_ALL npu_compiler_package)
 
 if (EXISTS "/etc/debian_version")
     set(PACKAGE_TYPE "deb")
-elseif(EXISTS "/etc/portage")
-    set(PACKAGE_TYPE "ebuild")
 elseif(EXISTS "/etc/redhat-release")
     set(PACKAGE_TYPE "rpm")
 elseif(EXISTS "/etc/rpm/macros.leap")
