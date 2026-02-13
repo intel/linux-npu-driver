@@ -1,8 +1,11 @@
-# Copyright (C) 2022-2025 Intel Corporation
+# Copyright (C) 2022-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 
 include(compiler_source.cmake)
+if (ANDROID)
+  include(android.cmake)
+endif()
 
 include(ProcessorCount)
 ProcessorCount(PARALLEL_PROCESSES)
@@ -17,7 +20,7 @@ set(NPU_COMPILER_PACKAGE_DIR ${NPU_COMPILER_INSTALL_PREFIX}/cid)
 
 include(ExternalProject)
 
-list(APPEND NPU_COMPILER_CMAKE_ARGS "-D CMAKE_BUILD_TYPE=Release")
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 list(APPEND NPU_COMPILER_CMAKE_ARGS "-D CMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}")
 list(APPEND NPU_COMPILER_CMAKE_ARGS "-D BUILD_COMPILER_FOR_DRIVER=ON")
 list(APPEND NPU_COMPILER_CMAKE_ARGS "-D BUILD_SHARED_LIBS=OFF")
@@ -56,6 +59,12 @@ list(APPEND NPU_COMPILER_CMAKE_ARGS "-D OPENVINO_EXTRA_MODULES=${NPU_COMPILER_SO
 list(APPEND NPU_COMPILER_CMAKE_ARGS "-D OUTPUT_ROOT=${NPU_COMPILER_BINARY_DIR}")
 list(APPEND NPU_COMPILER_CMAKE_ARGS "-D THREADING=${THREADING}")
 
+if (NOT BUILD_TYPE_LOWER STREQUAL "release")
+    list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_DEVELOPER_BUILD=ON")
+else()
+    list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_DEVELOPER_BUILD=OFF")
+endif()
+
 if (ANDROID)
   # First build native tools required for NPU compiler
   set(NPU_COMPILER_NATIVE_TOOLS_BUILD npu_compiler_native_tools_build)
@@ -72,21 +81,17 @@ if (ANDROID)
     BUILD_COMMAND
       ${CMAKE_COMMAND}
         --build ${NPU_COMPILER_NATIVE_TOOLS_BINARY_DIR}
-        --target npureg-tblgen mlir-headers mlir-generic-headers mlir-linalg-ods-yaml-gen flatc
+        --target npureg-tblgen mlir-headers mlir-generic-headers mlir-linalg-ods-yaml-gen
         --parallel ${PARALLEL_PROCESSES}
     INSTALL_COMMAND
       mkdir -p ${NPU_COMPILER_BINARY_DIR}/build-modules/npu_compiler/thirdparty/llvm-project/llvm/NATIVE &&
       cp -r ${NPU_COMPILER_NATIVE_TOOLS_BINARY_DIR}/build-modules/npu_compiler/thirdparty/llvm-project/llvm/bin ${NPU_COMPILER_BINARY_DIR}/build-modules/npu_compiler/thirdparty/llvm-project/llvm/NATIVE/
     BYPRODUCTS
-      ${NPU_COMPILER_BINARY_DIR}/bin/intel64/Release/flatc
       ${NPU_COMPILER_BINARY_DIR}/bin/intel64/Release/npureg-tblgen
   )
 
-  # Android specific settings
-  list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ANDROID_ABI=${ANDROID_ABI}")
-  list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ANDROID_PLATFORM=${ANDROID_PLATFORM}")
-  list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ANDROID_STL=${ANDROID_STL}")
-  list(APPEND NPU_COMPILER_CMAKE_ARGS "-D CMAKE_CXX_FLAGS_INIT='-frtti'")
+  list(APPEND NPU_COMPILER_CMAKE_ARGS "${ANDROID_CMAKE_ARGS}")
+  list(APPEND NPU_COMPILER_CMAKE_ARGS "${TBB_CMAKE_ARGS}")
 endif()
 
 list(APPEND NPU_COMPILER_CMAKE_ARGS "-D CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
@@ -94,7 +99,7 @@ list(APPEND NPU_COMPILER_CMAKE_ARGS "-D CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_F
 ExternalProject_Add(
   npu_compiler_build
   DOWNLOAD_COMMAND ""
-  DEPENDS npu_compiler_source ${NPU_COMPILER_BUILD_DEPENDS} ${NPU_COMPILER_NATIVE_TOOLS_BUILD}
+  DEPENDS npu_compiler_source ${NPU_COMPILER_BUILD_DEPENDS} ${NPU_COMPILER_NATIVE_TOOLS_BUILD} ${ONETBB_BUILD}
   SOURCE_DIR ${NPU_COMPILER_OPENVINO_SOURCE_DIR}
   BINARY_DIR ${NPU_COMPILER_BINARY_DIR}
   CMAKE_ARGS
@@ -108,6 +113,7 @@ ExternalProject_Add(
     ${CMAKE_COMMAND}
       --install ${NPU_COMPILER_BINARY_DIR}
       --prefix ${NPU_COMPILER_INSTALL_PREFIX}
+      --strip
       --component CiD
   BYPRODUCTS
     ${NPU_COMPILER_PACKAGE_DIR}/lib/libnpu_driver_compiler.so

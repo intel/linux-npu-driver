@@ -1,4 +1,4 @@
-# Copyright (C) 2022-2025 Intel Corporation
+# Copyright (C) 2022-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 
@@ -17,6 +17,7 @@ list(APPEND COMMON_CMAKE_ARGS -DCMAKE_TOOLCHAIN_FILE:FILEPATH=${CMAKE_TOOLCHAIN_
 list(APPEND COMMON_CMAKE_ARGS -DCMAKE_MAKE_PROGRAM:FILEPATH=${CMAKE_MAKE_PROGRAM})
 
 set(THREADING "TBB" CACHE STRING "Build OpenVINO with specific THREADING option")
+set(ENABLE_OPENVINO_PYTHON ON CACHE BOOL "Enable building OpenVINO Python bindings")
 
 ### OpenVINO ###
 set(OPENVINO_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/build")
@@ -34,7 +35,7 @@ set(OPENVINO_CMAKE_ARGS
 set(OPENVINO_BUILD_DEPS openvino_source)
 set(BUILD_GENAI OFF)
 
-if (NOT ${LINUX_SYSTEM_NAME} STREQUAL "cros_sdk")
+if (ENABLE_OPENVINO_PYTHON)
   set(BUILD_GENAI ON)
   set(VENV ${OPENVINO_BINARY_DIR}/venv)
   set(PIP ${OPENVINO_BINARY_DIR}/venv/bin/pip)
