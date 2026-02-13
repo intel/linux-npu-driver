@@ -30,6 +30,7 @@ bool verbose_logs;
 bool run_skipped_tests;
 bool disable_unbind;
 unsigned pause_after_test_ms;
+int device_index = -1;
 
 static int list_tests_with_full_names() {
     /* RUN_ALL_TESTS is required to apply filter. Redirect stdout to /dev/null to avoid unwanted
@@ -91,7 +92,9 @@ static void print_help(const char *extraMessage, const char *appName) {
            "       Override default timeout for performance tests\n"
            "  -p/--pause_after_test_ms [PAUSE_MS]\n"
            "       Add delay in ms after test completion\n"
-           "  -d/--disable_unbind\n"
+           "  -d/--device [NUM]\n"
+           "       Select device /dev/accel/accelN (n=0 for PF (default), n>0 for VFn)\n"
+           "  -u/--disable_unbind\n"
            "       Disable unbinding the device from the driver\n"
            "  -V/--version\n"
            "       Display application version\n"
@@ -134,6 +137,28 @@ static void setPauseAfterTestMs(const char *arg) {
     test_app::pause_after_test_ms = atoi(arg);
 }
 
+static void setDeviceIndex(const char *arg) {
+    if (!arg || *arg == '\0') {
+        fprintf(stderr, "Error: -d/--device requires an argument.\n");
+        exit(1);
+    }
+
+    char *endptr;
+    long value = strtol(arg, &endptr, 10);
+
+    if (*endptr != '\0') {
+        fprintf(stderr, "Error: Invalid device index '%s'. Must be an integer.\n", arg);
+        exit(1);
+    }
+
+    if (value < 0) {
+        fprintf(stderr, "Error: Device index must be >= 0, got %ld.\n", value);
+        exit(1);
+    }
+
+    test_app::device_index = static_cast<int>(value);
+}
+
 static void printVersion(const char *) {
     printf("%s\n", vpu_drv_version_str);
     exit(1);
@@ -169,6 +194,7 @@ void parse_args(std::unordered_map<int, Argument> &extArgs,
         {'l', {"list_tests", no_argument, [](auto) { g_list_tests = true; }}},
         {'t', {"timeout_msec", required_argument, &setDefaultPerfTimeout}},
         {'p', {"pause_after_test_ms", required_argument, &setPauseAfterTestMs}},
+        {'d', {"device", required_argument, &setDeviceIndex}},
         {'u', {"disable_unbind", no_argument, [](auto) { test_app::disable_unbind = true; }}},
         {'V', {"version", no_argument, &printVersion}},
     };

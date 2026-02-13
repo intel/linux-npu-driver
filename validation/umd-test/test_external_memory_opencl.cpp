@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -13,11 +13,11 @@
 #include <sys/ioctl.h>
 
 #define CL_TARGET_OPENCL_VERSION 300
-#include "level_zero/ze_api.h"
 #include "umd_dma_heap_system.hpp"
 
 #include <CL/cl.h>
 #include <CL/cl_ext.h>
+#include <ze_api.h>
 
 static cl_platform_id getIntelOpenCLPlatform();
 
@@ -30,8 +30,8 @@ using ExternalMemoryOpenCL = UmdTest;
 // +------------+                +--------------------------+            +------------+
 //
 TEST_F(ExternalMemoryOpenCL, NpuToGpu) {
-    if (!isVPU37xx() && !isVPU40xx()) {
-        SKIP_("BuffersImport test is supported on MTL and LNL platforms only");
+    if (!isVPU37xx() && !isVPU40xx() && !isVPU50xx()) {
+        SKIP_("BuffersImport test is supported on MTL, LNL and PTL platforms only");
     }
 
     const size_t size = 1024u;

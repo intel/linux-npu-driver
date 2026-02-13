@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -8,7 +8,7 @@
 #include "umd_test.h"
 
 #include <future>
-#include <level_zero/ze_api.h>
+#include <ze_api.h>
 
 class Device : public UmdTest {};
 
@@ -171,10 +171,15 @@ TEST_F(Device, GetGlobalTimestamps) {
 
         EXPECT_EQ(zeDeviceGetGlobalTimestamps(zeDevice, &hostTimestamp1, &deviceTimestamp1),
                   ZE_RESULT_SUCCESS);
-        std::this_thread::sleep_for(1s);
+        auto refTime1 = std::chrono::steady_clock::now();
+        waitForPwrState(Suspended, 1000);
+        auto refTime2 = std::chrono::steady_clock::now();
         EXPECT_EQ(zeDeviceGetGlobalTimestamps(zeDevice, &hostTimestamp2, &deviceTimestamp2),
                   ZE_RESULT_SUCCESS);
-        EXPECT_GE(hostTimestamp2 - hostTimestamp1, 1'000'000ULL);
+
+        auto refPeriod =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(refTime2 - refTime1).count();
+        EXPECT_GE(hostTimestamp2 - hostTimestamp1, static_cast<uint64_t>(refPeriod));
         EXPECT_GT(deviceTimestamp2, deviceTimestamp1);
     };
 

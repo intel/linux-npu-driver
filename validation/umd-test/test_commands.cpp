@@ -235,6 +235,7 @@ TEST_F(Command, SynchronousCommandQueueSubmissionTest) {
     const size_t numCommands = isSilicon() ? 1000 : 50;
     auto mem = AllocSharedMemory(size);
     uint64_t *ts = static_cast<uint64_t *>(mem.get());
+    uint64_t prevTs = 0ULL;
     ASSERT_TRUE(ts) << "Failed to allocate shared memory";
     *ts = 0ULL;
 
@@ -253,23 +254,22 @@ TEST_F(Command, SynchronousCommandQueueSubmissionTest) {
               ZE_RESULT_SUCCESS);
     /* The command list should be ready immediately after execution */
     ASSERT_EQ(zeCommandQueueSynchronize(sQueue.get(), 0), ZE_RESULT_SUCCESS);
-    EXPECT_GT(*ts, 0);
+    EXPECT_GT(*ts, prevTs);
+    prevTs = *ts;
 
     /* Execute three times without synchronization */
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(sQueue.get(), 1, &list, nullptr),
               ZE_RESULT_SUCCESS);
+    EXPECT_GT(*ts, prevTs);
+    prevTs = *ts;
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(sQueue.get(), 1, &list, nullptr),
               ZE_RESULT_SUCCESS);
+    EXPECT_GT(*ts, prevTs);
+    prevTs = *ts;
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(sQueue.get(), 1, &list, nullptr),
               ZE_RESULT_SUCCESS);
+    EXPECT_GT(*ts, prevTs);
     ASSERT_EQ(zeCommandQueueSynchronize(sQueue.get(), 0), ZE_RESULT_SUCCESS);
-
-    /* Execute queue created in default mode, NOT_READY expected for timeout set to 0 */
-    *ts = 0;
-    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandQueueSynchronize(queue, 0), ZE_RESULT_NOT_READY);
-    ASSERT_EQ(zeCommandQueueSynchronize(queue, syncTimeout), ZE_RESULT_SUCCESS);
-    EXPECT_GT(*ts, 0);
 }
 
 class CommandTimestamp : public Command {};
@@ -894,6 +894,66 @@ TEST_P(CommandMemoryFill, FillMemoryWithPattern) {
                       ZE_RESULT_SUCCESS);
             ASSERT_EQ(zeCommandQueueSynchronize(queue, syncTimeout), ZE_RESULT_SUCCESS);
 
+            ASSERT_EQ(memcmp(mem.get(), ref_buf.data(), size), 0);
+        },
+        GetParam());
+}
+
+TEST_P(CommandMemoryFill, FillMemoryWithPatternUseEventSync) {
+    const ze_event_pool_desc_t eventPoolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC,
+                                                nullptr,
+                                                ZE_EVENT_POOL_FLAG_HOST_VISIBLE,
+                                                2};
+    auto scopedEventPool = zeScope::eventPoolCreate(zeContext, eventPoolDesc, 1, zeDevice, ret);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+    auto eventPool = scopedEventPool.get();
+    ASSERT_NE(eventPool, nullptr);
+
+    std::visit(
+        [&](auto pattern) {
+            /* The reference buffer must consist one more pattern,
+             * otherwise the last unaligned element will be not provided and test will fail
+             */
+            std::vector<typeof(pattern)> ref_buf((size + sizeof(pattern)) / sizeof(pattern),
+                                                 pattern);
+            ze_result_t ret = ZE_RESULT_SUCCESS;
+            auto mem = AllocSharedMemory(size);
+
+            ze_event_desc_t eventDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC,
+                                         nullptr,
+                                         0,
+                                         ZE_EVENT_SCOPE_FLAG_HOST,
+                                         ZE_EVENT_SCOPE_FLAG_HOST};
+            eventDesc.index = 0;
+            auto signalEvent = zeScope::eventCreate(eventPool, eventDesc, ret);
+            ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+
+            eventDesc.index = 1;
+            auto waitEvent = zeScope::eventCreate(eventPool, eventDesc, ret);
+            ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+            auto waitEventHandle = waitEvent.get();
+            ASSERT_EQ(zeEventQueryStatus(waitEventHandle), ZE_RESULT_NOT_READY);
+
+            ASSERT_EQ(zeCommandListAppendMemoryFill(list,
+                                                    mem.get(),
+                                                    &pattern,
+                                                    sizeof(pattern),
+                                                    size,
+                                                    signalEvent.get(),
+                                                    1,
+                                                    &waitEventHandle),
+                      ZE_RESULT_SUCCESS);
+
+            ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+            ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr),
+                      ZE_RESULT_SUCCESS);
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            /* Check data after 100ms, it is expected to be not filled yet */
+            ASSERT_NE(memcmp(mem.get(), ref_buf.data(), size), 0);
+            /* Signal the wait event to let memfill complete */
+            ASSERT_EQ(zeEventHostSignal(waitEventHandle), ZE_RESULT_SUCCESS);
+            ASSERT_EQ(zeEventHostSynchronize(signalEvent.get(), syncTimeout), ZE_RESULT_SUCCESS);
             ASSERT_EQ(memcmp(mem.get(), ref_buf.data(), size), 0);
         },
         GetParam());

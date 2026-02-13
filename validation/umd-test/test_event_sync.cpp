@@ -83,7 +83,7 @@ struct EventSync : public UmdTest {
         return ret;
     }
 
-    void queueWaitForSingalFromOtherQueue(bool testEventReset);
+    void queueWaitForSignalFromOtherQueue(bool testEventReset);
 
     ze_command_queue_handle_t cmdQueue = nullptr;
     ze_command_queue_handle_t cmdQueuePrior = nullptr;
@@ -103,7 +103,7 @@ struct EventSync : public UmdTest {
     std::vector<zeScope::SharedPtr<ze_event_handle_t>> scopedEvents;
 };
 
-void EventSync::queueWaitForSingalFromOtherQueue(bool testEventReset) {
+void EventSync::queueWaitForSignalFromOtherQueue(bool testEventReset) {
     ze_event_handle_t event = nullptr;
     ASSERT_EQ(createEvent(eventPool, 2, &event), ZE_RESULT_SUCCESS);
 
@@ -169,7 +169,7 @@ TEST_F(EventSync, ExecuteCommandListWithTimestampCommandThatWaitForHostSignalToC
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(cmdQueue, 1, &cmdList, nullptr), ZE_RESULT_SUCCESS);
 
     std::thread hostSignalThread([event] {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        waitInPwrState(Active, 100);
         EXPECT_EQ(zeEventHostSignal(event), ZE_RESULT_SUCCESS);
     });
 
@@ -229,11 +229,11 @@ TEST_F(EventSync, ExecuteCommandListWithCopyCommandsThatWaitForHostSignalToCompl
 }
 
 TEST_F(EventSync, QueueWaitForSignalFromOtherQueueWithPriority) {
-    queueWaitForSingalFromOtherQueue(false);
+    queueWaitForSignalFromOtherQueue(false);
 }
 
 TEST_F(EventSync, QueueWaitForSignalFromOtherQueueWithPriorityThenResetSignal) {
-    queueWaitForSingalFromOtherQueue(true);
+    queueWaitForSignalFromOtherQueue(true);
 }
 
 TEST_F(EventSync, QueueExecuteManyCommandListsThatWaitForEachOther) {

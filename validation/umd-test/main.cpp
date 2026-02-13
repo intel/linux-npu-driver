@@ -17,7 +17,7 @@ bool forceDmaHeap;
 bool forceZeInitTests;
 bool forcePreemptionTests;
 int userRequestedTimeoutMs;
-std::string dumpInputDir;
+std::string dumpOnFailDir;
 } // namespace test_vars
 
 static void setConfig(const char *optarg) {
@@ -63,8 +63,8 @@ static void forcePreemptionTests(const char *) {
     test_vars::forcePreemptionTests = true;
 }
 
-static void setDumpInputDir(const char *arg) {
-    test_vars::dumpInputDir = arg;
+static void setDumpOnFailDir(const char *arg) {
+    test_vars::dumpOnFailDir = arg;
 }
 const char *helpMsg = "  -c/--config [CONFIGURATION_PATH]\n"
                       "       Test configuration file in yaml format\n"
@@ -109,7 +109,7 @@ int main(int argc, char **argv) {
         {'I', {"ze-init-tests", no_argument, &forceZeInitTests}},
         {'P', {"preemption-tests", no_argument, &forcePreemptionTests}},
         {'A', {"all", no_argument, &forceAllTests}},
-        {'F', {"dump-on-fail", required_argument, &setDumpInputDir}},
+        {'F', {"dump-on-fail", required_argument, &setDumpOnFailDir}},
     };
 
     test_app::parse_args(args, helpMsg, argc, argv);

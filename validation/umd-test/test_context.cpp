@@ -250,7 +250,7 @@ void MultiContextGraph::RunInference(ze_context_handle_t ctx) {
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
 }
 
 TEST_P(MultiContextGraph, RunGraphInferenceSequentially) {

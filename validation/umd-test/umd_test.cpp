@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -14,14 +14,65 @@
 #include <fcntl.h>
 #include <fstream>
 #include <functional>
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_mem_import_system_memory_ext.h>
 #include <random>
 #include <sys/resource.h>
 #include <sys/sysinfo.h>
+#include <ze_api.h>
+#include <ze_mem_import_system_memory_ext.h>
 
-void PrintTo(const ze_result_t &result, std::ostream *os) {
-    *os << ze_result_to_str(result) << " (0x" << std::hex << result << ")" << std::dec;
+static DevicePwrStates getNpuState(std::ifstream &fileInputStream) {
+    std::string state;
+    if (!fileInputStream.is_open())
+        return Unknown;
+
+    fileInputStream.seekg(0, std::ios::beg);
+    std::getline(fileInputStream, state);
+    if (state.find("active") != std::string::npos) {
+        return Active;
+    } else if (state.find("suspended") != std::string::npos) {
+        return Suspended;
+    } else if (state.find("resuming") != std::string::npos) {
+        return Resuming;
+    } else if (state.find("suspending") != std::string::npos) {
+        return Suspending;
+    } else {
+        TRACE("ERROR:Unknown NPU power state read: %s\n", state.c_str());
+        return Unknown;
+    }
+}
+
+static void waitState(DevicePwrStates state,
+                      uint32_t timeoutMs,
+                      std::function<bool(DevicePwrStates)> isInDesiredState) {
+    const std::string filePath = getDeviceSysFsDirectory() + "/power/runtime_status";
+    const uint32_t sleepIntervalMs = 1;
+    std::chrono::time_point<std::chrono::steady_clock> timeoutTimePoint =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
+    std::ifstream devPwrStateStream(filePath, std::ios::binary | std::ios::in);
+
+    while (std::chrono::steady_clock::now() < timeoutTimePoint) {
+        auto currentState = getNpuState(devPwrStateStream);
+        if (currentState == Unknown) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(timeoutMs));
+            break;
+        }
+        if (isInDesiredState(currentState)) {
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(sleepIntervalMs));
+    }
+}
+
+void waitInPwrState(DevicePwrStates state, uint32_t timeoutMs) {
+    waitState(state, timeoutMs, [state](DevicePwrStates currentState) {
+        return state != currentState;
+    });
+}
+
+void waitForPwrState(DevicePwrStates state, uint32_t timeoutMs) {
+    waitState(state, timeoutMs, [state](DevicePwrStates currentState) {
+        return state == currentState;
+    });
 }
 
 void UmdTest::CommandQueueGroupSetUpNpu(ze_device_handle_t dev) {
@@ -76,6 +127,7 @@ void UmdTest::SetUp() {
     zeGraphDDITableExt = testEnv->getGraphDDITable();
     zeGraphProfilingDDITableExt = testEnv->getGraphProfilingDDITable();
     zeCommandQueueDDITableExt = testEnv->getCommandQueueDDITable();
+    zeContextDDITableExt = testEnv->getContextDDITable();
     maxMemAllocSize = testEnv->getMaxMemAllocSize();
     pciDevId = testEnv->getPciDevId();
     platformType = testEnv->getPlatformType();
@@ -244,7 +296,9 @@ void UmdTest::printMemoryUsage(const char *prefix) {
     int fd = open("/proc/self/statm", O_RDONLY);
     if (fd != -1) {
         char buffer[64] = {};
-        if (read(fd, buffer, sizeof(buffer) - 1) > 0) {
+        ssize_t ret = read(fd, buffer, sizeof(buffer) - 1);
+
+        if (ret > 0) {
             unsigned long size = 0, resident = 0, shared = 0;
             if (sscanf(buffer, "%lu %lu %lu", &size, &resident, &shared) == 3) {
                 long pageSize = sysconf(_SC_PAGESIZE);
@@ -254,6 +308,10 @@ void UmdTest::printMemoryUsage(const char *prefix) {
                     stats += ", VmShared: " + std::to_string((shared * pageSize) / 1024) + " KB";
                 }
             }
+        } else if (ret == 0) {
+            TRACE("%s: read() returned 0 - end of file reached.\n", __func__);
+        } else {
+            TRACE("%s: read() failed to read data from the file descriptor.\n", __func__);
         }
         close(fd);
     } else {

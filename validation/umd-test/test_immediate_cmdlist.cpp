@@ -287,10 +287,6 @@ class ImmediateCmdListInference : public ImmediateCmdList,
     }
 
     std::shared_ptr<Graph> graph;
-    zeScope::SharedPtr<ze_graph_handle_t> scopedGraphHandle = nullptr;
-    ze_graph_desc_2_t graphDesc = {};
-    std::vector<uint8_t> modelIR = {};
-    std::vector<char> buildFlags = {};
 };
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(ImmediateCmdListInference);
@@ -315,7 +311,7 @@ TEST_P(ImmediateCmdListInference, CompileModelAndExecute) {
 
     ASSERT_EQ(zeCommandListHostSynchronize(list, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
 }
 
 TEST_P(ImmediateCmdListInference, CompileModelAndExecuteSynchronousMode) {
@@ -329,5 +325,5 @@ TEST_P(ImmediateCmdListInference, CompileModelAndExecuteSynchronousMode) {
     ASSERT_EQ(zeGraphDDITableExt
                   ->pfnAppendGraphExecute(syncList, graph->handle, nullptr, nullptr, 0, nullptr),
               ZE_RESULT_SUCCESS);
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
 }

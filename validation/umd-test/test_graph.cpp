@@ -42,23 +42,27 @@ class GraphApiBase : public UmdTest {
 };
 
 TEST_F(GraphApiBase, GetDeviceGraphProperties) {
-    ze_device_graph_properties_t graphProperties = {};
-    graphProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
-    EXPECT_EQ(zeGraphDDITableExt->pfnDeviceGetGraphProperties(zeDevice, &graphProperties),
+    ze_device_graph_properties_t devGraphProps = {};
+    devGraphProps.stype = ZE_STRUCTURE_TYPE_DEVICE_GRAPH_PROPERTIES;
+    EXPECT_EQ(zeGraphDDITableExt->pfnDeviceGetGraphProperties(zeDevice, &devGraphProps),
               ZE_RESULT_SUCCESS);
 
-    ze_device_graph_properties_2_t graphProperties2 = {};
-    graphProperties2.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
-    EXPECT_EQ(zeGraphDDITableExt->pfnDeviceGetGraphProperties2(zeDevice, &graphProperties2),
+    ze_device_graph_properties_2_t devGraphProps2 = {};
+    devGraphProps2.stype = ZE_STRUCTURE_TYPE_DEVICE_GRAPH_PROPERTIES_2;
+    EXPECT_EQ(zeGraphDDITableExt->pfnDeviceGetGraphProperties2(zeDevice, &devGraphProps2),
               ZE_RESULT_SUCCESS);
 
-    EXPECT_EQ(memcmp(&graphProperties, &graphProperties2, sizeof(graphProperties)), 0);
-    EXPECT_GT(graphProperties2.graphExtensionVersion, 0);
-    EXPECT_GT(graphProperties2.compilerVersion.major, 0);
-    EXPECT_GT(graphProperties2.compilerVersion.minor, 0);
-    EXPECT_GT(graphProperties2.graphFormatsSupported, 0);
-    EXPECT_GT(graphProperties2.elfVersion.major, 0);
-    EXPECT_GT(graphProperties2.runtimeVersion.major, 0);
+    EXPECT_EQ(devGraphProps.graphExtensionVersion, devGraphProps2.graphExtensionVersion);
+    EXPECT_EQ(devGraphProps.compilerVersion.major, devGraphProps2.compilerVersion.major);
+    EXPECT_EQ(devGraphProps.compilerVersion.minor, devGraphProps2.compilerVersion.minor);
+    EXPECT_EQ(devGraphProps.graphFormatsSupported, devGraphProps2.graphFormatsSupported);
+    EXPECT_EQ(devGraphProps.maxOVOpsetVersionSupported, devGraphProps2.maxOVOpsetVersionSupported);
+    EXPECT_GT(devGraphProps2.graphExtensionVersion, 0);
+    EXPECT_GT(devGraphProps2.compilerVersion.major, 0);
+    EXPECT_GT(devGraphProps2.compilerVersion.minor, 0);
+    EXPECT_GT(devGraphProps2.graphFormatsSupported, 0);
+    EXPECT_GT(devGraphProps2.elfVersion.major, 0);
+    EXPECT_GT(devGraphProps2.runtimeVersion.major, 0);
 }
 
 TEST_F(GraphApiBase, GetProfilingDataPropertiesExpectSuccess) {
@@ -172,6 +176,7 @@ class GraphApi : public GraphApiBase {
     }
 
     std::shared_ptr<Graph> graph;
+    std::array<std::string, 4> expectedArgNames = {"A", "B", "C", "Y"};
 };
 
 TEST_F(GraphApi, GetNativeBinaryUsingMemcpy) {
@@ -223,7 +228,14 @@ TEST_F(GraphApi, SetArgumentPropertiesReturnsCorrectError) {
               ZE_RESULT_ERROR_INVALID_ARGUMENT);
 }
 
-TEST_F(GraphApi, GetArgumentPropertiesReturnsCorrectProperties) {
+TEST_F(GraphApi, GetProperties2) {
+    ze_graph_properties_2_t graphProps = {};
+    graphProps.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES_2;
+    ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties2(graph->handle, &graphProps), ZE_RESULT_SUCCESS)
+        << "Failed to get Graph properties";
+}
+
+TEST_F(GraphApi, GetArgumentProperties) {
     ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties(graph->handle, 0, nullptr),
               ZE_RESULT_ERROR_INVALID_NULL_POINTER);
 
@@ -234,7 +246,7 @@ TEST_F(GraphApi, GetArgumentPropertiesReturnsCorrectProperties) {
         << "Failed to get Graph properties";
 
     ze_graph_argument_properties_t pGraphArgumentProperties = {};
-    graphProps.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES;
+    pGraphArgumentProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES;
 
     for (uint32_t index = 0; index < graphProps.numGraphArgs; index++) {
         ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties(graph->handle,
@@ -266,9 +278,115 @@ TEST_F(GraphApi, GetArgumentPropertiesReturnsCorrectProperties) {
               ZE_RESULT_ERROR_INVALID_ARGUMENT);
 }
 
-TEST_F(GraphApi, GetProperties2) {
-    ze_graph_properties_2_t graphProps = {};
+TEST_F(GraphApi, GetArgumentProperties2) {
+    ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties2(graph->handle, 0, nullptr),
+              ZE_RESULT_ERROR_INVALID_NULL_POINTER);
+
+    ze_graph_properties_t graphProps = {};
     graphProps.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
-    ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties2(graph->handle, &graphProps), ZE_RESULT_SUCCESS)
+
+    ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties(graph->handle, &graphProps), ZE_RESULT_SUCCESS)
         << "Failed to get Graph properties";
+
+    ze_graph_argument_properties_2_t graphArgumentProperties = {};
+    graphArgumentProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_2;
+
+    for (uint32_t index = 0; index < graphProps.numGraphArgs; index++) {
+        ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties2(graph->handle,
+                                                                index,
+                                                                &graphArgumentProperties),
+                  ZE_RESULT_SUCCESS);
+        ASSERT_EQ(expectedArgNames[index], graphArgumentProperties.name);
+        if (index < graphProps.numGraphArgs - 1) {
+            ASSERT_EQ(graphArgumentProperties.type, ZE_GRAPH_ARGUMENT_TYPE_INPUT);
+        } else if (index == graphProps.numGraphArgs - 1) {
+            ASSERT_EQ(graphArgumentProperties.type, ZE_GRAPH_ARGUMENT_TYPE_OUTPUT);
+        } else if (graphArgumentProperties.type != ZE_GRAPH_ARGUMENT_TYPE_INPUT &&
+                   graphArgumentProperties.type != ZE_GRAPH_ARGUMENT_TYPE_OUTPUT) {
+            FAIL() << "Invalid graph argument type";
+        }
+
+        for (int i = 0; i < ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE; i++)
+            ASSERT_GT(graphArgumentProperties.dims[i], 0u);
+        ASSERT_GE(graphArgumentProperties.networkLayout, ZE_GRAPH_ARGUMENT_LAYOUT_ANY);
+        ASSERT_NE(graphArgumentProperties.networkPrecision, ZE_GRAPH_ARGUMENT_PRECISION_UNKNOWN);
+        ASSERT_NE(graphArgumentProperties.networkPrecision, ZE_GRAPH_ARGUMENT_PRECISION_BIN);
+        ASSERT_GE(graphArgumentProperties.deviceLayout, ZE_GRAPH_ARGUMENT_LAYOUT_ANY);
+        ASSERT_NE(graphArgumentProperties.devicePrecision, ZE_GRAPH_ARGUMENT_PRECISION_UNKNOWN);
+        ASSERT_NE(graphArgumentProperties.devicePrecision, ZE_GRAPH_ARGUMENT_PRECISION_BIN);
+        if (graphArgumentProperties.type == ZE_GRAPH_ARGUMENT_TYPE_INPUT) {
+            ASSERT_EQ(graphArgumentProperties.quantReverseScale, 1);
+        } else {
+            ASSERT_EQ(graphArgumentProperties.quantReverseScale, 0);
+        }
+        ASSERT_EQ(graphArgumentProperties.quantZeroPoint, 0);
+    }
+
+    ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties2(graph->handle,
+                                                            graphProps.numGraphArgs,
+                                                            &graphArgumentProperties),
+              ZE_RESULT_ERROR_INVALID_ARGUMENT);
+}
+
+TEST_F(GraphApi, GetArgumentProperties3) {
+    ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties3(graph->handle, 0, nullptr),
+              ZE_RESULT_ERROR_INVALID_NULL_POINTER);
+
+    ze_graph_properties_t graphProps = {};
+    graphProps.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
+
+    ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties(graph->handle, &graphProps), ZE_RESULT_SUCCESS)
+        << "Failed to get Graph properties";
+
+    ze_graph_argument_properties_3_t graphArgumentProperties = {};
+    graphArgumentProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_3;
+
+    for (uint32_t index = 0; index < graphProps.numGraphArgs; index++) {
+        ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties3(graph->handle,
+                                                                index,
+                                                                &graphArgumentProperties),
+                  ZE_RESULT_SUCCESS);
+        ASSERT_EQ(expectedArgNames[index], graphArgumentProperties.name);
+        if (index < graphProps.numGraphArgs - 1) {
+            ASSERT_EQ(graphArgumentProperties.type, ZE_GRAPH_ARGUMENT_TYPE_INPUT);
+        } else if (index == graphProps.numGraphArgs - 1) {
+            ASSERT_EQ(graphArgumentProperties.type, ZE_GRAPH_ARGUMENT_TYPE_OUTPUT);
+        } else if (graphArgumentProperties.type != ZE_GRAPH_ARGUMENT_TYPE_INPUT &&
+                   graphArgumentProperties.type != ZE_GRAPH_ARGUMENT_TYPE_OUTPUT) {
+            FAIL() << "Invalid graph argument type";
+        }
+
+        for (int i = 0; i < ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE; i++)
+            ASSERT_GT(graphArgumentProperties.dims[i], 0u);
+        ASSERT_GE(graphArgumentProperties.networkLayout, ZE_GRAPH_ARGUMENT_LAYOUT_ANY);
+        ASSERT_NE(graphArgumentProperties.networkPrecision, ZE_GRAPH_ARGUMENT_PRECISION_UNKNOWN);
+        ASSERT_NE(graphArgumentProperties.networkPrecision, ZE_GRAPH_ARGUMENT_PRECISION_BIN);
+        ASSERT_GE(graphArgumentProperties.deviceLayout, ZE_GRAPH_ARGUMENT_LAYOUT_ANY);
+        ASSERT_NE(graphArgumentProperties.devicePrecision, ZE_GRAPH_ARGUMENT_PRECISION_UNKNOWN);
+        ASSERT_NE(graphArgumentProperties.devicePrecision, ZE_GRAPH_ARGUMENT_PRECISION_BIN);
+        if (graphArgumentProperties.type == ZE_GRAPH_ARGUMENT_TYPE_INPUT) {
+            ASSERT_EQ(graphArgumentProperties.quantReverseScale, 1);
+        } else {
+            ASSERT_EQ(graphArgumentProperties.quantReverseScale, 0);
+        }
+        ASSERT_EQ(graphArgumentProperties.quantZeroPoint, 0);
+        ASSERT_EQ(graphArgumentProperties.dims_count, 1);
+        if (graphArgumentProperties.type == ZE_GRAPH_ARGUMENT_TYPE_INPUT) {
+            ASSERT_EQ(expectedArgNames[index], graphArgumentProperties.debug_friendly_name);
+        } else {
+            ASSERT_EQ(expectedArgNames[index] + "/sink_port_0",
+                      graphArgumentProperties.debug_friendly_name);
+        }
+        ASSERT_EQ(graphArgumentProperties.associated_tensor_names_count, 1);
+        ASSERT_EQ(expectedArgNames[index], graphArgumentProperties.associated_tensor_names[0]);
+    }
+
+    ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties3(graph->handle,
+                                                            graphProps.numGraphArgs,
+                                                            &graphArgumentProperties),
+              ZE_RESULT_ERROR_INVALID_ARGUMENT);
+}
+
+TEST_F(GraphApi, GraphEvictDoesNothing) {
+    EXPECT_EQ(zeGraphDDITableExt->pfnEvict(graph->handle), ZE_RESULT_SUCCESS);
 }

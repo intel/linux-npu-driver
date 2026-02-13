@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -18,7 +18,6 @@
 #include <sys/mman.h>
 
 #define CHECK_DMA_HEAP_SUPPORT(x)                                          \
-    SKIP_CHROMEOS();                                                       \
     if (!x.checkDmaHeapSystemAvailability()) {                             \
         const char *msg = "Missed support or insufficient permissions for" \
                           " dma buffer allocation in the system.";         \

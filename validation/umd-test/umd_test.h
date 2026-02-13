@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,9 +7,7 @@
 
 #pragma once
 
-#include "blob_params.hpp"
 #include "drm_helpers.h"
-#include "model_params.hpp"
 #include "perf_counter.h"
 #include "test_app.h"
 #include "testenv.hpp"
@@ -25,9 +23,6 @@
 #include <unistd.h>
 #include <vector>
 #include <yaml-cpp/yaml.h>
-
-// Custom printer to dump ze_result_t as hex string
-void PrintTo(const ze_result_t &result, std::ostream *os);
 
 #define SKIP_(msg)                      \
     if (!test_app::run_skipped_tests) { \
@@ -59,11 +54,6 @@ void PrintTo(const ze_result_t &result, std::ostream *os);
         SKIP_("Needs root privileges")  \
     }
 
-#define SKIP_CHROMEOS()                                    \
-    if (std::filesystem::exists("/etc/chrome_dev.conf")) { \
-        SKIP_("Test is not supported in ChromeOS")         \
-    }
-
 #define SKIP_NEEDS_SYSFS_FILE(x)                                                   \
     if (!canReadFromSysFsFile(x)) {                                                \
         SKIP_("Test is not supported because " x                                   \
@@ -85,6 +75,27 @@ void PrintTo(const ze_result_t &result, std::ostream *os);
 #define GB (1024llu * 1024 * 1024)
 
 #define ALIGN_TO_PAGE(x) __ALIGN_KERNEL((x), UmdTest::pageSize)
+
+enum DevicePwrStates {
+    Active,
+    Suspending,
+    Suspended,
+    Resuming,
+    Unknown,
+};
+
+/* Function polls NPU power state and blocks as long as device is in desired
+ * state or timeout occurred, when device changes state the function returns.
+ * When the power state is not possible to read the function waits until timeout
+ * and returns.
+ */
+void waitInPwrState(DevicePwrStates state, uint32_t timeoutMs);
+
+/* Function polls NPU power state and blocks until device reaches desired
+ * state or timeout occurred. When the power state is not possible to read
+ * the function waits until timeout and returns.
+ */
+void waitForPwrState(DevicePwrStates state, uint32_t timeoutMs);
 
 inline std::string memSizeToStr(uint64_t size) {
     std::string str;
@@ -217,6 +228,7 @@ class UmdTest : public ::testing::Test {
     graph_dditable_ext_t *zeGraphDDITableExt = nullptr;
     ze_graph_profiling_dditable_ext_t *zeGraphProfilingDDITableExt = nullptr;
     command_queue_dditable_t *zeCommandQueueDDITableExt = nullptr;
+    context_dditable_t *zeContextDDITableExt = nullptr;
     uint64_t maxMemAllocSize = 0;
 
     ze_driver_handle_t zeDriverGpu = nullptr;

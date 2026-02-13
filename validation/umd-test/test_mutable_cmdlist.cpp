@@ -6,120 +6,14 @@
  */
 
 #include "graph_utilities.hpp"
-#include "openvino/core/graph_util.hpp"
-#include "openvino/core/model.hpp"
-#include "openvino/op/add.hpp"
-#include "openvino/op/multiply.hpp"
-#include "openvino/op/parameter.hpp"
 #include "umd_test.h"
 
-struct ModelSetup {
-    ModelSetup() = default;
-    ModelSetup(ModelSetup &&) = delete;
-    ModelSetup(const ModelSetup &) = delete;
-    ModelSetup &operator=(const ModelSetup &) = delete;
-    ModelSetup &operator=(ModelSetup &&) = delete;
-
-    void createModel() {
-        if (!modelPath.empty())
-            return;
-
-        // model with 3 inputs and 2 outputs:
-        //
-        // +----------+        +----------+
-        // |  Input   |        |  Input   |
-        // | (param1) |        | (param2) |
-        // +----+-----+        +----+-----+
-        //      |                   |
-        //      +-------+   +-------+
-        //              |   |
-        //              v   v              +----------+
-        //           +----------+          |  Input   |
-        //           | Multiply |          | (param3) |
-        //           +----+-----+          +----+-----+
-        //                |                     |
-        //                +---------+   +-------+
-        //                |         |   |
-        //                |         v   v
-        //                |      +---------+
-        //                |      |   Add   |
-        //                |      +----+----+
-        //                |           |
-        //                v           v
-        //           +--------+  +--------+
-        //           | Output |  | Output |
-        //           | (mul)  |  | (add)  |
-        //           +--------+  +--------+
-        //
-        auto param1 = std::make_shared<ov::op::v0::Parameter>(ov::element::f16, ov::Shape{2, 3});
-        auto param2 = std::make_shared<ov::op::v0::Parameter>(ov::element::f16, ov::Shape{2, 3});
-        auto param3 = std::make_shared<ov::op::v0::Parameter>(ov::element::f16, ov::Shape{2, 3});
-        auto mul = std::make_shared<ov::op::v1::Multiply>(param1, param2);
-        auto add = std::make_shared<ov::op::v1::Add>(mul, param3);
-
-        auto model = std::make_shared<ov::Model>(
-            ov::NodeVector{std::move(mul), std::move(add)},
-            ov::ParameterVector{std::move(param1), std::move(param2), std::move(param3)});
-
-        modelPath = createModelPath();
-        ASSERT_FALSE(modelPath.empty());
-
-        ov::serialize(model, modelPath);
-
-        buildFlags = createBuildFlags(model);
-    }
-
-    std::filesystem::path createModelPath() {
-        char modelPathTemplate[] = "/tmp/tmpmodel-XXXXXX";
-        int fd = mkstemp(modelPathTemplate);
-        if (fd == -1)
-            return {};
-        close(fd);
-        std::filesystem::remove(modelPathTemplate);
-        return std::string(modelPathTemplate) + ".xml";
-    }
-
-    std::string createBuildFlags(const std::shared_ptr<ov::Model> &model) {
-        std::string inputPrecisions;
-        std::string inputLayouts;
-
-        for (const auto &param : model->get_parameters()) {
-            const auto &name = param->get_friendly_name();
-            inputPrecisions += name + ":fp16 ";
-            inputLayouts += name + ":NC ";
-        }
-
-        std::string outputPrecisions;
-        std::string outputLayouts;
-
-        for (const auto &result : model->get_results()) {
-            const auto &name = result->get_input_node_ptr(0)->get_friendly_name();
-            outputPrecisions += name + ":fp16 ";
-            outputLayouts += name + ":NC ";
-        }
-
-        return "--inputs_precisions=\"" + inputPrecisions + "\" " + "--inputs_layouts=\"" +
-               inputLayouts + "\" " + "--outputs_precisions=\"" + outputPrecisions + "\" " +
-               "--outputs_layouts=\"" + outputLayouts + "\"";
-    }
-
-    ~ModelSetup() {
-        if (modelPath.empty())
-            return;
-        std::filesystem::remove(modelPath);
-        std::filesystem::remove(modelPath.replace_extension(".bin"));
-    }
-
-    std::filesystem::path modelPath;
-    std::string buildFlags;
-};
-
-static ModelSetup modelSetup;
 
 class MutableCmdList : public UmdTest {
   public:
     void SetUp() override {
         UmdTest::SetUp();
+
         ze_mutable_command_list_exp_properties_t mutableCmdListProps{
             .stype = ZE_STRUCTURE_TYPE_MUTABLE_COMMAND_LIST_EXP_PROPERTIES,
             .pNext = nullptr,
@@ -147,7 +41,7 @@ class MutableCmdList : public UmdTest {
 
         queue = scopedQueue.get();
 
-        modelSetup.createModel();
+        modelPath = globalConfig.modelDir + "mul_add/mul_add.xml";
     }
 
     ze_command_list_handle_t createMutableCmdList() {
@@ -174,40 +68,8 @@ class MutableCmdList : public UmdTest {
   protected:
     zeScope::SharedPtr<ze_command_queue_handle_t> scopedQueue = nullptr;
     ze_command_queue_handle_t queue;
+    std::string modelPath;
 };
-
-// struct that represents float16 type and provides implicit conversions from/to float.
-struct float16 {
-    uint16_t value;
-
-    float16(float f) {
-        // use 32-bit `tmp` variable (instead of 16-bit `value`) as an argument for movss
-        // to make sure movss instruction doesn't write out of bounds
-        uint32_t tmp = 0;
-        asm("movss %1, %%xmm6\n"
-            "vcvtps2ph $0, %%xmm6, %%xmm7\n"
-            "movss %%xmm7, %0\n"
-            : "=m"(tmp)
-            : "m"(f)
-            : "xmm6", "xmm7");
-        value = static_cast<uint16_t>(tmp);
-    }
-
-    operator float() const {
-        float ret = 0;
-        uint32_t tmp = static_cast<uint32_t>(value);
-
-        asm("movss %1, %%xmm6\n"
-            "vcvtph2ps %%xmm6, %%xmm7\n"
-            "movss %%xmm7, %0\n"
-            : "=m"(ret)
-            : "m"(tmp)
-            : "xmm6", "xmm7");
-
-        return ret;
-    }
-};
-static_assert(sizeof(float16) == 2);
 
 static void
 verifyOutputs(const std::vector<void *> &inputs, const std::vector<void *> &outputs, size_t n) {
@@ -234,11 +96,7 @@ verifyOutputs(const std::vector<void *> &inputs, const std::vector<void *> &outp
 // - update graph's first argument
 // - execute command list again and check results
 TEST_F(MutableCmdList, UpdateGraphFirstInput) {
-    auto graph = Graph::create(zeContext,
-                               zeDevice,
-                               zeGraphDDITableExt,
-                               modelSetup.modelPath,
-                               modelSetup.buildFlags);
+    auto graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, modelPath);
     ASSERT_NE(graph, nullptr);
 
     // allocate arguments and fill inputs
@@ -330,13 +188,8 @@ TEST_F(MutableCmdList, UpdateGraphFirstInput) {
 // - update graph's second and third input buffer and second output buffer
 // - execute command list again and check results
 TEST_F(MutableCmdList, UpdateGraphInputsAndOutputs) {
-    auto graph = Graph::create(zeContext,
-                               zeDevice,
-                               zeGraphDDITableExt,
-                               modelSetup.modelPath,
-                               modelSetup.buildFlags);
+    auto graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, modelPath);
     ASSERT_NE(graph, nullptr);
-
     graph->allocateArguments(MemType::SHARED_MEMORY);
 
     float16 *input0 = reinterpret_cast<float16 *>(graph->inArgs[0]);
@@ -446,13 +299,8 @@ TEST_F(MutableCmdList, UpdateGraphInputsAndOutputs) {
 // - update third input in the second graph
 // - execute command list again and check results
 TEST_F(MutableCmdList, UpdateTwoGraphsInSingleCmdList) {
-    auto graph1 = Graph::create(zeContext,
-                                zeDevice,
-                                zeGraphDDITableExt,
-                                modelSetup.modelPath,
-                                modelSetup.buildFlags);
+    auto graph1 = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, modelPath);
     ASSERT_NE(graph1, nullptr);
-
     graph1->allocateArguments(MemType::SHARED_MEMORY);
     {
         float16 *input0 = reinterpret_cast<float16 *>(graph1->inArgs[0]);
@@ -464,13 +312,8 @@ TEST_F(MutableCmdList, UpdateTwoGraphsInSingleCmdList) {
         std::iota(input2, input2 + graph1->inputSize[2] / sizeof(float16), 2);
     }
 
-    auto graph2 = Graph::create(zeContext,
-                                zeDevice,
-                                zeGraphDDITableExt,
-                                modelSetup.modelPath,
-                                modelSetup.buildFlags);
+    auto graph2 = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, modelPath);
     ASSERT_NE(graph2, nullptr);
-
     graph2->allocateArguments(MemType::SHARED_MEMORY);
     {
         float16 *input0 = reinterpret_cast<float16 *>(graph2->inArgs[0]);
@@ -586,13 +429,8 @@ TEST_F(MutableCmdList, UpdateTwoGraphsInSingleCmdList) {
 // - update second input in the graph (so first and second inputs are updated now)
 // - execute command list again and check results
 TEST_F(MutableCmdList, UpdateGraphTwice) {
-    auto graph = Graph::create(zeContext,
-                               zeDevice,
-                               zeGraphDDITableExt,
-                               modelSetup.modelPath,
-                               modelSetup.buildFlags);
+    auto graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, modelPath);
     ASSERT_NE(graph, nullptr);
-
     graph->allocateArguments(MemType::SHARED_MEMORY);
 
     float16 *input0 = reinterpret_cast<float16 *>(graph->inArgs[0]);
@@ -708,13 +546,8 @@ TEST_F(MutableCmdList, UpdateGraphTwice) {
 
 // Call zeCommandListUpdateMutableCommandsExp with invalid commandId
 TEST_F(MutableCmdList, UpdateMutableCommandsInvalidCommandId) {
-    auto graph = Graph::create(zeContext,
-                               zeDevice,
-                               zeGraphDDITableExt,
-                               modelSetup.modelPath,
-                               modelSetup.buildFlags);
+    auto graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, modelPath);
     ASSERT_NE(graph, nullptr);
-
     graph->allocateArguments(MemType::SHARED_MEMORY);
 
     ze_command_list_handle_t commandList = createMutableCmdList();
@@ -818,11 +651,7 @@ TEST_F(MutableCmdList, GetNextCommandIdClosedCmdList) {
 // - mutate command list with new arguments
 // - execute command list again and check results
 TEST_F(MutableCmdList, MutateGraphExecuteInMultipleCommandList) {
-    auto graph = Graph::create(zeContext,
-                               zeDevice,
-                               zeGraphDDITableExt,
-                               modelSetup.modelPath,
-                               modelSetup.buildFlags);
+    auto graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, modelPath);
     ASSERT_NE(graph, nullptr);
 
     const size_t cmdListCount = 4;

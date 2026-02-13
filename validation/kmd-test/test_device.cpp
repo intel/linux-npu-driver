@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -28,7 +28,9 @@ void Device::ResetEngine() {
         ASSERT_EQ(write_debugfs_file("resume_engine", ENGINE_COMPUTE), 0);
     }
 
-    ASSERT_TRUE(wait_for_suspend());
+    if (is_autosuspend_enabled()) {
+        ASSERT_TRUE(wait_for_suspend());
+    }
 }
 
 TEST_F(Device, Open) {
@@ -47,21 +49,9 @@ TEST_F(Device, Open) {
     }
 }
 
-static bool isChromeOs() {
-    std::string os_release;
-
-    read_file("/etc/os-release", os_release);
-    return os_release.find("chromiumos") != std::string::npos;
-}
-
 TEST_F(Device, GroupOwnership) {
     struct stat fileInfo;
-    std::string expectedGroupName;
-    if (isChromeOs()) {
-        expectedGroupName = "ml-core";
-    } else {
-        expectedGroupName = "render";
-    }
+    std::string expectedGroupName = "render";
 #ifdef ANDROID
     expectedGroupName = "system";
 #endif
@@ -140,6 +130,7 @@ TEST_F(Device, ResetEngineAfterHB) {
 }
 
 TEST_F(Device, Suspend) {
+    SKIP_NO_AUTOSUSPEND();
     ASSERT_TRUE(wait_for_suspend());
 }
 
