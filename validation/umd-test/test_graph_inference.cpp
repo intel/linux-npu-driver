@@ -288,5 +288,7 @@ TEST_P(GraphInference, InferenceTest) {
 
     ReadBack();
 
-    graph->checkResults(outputHostMem);
+    for (size_t i = 0; i < graph->outputSize.size(); i++) {
+        ASSERT_EQ(memcmp(outputHostMem[i], graph->outArgs[i], graph->outputSize[i]), 0);
+    }
 };

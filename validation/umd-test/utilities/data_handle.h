@@ -35,3 +35,36 @@ T getRandomNumber(T from = std::numeric_limits<T>::min(), T to = std::numeric_li
 }
 
 } // namespace DataHandle
+
+// struct that represents float16 type and provides implicit conversions from/to float.
+struct float16 {
+    uint16_t value;
+
+    float16(float f) {
+        // use 32-bit `tmp` variable (instead of 16-bit `value`) as an argument for movss
+        // to make sure movss instruction doesn't write out of bounds
+        uint32_t tmp = 0;
+        asm("movss %1, %%xmm6\n"
+            "vcvtps2ph $0, %%xmm6, %%xmm7\n"
+            "movss %%xmm7, %0\n"
+            : "=m"(tmp)
+            : "m"(f)
+            : "xmm6", "xmm7");
+        value = static_cast<uint16_t>(tmp);
+    }
+
+    operator float() const {
+        float ret = 0;
+        uint32_t tmp = static_cast<uint32_t>(value);
+
+        asm("movss %1, %%xmm6\n"
+            "vcvtph2ps %%xmm6, %%xmm7\n"
+            "movss %%xmm7, %0\n"
+            : "=m"(ret)
+            : "m"(tmp)
+            : "xmm6", "xmm7");
+
+        return ret;
+    }
+};
+static_assert(sizeof(float16) == 2);

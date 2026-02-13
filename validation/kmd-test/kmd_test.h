@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -103,6 +103,10 @@
     if (is_patchset())  \
     SKIP_("Not supported by the upstream driver")
 
+#define SKIP_NO_AUTOSUSPEND()      \
+    if (!is_autosuspend_enabled()) \
+    SKIP_("Autosuspend is disabled")
+
 template <typename T>
 bool array_eq(T *arr, size_t size, T value) {
     for (unsigned i = 0; i < size / sizeof(T); i++) {
@@ -170,11 +174,6 @@ enum VPU_BUF_USAGE {
     VPU_BUF_USAGE_INPUT_HIGH,
     VPU_BUF_USAGE_OUTPUT_HIGH,
     VPU_BUF_USAGE_INPUT_OUTPUT_HIGH,
-
-    // For input and output buffers that are used for
-    // VPU_CMD_COPY_LOCAL_TO_LOCAL - this command seems to
-    // be executed in LeonRT rather than the DMA engine
-    // and it warks only with aliased memory range.
     VPU_BUF_USAGE_INPUT_LOW,
     VPU_BUF_USAGE_OUTPUT_LOW,
     VPU_BUF_USAGE_INPUT_OUTPUT_LOW,
@@ -299,6 +298,7 @@ class KmdTest : public ::testing::Test {
     void check_api_version();
     bool api_version_lt(int major, int minor);
     bool is_patchset();
+    bool is_autosuspend_enabled();
 
     bool resume();
     bool wait_for_resume(int timeout_ms = PM_STATE_TIMEOUT_MS);
@@ -547,7 +547,7 @@ struct CmdBuffer : MemoryBuffer {
                       MemoryBuffer &dst_buf,
                       uint32_t dst_offset,
                       size_t length,
-                      uint16_t copy_cmd = VPU_CMD_COPY_LOCAL_TO_LOCAL);
+                      uint16_t copy_cmd = VPU_CMD_COPY);
     int submit(int engine = ENGINE_COMPUTE, int priority = 0, uint32_t timeout_ms = 0);
     int cmdq_submit(uint32_t cmdq_id);
     void prepare_bb_hdr(void);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024-2025 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -9,7 +9,7 @@
 #include "ze_memory.hpp"
 
 #include <gtest/gtest.h>
-#include <level_zero/ze_intel_npu_uuid.h>
+#include <ze_intel_npu_uuid.h>
 
 static void assertNotInitialized() {
     uint32_t numDrivers = 1;

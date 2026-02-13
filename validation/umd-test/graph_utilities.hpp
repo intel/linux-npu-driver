@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,9 +7,7 @@
 
 #pragma once
 
-#include "blob_params.hpp"
 #include "image.hpp"
-#include "model_params.hpp"
 #include "umd_extensions.h"
 #include "umd_test.h"
 #include "utilities/data_handle.h"
@@ -17,10 +15,10 @@
 
 #include <filesystem>
 #include <fstream>
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_graph_ext.h>
-#include <level_zero/ze_graph_profiling_ext.h>
 #include <random>
+#include <ze_api.h>
+#include <ze_graph_ext.h>
+#include <ze_graph_profiling_ext.h>
 
 enum MemType {
     DEVICE_MEMORY,
@@ -28,19 +26,20 @@ enum MemType {
     SHARED_MEMORY,
 };
 
-enum GraphFormat {
-    BLOB,
-    MODEL,
-};
+class Graph;
+using BinaryInferenceBuffer = std::vector<std::vector<char>>;
+using ClassIndexBuffer = std::vector<uint16_t>;
+using OutputReference = std::variant<void *, BinaryInferenceBuffer, ClassIndexBuffer>;
 
-enum InputType {
-    BINARY,
-    IMAGE,
-    RANDOM,
-};
+bool validateInferenceOutput(const std::vector<void *> &output, const Graph &reference);
 
 class InferenceRequest {
+    friend bool validateInferenceOutput(const std::vector<void *> &output, const Graph &reference);
+
   public:
+    InferenceRequest(const Graph &graph)
+        : graph(graph) {}
+
     void setUpCommandQueue(ze_context_handle_t hContext, ze_device_handle_t hDevice) {
         ze_result_t ret = ZE_RESULT_SUCCESS;
         ze_command_queue_desc_t desc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
@@ -73,14 +72,15 @@ class InferenceRequest {
         ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
     }
 
-    void setUpFence(ze_context_handle_t hContext, ze_device_handle_t hDevice) {
+    bool setUpFence(ze_context_handle_t hContext, ze_device_handle_t hDevice) {
         ze_result_t ret = {};
         ze_fence_desc_t desc = {.stype = ZE_STRUCTURE_TYPE_FENCE_DESC,
                                 .pNext = nullptr,
                                 .flags = 0};
         scopedFence = zeScope::fenceCreate(queue, desc, ret);
-        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+        EXPECT_EQ(ret, ZE_RESULT_SUCCESS);
         fence = scopedFence.get();
+        return ret == ZE_RESULT_SUCCESS;
     }
 
     ze_result_t runAsync() {
@@ -104,23 +104,14 @@ class InferenceRequest {
         return ret;
     }
 
-    bool validateOutput(const std::vector<std::vector<char>> &reference) {
+    bool validateOutput() {
         if (associatedOutput.empty())
             return true;
-
-        if (reference.size() != associatedOutput.size()) {
-            return false;
+        std::vector<void *> outputPtrs;
+        for (const auto &output : associatedOutput) {
+            outputPtrs.push_back(output.first);
         }
-
-        for (size_t i = 0; i < reference.size(); ++i) {
-            if (reference[i].size() != associatedOutput[i].second) {
-                return false;
-            }
-            if (memcmp(associatedOutput[i].first, reference[i].data(), reference[i].size()) != 0) {
-                return false;
-            }
-        }
-        return true;
+        return validateInferenceOutput(outputPtrs, graph);
     }
 
     void clearOutput() {
@@ -129,36 +120,6 @@ class InferenceRequest {
                 memset(output.first, 0, output.second);
             }
         }
-    }
-
-    void dumpInferenceData(const std::filesystem::path &dumpDirPath,
-                           const std::filesystem::path &modelPath,
-                           const std::vector<std::vector<char>> &reference,
-                           const std::vector<char> &blobBinary) {
-        auto modelName = modelPath.stem().string();
-        std::filesystem::create_directories(dumpDirPath);
-
-        for (size_t i = 0; i < associatedInput.size(); ++i) {
-            DataHandle::writeFile(dumpDirPath.string() + "/" + modelName + "-input-" +
-                                      std::to_string(i) + ".bin",
-                                  associatedInput[i].first,
-                                  associatedInput[i].second);
-        }
-        for (size_t i = 0; i < associatedOutput.size(); ++i) {
-            DataHandle::writeFile(dumpDirPath.string() + "/" + modelName + "-output-" +
-                                      std::to_string(i) + ".bin",
-                                  associatedOutput[i].first,
-                                  associatedOutput[i].second);
-        }
-        for (size_t i = 0; i < reference.size(); ++i) {
-            DataHandle::writeFile(dumpDirPath.string() + "/" + modelName + "-ref-output-" +
-                                      std::to_string(i) + ".bin",
-                                  reference[i].data(),
-                                  reference[i].size());
-        }
-        DataHandle::writeFile((dumpDirPath / (modelName + ".blob")).string(),
-                              blobBinary.data(),
-                              blobBinary.size());
     }
 
   public:
@@ -173,6 +134,7 @@ class InferenceRequest {
     zeScope::SharedPtr<ze_command_list_handle_t> scopedList;
     zeScope::SharedPtr<ze_fence_handle_t> scopedFence;
     std::chrono::steady_clock::time_point startPoint;
+    const Graph &graph;
 };
 
 class GraphBuffer {
@@ -204,7 +166,7 @@ class GraphBuffer {
     GraphBuffer() = default;
     GraphBuffer(std::vector<char> &&buf)
         : buffer(std::move(buf)) {
-        desc.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES;
+        desc.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_2;
         desc.format = ZE_GRAPH_FORMAT_NATIVE;
         desc.inputSize = buffer.size();
         desc.pInput = reinterpret_cast<uint8_t *>(buffer.data());
@@ -213,7 +175,7 @@ class GraphBuffer {
     }
     GraphBuffer(void *bufferPtr, size_t size)
         : bufferPtr(bufferPtr) {
-        desc.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES;
+        desc.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_2;
         desc.format = ZE_GRAPH_FORMAT_NATIVE;
         desc.inputSize = size;
         desc.pInput = reinterpret_cast<uint8_t *>(bufferPtr);
@@ -257,13 +219,54 @@ class GraphBuffer {
         } else {
             desc.format = ZE_GRAPH_FORMAT_NATIVE;
             desc.pBuildFlags = nullptr;
-            loadBlobFromPath(path, buffer);
+            loadBlob(path, buffer);
         }
 
-        desc.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES;
+        desc.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_2;
         desc.flags = ZE_GRAPH_FLAG_NONE;
         desc.inputSize = buffer.size();
         desc.pInput = reinterpret_cast<uint8_t *>(buffer.data());
+        return true;
+    }
+
+    bool loadBlob(const std::string &blobPath, std::vector<char> &npuBlob) {
+        std::filesystem::path blobFile(blobPath);
+
+        TRACE("Blob: %s\n", blobFile.c_str());
+        if (DataHandle::loadFile(blobFile, npuBlob) != 0) {
+            PRINTF("Failed to load blob from %s\n", blobFile.c_str());
+            return false;
+        }
+        return true;
+    }
+
+    bool
+    loadModel(const std::string &modelXmlPath, std::vector<char> &xml, std::vector<char> &bin) {
+        std::filesystem::path modelXml(modelXmlPath);
+        std::filesystem::path modelBin(modelXmlPath);
+
+        modelBin.replace_extension(".bin");
+
+        if (std::filesystem::exists(modelXml) == false ||
+            std::filesystem::exists(modelBin) == false) {
+            PRINTF("Model %s doesn't exist.\n", modelXml.c_str());
+            return false;
+        }
+
+        TRACE("Model: %s\n", modelXml.c_str());
+        if (DataHandle::loadFile(modelXml, xml) != 0) {
+            PRINTF("Failed to load model from %s\n", modelXml.c_str());
+            return false;
+        }
+
+        if (DataHandle::loadFile(modelBin, bin) != 0) {
+            PRINTF("Failed to load weights from %s\n", modelBin.c_str());
+            return false;
+        }
+
+        if (xml.size() == 0)
+            return false;
+
         return true;
     }
 
@@ -272,7 +275,7 @@ class GraphBuffer {
         ze_device_graph_properties_t deviceGraphProp = {};
         deviceGraphProp.stype = ZE_STRUCTURE_TYPE_DEVICE_GRAPH_PROPERTIES;
 
-        ASSERT_TRUE(getModelFromPath(path, bufferXml, bufferBin));
+        ASSERT_TRUE(loadModel(path, bufferXml, bufferBin));
         ASSERT_EQ(graphDdi->pfnDeviceGetGraphProperties(hDevice, &deviceGraphProp),
                   ZE_RESULT_SUCCESS);
 
@@ -318,6 +321,8 @@ class GraphBuffer {
 };
 
 class Graph {
+    friend bool validateInferenceOutput(const std::vector<void *> &output, const Graph &reference);
+
   public:
     Graph(ze_context_handle_t hContext,
           ze_device_handle_t hDevice,
@@ -328,7 +333,10 @@ class Graph {
         , hDevice(hDevice)
         , graphDDI(graphDDI)
         , pLogHandle(pGraphBuildLogHandle)
-        , buffer(std::move(buffer)) {}
+        , buffer(std::move(buffer)) {
+        Environment *testEnv = Environment::getInstance();
+        dumpOnFailDir = testEnv->getDumpOnFailDir();
+    }
 
     static std::shared_ptr<Graph> create(ze_context_handle_t hContext,
                                          ze_device_handle_t hDevice,
@@ -343,6 +351,8 @@ class Graph {
         if (!graph->createGraphHandle())
             return nullptr;
         graph->loadArguments(globalConfig, node);
+        graph->modelName =
+            std::filesystem::path(node["path"].as<std::string>("UnknownModel")).stem().string();
         return graph;
     }
 
@@ -351,7 +361,7 @@ class Graph {
            ze_device_handle_t hDevice,
            graph_dditable_ext_t *graphDDI,
            const std::filesystem::path &path,
-           const std::string &buildFlags,
+           const std::string &buildFlags = "",
            ze_graph_build_log_handle_t *pGraphBuildLogHandle = nullptr) {
         auto buffer = GraphBuffer::get(hDevice, graphDDI, path, buildFlags);
         if (buffer == nullptr)
@@ -364,7 +374,7 @@ class Graph {
                                              pGraphBuildLogHandle);
         if (!graph->createGraphHandle())
             return nullptr;
-
+        graph->modelName = path.stem().string();
         return graph;
     }
 
@@ -391,6 +401,8 @@ class Graph {
             return nullptr;
 
         graph->loadArguments(globalConfig, node);
+        graph->modelName =
+            std::filesystem::path(node["path"].as<std::string>("UnknownModel")).stem().string();
         return graph;
     }
 
@@ -468,36 +480,6 @@ class Graph {
         }
     }
 
-    void setInput(const std::vector<std::vector<char>> &networkInput) {
-        ASSERT_EQ(networkInput.size(), inputSize.size());
-        for (size_t i = 0; i < inputSize.size(); ++i) {
-            if (inputSize[i] == 0u)
-                continue;
-            ASSERT_EQ(networkInput[i].size(), inputSize[i]);
-            memcpy(inArgs[i], networkInput[i].data(), inputSize[i]);
-        }
-    }
-
-    void getCopyOfInput(std::vector<std::vector<char>> &networkInput) {
-        networkInput.clear();
-        for (size_t i = 0; i < inputSize.size(); ++i) {
-            if (inputSize[i] == 0u)
-                continue;
-            networkInput.push_back(
-                std::vector<char>(static_cast<char *>(inArgs[i]),
-                                  static_cast<char *>(inArgs[i]) + inputSize[i]));
-        }
-    }
-
-    void getCopyOfOutput(std::vector<std::vector<char>> &networkOutput) {
-        networkOutput.clear();
-        for (size_t i = 0; i < outputSize.size(); ++i) {
-            networkOutput.push_back(
-                std::vector<char>(static_cast<char *>(outArgs[i]),
-                                  static_cast<char *>(outArgs[i]) + outputSize[i]));
-        }
-    }
-
     void copyImageToInputArgument(void *dst, size_t argSize, std::filesystem::path path) {
         if (dst == nullptr) {
             FAIL() << "Destination pointer is null";
@@ -541,14 +523,20 @@ class Graph {
         }
     }
 
-    void copyInputData() { copyInputData(inArgs); }
+    void copyInputData() {
+        copyInputData(inArgs);
+        if (inputBin.empty()) {
+            /* Store copy of input data for later use */
+            storeCopyOfInput();
+        }
+    }
 
     void copyInputData(std::vector<void *> &target) {
         ASSERT_EQ(target.size(), inputSize.size());
         for (size_t i = 0; i < target.size(); i++) {
-            if (inputType == InputType::BINARY && !inputBin.empty()) {
+            if (!inputBin.empty()) {
                 memcpy(target[i], inputBin[i].data(), inputBin[i].size());
-            } else if (inputType == InputType::IMAGE) {
+            } else if (!imagePaths.empty()) {
                 ASSERT_GE(imagePaths.size(), i);
                 copyImageToInputArgument(target.at(i), inputSize.at(i), imagePaths.at(i));
             } else {
@@ -578,18 +566,23 @@ class Graph {
 
     bool loadOutputBinFromFile(const std::filesystem::path &fullFilePath, size_t outputIndex) {
         PRINTF("Loading binary output data from file: %s\n", fullFilePath.c_str());
+
+        if (!std::holds_alternative<BinaryInferenceBuffer>(outputRef)) {
+            PRINTF("Reference output is set to class indexes, cannot load binary output data\n");
+            return false;
+        }
+        auto &binReference = std::get<BinaryInferenceBuffer>(outputRef);
         if (outputIndex >= outputSize.size()) {
             return false;
         }
 
-        if (outputBin.size() != outputSize.size()) {
-            outputBin.clear();
-            outputBin.resize(outputSize.size());
+        if (binReference.size() != outputSize.size()) {
+            binReference.resize(outputSize.size());
         }
-        DataHandle::loadFile(fullFilePath, outputBin[outputIndex]);
-        if (outputBin[outputIndex].size() != outputSize[outputIndex]) {
+        DataHandle::loadFile(fullFilePath, binReference[outputIndex]);
+        if (binReference[outputIndex].size() != outputSize[outputIndex]) {
             PRINTF("Loaded output data size (%zu) does not match expected size (%u)\n",
-                   outputBin[outputIndex].size(),
+                   binReference[outputIndex].size(),
                    outputSize[outputIndex]);
             return false;
         }
@@ -600,66 +593,40 @@ class Graph {
         return graphDDI->pfnSetArgumentValue(handle, argIndex, pArgValue);
     }
 
-    bool checkResults() {
-        if (inputType == InputType::BINARY && format == GraphFormat::BLOB && !outputBin.empty()) {
-            if (outArgs.size() != outputBin.size()) {
-                EXPECT_EQ(outArgs.size(), outputBin.size())
-                    << "Number of output arguments does not match number of reference outputs";
-                return false;
-            }
-            for (size_t i = 0; i < outArgs.size(); i++) {
-                auto result = memcmp(outArgs[i], outputBin[i].data(), outputBin[i].size());
-                EXPECT_EQ(result, 0);
-                if (result != 0) {
-                    return false;
-                }
-            }
-        } else if (inputType == InputType::IMAGE) {
-            auto outputPrecision = outputProps.at(0).networkPrecision;
-            size_t elementSize = graphPrecisionToByteSize(outputPrecision);
-            if (elementSize == 0) {
-                EXPECT_GT(elementSize, 0) << "Element size must be greater than 0";
-                return false;
-            }
-            std::vector<float> outputData(outputSize.at(0) / elementSize);
+    bool checkResults() { return validateInferenceOutput(outArgs, *this); }
 
-            switch (outputPrecision) {
-            case ZE_GRAPH_ARGUMENT_PRECISION_FP32: {
-                memcpy(outputData.data(), outArgs.at(0), outputSize.at(0));
-                break;
-            }
-            case ZE_GRAPH_ARGUMENT_PRECISION_FP16: {
-                auto outputPtr = reinterpret_cast<const uint16_t *>(outArgs.at(0));
-                for (size_t i = 0; i < outputData.size(); i++) {
-                    outputData[i] = DataHandle::rawFp16ToFp32(outputPtr[i]);
-                }
-                break;
-            }
-            default:
-                EXPECT_TRUE(false) << "Unsupported output precision "
-                                   << zeGraphArgumentPrecisionToStr(outputPrecision);
-                return false;
-            }
-
-            auto it = std::max_element(outputData.begin(), outputData.end());
-            size_t index = std::distance(outputData.begin(), it);
-
-            TRACE("Class = %li, Accuracy = %f\n", index, *it);
-            if (index != classIndexes[0]) {
-                EXPECT_TRUE(false) << "Class index does not match!" << std::endl
-                                   << "Class: " << index << "!=" << classIndexes[0];
-                return false;
-            }
-        }
-        return true;
+    ze_result_t setArgumentValue2(uint32_t argIndex, const void *pTensor) {
+        ze_graph_argument_value_tensor_t tensor = {};
+        tensor.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_TENSOR;
+        tensor.pTensor = pTensor;
+        return graphDDI->pfnSetArgumentValue2(handle, argIndex, &tensor);
     }
 
-    void checkResults(std::vector<void *> &output) {
-        if (inputType == InputType::BINARY && format == GraphFormat::BLOB) {
-            for (size_t i = 0; i < outArgs.size(); i++) {
-                ASSERT_EQ(memcmp(output[i], outputBin[i].data(), outputBin[i].size()), 0);
-            }
+    ze_result_t setArgumentValue2(
+        uint32_t argIndex,
+        const std::array<uint32_t, ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE> &userStrides) {
+        ze_graph_argument_value_strides_t strides = {};
+        strides.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_STRIDES;
+        for (size_t i = 0; i < userStrides.size(); i++) {
+            strides.userStrides[i] = userStrides[i];
         }
+        return graphDDI->pfnSetArgumentValue2(handle, argIndex, &strides);
+    }
+
+    ze_result_t setArgumentValue2(
+        uint32_t argIndex,
+        const void *pTensor,
+        const std::array<uint32_t, ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE> &userStrides) {
+        ze_graph_argument_value_strides_t strides = {};
+        strides.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_STRIDES;
+        for (size_t i = 0; i < userStrides.size(); i++) {
+            strides.userStrides[i] = userStrides[i];
+        }
+        ze_graph_argument_value_tensor_t tensor = {};
+        tensor.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_TENSOR;
+        tensor.pNext = &strides;
+        tensor.pTensor = pTensor;
+        return graphDDI->pfnSetArgumentValue2(handle, argIndex, &tensor);
     }
 
     void clearOutput() {
@@ -668,10 +635,9 @@ class Graph {
         }
     }
 
-    std::unique_ptr<InferenceRequest> newInferRequest() {
-        auto infer = std::make_unique<InferenceRequest>();
+    std::unique_ptr<InferenceRequest> inferenceRequest() {
+        auto infer = std::make_unique<InferenceRequest>(*this);
 
-        // Initialization is done in setUp to take advantage of ASSERT_*
         infer->setUpCommandQueue(hContext, hDevice);
         infer->setUpCommandList(hContext, hDevice, handle, graphDDI);
         for (size_t i = 0; i < outArgs.size(); i++) {
@@ -683,13 +649,12 @@ class Graph {
         return infer;
     }
 
-    std::unique_ptr<InferenceRequest> newInferRequestUsingQueue(ze_command_queue_handle_t hQueue) {
-        auto infer = std::make_unique<InferenceRequest>();
+    std::unique_ptr<InferenceRequest> inferenceRequest(ze_command_queue_handle_t hQueue) {
+        auto infer = std::make_unique<InferenceRequest>(*this);
         infer->queue = hQueue;
 
-        // Initialization is done in setUp to take advantage of ASSERT_*
         infer->setUpCommandList(hContext, hDevice, handle, graphDDI);
-        infer->setUpFence(hContext, hDevice);
+        EXPECT_TRUE(infer->setUpFence(hContext, hDevice));
         for (size_t i = 0; i < outArgs.size(); i++) {
             infer->associatedOutput.push_back({outArgs[i], outputSize[i]});
         }
@@ -730,7 +695,7 @@ class Graph {
 
     void deallocateAllArguments() { mem.clear(); }
 
-    std::shared_ptr<GraphBuffer> getNativeBinaryAsNewBuffer() {
+    std::shared_ptr<GraphBuffer> getNativeBinaryAsNewBuffer() const {
         size_t size = 0;
         if (graphDDI->pfnGetNativeBinary(handle, &size, nullptr) != ZE_RESULT_SUCCESS)
             return nullptr;
@@ -773,15 +738,28 @@ class Graph {
         return graphDDI->pfnGetProperties3(handle, pGraphProperties);
     }
 
-    void getReferenceOutput(std::vector<std::vector<char>> &networkOutput) {
-        networkOutput.clear();
-        if (outputBin.empty()) {
-            return;
+    bool hasOutputReference() {
+        return std::holds_alternative<BinaryInferenceBuffer>(outputRef) ||
+               std::holds_alternative<ClassIndexBuffer>(outputRef);
+    }
+
+    bool setupCurrentOutputAsReference() {
+        if (!hasOutputReference()) {
+            outputRef.emplace<BinaryInferenceBuffer>();
+            auto &binReference = std::get<BinaryInferenceBuffer>(outputRef);
+            for (size_t i = 0; i < outArgs.size(); i++) {
+                binReference.push_back(
+                    std::vector<char>(static_cast<const char *>(outArgs[i]),
+                                      static_cast<const char *>(outArgs[i]) + outputSize[i]));
+            }
+            return true;
         }
-        for (const auto &output : outputBin) {
-            networkOutput.push_back(
-                std::vector<char>(output.data(), output.data() + output.size()));
-        }
+        return false;
+    }
+
+    const std::variant<void *, BinaryInferenceBuffer, ClassIndexBuffer> &
+    getReferenceOutput() const {
+        return outputRef;
     }
 
   private:
@@ -794,8 +772,6 @@ class Graph {
 
         handle = scopedGraphHandle.get();
         queryArguments();
-        format = buffer->desc.format == ZE_GRAPH_FORMAT_NGRAPH_LITE ? GraphFormat::MODEL
-                                                                    : GraphFormat::BLOB;
         return true;
     }
 
@@ -808,11 +784,13 @@ class Graph {
     }
 
     void getArgumentsProperties() {
-        ze_graph_properties_t properties{};
+        ze_graph_properties_t properties = {};
+        properties.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
         ASSERT_EQ(graphDDI->pfnGetProperties(handle, &properties), ZE_RESULT_SUCCESS);
 
         for (uint32_t i = 0; i < properties.numGraphArgs; i++) {
-            ze_graph_argument_properties_t argProperties{};
+            ze_graph_argument_properties_t argProperties = {};
+            argProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES;
 
             ASSERT_EQ(graphDDI->pfnGetArgumentProperties(handle, i, &argProperties),
                       ZE_RESULT_SUCCESS);
@@ -843,19 +821,59 @@ class Graph {
         }
     }
 
+    /* Stores copy of input data in inputBin vector */
+    void storeCopyOfInput() {
+        inputBin.clear();
+        for (size_t i = 0; i < inputSize.size(); ++i) {
+            if (inputSize[i] == 0u)
+                continue;
+            inputBin.push_back(std::vector<char>(static_cast<char *>(inArgs[i]),
+                                                 static_cast<char *>(inArgs[i]) + inputSize[i]));
+        }
+    }
+
+    void loadArguments(UmdTest::GlobalConfig &globalConfig, const YAML::Node &node) {
+        if (!node["in"].IsDefined())
+            return;
+
+        auto images = node["in"].as<std::vector<std::string>>();
+        if (images.empty()) {
+            return;
+        }
+
+        for (size_t i = 0; i < images.size(); ++i) {
+            const auto &image = images[i];
+            if (image.find(".bin") != std::string::npos) {
+                ASSERT_TRUE(loadInputBinFromFile(image, i));
+                break;
+            }
+            imagePaths.push_back(globalConfig.imageDir + image);
+        }
+
+        if (node["class_index"].IsDefined()) {
+            outputRef.emplace<ClassIndexBuffer>(node["class_index"].as<ClassIndexBuffer>());
+        } else if (node["out"].IsDefined()) {
+            auto outputs = node["out"].as<std::vector<std::string>>();
+            outputRef.emplace<BinaryInferenceBuffer>();
+            for (size_t i = 0; i < outputs.size(); ++i) {
+                const auto &output = outputs[i];
+                if (output.find(".bin") != std::string::npos) {
+                    ASSERT_TRUE(loadOutputBinFromFile(output, i));
+                    break;
+                }
+            }
+        }
+    }
+
   public:
     ze_context_handle_t hContext = nullptr;
     ze_device_handle_t hDevice = nullptr;
     graph_dditable_ext_t *graphDDI = nullptr;
     ze_graph_build_log_handle_t *pLogHandle = nullptr;
 
-    GraphFormat format = GraphFormat::MODEL;
-    InputType inputType = InputType::BINARY;
-
-    std::vector<std::vector<char>> inputBin, outputBin;
+    BinaryInferenceBuffer inputBin;
+    std::variant<void *, BinaryInferenceBuffer, ClassIndexBuffer> outputRef{nullptr};
     std::vector<std::string> imagePaths;
-    std::vector<uint16_t> classIndexes;
-    uint32_t iterations = 1;
 
     ze_graph_handle_t handle = nullptr;
 
@@ -866,62 +884,10 @@ class Graph {
 
     std::vector<void *> inArgs, outArgs;
 
+    std::filesystem::path dumpOnFailDir{};
+    std::string modelName{};
+
   private:
-    void loadArguments(UmdTest::GlobalConfig &globalConfig, const YAML::Node &node) {
-        inputType = InputType::RANDOM;
-        if (!node["in"].IsDefined())
-            return;
-
-        if (format == GraphFormat::MODEL) {
-            auto images = node["in"].as<std::vector<std::string>>();
-            if (images.empty()) {
-                return;
-            }
-
-            for (size_t i = 0; i < images.size(); ++i) {
-                const auto &image = images[i];
-                if (image.find(".bin") != std::string::npos) {
-                    inputType = InputType::BINARY;
-                    ASSERT_TRUE(loadInputBinFromFile(image, i));
-                    break;
-                }
-                imagePaths.push_back(globalConfig.imageDir + image);
-            }
-
-            if (!imagePaths.empty()) {
-                inputType = InputType::IMAGE;
-            }
-
-            if (node["class_index"].IsDefined()) {
-                classIndexes = node["class_index"].as<std::vector<uint16_t>>();
-            }
-
-            if (node["out"].IsDefined()) {
-                auto outputs = node["out"].as<std::vector<std::string>>();
-                for (size_t i = 0; i < outputs.size(); ++i) {
-                    const auto &output = outputs[i];
-                    if (output.find(".bin") != std::string::npos) {
-                        ASSERT_TRUE(loadOutputBinFromFile(output, i));
-                        break;
-                    }
-                }
-            }
-        } else {
-            format = GraphFormat::BLOB;
-            if (node["out"].IsDefined()) {
-                ASSERT_TRUE(node["in"].IsDefined())
-                    << "When particular output is expected input must be defined too";
-                ASSERT_TRUE(loadBlobDataFromNode(
-                    buffer->path,
-                    node["in"].as<std::vector<std::string>>(std::vector<std::string>()),
-                    node["out"].as<std::vector<std::string>>(std::vector<std::string>()),
-                    inputBin,
-                    outputBin));
-                inputType = InputType::BINARY;
-            }
-        }
-    }
-
     std::shared_ptr<GraphBuffer> buffer;
     std::vector<std::shared_ptr<void>> mem;
     zeScope::SharedPtr<ze_graph_handle_t> scopedGraphHandle = nullptr;

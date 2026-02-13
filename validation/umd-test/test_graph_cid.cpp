@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -11,8 +11,8 @@
 
 #include <chrono>
 #include <future>
-#include <level_zero/ze_api.h>
 #include <stdexcept>
+#include <ze_api.h>
 
 class CompilerInDriverLongT : public UmdTest {
   protected:
@@ -94,7 +94,7 @@ TEST_P(CompilerInDriverLong, CompileModelWithGraphInitAndExecute) {
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
 }
 
 class CompilerInDriverWithProfiling : public CompilerInDriverLongT,
@@ -129,8 +129,11 @@ class CompilerInDriverWithProfiling : public CompilerInDriverLongT,
                                                                         profilingType,
                                                                         &dataSize,
                                                                         nullptr),
-                  ZE_RESULT_SUCCESS);
-        EXPECT_GT(dataSize, 0u);
+                  ZE_RESULT_SUCCESS)
+            << "Failed to get profiling data size for type "
+            << getGraphProfilingTypeStr(profilingType);
+        EXPECT_GT(dataSize, 0u) << "Profiling data size is zero for type "
+                                << getGraphProfilingTypeStr(profilingType);
 
         std::vector<ProfilingData> profilingData(dataSize / sizeof(ProfilingData));
         EXPECT_EQ(zeGraphProfilingDDITableExt->pfnProfilingQueryGetData(
@@ -138,9 +141,33 @@ class CompilerInDriverWithProfiling : public CompilerInDriverLongT,
                       profilingType,
                       &dataSize,
                       reinterpret_cast<uint8_t *>(profilingData.data())),
-                  ZE_RESULT_SUCCESS);
+                  ZE_RESULT_SUCCESS)
+            << "Failed to get profiling data for type " << getGraphProfilingTypeStr(profilingType);
 
         return profilingData;
+    }
+
+    void getProfilingLogs(ze_graph_profiling_query_handle_t hProfilingQuery,
+                          ze_graph_profiling_type_t profilingType) {
+        uint32_t logSize = 0;
+        ASSERT_EQ(zeGraphProfilingDDITableExt->pfnProfilingLogGetString(hProfilingQuery,
+                                                                        &logSize,
+                                                                        nullptr),
+                  ZE_RESULT_SUCCESS)
+            << "Failed to get the size of error message for "
+            << getGraphProfilingTypeStr(profilingType) << " data type";
+
+        std::vector<char> profilingLogBuffer(logSize, 0);
+        ASSERT_EQ(zeGraphProfilingDDITableExt->pfnProfilingLogGetString(hProfilingQuery,
+                                                                        &logSize,
+                                                                        profilingLogBuffer.data()),
+                  ZE_RESULT_SUCCESS)
+            << "Failed to get the error message for " << getGraphProfilingTypeStr(profilingType)
+            << " data type";
+
+        if (logSize - 1 > 0) {
+            PRINTF("Graph profiling logs: \n%s\n", profilingLogBuffer.data());
+        }
     }
 
     std::shared_ptr<Graph> graph;
@@ -157,6 +184,11 @@ INSTANTIATE_TEST_SUITE_P(,
 
 TEST_P(CompilerInDriverWithProfiling, CompileModelWithGraphProfilingFlag) {
     ze_result_t ret = ZE_RESULT_SUCCESS;
+
+    ze_graph_properties_3_t graphProperties = {};
+    graphProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES_3;
+    ASSERT_EQ(graph->getGraphProperties(&graphProperties), ZE_RESULT_SUCCESS);
+    ASSERT_TRUE((graphProperties.flags & ZE_GRAPH_PROPERTIES_FLAG_PROFILING_ENABLED) != 0);
 
     ASSERT_EQ(
         zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
@@ -187,47 +219,54 @@ TEST_P(CompilerInDriverWithProfiling, CompileModelWithGraphProfilingFlag) {
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    // TASK LEVEL INFO
-    std::vector<ze_profiling_task_info> taskLevelInfo =
+    std::vector<ze_profiling_task_info> taskInfo =
         queryProfilingData<ze_profiling_task_info>(hProfilingQuery, ZE_GRAPH_PROFILING_TASK_LEVEL);
 
-    ASSERT_FALSE(taskLevelInfo.empty());
+    EXPECT_TRUE(!taskInfo.empty()) << "Task level profiling info is empty.";
 
-    TRACE("\nTASK LEVEL INFO\n");
-    TRACE("-----------------------------------------------\n");
-    TRACE("#0\n");
-    TRACE("name:             %s\n", taskLevelInfo[0].name);
-    TRACE("layer_type:       %s\n", taskLevelInfo[0].layer_type);
-    TRACE("exec_type:        %s\n", getExecTypeStr(taskLevelInfo[0].exec_type));
-    TRACE("start_time_ns:    %lu\n", taskLevelInfo[0].start_time_ns);
-    TRACE("duration_ns:      %lu\n", taskLevelInfo[0].duration_ns);
-    TRACE("active_cycles:    %u\n", taskLevelInfo[0].active_cycles);
-    TRACE("stall_cycles:     %u\n", taskLevelInfo[0].stall_cycles);
-    TRACE("task_id:          %u\n", taskLevelInfo[0].task_id);
-    TRACE("parent_layer_id:  %u\n", taskLevelInfo[0].parent_layer_id);
-    TRACE("-----------------------------------------------\n");
+    getProfilingLogs(hProfilingQuery, ZE_GRAPH_PROFILING_TASK_LEVEL);
 
-    // LAYER LEVEL INFO
-    std::vector<ze_profiling_layer_info> layerLevelInfo =
+    constexpr size_t maxPrint = 3;
+    TRACE("\nGraph profiling tasks, size: %lu, print limit: %lu\n", taskInfo.size(), maxPrint);
+    TRACE("-----------------------------------------------\n");
+    for (size_t i = 0; i < std::min(taskInfo.size(), maxPrint); i++) {
+        TRACE("#%lu\n", i);
+        TRACE("name:             %s\n", taskInfo[i].name);
+        TRACE("layer_type:       %s\n", taskInfo[i].layer_type);
+        TRACE("exec_type:        %s\n", getExecTypeStr(taskInfo[i].exec_type));
+        TRACE("start_time_ns:    %lu\n", taskInfo[i].start_time_ns);
+        TRACE("duration_ns:      %lu\n", taskInfo[i].duration_ns);
+        TRACE("active_cycles:    %u\n", taskInfo[i].active_cycles);
+        TRACE("stall_cycles:     %u\n", taskInfo[i].stall_cycles);
+        TRACE("task_id:          %u\n", taskInfo[i].task_id);
+        TRACE("parent_layer_id:  %u\n", taskInfo[i].parent_layer_id);
+        TRACE("-----------------------------------------------\n");
+    }
+
+    std::vector<ze_profiling_layer_info> layerInfo =
         queryProfilingData<ze_profiling_layer_info>(hProfilingQuery,
                                                     ZE_GRAPH_PROFILING_LAYER_LEVEL);
 
-    ASSERT_FALSE(layerLevelInfo.empty());
+    EXPECT_TRUE(!layerInfo.empty()) << "Layer level profiling info is empty.";
 
-    TRACE("\n\nLAYER LEVEL INFO\n");
+    getProfilingLogs(hProfilingQuery, ZE_GRAPH_PROFILING_LAYER_LEVEL);
+
+    TRACE("\nGraph profiling layers, size: %lu, print limit: %lu\n", layerInfo.size(), maxPrint);
     TRACE("-----------------------------------------------\n");
-    TRACE("#0\n");
-    TRACE("name:            %s\n", layerLevelInfo[0].name);
-    TRACE("layer_type:      %s\n", layerLevelInfo[0].layer_type);
-    TRACE("status:          %s\n", getStatusStr(layerLevelInfo[0].status));
-    TRACE("start_time_ns:   %lu\n", layerLevelInfo[0].start_time_ns);
-    TRACE("duration_ns:     %lu\n", layerLevelInfo[0].duration_ns);
-    TRACE("layer_id:        %u\n", layerLevelInfo[0].layer_id);
-    TRACE("fused_layer_id:  %lu\n", layerLevelInfo[0].fused_layer_id);
-    TRACE("dpu_ns:          %lu\n", layerLevelInfo[0].dpu_ns);
-    TRACE("sw_ns:           %lu\n", layerLevelInfo[0].sw_ns);
-    TRACE("dma_ns:          %lu\n", layerLevelInfo[0].dma_ns);
-    TRACE("-----------------------------------------------\n");
+    for (size_t i = 0; i < std::min(layerInfo.size(), maxPrint); i++) {
+        TRACE("#%lu\n", i);
+        TRACE("name:            %s\n", layerInfo[i].name);
+        TRACE("layer_type:      %s\n", layerInfo[i].layer_type);
+        TRACE("status:          %s\n", getStatusStr(layerInfo[i].status));
+        TRACE("start_time_ns:   %lu\n", layerInfo[i].start_time_ns);
+        TRACE("duration_ns:     %lu\n", layerInfo[i].duration_ns);
+        TRACE("layer_id:        %u\n", layerInfo[i].layer_id);
+        TRACE("fused_layer_id:  %lu\n", layerInfo[i].fused_layer_id);
+        TRACE("dpu_ns:          %lu\n", layerInfo[i].dpu_ns);
+        TRACE("sw_ns:           %lu\n", layerInfo[i].sw_ns);
+        TRACE("dma_ns:          %lu\n", layerInfo[i].dma_ns);
+        TRACE("-----------------------------------------------\n");
+    }
 }
 
 class CompilerInDriverLongBmp : public CompilerInDriverLongT,
@@ -273,7 +312,7 @@ TEST_P(CompilerInDriverLongBmp, CompileModelWithGraphInitAndExecuteThenCheckAccu
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
 }
 
 class CompilerInDriverBmpUsingDmaHeap : public CompilerInDriverLongBmp {
@@ -373,15 +412,15 @@ TEST_P(CompilerInDriverBmpUsingDmaHeap, CompileInitExecuteUsingPrimeBufferInput)
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
 }
 
-#define BREAK_ON_FAIL(ret, stats)          \
-    if (ret != ZE_RESULT_SUCCESS) {        \
-        EXPECT_EQ(ret, ZE_RESULT_SUCCESS); \
-        stats.status = ret;                \
-        stats.counter.stopTimer();         \
-        return stats;                      \
+#define BREAK_ON_FAIL(ret, stats, msg)            \
+    if (ret != ZE_RESULT_SUCCESS) {               \
+        EXPECT_EQ(ret, ZE_RESULT_SUCCESS) << msg; \
+        stats.status = ret;                       \
+        stats.counter.stopTimer();                \
+        return stats;                             \
     }
 
 class CompilerInDriverMultiInference : public CompilerInDriverLongT,
@@ -398,6 +437,7 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
         uint32_t targetFps = 0;
         double fpsDeviation = 0;
         bool isTurboMode = false;
+        uint64_t iterationCount = 0;
         ze_command_queue_priority_t priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL;
         ze_command_queue_workload_type_t workloadType = ZE_WORKLOAD_TYPE_FORCE_UINT32;
         size_t delayInUs = 0;
@@ -411,7 +451,6 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
 
     std::vector<LocalInference> testInferences = {};
     ze_command_queue_desc_npu_ext_t cmdQueueNpuDesc = {};
-    std::string dumpOnErrorDir;
 
     void SetUp() override {
         CompilerInDriverLongT::SetUp();
@@ -425,9 +464,6 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
         if (modelsSet.size() == 0)
             SKIP_("Missing models for testing");
 
-        Environment *testEnv = Environment::getInstance();
-        dumpOnErrorDir = testEnv->getDumpInputDir();
-
         for (auto &model : modelsSet) {
             LocalInference inference(model);
 
@@ -436,6 +472,7 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
             inference.execTimeSec = model["exec_time_in_secs"].as<uint32_t>(3);
             inference.delayInUs = model["delay_in_us"].as<size_t>(0);
             inference.fpsDeviation = model["fps_deviation"].as<double>(0);
+            inference.iterationCount = model["iteration_count"].as<uint64_t>(0);
             inference.parallelReqs = model["parallel_reqs"].as<size_t>(1);
             ASSERT_GT(inference.parallelReqs, 0) << "parallel_reqs field has to be greater than 0";
 
@@ -506,42 +543,32 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
         cmdQueueDescInference.pNext = inference.isTurboMode ? &cmdQueueNpuDesc : nullptr;
         auto scopedQueue =
             zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDescInference, ret);
-        BREAK_ON_FAIL(ret, stats);
+        BREAK_ON_FAIL(ret, stats, "Failed to create command queue for inference");
         auto queue = scopedQueue.get();
 
         std::vector<std::unique_ptr<InferenceRequest>> inferReqs;
         inference.graph->allocateArguments(MemType::SHARED_MEMORY);
         inference.graph->copyInputData();
-        std::vector<std::vector<char>> commonInputData;
-        inference.graph->getCopyOfInput(commonInputData);
-        if (commonInputData.empty()) {
-            BREAK_ON_FAIL(ZE_RESULT_ERROR_UNKNOWN, stats);
-        }
         ret = zeGraphDDITableExt->pfnGraphInitialize(inference.graph->handle);
-        BREAK_ON_FAIL(ret, stats);
-        inferReqs.push_back(inference.graph->newInferRequestUsingQueue(queue));
+        BREAK_ON_FAIL(ret, stats, "Failed to initialize graph");
+        inferReqs.push_back(inference.graph->inferenceRequest(queue));
 
         ret = inferReqs.back()->runAsync();
-        BREAK_ON_FAIL(ret, stats);
+        BREAK_ON_FAIL(ret, stats, "Failed to run inference request");
 
         ret = inferReqs.back()->wait(UINT64_MAX);
-        BREAK_ON_FAIL(ret, stats);
-        std::vector<std::vector<char>> referenceOutput;
-        inference.graph->getReferenceOutput(referenceOutput);
-        if (referenceOutput.empty()) {
-            /* When reference is not provided use warm up output as reference */
-            inference.graph->getCopyOfOutput(referenceOutput);
+        BREAK_ON_FAIL(ret, stats, "Failed to wait for inference request");
+        if (!inference.graph->hasOutputReference() &&
+            !inference.graph->setupCurrentOutputAsReference()) {
+            BREAK_ON_FAIL(ZE_RESULT_ERROR_UNKNOWN, stats, "Failed to setup output reference");
         }
 
-        if (referenceOutput.empty()) {
-            BREAK_ON_FAIL(ZE_RESULT_ERROR_UNKNOWN, stats);
-        }
         inference.graph->clearOutput();
 
         for (size_t i = 1; i < inference.parallelReqs; i++) {
             inference.graph->allocateArguments(MemType::SHARED_MEMORY);
-            inference.graph->setInput(commonInputData);
-            inferReqs.push_back(inference.graph->newInferRequestUsingQueue(queue));
+            inference.graph->copyInputData();
+            inferReqs.push_back(inference.graph->inferenceRequest(queue));
         }
 
         /*
@@ -550,7 +577,7 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
          */
         if (workloadType != ZE_WORKLOAD_TYPE_FORCE_UINT32) {
             ret = zeCommandQueueDDITableExt->pfnSetWorkloadType(queue, ZE_WORKLOAD_TYPE_BACKGROUND);
-            BREAK_ON_FAIL(ret, stats);
+            BREAK_ON_FAIL(ret, stats, "Failed to set workload type");
         }
 
         std::this_thread::sleep_for(std::chrono::microseconds(inference.delayInUs));
@@ -558,47 +585,35 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
         stats.counter.startTimer(inference.execTimeSec, inference.targetFps);
         for (size_t i = 1; i < inferReqs.size(); i++) {
             ret = inferReqs[i]->runAsync();
-            BREAK_ON_FAIL(ret, stats);
+            BREAK_ON_FAIL(ret, stats, "Failed to run async inference");
         }
 
         if (workloadType != ZE_WORKLOAD_TYPE_FORCE_UINT32) {
             ret = zeCommandQueueDDITableExt->pfnSetWorkloadType(queue, workloadType);
-            BREAK_ON_FAIL(ret, stats);
+            BREAK_ON_FAIL(ret, stats, "Failed to set workload type");
         }
 
         size_t inferReqIndex = 0;
-        while (!stats.counter.isTimeout()) {
+        while (inference.iterationCount > 0 ? stats.counter.frameCount < inference.iterationCount
+                                            : !stats.counter.isTimeout()) {
             stats.counter.delayNextFrame();
 
             ret = inferReqs[inferReqIndex]->runAsync();
-            BREAK_ON_FAIL(ret, stats);
+            BREAK_ON_FAIL(ret, stats, "Failed to run async inference");
 
             inferReqIndex++;
             inferReqIndex = inferReqIndex >= inferReqs.size() ? 0 : inferReqIndex;
 
             ret = inferReqs[inferReqIndex]->wait(UINT64_MAX);
-            BREAK_ON_FAIL(ret, stats);
+            BREAK_ON_FAIL(ret, stats, "Failed to wait for inference request");
 
-            bool result = false;
-            if (inference.parallelReqs == 1 && inference.graph->classIndexes.size()) {
-                result = inference.graph->checkResults();
-            } else {
-                // Only accuracy verification
-                result = inferReqs[inferReqIndex]->validateOutput(referenceOutput);
-            }
-
-            if (result == false) {
+            if (!inferReqs[inferReqIndex]->validateOutput()) {
                 TRACE("Output validation failed for inference request %s (%ld)",
                       inference.modelName.c_str(),
                       inferReqIndex);
-                if (dumpOnErrorDir.size() > 0) {
-                    auto bin = inference.graph->getNativeBinaryAsNewBuffer();
-                    inferReqs[inferReqIndex]->dumpInferenceData(dumpOnErrorDir,
-                                                                inference.modelName,
-                                                                referenceOutput,
-                                                                bin->data());
-                }
-                BREAK_ON_FAIL(ZE_RESULT_ERROR_UNKNOWN, stats);
+                BREAK_ON_FAIL(ZE_RESULT_ERROR_UNSUPPORTED_IMAGE_FORMAT,
+                              stats,
+                              "Output validation failed");
             }
             stats.counter.recordFrame(inferReqs[inferReqIndex]->latencyMs);
             inferReqs[inferReqIndex]->clearOutput();
@@ -606,7 +621,7 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
 
         stats.counter.stopTimer();
         return stats;
-    };
+    }
 };
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilerInDriverMultiInference);

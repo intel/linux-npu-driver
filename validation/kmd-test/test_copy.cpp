@@ -79,7 +79,7 @@ TEST_P(Copy, Pattern) {
     // rescale kB to bytes
     const int timeout_ms = (size > 1 * MB) ? 3 * JOB_SYNC_TIMEOUT_MS : JOB_SYNC_TIMEOUT_MS;
 
-    if (copyCommand == VPU_CMD_COPY_LOCAL_TO_LOCAL)
+    if (copyCommand == VPU_CMD_COPY)
         /*Implemented by Compute Engine*/
         engine = ENGINE_COMPUTE;
     else
@@ -175,10 +175,10 @@ TEST_F(Copy, Loop) {
     }
 }
 
-std::vector<std::tuple<__u16, __u32>> memtest_cases = {{VPU_CMD_COPY_LOCAL_TO_LOCAL, 4 * KB},
-                                                       {VPU_CMD_COPY_LOCAL_TO_LOCAL, 64 * KB},
-                                                       {VPU_CMD_COPY_LOCAL_TO_LOCAL, 4 * MB},
-                                                       {VPU_CMD_COPY_LOCAL_TO_LOCAL, 16 * MB - 1}};
+std::vector<std::tuple<__u16, __u32>> memtest_cases = {{VPU_CMD_COPY, 4 * KB},
+                                                       {VPU_CMD_COPY, 64 * KB},
+                                                       {VPU_CMD_COPY, 4 * MB},
+                                                       {VPU_CMD_COPY, 16 * MB - 1}};
 
 INSTANTIATE_TEST_SUITE_P(,
                          Copy,
@@ -186,7 +186,7 @@ INSTANTIATE_TEST_SUITE_P(,
                          [](const testing::TestParamInfo<std::tuple<__u16, __u32>> &cmd) {
                              std::string str;
                              switch (std::get<0>(cmd.param)) {
-                             case VPU_CMD_COPY_LOCAL_TO_LOCAL:
+                             case VPU_CMD_COPY:
                                  str = std::string("LocalToLocal_");
                                  break;
                              default:
@@ -206,7 +206,6 @@ INSTANTIATE_TEST_SUITE_P(,
 void Copy::CopyPerfTest(int engine, int buf_len, int copy_len, int repeats, bool coherent) {
     unsigned char pattern = 0x1A;
     size_t desc_size = context.copy_desc_size();
-    int cmd = VPU_CMD_COPY_LOCAL_TO_LOCAL;
     int flags = 0;
 
     if (engine == ENGINE_COPY) {
@@ -240,9 +239,9 @@ void Copy::CopyPerfTest(int engine, int buf_len, int copy_len, int repeats, bool
     ASSERT_EQ(dst_buf.create(), 0);
     TRACE_P64(dst_buf.vpu_addr());
 
-    cmd_buf.add_copy_cmd(descr_buf, 0, src_buf, 0, mid_buf1, 0, copy_len, cmd);
-    cmd_buf.add_copy_cmd(descr_buf, 1 * desc_size, mid_buf1, 0, mid_buf2, 0, copy_len, cmd);
-    cmd_buf.add_copy_cmd(descr_buf, 2 * desc_size, mid_buf2, 0, dst_buf, 0, copy_len, cmd);
+    cmd_buf.add_copy_cmd(descr_buf, 0, src_buf, 0, mid_buf1, 0, copy_len);
+    cmd_buf.add_copy_cmd(descr_buf, 1 * desc_size, mid_buf1, 0, mid_buf2, 0, copy_len);
+    cmd_buf.add_copy_cmd(descr_buf, 2 * desc_size, mid_buf2, 0, dst_buf, 0, copy_len);
 
     for (int i = 0; i < repeats; i++) {
         TRACE_INT(i);

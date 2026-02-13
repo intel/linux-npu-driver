@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Intel Corporation
+ * Copyright (C) 2023-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <level_zero/zet_api.h>
+#include <zet_api.h>
 
 inline const char *zet_value_type_to_str(zet_value_type_t type) {
     switch (type) {

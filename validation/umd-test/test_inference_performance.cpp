@@ -89,7 +89,7 @@ TEST_P(InferencePerformance, MeasureTimeBetweenTwoInferencesAfterPutVPUInIdleSta
               ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    waitInPwrState(Active, 1000);
 
     for (size_t i = 0; i < execIter; i++) {
         start = std::chrono::steady_clock::now();
@@ -97,7 +97,7 @@ TEST_P(InferencePerformance, MeasureTimeBetweenTwoInferencesAfterPutVPUInIdleSta
         ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
         inferenceDuration.push_back(sectionDuration(start));
 
-        graph->checkResults();
+        ASSERT_TRUE(graph->checkResults());
         graph->clearOutput();
 
         PRINTF("Inference #%zu took: %f ms\n", i, inferenceDuration[i].count());

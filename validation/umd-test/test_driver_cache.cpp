@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 Intel Corporation
+ * Copyright (C) 2025-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -11,9 +11,9 @@
 
 #include <chrono>
 #include <future>
-#include <level_zero/ze_api.h>
 #include <linux/limits.h>
 #include <stdexcept>
+#include <ze_api.h>
 
 class DriverCache : public UmdTest {
   public:
@@ -153,7 +153,8 @@ TEST_F(DriverCache, CheckIfAllCompiledModelsCached) {
         graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, modelNode);
         ASSERT_NE(graph, nullptr);
 
-        ze_graph_properties_3_t graphProperties;
+        ze_graph_properties_3_t graphProperties = {};
+        graphProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES_3;
         ASSERT_EQ(graph->getGraphProperties(&graphProperties), ZE_RESULT_SUCCESS);
         ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
                   ZE_GRAPH_PROPERTIES_FLAG_COMPILED);
@@ -166,7 +167,8 @@ TEST_F(DriverCache, CheckIfAllCompiledModelsCached) {
         graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, modelNode);
         ASSERT_NE(graph, nullptr);
 
-        ze_graph_properties_3_t graphProperties;
+        ze_graph_properties_3_t graphProperties = {};
+        graphProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES_3;
         ASSERT_EQ(graph->getGraphProperties(&graphProperties), ZE_RESULT_SUCCESS);
         ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
                   ZE_GRAPH_PROPERTIES_FLAG_LOADED_FROM_CACHE);
@@ -294,7 +296,8 @@ TEST_F(DriverCache, CheckIfCorruptedCachedIsOverriden) {
         graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, modelNode);
         ASSERT_NE(graph, nullptr);
 
-        ze_graph_properties_3_t graphProperties;
+        ze_graph_properties_3_t graphProperties = {};
+        graphProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES_3;
         ASSERT_EQ(graph->getGraphProperties(&graphProperties), ZE_RESULT_SUCCESS);
         ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
                   ZE_GRAPH_PROPERTIES_FLAG_COMPILED);
@@ -328,7 +331,8 @@ TEST_F(DriverCache, CheckCacheUsingMultipleThreads) {
         auto graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, model);
         ASSERT_NE(graph, nullptr);
 
-        ze_graph_properties_3_t graphProperties;
+        ze_graph_properties_3_t graphProperties = {};
+        graphProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES_3;
         ASSERT_EQ(graph->getGraphProperties(&graphProperties), ZE_RESULT_SUCCESS);
         ASSERT_TRUE(graphProperties.flags & graphPropsFlagCompileMask);
         if (cached) {
@@ -384,6 +388,7 @@ void DriverCache::graphInputHashTestCase(
                     &graph);
 
         ze_graph_properties_3_t graphProperties = {};
+        graphProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES_3;
         ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties3(graph, &graphProperties),
                   ZE_RESULT_SUCCESS);
         ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
@@ -409,6 +414,7 @@ void DriverCache::graphInputHashTestCase(
                     &graph);
 
         ze_graph_properties_3_t graphProperties = {};
+        graphProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES_3;
         ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties3(graph, &graphProperties),
                   ZE_RESULT_SUCCESS);
         ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
@@ -441,6 +447,7 @@ void DriverCache::graphInputHashTestCase(
                     &graph);
 
         ze_graph_properties_3_t graphProperties = {};
+        graphProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES_3;
         ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties3(graph, &graphProperties),
                   ZE_RESULT_SUCCESS);
         ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
@@ -464,6 +471,7 @@ void DriverCache::graphInputHashTestCase(
         graphCreate(zeContext, zeDevice, zeGraphDDITableExt, graphBuffer, buildFlags, hash, &graph);
 
         ze_graph_properties_3_t graphProperties = {};
+        graphProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES_3;
         ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties3(graph, &graphProperties),
                   ZE_RESULT_SUCCESS);
         ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
@@ -486,7 +494,7 @@ static void graphCreateWithInputHash(ze_context_handle_t context,
     graphInputHash.stype = ZE_STRUCTURE_TYPE_GRAPH_INPUT_HASH;
     graphInputHash.hash = hash;
     ze_graph_desc_t desc = {};
-    desc.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES;
+    desc.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC;
     desc.pNext = &graphInputHash;
     desc.format = ZE_GRAPH_FORMAT_NGRAPH_LITE;
     desc.inputSize = graphBuffer->buffer.size();
@@ -510,7 +518,7 @@ static void graphCreate2WithInputHash(ze_context_handle_t context,
     graphInputHash.stype = ZE_STRUCTURE_TYPE_GRAPH_INPUT_HASH;
     graphInputHash.hash = hash;
     ze_graph_desc_2_t desc = {};
-    desc.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES;
+    desc.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_2;
     desc.pNext = &graphInputHash;
     desc.format = ZE_GRAPH_FORMAT_NGRAPH_LITE;
     desc.inputSize = graphBuffer->buffer.size();
@@ -534,7 +542,7 @@ static void graphCreate3WithInputHash(ze_context_handle_t context,
     graphInputHash.stype = ZE_STRUCTURE_TYPE_GRAPH_INPUT_HASH;
     graphInputHash.hash = hash;
     ze_graph_desc_2_t desc = {};
-    desc.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_PROPERTIES;
+    desc.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_2;
     desc.pNext = &graphInputHash;
     desc.format = ZE_GRAPH_FORMAT_NGRAPH_LITE;
     desc.inputSize = graphBuffer->buffer.size();
@@ -611,7 +619,8 @@ TEST_F(CompilationLog, CompileModelsAndCheckLog) {
         ASSERT_NE(graphBuildLogHandle, nullptr);
         logHandles.push_back(graphBuildLogHandle);
         ASSERT_NE(graph, nullptr);
-        ze_graph_properties_3_t graphProperties;
+        ze_graph_properties_3_t graphProperties = {};
+        graphProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES_3;
         ASSERT_EQ(graph->getGraphProperties(&graphProperties), ZE_RESULT_SUCCESS);
         ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
                   ZE_GRAPH_PROPERTIES_FLAG_COMPILED);

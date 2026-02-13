@@ -34,7 +34,8 @@ KmdContext::~KmdContext() {
 
 int KmdContext::open() {
     if (fd < 0) {
-        drm_device_desc desc = drm::open_intel_vpu();
+        int instance = (test_app::device_index >= 0) ? test_app::device_index : 0;
+        drm_device_desc desc = drm::open_intel_vpu(instance);
         fd = desc.fd;
         major_id = desc.major_id;
         minor_id = desc.minor_id;
@@ -382,6 +383,14 @@ bool KmdTest::is_patchset() {
     return api_version_lt(1, 3);
 }
 
+bool KmdTest::is_autosuspend_enabled() {
+    int delay = 0;
+    if (get_autosuspend_delay(delay) == 0) {
+        return delay >= 0;
+    }
+    return false;
+}
+
 void KmdTest::get_context_num() {
     uint64_t param_value;
     ASSERT_EQ(0, get_param(DRM_IVPU_PARAM_NUM_CONTEXTS, &param_value));
@@ -457,6 +466,15 @@ bool KmdTest::resume() {
 }
 
 bool KmdTest::wait_for_suspend(int timeout_ms, bool expect_timeout) {
+    if (test_app::max_timeout && expect_timeout) {
+        ADD_FAILURE() << "Cannot expect timeout when max_timeout is set";
+        return false;
+    }
+    if (is_autosuspend_enabled() == false) {
+        ADD_FAILURE() << "Autosuspend is not enabled, cannot wait for suspend";
+        return false;
+    }
+
     test_app::overwrite_timeout(timeout_ms);
     auto timeout = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
     std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
@@ -1238,7 +1256,7 @@ void CmdBuffer::add_copy_cmd(MemoryBuffer &desc_buf,
 #if HAS_COPY_ENGINE
     auto cmd = add_cmd<vpu_cmd_copy_buffer_t>(copy_cmd);
 #else
-    auto cmd = add_cmd<vpu_cmd_copy_buffer_t>(VPU_CMD_COPY_LOCAL_TO_LOCAL);
+    auto cmd = add_cmd<vpu_cmd_copy_buffer_t>(VPU_CMD_COPY);
 #endif
     ASSERT_TRUE(cmd);
     cmd->desc_start_offset = desc_buf.vpu_addr() + desc_start_offset;
@@ -1309,12 +1327,12 @@ int CmdBuffer::submit_retry(drm_ivpu_submit *params, uint32_t submit_timeout_ms)
     test_app::overwrite_timeout(submit_timeout_ms);
     std::chrono::steady_clock::time_point timeOut =
         std::chrono::steady_clock::now() + std::chrono::milliseconds(submit_timeout_ms);
-    constexpr std::chrono::milliseconds sleep_time_ms = std::chrono::milliseconds(100);
+    constexpr std::chrono::milliseconds sleep_time_ms = std::chrono::milliseconds(1);
     int ret = 0;
 
     do {
         ret = _context.ioctl(DRM_IOCTL_IVPU_SUBMIT, params);
-        if (ret == 0 || ret == EBUSY)
+        if (ret == 0 || ret != EBUSY)
             break;
 
         std::this_thread::sleep_for(sleep_time_ms);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -47,6 +47,7 @@ TEST_F(Driver, GetExtensionProperties) {
     bool has_graph_extension = false;
     bool has_mutable_cmdlist_extension = false;
     bool has_cmd_queue_extension = false;
+    bool has_context_npu_extension = false;
     for (auto &v : props) {
         TRACE("Driver Extension name: %s, version: %i.%i\n",
               v.name,
@@ -62,9 +63,12 @@ TEST_F(Driver, GetExtensionProperties) {
             (v.version == ZE_COMMAND_QUEUE_NPU_EXT_VERSION_1_0 ||
              v.version == ZE_COMMAND_QUEUE_NPU_EXT_VERSION_1_1))
             has_cmd_queue_extension = true;
+        if (extName == ZE_CONTEXT_NPU_EXT_NAME && v.version == ZE_CONTEXT_NPU_EXT_VERSION_1_0)
+            has_context_npu_extension = true;
     }
 
     EXPECT_TRUE(has_graph_extension);
     EXPECT_TRUE(has_mutable_cmdlist_extension);
     EXPECT_TRUE(has_cmd_queue_extension);
+    EXPECT_TRUE(has_context_npu_extension);
 }

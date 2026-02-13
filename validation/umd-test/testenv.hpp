@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023-2025 Intel Corporation
+ * Copyright (C) 2023-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -13,8 +13,14 @@
 
 #include <filesystem>
 #include <gtest/gtest.h>
-#include <level_zero/zes_api.h>
 #include <yaml-cpp/yaml.h>
+#include <zes_api.h>
+
+#ifdef L0_VALIDATION_DISABLE
+#define L0_VALIDATION_ENABLE "0"
+#else
+#define L0_VALIDATION_ENABLE "1"
+#endif
 
 namespace test_vars {
 extern bool forceGpu;
@@ -22,7 +28,7 @@ extern bool disable_metrics;
 extern bool forceZeInitTests;
 extern bool forcePreemptionTests;
 extern int userRequestedTimeoutMs;
-extern std::string dumpInputDir;
+extern std::string dumpOnFailDir;
 } // namespace test_vars
 
 class Environment : public ::testing::Environment {
@@ -75,13 +81,14 @@ class Environment : public ::testing::Environment {
             PRINTF("Synchronization timeout changed to %d ms.\n",
                    test_vars::userRequestedTimeoutMs);
         }
-        if (test_vars::dumpInputDir.size() > 0) {
-            dumpInputDir = test_vars::dumpInputDir;
-            PRINTF("Dumping input data to directory: %s\n", dumpInputDir.c_str());
+        if (test_vars::dumpOnFailDir.size() > 0) {
+            dumpOnFailDir = test_vars::dumpOnFailDir;
+            PRINTF("On failure, inference data is dumped to directory: %s\n",
+                   dumpOnFailDir.c_str());
         }
         EXPECT_EQ(setenv("ZET_ENABLE_METRICS", config.metricsEnable ? "1" : "0", 0), 0);
-        EXPECT_EQ(setenv("ZE_ENABLE_VALIDATION_LAYER", "1", 0), 0);
-        EXPECT_EQ(setenv("ZE_ENABLE_PARAMETER_VALIDATION", "1", 0), 0);
+        EXPECT_EQ(setenv("ZE_ENABLE_VALIDATION_LAYER", L0_VALIDATION_ENABLE, 0), 0);
+        EXPECT_EQ(setenv("ZE_ENABLE_PARAMETER_VALIDATION", L0_VALIDATION_ENABLE, 0), 0);
 
         uint32_t drvCount = 0u;
         ze_init_driver_type_desc_t initDriverDesc{
@@ -165,10 +172,17 @@ class Environment : public ::testing::Environment {
                       reinterpret_cast<void **>(&zeCommandQueueDDITableExt)),
                   ZE_RESULT_SUCCESS);
 
+        ASSERT_EQ(
+            zeDriverGetExtensionFunctionAddress(zeDriver,
+                                                ZE_CONTEXT_NPU_EXT_NAME,
+                                                reinterpret_cast<void **>(&zeContextDDITableExt)),
+            ZE_RESULT_SUCCESS);
+
         ASSERT_NE(zeGraphDDITableExt, nullptr) << "Failed to find graph DDI table";
         ASSERT_NE(zeGraphProfilingDDITableExt, nullptr)
             << "Failed to find graph profiling DDI table";
         ASSERT_NE(zeCommandQueueDDITableExt, nullptr) << "Failed to find command queue DDI table";
+        ASSERT_NE(zeContextDDITableExt, nullptr) << "Failed to find context DDI table";
     }
 
     ze_driver_handle_t getDriver() { return zeDriver; }
@@ -178,6 +192,7 @@ class Environment : public ::testing::Environment {
         return zeGraphProfilingDDITableExt;
     }
     command_queue_dditable_t *getCommandQueueDDITable() { return zeCommandQueueDDITableExt; }
+    context_dditable_t *getContextDDITable() { return zeContextDDITableExt; }
 
     bool isDriverExtensionSupported(const char *extensionName, uint32_t extensionVersion = 0) {
         for (auto &v : driverExtensionProps) {
@@ -192,7 +207,7 @@ class Environment : public ::testing::Environment {
     uint16_t getPciDevId() { return pciDevId; }
     uint16_t getPlatformType() { return platformType; }
     uint64_t getUserSyncTimeoutNs() { return userRequestedTimeoutNs; }
-    std::string getDumpInputDir() { return dumpInputDir; }
+    std::string getDumpOnFailDir() { return dumpOnFailDir; }
 
     ze_driver_handle_t getDriverGpu() { return zeDriverGpu; }
     ze_device_handle_t getDeviceGpu() { return zeDeviceGpu; }
@@ -319,12 +334,13 @@ class Environment : public ::testing::Environment {
     ze_graph_profiling_dditable_ext_t *zeGraphProfilingDDITableExt = nullptr;
     /** @brief Pointer to the Level Zero API command queue extension DDI table */
     command_queue_dditable_t *zeCommandQueueDDITableExt = nullptr;
+    context_dditable_t *zeContextDDITableExt = nullptr;
     std::vector<ze_driver_extension_properties_t> driverExtensionProps = {};
     uint64_t maxMemAllocSize = 0;
     uint16_t pciDevId = 0;
     uint32_t platformType = 0;
     uint64_t userRequestedTimeoutNs = 0;
-    std::string dumpInputDir;
+    std::string dumpOnFailDir;
 
     ze_driver_handle_t zeDriverGpu = nullptr;
     ze_device_handle_t zeDeviceGpu = nullptr;

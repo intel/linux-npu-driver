@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -8,8 +8,8 @@
 #include "graph_utilities.hpp"
 #include "ze_stringify.hpp"
 
-#include <level_zero/zet_api.h>
 #include <vector>
+#include <zet_api.h>
 
 /*test case definition:
  * std::tuple<network definition node, metric group name, queryIndex >
