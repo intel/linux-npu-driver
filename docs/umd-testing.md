@@ -59,12 +59,21 @@ Preparation](https://docs.openvino.ai/2025/openvino-workflow/model-preparation.h
 The npu-umd-test is able to run tests with a set of models. The models have to be converted to the
 OpenVINO IR format.
 
-First model we can add `add_abc.xml` from [overview.md](overview.md)
+Adding `add_abc.xml` network from [overview.md](overview.md):
 ```bash
-# Prepare the add_abc model in the path indicated by basic.yaml
+# Prepare the add_abc model in the path indicated in the basic.yaml file
 mkdir -p models/add_abc
 curl -o models/add_abc/add_abc.xml https://raw.githubusercontent.com/openvinotoolkit/openvino/master/src/core/tests/models/ir/add_abc.xml
 touch models/add_abc/add_abc.bin
+```
+
+The `mul_add` network has been added to the repository. Below is the instruction on how to download the model from
+`linux-npu-driver/validation/models`:
+```bash
+# When adding another model, remember about the path indicated in the basic.yaml file
+mkdir -p models/mul_add
+curl -o models/mul_add/mul_add.xml https://raw.githubusercontent.com/intel/linux-npu-driver/main/validation/models/mul_add/mul_add.xml
+touch models/mul_add/mul_add.bin
 ```
 
 ### Imagenet Classification Model - ResNet-50
