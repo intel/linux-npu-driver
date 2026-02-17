@@ -1,0 +1,106 @@
+<?xml version="1.0"?>
+<net name="Model0" version="11">
+	<layers>
+		<layer id="2" name="Parameter_1" type="Parameter" version="opset1">
+			<data shape="2,3,4" element_type="f16" />
+			<output>
+				<port id="0" precision="FP16">
+					<dim>2</dim>
+					<dim>3</dim>
+					<dim>4</dim>
+				</port>
+			</output>
+		</layer>
+		<layer id="1" name="Parameter_2" type="Parameter" version="opset1">
+			<data shape="2,3,4" element_type="f16" />
+			<output>
+				<port id="0" precision="FP16">
+					<dim>2</dim>
+					<dim>3</dim>
+					<dim>4</dim>
+				</port>
+			</output>
+		</layer>
+		<layer id="0" name="Parameter_3" type="Parameter" version="opset1">
+			<data shape="2,3,4" element_type="f16" />
+			<output>
+				<port id="0" precision="FP16">
+					<dim>2</dim>
+					<dim>3</dim>
+					<dim>4</dim>
+				</port>
+			</output>
+		</layer>
+		<layer id="3" name="Multiply_4" type="Multiply" version="opset1">
+			<data auto_broadcast="numpy" />
+			<input>
+				<port id="0" precision="FP16">
+					<dim>2</dim>
+					<dim>3</dim>
+					<dim>4</dim>
+				</port>
+				<port id="1" precision="FP16">
+					<dim>2</dim>
+					<dim>3</dim>
+					<dim>4</dim>
+				</port>
+			</input>
+			<output>
+				<port id="2" precision="FP16">
+					<dim>2</dim>
+					<dim>3</dim>
+					<dim>4</dim>
+				</port>
+			</output>
+		</layer>
+		<layer id="4" name="Add_5" type="Add" version="opset1">
+			<data auto_broadcast="numpy" />
+			<input>
+				<port id="0" precision="FP16">
+					<dim>2</dim>
+					<dim>3</dim>
+					<dim>4</dim>
+				</port>
+				<port id="1" precision="FP16">
+					<dim>2</dim>
+					<dim>3</dim>
+					<dim>4</dim>
+				</port>
+			</input>
+			<output>
+				<port id="2" precision="FP16">
+					<dim>2</dim>
+					<dim>3</dim>
+					<dim>4</dim>
+				</port>
+			</output>
+		</layer>
+		<layer id="6" name="Result_6" type="Result" version="opset1">
+			<input>
+				<port id="0" precision="FP16">
+					<dim>2</dim>
+					<dim>3</dim>
+					<dim>4</dim>
+				</port>
+			</input>
+		</layer>
+		<layer id="5" name="Result_7" type="Result" version="opset1">
+			<input>
+				<port id="0" precision="FP16">
+					<dim>2</dim>
+					<dim>3</dim>
+					<dim>4</dim>
+				</port>
+			</input>
+		</layer>
+	</layers>
+	<edges>
+		<edge from-layer="0" from-port="0" to-layer="4" to-port="1" />
+		<edge from-layer="1" from-port="0" to-layer="3" to-port="1" />
+		<edge from-layer="2" from-port="0" to-layer="3" to-port="0" />
+		<edge from-layer="3" from-port="2" to-layer="4" to-port="0" />
+		<edge from-layer="3" from-port="2" to-layer="6" to-port="0" />
+		<edge from-layer="4" from-port="2" to-layer="5" to-port="0" />
+	</edges>
+	<rt_info />
+</net>

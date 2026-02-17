@@ -263,15 +263,27 @@ It is expected that `Umd.ConfigurationCheck` test fails when `--config` option
 is not used. `--config` points to YAML configuration file that allows to
 control the inference test content. Those tests require compiler in system.
 
-Config file requires to download any OpenVINO model. Command line to setup a
-`basic.yaml`:
+Config file requires to download any OpenVINO model. Command lines for configuring the `basic.yaml` file:
 ```bash
-# Prepare the add_abc model in path pointed by basic.yaml
+# Prepare the add_abc model in the path indicated in the basic.yaml file
 mkdir -p models/add_abc
 curl -o models/add_abc/add_abc.xml https://raw.githubusercontent.com/openvinotoolkit/openvino/master/src/core/tests/models/ir/add_abc.xml
 touch models/add_abc/add_abc.bin
+```
 
-# Run tests with add_abc.xml
+The `mul_add` network has been added to the repository. Below is the instruction on how to download the model from
+`linux-npu-driver/validation/models`:
+```bash
+# When adding another model, remember about the path indicated in the basic.yaml file
+mkdir -p models/mul_add
+curl -o models/mul_add/mul_add.xml https://raw.githubusercontent.com/intel/linux-npu-driver/main/validation/models/mul_add/mul_add.xml
+touch models/mul_add/mul_add.bin
+```
+
+This model is used in MutableCmdList tests.
+
+```bash
+# Running tests with a configuration file
 npu-umd-test --config=validation/umd-test/configs/basic.yaml
 ```
 
