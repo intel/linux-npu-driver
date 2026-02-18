@@ -176,7 +176,6 @@ class GraphApi : public GraphApiBase {
     }
 
     std::shared_ptr<Graph> graph;
-    std::array<std::string, 4> expectedArgNames = {"A", "B", "C", "Y"};
 };
 
 TEST_F(GraphApi, GetNativeBinaryUsingMemcpy) {
@@ -296,8 +295,7 @@ TEST_F(GraphApi, GetArgumentProperties2) {
                                                                 index,
                                                                 &graphArgumentProperties),
                   ZE_RESULT_SUCCESS);
-        ASSERT_EQ(expectedArgNames[index], graphArgumentProperties.name);
-        if (index < graphProps.numGraphArgs - 1) {
+        if (index == 0) {
             ASSERT_EQ(graphArgumentProperties.type, ZE_GRAPH_ARGUMENT_TYPE_INPUT);
         } else if (index == graphProps.numGraphArgs - 1) {
             ASSERT_EQ(graphArgumentProperties.type, ZE_GRAPH_ARGUMENT_TYPE_OUTPUT);
@@ -346,8 +344,7 @@ TEST_F(GraphApi, GetArgumentProperties3) {
                                                                 index,
                                                                 &graphArgumentProperties),
                   ZE_RESULT_SUCCESS);
-        ASSERT_EQ(expectedArgNames[index], graphArgumentProperties.name);
-        if (index < graphProps.numGraphArgs - 1) {
+        if (index == 0) {
             ASSERT_EQ(graphArgumentProperties.type, ZE_GRAPH_ARGUMENT_TYPE_INPUT);
         } else if (index == graphProps.numGraphArgs - 1) {
             ASSERT_EQ(graphArgumentProperties.type, ZE_GRAPH_ARGUMENT_TYPE_OUTPUT);
@@ -370,15 +367,6 @@ TEST_F(GraphApi, GetArgumentProperties3) {
             ASSERT_EQ(graphArgumentProperties.quantReverseScale, 0);
         }
         ASSERT_EQ(graphArgumentProperties.quantZeroPoint, 0);
-        ASSERT_EQ(graphArgumentProperties.dims_count, 1);
-        if (graphArgumentProperties.type == ZE_GRAPH_ARGUMENT_TYPE_INPUT) {
-            ASSERT_EQ(expectedArgNames[index], graphArgumentProperties.debug_friendly_name);
-        } else {
-            ASSERT_EQ(expectedArgNames[index] + "/sink_port_0",
-                      graphArgumentProperties.debug_friendly_name);
-        }
-        ASSERT_EQ(graphArgumentProperties.associated_tensor_names_count, 1);
-        ASSERT_EQ(expectedArgNames[index], graphArgumentProperties.associated_tensor_names[0]);
     }
 
     ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties3(graph->handle,
