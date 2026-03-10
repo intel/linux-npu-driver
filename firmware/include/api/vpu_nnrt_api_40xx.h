@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (c) 2022-2025, Intel Corporation.
+ * Copyright (c) 2022-2026, Intel Corporation.
  */
 
 #ifndef VPU_NNRT_API_40XX_H
@@ -41,12 +41,14 @@
  * returns an error if the major version does not match.
  * Note: VPU_NNRT_40XX_API_VER_PATCH is not stored in the MappedInference as
  * compatibility is not affected if this changes.
- *
+ */
+
+ /*
  * API changelog
- * -------------
+ * ------------
  * 11.13.1:
  *   - Replaced stack frame storage in VpuNNShaveRuntimeConfigs with a union,
- *     providing both a VpuTaskReference<uint32_t> stack_frames_ref for NPU7+ and a fixed-size array for NPU4-6.
+ *     providing a fixed-size array for NPU4-5.
  *
  * 11.13:
  *   - Accept CMX Shave stack frames from the blob
@@ -87,10 +89,8 @@
  *     barrier_programming_mode and barrier_configuration_stride in VpuManagedMappedInference)
  *     to allow runtime to efficiently fill barrier FIFOs.
  */
-
 #define VPU_NNRT_40XX_API_VER_MAJOR 11
 #define VPU_NNRT_40XX_API_VER_MINOR 13
-
 #define VPU_NNRT_40XX_API_VER_PATCH 1
 #define VPU_NNRT_40XX_API_VER ((VPU_NNRT_40XX_API_VER_MAJOR << 16) | VPU_NNRT_40XX_API_VER_MINOR)
 
@@ -107,7 +107,10 @@
  *
  * Act Runtime changelog:
  * ----------------------
- *  * 1.15:
+ * 1.16:
+ *  - Transition to one Shave cache op per Shave, removing the RISC communication path.
+ *
+ * 1.15:
  *  - Add cleanup function to clear specific registers at the beginning of shave entry
  *
  * 1.14:
@@ -139,17 +142,15 @@
  *   - Support Shave Shutdown control message
  *
  */
-
 #if !defined(CONFIG_TARGET_SOC_5000)
 #define VPU_ACT_RT_VER_MAJOR 1
 #define VPU_ACT_RT_VER_MINOR 9
 #define VPU_ACT_RT_VER_PATCH 3
 #else
 #define VPU_ACT_RT_VER_MAJOR 1
-#define VPU_ACT_RT_VER_MINOR 15
+#define VPU_ACT_RT_VER_MINOR 16
 #define VPU_ACT_RT_VER_PATCH 0
 #endif
-
 #define VPU_ACT_RT_VER ((VPU_ACT_RT_VER_MAJOR << 16) | VPU_ACT_RT_VER_MINOR)
 
 /*
