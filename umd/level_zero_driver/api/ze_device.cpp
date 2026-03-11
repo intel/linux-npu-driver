@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -13,8 +13,8 @@
 #include "level_zero_driver/source/device.hpp"
 #include "level_zero_driver/source/driver_handle.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_ddi.h>
+#include <ze_api.h>
+#include <ze_ddi.h>
 
 namespace L0 {
 ze_result_t
@@ -300,22 +300,31 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetDeviceProcAddrTable(ze_api_version_t ve
         goto exit;
     }
 
-    pDdiTable->pfnGet = L0::zeDeviceGet;
-    pDdiTable->pfnGetCommandQueueGroupProperties = L0::zeDeviceGetCommandQueueGroupProperties;
-    pDdiTable->pfnGetSubDevices = L0::zeDeviceGetSubDevices;
-    pDdiTable->pfnGetProperties = L0::zeDeviceGetProperties;
-    pDdiTable->pfnGetComputeProperties = L0::zeDeviceGetComputeProperties;
-    pDdiTable->pfnGetModuleProperties = L0::zeDeviceGetModuleProperties;
-    pDdiTable->pfnGetMemoryProperties = L0::zeDeviceGetMemoryProperties;
-    pDdiTable->pfnGetMemoryAccessProperties = L0::zeDeviceGetMemoryAccessProperties;
-    pDdiTable->pfnGetCacheProperties = L0::zeDeviceGetCacheProperties;
-    pDdiTable->pfnGetImageProperties = L0::zeDeviceGetImageProperties;
-    pDdiTable->pfnGetP2PProperties = L0::zeDeviceGetP2PProperties;
-    pDdiTable->pfnCanAccessPeer = L0::zeDeviceCanAccessPeer;
-    pDdiTable->pfnGetStatus = L0::zeDeviceGetStatus;
-    pDdiTable->pfnGetGlobalTimestamps = L0::zeDeviceGetGlobalTimestamps;
-    pDdiTable->pfnGetExternalMemoryProperties = L0::zeDeviceGetExternalMemoryProperties;
-    pDdiTable->pfnPciGetPropertiesExt = L0::zeDevicePciGetPropertiesExt;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGet = L0::zeDeviceGet;
+        pDdiTable->pfnGetCommandQueueGroupProperties = L0::zeDeviceGetCommandQueueGroupProperties;
+        pDdiTable->pfnGetSubDevices = L0::zeDeviceGetSubDevices;
+        pDdiTable->pfnGetProperties = L0::zeDeviceGetProperties;
+        pDdiTable->pfnGetComputeProperties = L0::zeDeviceGetComputeProperties;
+        pDdiTable->pfnGetModuleProperties = L0::zeDeviceGetModuleProperties;
+        pDdiTable->pfnGetMemoryProperties = L0::zeDeviceGetMemoryProperties;
+        pDdiTable->pfnGetMemoryAccessProperties = L0::zeDeviceGetMemoryAccessProperties;
+        pDdiTable->pfnGetCacheProperties = L0::zeDeviceGetCacheProperties;
+        pDdiTable->pfnGetImageProperties = L0::zeDeviceGetImageProperties;
+        pDdiTable->pfnGetP2PProperties = L0::zeDeviceGetP2PProperties;
+        pDdiTable->pfnCanAccessPeer = L0::zeDeviceCanAccessPeer;
+        pDdiTable->pfnGetStatus = L0::zeDeviceGetStatus;
+        pDdiTable->pfnGetExternalMemoryProperties = L0::zeDeviceGetExternalMemoryProperties;
+    }
+
+    if (version >= ZE_API_VERSION_1_1) {
+        pDdiTable->pfnGetGlobalTimestamps = L0::zeDeviceGetGlobalTimestamps;
+    }
+
+    if (version >= ZE_API_VERSION_1_3) {
+        pDdiTable->pfnPciGetPropertiesExt = L0::zeDevicePciGetPropertiesExt;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:

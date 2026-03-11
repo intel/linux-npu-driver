@@ -136,7 +136,7 @@ TEST_P(CommandGraphLong, AppendGraphInitExecuteAndSynchronize) {
     printf("\nFirst inference latency: %f [s]\n\n",
            (durationGraphInitialize + durationExecuteInference).count());
 
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
 }
 
 #ifndef ANDROID
@@ -191,7 +191,7 @@ TEST_P(CommandGraphLong, AppendGraphInitExecuteAndThreadedSynchronize) {
     ASSERT_EQ(result, ZE_RESULT_SUCCESS) << "TIMEOUT from threadedCommandQueueSyncWrapper";
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
 }
 #endif
 
@@ -220,7 +220,7 @@ TEST_P(CommandGraphLong, AppendGraphInitTwiceAndExecute) {
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
 }
 
 TEST_P(CommandGraphLong, RunGraphExecuteThreeTimes) {
@@ -244,7 +244,7 @@ TEST_P(CommandGraphLong, RunGraphExecuteThreeTimes) {
         ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
         ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-        graph->checkResults();
+        ASSERT_TRUE(graph->checkResults());
         graph->clearOutput();
 
         /* Make sure that driver does not allocate any extra memory on next run */
@@ -271,7 +271,7 @@ TEST_P(CommandGraphLong, RunInferenceWithGraphInitialize) {
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
     graph->clearOutput();
 }
 
@@ -330,7 +330,9 @@ TEST_P(CommandGraphLong, SingleListGraphExecutionWithBarrierTest) {
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    graph->checkResults(outputHostMem);
+    for (size_t i = 0; i < graph->outputSize.size(); i++) {
+        ASSERT_EQ(memcmp(outputHostMem[i], graph->outArgs[i], graph->outputSize[i]), 0);
+    }
 }
 
 TEST_P(CommandGraphLong, LoadGraphOnceAndRunExecutionTwice) {
@@ -348,7 +350,7 @@ TEST_P(CommandGraphLong, LoadGraphOnceAndRunExecutionTwice) {
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
 }
 
 TEST_P(CommandGraphLong, RunGraphExecuteInTwoSeparateCommandLists) {
@@ -398,9 +400,11 @@ TEST_P(CommandGraphLong, RunGraphExecuteInTwoSeparateCommandLists) {
     ASSERT_EQ(zeFenceHostSynchronize(fence0, graphSyncTimeout), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeFenceHostSynchronize(fence1, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    graph->checkResults(graphOutput);
+    for (size_t i = 0; i < graph->outputSize.size(); i++) {
+        ASSERT_EQ(memcmp(graphOutput[i], graph->outArgs[i], graph->outputSize[i]), 0);
+    }
 
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
 }
 
 TEST_P(CommandGraphLong, AppendGraphInitAndExecuteWithSingleMemoryAllocation) {
@@ -447,7 +451,7 @@ TEST_P(CommandGraphLong, AppendGraphInitAndExecuteWithSingleMemoryAllocation) {
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
 }
 
 TEST_P(CommandGraphLong, GraphInitAndExecWith200msDelay) {
@@ -472,7 +476,7 @@ TEST_P(CommandGraphLong, GraphInitAndExecWith200msDelay) {
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
 }
 
 TEST_P(CommandGraphLong, GetNativeBinaryAndReleaseAfterAppendGraphInitializeRunInference) {
@@ -514,7 +518,7 @@ TEST_P(CommandGraphLong, GetNativeBinaryAndReleaseAfterAppendGraphInitializeRunI
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
 }
 
 TEST_P(CommandGraphLong, GetNativeBinaryAndReleaseAfterGraphInitializeRunInference) {
@@ -550,7 +554,7 @@ TEST_P(CommandGraphLong, GetNativeBinaryAndReleaseAfterGraphInitializeRunInferen
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
 }
 
 TEST_P(CommandGraphLong, GetNativeBinary2AndReleaseAfterAppendGraphInitializeRunInference) {
@@ -592,7 +596,7 @@ TEST_P(CommandGraphLong, GetNativeBinary2AndReleaseAfterAppendGraphInitializeRun
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
 }
 
 TEST_P(CommandGraphLong, GetNativeBinary2AndReleaseAfterGraphInitializeRunInference) {
@@ -628,7 +632,7 @@ TEST_P(CommandGraphLong, GetNativeBinary2AndReleaseAfterGraphInitializeRunInfere
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
 }
 
 class CommandGraphLongThreaded
@@ -684,7 +688,7 @@ TEST_P(CommandGraphLongThreaded, RunInferenceUseCommandQueueSynchronize) {
                       ZE_RESULT_SUCCESS);
             ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-            graph->checkResults();
+            ASSERT_TRUE(graph->checkResults());
         }));
     }
     for (const auto &t : tasks) {
@@ -734,7 +738,7 @@ TEST_P(CommandGraphLongThreaded, RunInferenceUseFenceSynchronize) {
             ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, fence), ZE_RESULT_SUCCESS);
             ASSERT_EQ(zeFenceHostSynchronize(fence, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-            graph->checkResults();
+            ASSERT_TRUE(graph->checkResults());
         }));
     }
     for (const auto &t : tasks) {
@@ -775,7 +779,7 @@ TEST_P(CommandGraphLong, MutableCmdList) {
               ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
     graph->clearOutput();
 
     // update the first argument with the same input buffer
@@ -799,7 +803,7 @@ TEST_P(CommandGraphLong, MutableCmdList) {
               ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
     graph->clearOutput();
 
     // realloc the first argument and update the graph
@@ -812,5 +816,5 @@ TEST_P(CommandGraphLong, MutableCmdList) {
               ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
 }

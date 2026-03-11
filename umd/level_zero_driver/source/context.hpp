@@ -1,11 +1,13 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
 #pragma once
+
+// IWYU pragma: no_include <bits/chrono.h>
 
 #include <stddef.h>
 #include <stdint.h>
@@ -14,23 +16,49 @@
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_graph_ext.h>
-#include <level_zero/zet_api.h>
+#include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <thread>
 #include <unordered_map>
 #include <utility>
+#include <ze_api.h>
+#include <ze_context_npu_ext.h>
+#include <ze_graph_ext.h>
+#include <zet_api.h>
+
+using namespace std::literals;
 
 struct _ze_context_handle_t {};
 
 namespace L0 {
 struct DriverHandle;
+struct Context;
+
+struct ResourceCleaner {
+    ResourceCleaner(Context *ctx, std::chrono::milliseconds timeout);
+    ResourceCleaner(const ResourceCleaner &) = delete;
+    ResourceCleaner(ResourceCleaner &&) = delete;
+    ResourceCleaner &operator=(const ResourceCleaner &) = delete;
+    ResourceCleaner &operator=(ResourceCleaner &&) = delete;
+    ~ResourceCleaner();
+    void setIdle();
+    void setIdleTimeout(std::chrono::milliseconds timeout);
+
+    std::mutex mutex;
+    std::condition_variable cv;
+    std::chrono::milliseconds idleTimeout = 30s;
+    std::thread thread;
+
+    enum class Action {
+        NOP,
+        PRUNE_AFTER_TIMEOUT,
+        BREAK,
+    } action = Action::NOP;
+};
 
 struct Context : _ze_context_handle_t {
-    Context(DriverHandle *driverHandle, std::unique_ptr<VPU::VPUDeviceContext> ctx)
-        : driverHandle(driverHandle)
-        , ctx(std::move(ctx)){};
+    Context(DriverHandle *driverHandle, std::unique_ptr<VPU::VPUDeviceContext> ctx);
     ~Context() = default;
 
     ze_result_t destroy();
@@ -74,6 +102,9 @@ struct Context : _ze_context_handle_t {
     ze_result_t queryContextMemory(ze_graph_memory_query_type_t type,
                                    ze_graph_memory_query_t *query);
 
+    ze_result_t setProperties(const ze_context_properties_npu_ext_t *pContextProperties);
+    ze_result_t releaseMemory();
+
     inline ze_context_handle_t toHandle() { return this; }
     static Context *fromHandle(ze_context_handle_t handle) {
         return static_cast<Context *>(handle);
@@ -91,11 +122,17 @@ struct Context : _ze_context_handle_t {
         objects.erase(obj);
     }
 
+    void setIdle();
+    void setIdlePruningTimeout(uint64_t timeout);
+
   private:
     DriverHandle *driverHandle = nullptr;
     std::unique_ptr<VPU::VPUDeviceContext> ctx;
     std::unordered_map<void *, std::unique_ptr<IContextObject>> objects;
     std::mutex mutex;
+    std::mutex cleanerMutex;
+    std::unique_ptr<ResourceCleaner> resourceCleaner;
+    std::chrono::milliseconds idleTimeout = 30s;
 };
 
 } // namespace L0

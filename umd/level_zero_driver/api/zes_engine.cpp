@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -10,9 +10,9 @@
 #include "level_zero_driver/include/l0_exception.hpp"
 #include "level_zero_driver/source/device.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/zes_api.h>
-#include <level_zero/zes_ddi.h>
+#include <ze_api.h>
+#include <zes_api.h>
+#include <zes_ddi.h>
 
 namespace L0 {
 
@@ -81,11 +81,14 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetEngineProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGetProperties = L0::zesEngineGetProperties;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGetProperties = L0::zesEngineGetProperties;
+    }
 
-    pDdiTable->pfnGetActivity = L0::zesEngineGetActivity;
-
-    pDdiTable->pfnGetActivityExt = nullptr;
+    if (version >= ZE_API_VERSION_1_7) {
+        pDdiTable->pfnGetActivity = L0::zesEngineGetActivity;
+        pDdiTable->pfnGetActivityExt = nullptr;
+    }
 
 exit:
     trace_zesGetEngineProcAddrTable(ret, version, pDdiTable);

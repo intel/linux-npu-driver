@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -13,13 +13,13 @@
 #include "vpu_driver/source/device/vpu_device.hpp"
 
 #include <functional>
-#include <level_zero/ze_api.h>
-#include <level_zero/zes_api.h>
-#include <level_zero/zet_api.h>
 #include <memory>
 #include <sys/types.h>
 #include <uapi/drm/ivpu_accel.h>
 #include <vector>
+#include <ze_api.h>
+#include <zes_api.h>
+#include <zet_api.h>
 
 struct _ze_device_handle_t {};
 

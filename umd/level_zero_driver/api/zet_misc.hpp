@@ -1,14 +1,13 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
 
-#include "level_zero/loader/ze_loader.h"
-#include "level_zero/ze_api.h"
-
+#include <loader/ze_loader.h>
 #include <string>
+#include <ze_api.h>
 
 #pragma once
 

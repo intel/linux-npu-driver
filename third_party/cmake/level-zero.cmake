@@ -1,4 +1,4 @@
-# Copyright (C) 2022-2025 Intel Corporation
+# Copyright (C) 2022-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 
@@ -19,21 +19,15 @@ if(NOT LevelZero_FOUND)
   # EXCLUDE_FROM_ALL is used because level-zero-devel install destination starts with root
   add_subdirectory(level-zero EXCLUDE_FROM_ALL)
 
+  # Make ze_api_headers target to provide Level Zero headers to ze_loader and other targets
+  add_library(ze_api_headers INTERFACE)
+  target_include_directories(ze_api_headers SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/level-zero/include)
+
+  # Link ze_loader with ze_api_headers to provide Level Zero headers
+  target_link_libraries(ze_loader PUBLIC ze_api_headers)
+
   # EXCLUDE_FROM_ALL requires to add components from level-zero manually
   add_dependencies(ze_loader ze_validation_layer ze_tracing_layer)
   install(TARGETS ze_loader ze_validation_layer ze_tracing_layer
           COMPONENT level-zero)
-
-  set(LevelZero_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/level-zero/include)
 endif()
-
-# TODO: Get rid of copying the headers if level-zero is installed
-set(LEVEL_ZERO_HEADERS_DIR "${CMAKE_BINARY_DIR}/include/level_zero")
-file(MAKE_DIRECTORY ${LEVEL_ZERO_HEADERS_DIR})
-foreach(LevelZero_INCLUDE_DIR IN LISTS LevelZero_INCLUDE_DIRS)
-    file(GLOB LEVEL_ZERO_HEADERS
-        ${LevelZero_INCLUDE_DIR}/*.h
-        ${LevelZero_INCLUDE_DIR}/layers
-        ${LevelZero_INCLUDE_DIR}/loader)
-    file(COPY ${LEVEL_ZERO_HEADERS} DESTINATION ${LEVEL_ZERO_HEADERS_DIR})
-endforeach()

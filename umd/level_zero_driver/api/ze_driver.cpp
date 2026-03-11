@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -9,6 +9,7 @@
 
 #include <stdint.h>
 
+#include "level_zero_driver/api/ext/ze_context.hpp"
 #include "level_zero_driver/api/ext/ze_graph.hpp"
 #include "level_zero_driver/api/ext/ze_queue.hpp"
 #include "level_zero_driver/api/prv/zex_driver.hpp"
@@ -21,12 +22,13 @@
 
 #include <array>
 #include <dlfcn.h>
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_command_queue_npu_ext.h>
-#include <level_zero/ze_ddi.h>
-#include <level_zero/ze_graph_ext.h>
-#include <level_zero/ze_graph_profiling_ext.h>
 #include <string.h>
+#include <ze_api.h>
+#include <ze_command_queue_npu_ext.h>
+#include <ze_context_npu_ext.h>
+#include <ze_ddi.h>
+#include <ze_graph_ext.h>
+#include <ze_graph_profiling_ext.h>
 
 #ifdef ANDROID
 #define LIB_ZE_INTEL_VPU_NAME "libze_intel_vpu.so"
@@ -128,11 +130,12 @@ ze_result_t zeDriverGetExtensionProperties(ze_driver_handle_t hDriver,
     trace_zeDriverGetExtensionProperties(hDriver, pCount, pExtensionProperties);
     ze_result_t ret;
 
-    std::array<ze_driver_extension_properties_t, 11> supportedExts = {{
+    std::array<ze_driver_extension_properties_t, 12> supportedExts = {{
         {ZE_GRAPH_EXT_NAME, ZE_GRAPH_EXT_VERSION_CURRENT},
         {ZE_PROFILING_DATA_EXT_NAME, ZE_PROFILING_DATA_EXT_VERSION_1_0},
         {ZE_MUTABLE_COMMAND_LIST_EXP_NAME, ZE_MUTABLE_COMMAND_LIST_EXP_VERSION_1_1},
         {ZE_COMMAND_QUEUE_NPU_EXT_NAME, ZE_COMMAND_QUEUE_NPU_EXT_VERSION_1_0},
+        {ZE_CONTEXT_NPU_EXT_NAME, ZE_CONTEXT_NPU_EXT_VERSION_CURRENT},
         {"ZE_extension_graph_1_2", ZE_GRAPH_EXT_VERSION_1_2},
         {"ZE_extension_graph_1_3", ZE_GRAPH_EXT_VERSION_1_3},
         {"ZE_extension_graph_1_4", ZE_GRAPH_EXT_VERSION_1_4},
@@ -226,6 +229,16 @@ ze_result_t zeDriverGetExtensionFunctionAddress(ze_driver_handle_t hDriver,
         goto exit;
     }
 
+    if (strcmp(name, ZE_CONTEXT_NPU_EXT_NAME) == 0) {
+        static ze_context_npu_dditable_ext_t table;
+
+        table.pfnSetProperties = L0::zeContextSetProperties;
+        table.pfnReleaseMemory = L0::zeContextReleaseMemory;
+        *ppFunctionAddress = reinterpret_cast<void *>(&table);
+        ret = ZE_RESULT_SUCCESS;
+        goto exit;
+    }
+
     static ze_graph_dditable_ext_t table;
     // version 1.0
     table.pfnCreate = L0::zeGraphCreate;
@@ -278,6 +291,12 @@ ze_result_t zeDriverGetExtensionFunctionAddress(ze_driver_handle_t hDriver,
     table.pfnBuildLogGetString2 = L0::zeGraphBuildLogGetString2;
     table.pfnBuildLogDestroy = L0::zeGraphBuildLogDestroy;
 
+    // version 1.15
+    table.pfnSetArgumentValue2 = L0::zeGraphSetArgumentValue2;
+
+    // version 1.16
+    table.pfnEvict = L0::zeGraphEvict;
+
     if (strstr(name, ZE_GRAPH_EXT_NAME) != nullptr) {
         *ppFunctionAddress = reinterpret_cast<void *>(&table);
         ret = ZE_RESULT_SUCCESS;
@@ -296,6 +315,7 @@ ze_result_t zeDriverGetExtensionFunctionAddress(ze_driver_handle_t hDriver,
     CHECK_PRIVATE_FUNCTION(zexDiskCacheSetSize);
     CHECK_PRIVATE_FUNCTION(zexDiskCacheGetSize);
     CHECK_PRIVATE_FUNCTION(zexDiskCacheGetDirectory);
+    CHECK_PRIVATE_FUNCTION(zexContextSetIdlePruningTimeout);
 
     LOG_E("Driver Function Extension with %s name does not exist", name);
 exit:
@@ -320,8 +340,14 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetGlobalProcAddrTable(ze_api_version_t ve
         goto exit;
     }
 
-    pDdiTable->pfnInit = L0::zeInit;
-    pDdiTable->pfnInitDrivers = L0::zeInitDrivers;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnInit = L0::zeInit;
+    }
+
+    if (version >= ZE_API_VERSION_1_10) {
+        pDdiTable->pfnInitDrivers = L0::zeInitDrivers;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -344,12 +370,18 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetDriverProcAddrTable(ze_api_version_t ve
         goto exit;
     }
 
-    pDdiTable->pfnGet = L0::zeDriverGet;
-    pDdiTable->pfnGetApiVersion = L0::zeDriverGetApiVersion;
-    pDdiTable->pfnGetProperties = L0::zeDriverGetProperties;
-    pDdiTable->pfnGetIpcProperties = L0::zeDriverGetIpcProperties;
-    pDdiTable->pfnGetExtensionProperties = L0::zeDriverGetExtensionProperties;
-    pDdiTable->pfnGetExtensionFunctionAddress = L0::zeDriverGetExtensionFunctionAddress;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGet = L0::zeDriverGet;
+        pDdiTable->pfnGetApiVersion = L0::zeDriverGetApiVersion;
+        pDdiTable->pfnGetProperties = L0::zeDriverGetProperties;
+        pDdiTable->pfnGetIpcProperties = L0::zeDriverGetIpcProperties;
+        pDdiTable->pfnGetExtensionProperties = L0::zeDriverGetExtensionProperties;
+    }
+
+    if (version >= ZE_API_VERSION_1_1) {
+        pDdiTable->pfnGetExtensionFunctionAddress = L0::zeDriverGetExtensionFunctionAddress;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:

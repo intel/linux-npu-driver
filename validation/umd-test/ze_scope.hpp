@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -9,7 +9,7 @@
 
 #include "umd_extensions.h"
 
-#include <level_zero/zet_api.h>
+#include <zet_api.h>
 
 #ifdef VPU_GTEST_APP
 #include <gtest/gtest.h>

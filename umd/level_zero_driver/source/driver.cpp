@@ -43,6 +43,16 @@ void Driver::initializeEnvVariables() {
     env = getenv("ZE_SHARED_FORCE_DEVICE_ALLOC");
     envVariables.sharedForceDeviceAlloc =
         env == nullptr || env[0] == '0' || env[0] == '\0' ? false : true;
+
+    env = getenv("ZE_ENABLE_VALIDATION_LAYER");
+    bool validationLayerEnabled = env == nullptr || env[0] == '0' || env[0] == '\0' ? false : true;
+
+    if (validationLayerEnabled) {
+        env = getenv("ZE_ENABLE_PARAMETER_VALIDATION");
+        bool paramValidationEnabled =
+            env == nullptr || env[0] == '0' || env[0] == '\0' ? false : true;
+        envVariables.extensionValidation = paramValidationEnabled;
+    }
 }
 
 void Driver::initializeLogging() {

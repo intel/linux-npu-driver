@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -14,8 +14,8 @@
 #include "level_zero_driver/source/device.hpp"
 #include "level_zero_driver/source/driver_handle.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_ddi.h>
+#include <ze_api.h>
+#include <ze_ddi.h>
 
 namespace L0 {
 ze_result_t zeContextCreate(ze_driver_handle_t hDriver,
@@ -206,6 +206,7 @@ ze_result_t zeContextEvictImage(ze_context_handle_t hContext,
     trace_zeContextEvictImage(ret, hContext, hDevice, hImage);
     return ret;
 }
+
 } // namespace L0
 
 extern "C" {
@@ -224,14 +225,17 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zeGetContextProcAddrTable(ze_api_version_t v
         goto exit;
     }
 
-    pDdiTable->pfnCreate = L0::zeContextCreate;
-    pDdiTable->pfnDestroy = L0::zeContextDestroy;
-    pDdiTable->pfnGetStatus = L0::zeContextGetStatus;
-    pDdiTable->pfnSystemBarrier = L0::zeContextSystemBarrier;
-    pDdiTable->pfnMakeMemoryResident = L0::zeContextMakeMemoryResident;
-    pDdiTable->pfnEvictMemory = L0::zeContextEvictMemory;
-    pDdiTable->pfnMakeImageResident = L0::zeContextMakeImageResident;
-    pDdiTable->pfnEvictImage = L0::zeContextEvictImage;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnCreate = L0::zeContextCreate;
+        pDdiTable->pfnDestroy = L0::zeContextDestroy;
+        pDdiTable->pfnGetStatus = L0::zeContextGetStatus;
+        pDdiTable->pfnSystemBarrier = L0::zeContextSystemBarrier;
+        pDdiTable->pfnMakeMemoryResident = L0::zeContextMakeMemoryResident;
+        pDdiTable->pfnEvictMemory = L0::zeContextEvictMemory;
+        pDdiTable->pfnMakeImageResident = L0::zeContextMakeImageResident;
+        pDdiTable->pfnEvictImage = L0::zeContextEvictImage;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -254,8 +258,11 @@ zeGetPhysicalMemProcAddrTable(ze_api_version_t version, ze_physical_mem_dditable
         goto exit;
     }
 
-    pDdiTable->pfnCreate = L0::zePhysicalMemCreate;
-    pDdiTable->pfnDestroy = L0::zePhysicalMemDestroy;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnCreate = L0::zePhysicalMemCreate;
+        pDdiTable->pfnDestroy = L0::zePhysicalMemDestroy;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -278,13 +285,16 @@ zeGetVirtualMemProcAddrTable(ze_api_version_t version, ze_virtual_mem_dditable_t
         goto exit;
     }
 
-    pDdiTable->pfnReserve = L0::zeVirtualMemReserve;
-    pDdiTable->pfnFree = L0::zeVirtualMemFree;
-    pDdiTable->pfnQueryPageSize = L0::zeVirtualMemQueryPageSize;
-    pDdiTable->pfnMap = L0::zeVirtualMemMap;
-    pDdiTable->pfnUnmap = L0::zeVirtualMemUnmap;
-    pDdiTable->pfnSetAccessAttribute = L0::zeVirtualMemSetAccessAttribute;
-    pDdiTable->pfnGetAccessAttribute = L0::zeVirtualMemGetAccessAttribute;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnReserve = L0::zeVirtualMemReserve;
+        pDdiTable->pfnFree = L0::zeVirtualMemFree;
+        pDdiTable->pfnQueryPageSize = L0::zeVirtualMemQueryPageSize;
+        pDdiTable->pfnMap = L0::zeVirtualMemMap;
+        pDdiTable->pfnUnmap = L0::zeVirtualMemUnmap;
+        pDdiTable->pfnSetAccessAttribute = L0::zeVirtualMemSetAccessAttribute;
+        pDdiTable->pfnGetAccessAttribute = L0::zeVirtualMemGetAccessAttribute;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:

@@ -133,6 +133,7 @@ bool VPUCommandBuffer::initHeader(size_t cmdSize) {
     bb->cmd_buffer_size = safe_cast<uint32_t>(bb->cmd_offset + cmdSize);
 
     bb->context_save_area_address = buffer->getVPUAddr() + offsetof(CommandHeader, contextSaveArea);
+    bb->api_version = VPU_JSM_JOB_CMD_API_VER_MAJOR << 16 | VPU_JSM_JOB_CMD_API_VER_MINOR;
     return true;
 }
 
@@ -358,11 +359,14 @@ void VPUCommandBuffer::printCommandBuffer(const char *description) const {
     LOG(VPU_CMD,
         "Start command buffer printing(%s):\n"
         "\t&vpu_cmd_buffer_header_t: %p, (vpu: %#lx)\n"
-        "\tcmd_buffer_size: %#x, cmd_offset: %#x, context_save_area_address: %#lx\n",
+        "\tcmd_buffer_size: %#x, api_version: %#x.%#x, cmd_offset: %#x, context_save_area_address: "
+        "%#lx\n",
         description ? description : "",
         cmdHeader,
         buffer->getVPUAddr(cmdHeader),
         cmdHeader->cmd_buffer_size,
+        cmdHeader->api_version >> 16,
+        cmdHeader->api_version & 0xFFFF,
         cmdHeader->cmd_offset,
         cmdHeader->context_save_area_address);
 
@@ -425,9 +429,9 @@ void VPUCommandBuffer::printCommandBuffer(const char *description) const {
                 reinterpret_cast<vpu_cmd_metric_query_t *>(cmd)->metric_group_type,
                 reinterpret_cast<vpu_cmd_metric_query_t *>(cmd)->metric_data_address);
             break;
-        case VPU_CMD_COPY_LOCAL_TO_LOCAL:
+        case VPU_CMD_COPY:
             LOG(VPU_CMD,
-                "Command %i: Copy Local to Local (size: %u bytes)\n"
+                "Command %i: Copy (size: %u bytes)\n"
                 "\tdesc_start_offset = %#lx, desc_count = %u",
                 i,
                 cmd->size,

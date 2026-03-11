@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -9,7 +9,6 @@
 #include <stdint.h>
 
 #include "context.hpp"
-#include "level_zero/ze_api.h"
 #include "umd_common.hpp"
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
@@ -18,6 +17,7 @@
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <memory>
+#include <ze_api.h>
 
 namespace L0 {
 

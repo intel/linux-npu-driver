@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -15,10 +15,10 @@
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_intel_npu_uuid.h>
 #include <string.h>
 #include <string>
+#include <ze_api.h>
+#include <ze_intel_npu_uuid.h>
 
 namespace L0 {
 namespace ult {

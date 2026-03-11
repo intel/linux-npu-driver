@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,8 +7,8 @@
 
 #include "level_zero_driver/api/trace/trace_ze_api_ddi.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_ddi.h>
+#include <ze_api.h>
+#include <ze_ddi.h>
 
 extern "C" {
 ZE_APIEXPORT ze_result_t ZE_APICALL zeGetImageProcAddrTable(ze_api_version_t version,
@@ -26,9 +26,12 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetImageProcAddrTable(ze_api_version_t ver
         goto exit;
     }
 
-    pDdiTable->pfnGetProperties = nullptr;
-    pDdiTable->pfnCreate = nullptr;
-    pDdiTable->pfnDestroy = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGetProperties = nullptr;
+        pDdiTable->pfnCreate = nullptr;
+        pDdiTable->pfnDestroy = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -51,14 +54,17 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetModuleProcAddrTable(ze_api_version_t ve
         goto exit;
     }
 
-    pDdiTable->pfnCreate = nullptr;
-    pDdiTable->pfnDestroy = nullptr;
-    pDdiTable->pfnDynamicLink = nullptr;
-    pDdiTable->pfnGetNativeBinary = nullptr;
-    pDdiTable->pfnGetGlobalPointer = nullptr;
-    pDdiTable->pfnGetKernelNames = nullptr;
-    pDdiTable->pfnGetFunctionPointer = nullptr;
-    pDdiTable->pfnGetProperties = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnCreate = nullptr;
+        pDdiTable->pfnDestroy = nullptr;
+        pDdiTable->pfnDynamicLink = nullptr;
+        pDdiTable->pfnGetNativeBinary = nullptr;
+        pDdiTable->pfnGetGlobalPointer = nullptr;
+        pDdiTable->pfnGetKernelNames = nullptr;
+        pDdiTable->pfnGetFunctionPointer = nullptr;
+        pDdiTable->pfnGetProperties = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -82,8 +88,11 @@ zeGetModuleBuildLogProcAddrTable(ze_api_version_t version,
         goto exit;
     }
 
-    pDdiTable->pfnDestroy = nullptr;
-    pDdiTable->pfnGetString = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnDestroy = nullptr;
+        pDdiTable->pfnGetString = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -106,18 +115,21 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetKernelProcAddrTable(ze_api_version_t ve
         goto exit;
     }
 
-    pDdiTable->pfnCreate = nullptr;
-    pDdiTable->pfnDestroy = nullptr;
-    pDdiTable->pfnSetGroupSize = nullptr;
-    pDdiTable->pfnSuggestGroupSize = nullptr;
-    pDdiTable->pfnSuggestMaxCooperativeGroupCount = nullptr;
-    pDdiTable->pfnSetArgumentValue = nullptr;
-    pDdiTable->pfnSetIndirectAccess = nullptr;
-    pDdiTable->pfnGetIndirectAccess = nullptr;
-    pDdiTable->pfnGetSourceAttributes = nullptr;
-    pDdiTable->pfnGetProperties = nullptr;
-    pDdiTable->pfnSetCacheConfig = nullptr;
-    pDdiTable->pfnGetName = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnCreate = nullptr;
+        pDdiTable->pfnDestroy = nullptr;
+        pDdiTable->pfnSetGroupSize = nullptr;
+        pDdiTable->pfnSuggestGroupSize = nullptr;
+        pDdiTable->pfnSuggestMaxCooperativeGroupCount = nullptr;
+        pDdiTable->pfnSetArgumentValue = nullptr;
+        pDdiTable->pfnSetIndirectAccess = nullptr;
+        pDdiTable->pfnGetIndirectAccess = nullptr;
+        pDdiTable->pfnGetSourceAttributes = nullptr;
+        pDdiTable->pfnGetProperties = nullptr;
+        pDdiTable->pfnSetCacheConfig = nullptr;
+        pDdiTable->pfnGetName = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -140,8 +152,11 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetSamplerProcAddrTable(ze_api_version_t v
         goto exit;
     }
 
-    pDdiTable->pfnCreate = nullptr;
-    pDdiTable->pfnDestroy = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnCreate = nullptr;
+        pDdiTable->pfnDestroy = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -165,10 +180,13 @@ zeGetRTASBuilderExpProcAddrTable(ze_api_version_t version,
         goto exit;
     }
 
-    pDdiTable->pfnCreateExp = nullptr;
-    pDdiTable->pfnGetBuildPropertiesExp = nullptr;
-    pDdiTable->pfnBuildExp = nullptr;
-    pDdiTable->pfnDestroyExp = nullptr;
+    if (version >= ZE_API_VERSION_1_7) {
+        pDdiTable->pfnCreateExp = nullptr;
+        pDdiTable->pfnGetBuildPropertiesExp = nullptr;
+        pDdiTable->pfnBuildExp = nullptr;
+        pDdiTable->pfnDestroyExp = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -191,11 +209,14 @@ zeGetRTASBuilderProcAddrTable(ze_api_version_t version, ze_rtas_builder_dditable
         goto exit;
     }
 
-    pDdiTable->pfnCreateExt = nullptr;
-    pDdiTable->pfnGetBuildPropertiesExt = nullptr;
-    pDdiTable->pfnBuildExt = nullptr;
-    pDdiTable->pfnCommandListAppendCopyExt = nullptr;
-    pDdiTable->pfnDestroyExt = nullptr;
+    if (version >= ZE_API_VERSION_1_13) {
+        pDdiTable->pfnCreateExt = nullptr;
+        pDdiTable->pfnGetBuildPropertiesExt = nullptr;
+        pDdiTable->pfnBuildExt = nullptr;
+        pDdiTable->pfnCommandListAppendCopyExt = nullptr;
+        pDdiTable->pfnDestroyExt = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -219,10 +240,13 @@ zeGetRTASParallelOperationExpProcAddrTable(ze_api_version_t version,
         goto exit;
     }
 
-    pDdiTable->pfnCreateExp = nullptr;
-    pDdiTable->pfnGetPropertiesExp = nullptr;
-    pDdiTable->pfnJoinExp = nullptr;
-    pDdiTable->pfnDestroyExp = nullptr;
+    if (version >= ZE_API_VERSION_1_7) {
+        pDdiTable->pfnCreateExp = nullptr;
+        pDdiTable->pfnGetPropertiesExp = nullptr;
+        pDdiTable->pfnJoinExp = nullptr;
+        pDdiTable->pfnDestroyExp = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -246,10 +270,13 @@ zeGetRTASParallelOperationProcAddrTable(ze_api_version_t version,
         goto exit;
     }
 
-    pDdiTable->pfnCreateExt = nullptr;
-    pDdiTable->pfnGetPropertiesExt = nullptr;
-    pDdiTable->pfnJoinExt = nullptr;
-    pDdiTable->pfnDestroyExt = nullptr;
+    if (version >= ZE_API_VERSION_1_13) {
+        pDdiTable->pfnCreateExt = nullptr;
+        pDdiTable->pfnGetPropertiesExt = nullptr;
+        pDdiTable->pfnJoinExt = nullptr;
+        pDdiTable->pfnDestroyExt = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -272,7 +299,10 @@ zeGetDriverExpProcAddrTable(ze_api_version_t version, ze_driver_exp_dditable_t *
         goto exit;
     }
 
-    pDdiTable->pfnRTASFormatCompatibilityCheckExp = nullptr;
+    if (version >= ZE_API_VERSION_1_7) {
+        pDdiTable->pfnRTASFormatCompatibilityCheckExp = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -295,7 +325,10 @@ zeGetDeviceExpProcAddrTable(ze_api_version_t version, ze_device_exp_dditable_t *
         goto exit;
     }
 
-    pDdiTable->pfnGetFabricVertexExp = nullptr;
+    if (version >= ZE_API_VERSION_1_4) {
+        pDdiTable->pfnGetFabricVertexExp = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -318,7 +351,10 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetEventExpProcAddrTable(ze_api_version_t 
         goto exit;
     }
 
-    pDdiTable->pfnQueryTimestampsExp = nullptr;
+    if (version >= ZE_API_VERSION_1_2) {
+        pDdiTable->pfnQueryTimestampsExp = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -341,9 +377,15 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetImageExpProcAddrTable(ze_api_version_t 
         goto exit;
     }
 
-    pDdiTable->pfnGetMemoryPropertiesExp = nullptr;
-    pDdiTable->pfnViewCreateExp = nullptr;
-    pDdiTable->pfnGetDeviceOffsetExp = nullptr;
+    if (version >= ZE_API_VERSION_1_2) {
+        pDdiTable->pfnGetMemoryPropertiesExp = nullptr;
+        pDdiTable->pfnViewCreateExp = nullptr;
+    }
+
+    if (version >= ZE_API_VERSION_1_9) {
+        pDdiTable->pfnGetDeviceOffsetExp = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -366,8 +408,14 @@ zeGetKernelExpProcAddrTable(ze_api_version_t version, ze_kernel_exp_dditable_t *
         goto exit;
     }
 
-    pDdiTable->pfnSetGlobalOffsetExp = nullptr;
-    pDdiTable->pfnSchedulingHintExp = nullptr;
+    if (version >= ZE_API_VERSION_1_1) {
+        pDdiTable->pfnSetGlobalOffsetExp = nullptr;
+    }
+
+    if (version >= ZE_API_VERSION_1_2) {
+        pDdiTable->pfnSchedulingHintExp = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -390,10 +438,16 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetMemExpProcAddrTable(ze_api_version_t ve
         goto exit;
     }
 
-    pDdiTable->pfnGetIpcHandleFromFileDescriptorExp = nullptr;
-    pDdiTable->pfnGetFileDescriptorFromIpcHandleExp = nullptr;
-    pDdiTable->pfnSetAtomicAccessAttributeExp = nullptr;
-    pDdiTable->pfnGetAtomicAccessAttributeExp = nullptr;
+    if (version >= ZE_API_VERSION_1_6) {
+        pDdiTable->pfnGetIpcHandleFromFileDescriptorExp = nullptr;
+        pDdiTable->pfnGetFileDescriptorFromIpcHandleExp = nullptr;
+    }
+
+    if (version >= ZE_API_VERSION_1_7) {
+        pDdiTable->pfnSetAtomicAccessAttributeExp = nullptr;
+        pDdiTable->pfnGetAtomicAccessAttributeExp = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -417,9 +471,12 @@ zeGetFabricEdgeExpProcAddrTable(ze_api_version_t version,
         goto exit;
     }
 
-    pDdiTable->pfnGetExp = nullptr;
-    pDdiTable->pfnGetVerticesExp = nullptr;
-    pDdiTable->pfnGetPropertiesExp = nullptr;
+    if (version >= ZE_API_VERSION_1_4) {
+        pDdiTable->pfnGetExp = nullptr;
+        pDdiTable->pfnGetVerticesExp = nullptr;
+        pDdiTable->pfnGetPropertiesExp = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -443,10 +500,13 @@ zeGetFabricVertexExpProcAddrTable(ze_api_version_t version,
         goto exit;
     }
 
-    pDdiTable->pfnGetExp = nullptr;
-    pDdiTable->pfnGetSubVerticesExp = nullptr;
-    pDdiTable->pfnGetPropertiesExp = nullptr;
-    pDdiTable->pfnGetDeviceExp = nullptr;
+    if (version >= ZE_API_VERSION_1_4) {
+        pDdiTable->pfnGetExp = nullptr;
+        pDdiTable->pfnGetSubVerticesExp = nullptr;
+        pDdiTable->pfnGetPropertiesExp = nullptr;
+        pDdiTable->pfnGetDeviceExp = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:

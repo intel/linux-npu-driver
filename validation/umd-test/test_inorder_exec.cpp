@@ -93,7 +93,7 @@ TEST_F(InOrderExecution, SubmitTheSameBuffer) {
  * moves pattern one position later.
  */
 TEST_F(InOrderExecution, RunCopyUsingCmdQueueInOrderMode) {
-    const size_t iterations = 2048;
+    const size_t iterations = isSilicon() ? 2048 : 512;
     uint32_t pattern = 0x12345678;
     const size_t allocSize = (iterations + 1) * sizeof(pattern);
 
@@ -479,7 +479,7 @@ TEST_P(InOrderInference, RunGraphInOrderMode) {
                                                 nullptr),
               ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(inOrderQueue, graphSyncTimeout), ZE_RESULT_SUCCESS);
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
     ASSERT_GT(*ts, 0ULL);
 }
 
@@ -512,7 +512,7 @@ TEST_P(InOrderInference, RunGraphInOrderModeWithWorkloadType) {
                                                 nullptr),
               ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(inOrderQueue, graphSyncTimeout), ZE_RESULT_SUCCESS);
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
     graph->clearOutput();
 
     ret = zeCommandQueueDDITableExt->pfnSetWorkloadType(inOrderQueue, ZE_WORKLOAD_TYPE_DEFAULT);
@@ -523,6 +523,6 @@ TEST_P(InOrderInference, RunGraphInOrderModeWithWorkloadType) {
                                                 nullptr),
               ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(inOrderQueue, graphSyncTimeout), ZE_RESULT_SUCCESS);
-    graph->checkResults();
+    ASSERT_TRUE(graph->checkResults());
     ASSERT_GT(*ts, 0ULL);
 }

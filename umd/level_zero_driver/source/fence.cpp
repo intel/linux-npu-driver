@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -11,8 +11,8 @@
 #include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/source/utilities/timer.hpp"
 
-#include <level_zero/ze_api.h>
 #include <utility>
+#include <ze_api.h>
 
 namespace L0 {
 

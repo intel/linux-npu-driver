@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -23,10 +23,10 @@
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
 
-#include <level_zero/ze_api.h>
 #include <memory>
 #include <string>
 #include <vector>
+#include <ze_api.h>
 
 namespace L0 {
 namespace ult {
@@ -113,7 +113,7 @@ TEST_F(CommandListTest, commandListIsIteratable) {
     /* In the buffer is expected TS command and COPY_LOCAL_TO_LOCAL */
     for (const auto &cmd : cmdList->getCommands()) {
         EXPECT_TRUE(cmd->getCommandType() == VPU_CMD_TIMESTAMP ||
-                    cmd->getCommandType() == VPU_CMD_COPY_LOCAL_TO_LOCAL);
+                    cmd->getCommandType() == VPU_CMD_COPY);
         if (cmd->getCommandType() == VPU_CMD_TIMESTAMP)
             EXPECT_EQ(sizeof(vpu_cmd_timestamp_t), cmd->getCommitSize());
         else

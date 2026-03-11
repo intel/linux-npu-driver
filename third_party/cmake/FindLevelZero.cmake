@@ -1,8 +1,6 @@
-#
-# Copyright (C) 2019-2024 Intel Corporation
+# Copyright (C) 2019-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
-#
 
 find_package(PkgConfig)
 if (NOT PkgConfig_FOUND)
@@ -16,26 +14,17 @@ elseif (LevelZero_FIND_VERSION)
     set(MODULE_SPEC "${MODULE_SPEC}>=${LevelZero_FIND_VERSION}")
 endif()
 
-pkg_check_modules(LevelZero ${MODULE_SPEC})
+pkg_check_modules(LevelZero IMPORTED_TARGET GLOBAL ${MODULE_SPEC})
 
 if(NOT LevelZero_FOUND)
     return()
 endif()
 
-list(APPEND LevelZero_LIBRARIES ${CMAKE_DL_LIBS})
+message(STATUS "LevelZero_INCLUDE_DIRS: ${LevelZero_INCLUDE_DIRS}")
+message(STATUS "LevelZero_LIBRARIES:    ${LevelZero_LIBRARIES}")
+message(STATUS "LevelZero_VERSION:      ${LevelZero_VERSION}")
 
-if(NOT TARGET LevelZero::LevelZero)
-    add_library(LevelZero::LevelZero INTERFACE IMPORTED)
-    set_target_properties(LevelZero::LevelZero
-      PROPERTIES INTERFACE_LINK_LIBRARIES "${LevelZero_LIBRARIES}"
-    )
-    set_target_properties(LevelZero::LevelZero
-      PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${LevelZero_INCLUDE_DIRS}"
-    )
-endif()
+add_library(ze_api_headers INTERFACE)
+target_include_directories(ze_api_headers INTERFACE ${LevelZero_INCLUDE_DIRS})
 
-list(REMOVE_ITEM LevelZero_INCLUDE_DIRS "/usr/include")
-
-message(STATUS "LevelZero_LIBRARIES: " ${LevelZero_LIBRARIES})
-message(STATUS "LevelZero_INCLUDE_DIRS: " ${LevelZero_INCLUDE_DIRS})
-message(STATUS "LevelZero_VERSION: " ${LevelZero_VERSION})
+add_library(ze_loader ALIAS PkgConfig::LevelZero)

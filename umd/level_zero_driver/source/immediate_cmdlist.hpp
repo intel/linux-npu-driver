@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -10,7 +10,7 @@
 
 #include "cmdlist.hpp"
 
-#include <level_zero/ze_api.h>
+#include <ze_api.h>
 
 namespace L0 {
 struct CommandQueue;

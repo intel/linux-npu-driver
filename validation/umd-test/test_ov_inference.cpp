@@ -19,6 +19,7 @@ class OpenVinoBasic : public UmdTest, public ::testing::WithParamInterface<YAML:
   protected:
     void SetUp() override {
         UmdTest::SetUp();
+
         YAML::Node &configuration = Environment::getConfiguration();
         if (configuration["ov_log_level"].IsDefined()) {
             std::string lvl = configuration["ov_log_level"].as<std::string>();
@@ -70,7 +71,7 @@ class OpenVinoBasic : public UmdTest, public ::testing::WithParamInterface<YAML:
         auto add = std::make_shared<ov::op::v1::Add>(param, constant);
         auto relu = std::make_shared<ov::op::v0::Relu>(add);
 
-        return std::make_shared<ov::Model>(ov::NodeVector{relu},
+        return std::make_shared<ov::Model>(ov::OutputVector{relu},
                                            ov::ParameterVector{std::move(param)});
     }
 

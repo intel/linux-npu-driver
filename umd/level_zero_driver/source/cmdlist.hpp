@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -16,13 +16,13 @@
 #include "vpu_driver/source/command/job.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_graph_profiling_ext.h>
-#include <level_zero/zet_api.h>
 #include <memory>
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <ze_api.h>
+#include <ze_graph_profiling_ext.h>
+#include <zet_api.h>
 
 namespace L0 {
 struct Context;

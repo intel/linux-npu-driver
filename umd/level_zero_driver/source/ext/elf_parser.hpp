@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -11,11 +11,10 @@
 #include <stddef.h>
 
 #include "interface_parser.hpp"
-#include "level_zero/ze_graph_ext.h"
+#include "umd_common.hpp"
 #include "vpu_driver/source/command/command.hpp"
 #include "vpux_elf/utils/version.hpp"
 
-#include <level_zero/ze_api.h>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -23,6 +22,8 @@
 #include <utility>
 #include <vector>
 #include <vpux_hpi.hpp>
+#include <ze_api.h>
+#include <ze_graph_ext.h>
 
 namespace elf {
 class AccessManager;
@@ -39,6 +40,7 @@ namespace L0 {
 
 class BlobContainer;
 struct GraphProfilingQuery;
+struct GraphArgumentProperties;
 
 class HostParsedInferenceManager {
   public:
@@ -74,7 +76,7 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
                                                    std::string &logBuffer);
     static elf::VersionsProvider getElfVer(uint32_t deviceId);
 
-    bool getArgumentProperties(std::vector<ze_graph_argument_properties_3_t> &props) const;
+    bool getArgumentProperties(std::vector<GraphArgumentProperties> &props) const;
     bool getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &args) const;
     bool getProfilingSize(uint32_t &size) const;
     size_t getSharedScratchSize() const;
@@ -82,9 +84,11 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
     std::shared_ptr<VPU::VPUInferenceExecute>
     createInferenceExecuteCommand(const std::vector<const void *> &inputPtrs,
                                   const std::vector<const void *> &outputPtrs,
+                                  const ArgumentStridesMap &inputStrides,
+                                  const ArgumentStridesMap &outputStrides,
                                   GraphProfilingQuery *profilingQuery);
 
-    ze_result_t parse(std::vector<ze_graph_argument_properties_3_t> &argumentProperties,
+    ze_result_t parse(std::vector<GraphArgumentProperties> &argumentProperties,
                       std::vector<ze_graph_argument_metadata_t> &argumentMetadata,
                       uint32_t &profilingOutputSize) override;
 
@@ -96,6 +100,8 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
     std::shared_ptr<VPU::VPUCommand>
     allocateExecuteCommand(const std::vector<const void *> &inputArgs,
                            const std::vector<const void *> &outputArgs,
+                           const ArgumentStridesMap &inputStrides,
+                           const ArgumentStridesMap &outputStrides,
                            GraphProfilingQuery *profilingQuery) override;
 
     void updateSharedScratchBuffers(std::shared_ptr<elf::HostParsedInference> &hpi,
@@ -103,6 +109,8 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
     bool applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &hpi,
                            const std::vector<const void *> &inputs,
                            const std::vector<const void *> &outputs,
+                           const ArgumentStridesMap &inputStrides,
+                           const ArgumentStridesMap &outputStrides,
                            GraphProfilingQuery *profilingQuery,
                            std::vector<std::shared_ptr<VPU::VPUBufferObject>> &bos);
     std::shared_ptr<VPU::VPUBufferObject> findBuffer(const void *ptr);

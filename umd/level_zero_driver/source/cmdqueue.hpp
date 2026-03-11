@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -15,12 +15,13 @@
 #include "level_zero_driver/include/l0_handler.hpp"
 
 #include <chrono> // IWYU pragma: keep
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_command_queue_npu_ext.h>
 #include <memory>
+#include <mutex>
 #include <shared_mutex>
 #include <unordered_map>
 #include <vector>
+#include <ze_api.h>
+#include <ze_command_queue_npu_ext.h>
 
 struct _ze_command_queue_handle_t {};
 namespace VPU {
@@ -70,6 +71,7 @@ struct CommandQueue : _ze_command_queue_handle_t, IContextObject {
     std::unordered_map<Fence *, std::unique_ptr<Fence>> fences;
     CommandQueueMode queueMode;
 
+    std::mutex preemptionMutex;
     std::shared_ptr<VPU::VPUBufferObject> preemptionBuffer = nullptr;
 };
 

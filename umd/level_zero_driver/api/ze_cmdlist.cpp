@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -16,8 +16,8 @@
 #include "level_zero_driver/source/event.hpp"
 #include "level_zero_driver/source/immediate_cmdlist.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_ddi.h>
+#include <ze_api.h>
+#include <ze_ddi.h>
 
 namespace L0 {
 ze_result_t zeCommandListAppendBarrier(ze_command_list_handle_t hCommandList,
@@ -634,36 +634,46 @@ zeGetCommandListProcAddrTable(ze_api_version_t version, ze_command_list_dditable
         goto exit;
     }
 
-    pDdiTable->pfnAppendBarrier = L0::zeCommandListAppendBarrier;
-    pDdiTable->pfnAppendMemoryRangesBarrier = L0::zeCommandListAppendMemoryRangesBarrier;
-    pDdiTable->pfnCreate = L0::zeCommandListCreate;
-    pDdiTable->pfnCreateImmediate = L0::zeCommandListCreateImmediate;
-    pDdiTable->pfnImmediateGetIndex = L0::zeCommandListImmediateGetIndex;
-    pDdiTable->pfnIsImmediate = L0::zeCommandListIsImmediate;
-    pDdiTable->pfnHostSynchronize = L0::zeCommandListHostSynchronize;
-    pDdiTable->pfnDestroy = L0::zeCommandListDestroy;
-    pDdiTable->pfnClose = L0::zeCommandListClose;
-    pDdiTable->pfnReset = L0::zeCommandListReset;
-    pDdiTable->pfnAppendMemoryCopy = L0::zeCommandListAppendMemoryCopy;
-    pDdiTable->pfnAppendMemoryCopyRegion = L0::zeCommandListAppendMemoryCopyRegion;
-    pDdiTable->pfnAppendMemoryFill = L0::zeCommandListAppendMemoryFill;
-    pDdiTable->pfnAppendImageCopy = L0::zeCommandListAppendImageCopy;
-    pDdiTable->pfnAppendImageCopyRegion = L0::zeCommandListAppendImageCopyRegion;
-    pDdiTable->pfnAppendImageCopyToMemory = L0::zeCommandListAppendImageCopyToMemory;
-    pDdiTable->pfnAppendImageCopyFromMemory = L0::zeCommandListAppendImageCopyFromMemory;
-    pDdiTable->pfnAppendMemoryPrefetch = L0::zeCommandListAppendMemoryPrefetch;
-    pDdiTable->pfnAppendMemAdvise = L0::zeCommandListAppendMemAdvise;
-    pDdiTable->pfnAppendSignalEvent = L0::zeCommandListAppendSignalEvent;
-    pDdiTable->pfnAppendWaitOnEvents = L0::zeCommandListAppendWaitOnEvents;
-    pDdiTable->pfnAppendEventReset = L0::zeCommandListAppendEventReset;
-    pDdiTable->pfnAppendLaunchCooperativeKernel =
-        nullptr; // zeCommandListAppendLaunchCooperativeKernel
-    pDdiTable->pfnAppendLaunchKernelIndirect = nullptr; // zeCommandListAppendLaunchKernelIndirect
-    pDdiTable->pfnAppendLaunchMultipleKernelsIndirect =
-        nullptr; // zeCommandListAppendLaunchMultipleKernelsIndirect
-    pDdiTable->pfnAppendWriteGlobalTimestamp = L0::zeCommandListAppendWriteGlobalTimestamp;
-    pDdiTable->pfnAppendMemoryCopyFromContext = L0::zeCommandListAppendMemoryCopyFromContext;
-    pDdiTable->pfnAppendQueryKernelTimestamps = L0::zeCommandListAppendQueryKernelTimestamps;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnAppendBarrier = L0::zeCommandListAppendBarrier;
+        pDdiTable->pfnAppendMemoryRangesBarrier = L0::zeCommandListAppendMemoryRangesBarrier;
+        pDdiTable->pfnCreate = L0::zeCommandListCreate;
+        pDdiTable->pfnCreateImmediate = L0::zeCommandListCreateImmediate;
+        pDdiTable->pfnDestroy = L0::zeCommandListDestroy;
+        pDdiTable->pfnClose = L0::zeCommandListClose;
+        pDdiTable->pfnReset = L0::zeCommandListReset;
+        pDdiTable->pfnAppendMemoryCopy = L0::zeCommandListAppendMemoryCopy;
+        pDdiTable->pfnAppendMemoryCopyRegion = L0::zeCommandListAppendMemoryCopyRegion;
+        pDdiTable->pfnAppendMemoryFill = L0::zeCommandListAppendMemoryFill;
+        pDdiTable->pfnAppendImageCopy = L0::zeCommandListAppendImageCopy;
+        pDdiTable->pfnAppendImageCopyRegion = L0::zeCommandListAppendImageCopyRegion;
+        pDdiTable->pfnAppendImageCopyToMemory = L0::zeCommandListAppendImageCopyToMemory;
+        pDdiTable->pfnAppendImageCopyFromMemory = L0::zeCommandListAppendImageCopyFromMemory;
+        pDdiTable->pfnAppendMemoryPrefetch = L0::zeCommandListAppendMemoryPrefetch;
+        pDdiTable->pfnAppendMemAdvise = L0::zeCommandListAppendMemAdvise;
+        pDdiTable->pfnAppendSignalEvent = L0::zeCommandListAppendSignalEvent;
+        pDdiTable->pfnAppendWaitOnEvents = L0::zeCommandListAppendWaitOnEvents;
+        pDdiTable->pfnAppendEventReset = L0::zeCommandListAppendEventReset;
+        pDdiTable->pfnAppendLaunchCooperativeKernel =
+            nullptr; // zeCommandListAppendLaunchCooperativeKernel
+        pDdiTable->pfnAppendLaunchKernelIndirect =
+            nullptr; // zeCommandListAppendLaunchKernelIndirect
+        pDdiTable->pfnAppendLaunchMultipleKernelsIndirect =
+            nullptr; // zeCommandListAppendLaunchMultipleKernelsIndirect
+        pDdiTable->pfnAppendWriteGlobalTimestamp = L0::zeCommandListAppendWriteGlobalTimestamp;
+        pDdiTable->pfnAppendMemoryCopyFromContext = L0::zeCommandListAppendMemoryCopyFromContext;
+        pDdiTable->pfnAppendQueryKernelTimestamps = L0::zeCommandListAppendQueryKernelTimestamps;
+    }
+
+    if (version >= ZE_API_VERSION_1_6) {
+        pDdiTable->pfnHostSynchronize = L0::zeCommandListHostSynchronize;
+    }
+
+    if (version >= ZE_API_VERSION_1_9) {
+        pDdiTable->pfnImmediateGetIndex = L0::zeCommandListImmediateGetIndex;
+        pDdiTable->pfnIsImmediate = L0::zeCommandListIsImmediate;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -687,8 +697,11 @@ zeGetCommandListExpProcAddrTable(ze_api_version_t version,
         goto exit;
     }
 
-    pDdiTable->pfnGetNextCommandIdExp = L0::zeCommandListGetNextCommandIdExp;
-    pDdiTable->pfnUpdateMutableCommandsExp = L0::zeCommandListUpdateMutableCommandsExp;
+    if (version >= ZE_API_VERSION_1_9) {
+        pDdiTable->pfnGetNextCommandIdExp = L0::zeCommandListGetNextCommandIdExp;
+        pDdiTable->pfnUpdateMutableCommandsExp = L0::zeCommandListUpdateMutableCommandsExp;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:

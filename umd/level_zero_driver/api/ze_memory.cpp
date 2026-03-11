@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -16,9 +16,9 @@
 #include "umd_common.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_ddi.h>
-#include <level_zero/ze_mem_import_system_memory_ext.h>
+#include <ze_api.h>
+#include <ze_ddi.h>
+#include <ze_mem_import_system_memory_ext.h>
 
 namespace L0 {
 static VPU::VPUBufferObject::Type flagToBufferObjectType(ze_host_mem_alloc_flags_t flag) {
@@ -367,15 +367,18 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zeGetMemProcAddrTable(ze_api_version_t versi
         goto exit;
     }
 
-    pDdiTable->pfnAllocShared = L0::zeMemAllocShared;
-    pDdiTable->pfnAllocDevice = L0::zeMemAllocDevice;
-    pDdiTable->pfnAllocHost = L0::zeMemAllocHost;
-    pDdiTable->pfnFree = L0::zeMemFree;
-    pDdiTable->pfnGetAllocProperties = L0::zeMemGetAllocProperties;
-    pDdiTable->pfnGetAddressRange = L0::zeMemGetAddressRange;
-    pDdiTable->pfnGetIpcHandle = L0::zeMemGetIpcHandle;
-    pDdiTable->pfnOpenIpcHandle = L0::zeMemOpenIpcHandle;
-    pDdiTable->pfnCloseIpcHandle = L0::zeMemCloseIpcHandle;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnAllocShared = L0::zeMemAllocShared;
+        pDdiTable->pfnAllocDevice = L0::zeMemAllocDevice;
+        pDdiTable->pfnAllocHost = L0::zeMemAllocHost;
+        pDdiTable->pfnFree = L0::zeMemFree;
+        pDdiTable->pfnGetAllocProperties = L0::zeMemGetAllocProperties;
+        pDdiTable->pfnGetAddressRange = L0::zeMemGetAddressRange;
+        pDdiTable->pfnGetIpcHandle = L0::zeMemGetIpcHandle;
+        pDdiTable->pfnOpenIpcHandle = L0::zeMemOpenIpcHandle;
+        pDdiTable->pfnCloseIpcHandle = L0::zeMemCloseIpcHandle;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:

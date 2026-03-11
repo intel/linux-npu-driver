@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -12,8 +12,8 @@
 #include "trace_ze_api.hpp"
 
 #include <iostream>
-#include <level_zero/zet_api.h>
 #include <sstream>
+#include <zet_api.h>
 
 inline std::string _trace_zetModuleGetDebugInfo(zet_module_handle_t hModule,
                                                 zet_module_debug_info_format_t format,

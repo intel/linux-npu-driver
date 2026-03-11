@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -14,8 +14,8 @@
 #include "level_zero_driver/source/context.hpp"
 #include "level_zero_driver/source/fence.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_ddi.h>
+#include <ze_api.h>
+#include <ze_ddi.h>
 
 namespace L0 {
 ze_result_t zeCommandQueueCreate(ze_context_handle_t hContext,
@@ -102,10 +102,13 @@ zeGetCommandQueueProcAddrTable(ze_api_version_t version, ze_command_queue_dditab
         goto exit;
     }
 
-    pDdiTable->pfnCreate = L0::zeCommandQueueCreate;
-    pDdiTable->pfnDestroy = L0::zeCommandQueueDestroy;
-    pDdiTable->pfnExecuteCommandLists = L0::zeCommandQueueExecuteCommandLists;
-    pDdiTable->pfnSynchronize = L0::zeCommandQueueSynchronize;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnCreate = L0::zeCommandQueueCreate;
+        pDdiTable->pfnDestroy = L0::zeCommandQueueDestroy;
+        pDdiTable->pfnExecuteCommandLists = L0::zeCommandQueueExecuteCommandLists;
+        pDdiTable->pfnSynchronize = L0::zeCommandQueueSynchronize;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:

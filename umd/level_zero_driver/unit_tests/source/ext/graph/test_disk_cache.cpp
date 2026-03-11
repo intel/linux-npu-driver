@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -10,7 +10,6 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "level_zero/ze_graph_ext.h"
 #include "level_zero_driver/source/ext/blob_container.hpp"
 #include "level_zero_driver/source/ext/disk_cache.hpp"
 #include "level_zero_driver/source/ext/hash_function.hpp"
@@ -21,6 +20,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <ze_graph_ext.h>
 
 #ifdef ZLIB
 #include <zlib.h>
@@ -98,15 +98,15 @@ TEST_F(DiskCacheTest, MissCacheInvalidFileSize) {
 
 TEST_F(DiskCacheTest, HitCache) {
     // blob size + checksum
-    constexpr size_t fileSize = 64 + HashSha1::DigestLength;
+    constexpr size_t fileSize = 64 + HashCity::DigestLength;
 
     auto osFile = std::make_unique<VPU::GMockOsFileImp>();
     auto mmapPtr = std::make_unique<uint8_t[]>(fileSize);
 
-    uint64_t checksumOffset = fileSize - HashSha1::DigestLength;
-    auto *checksumPtr = reinterpret_cast<HashSha1::DigestType>(mmapPtr.get() + checksumOffset);
+    uint64_t checksumOffset = fileSize - HashCity::DigestLength;
+    auto *checksumPtr = reinterpret_cast<HashCity::DigestType>(mmapPtr.get() + checksumOffset);
 
-    auto checksum = HashSha1::getDigest(mmapPtr.get(), checksumOffset);
+    auto checksum = HashCity::getDigest(mmapPtr.get(), checksumOffset);
     memcpy(checksumPtr, checksum.data(), checksum.size());
 
     EXPECT_CALL(*osFile, size).WillRepeatedly(::testing::Return(fileSize));
@@ -119,25 +119,37 @@ TEST_F(DiskCacheTest, HitCache) {
     auto blob = cache->getBlob(key);
     EXPECT_NE(blob, nullptr);
     EXPECT_EQ(blob->ptr, mmapPtr.get());
-    EXPECT_EQ(blob->size, fileSize - HashSha1::DigestLength);
+    EXPECT_EQ(blob->size, fileSize - HashCity::DigestLength);
 }
 
-class HashSha1Test : public testing::TestWithParam<std::pair<const char *, const char *>> {};
+TEST_F(DiskCacheTest, GetDigestCheck) {
+    std::string testInput = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
 
-INSTANTIATE_TEST_SUITE_P(,
-                         HashSha1Test,
-                         ::testing::ValuesIn(std::vector<std::pair<const char *, const char *>>{
-                             {"abc", "a9993e364706816aba3e25717850c26c9cd0d89d"},
-                             {"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
-                              "84983e441c3bd26ebaae4aa1f95129e5e54670f1"},
-                         }));
+    auto result =
+        HashCity::getDigest(reinterpret_cast<const uint8_t *>(testInput.data()), testInput.size());
+    EXPECT_EQ(result.substr(HashCity::DigestLength - sizeof(uint64_t) * 2),
+              std::string("0000000000000000"));
+}
 
-TEST_P(HashSha1Test, ComputeHash) {
+class HashCityTest : public testing::TestWithParam<std::pair<const char *, const char *>> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    HashCityTest,
+    ::testing::ValuesIn(std::vector<std::pair<const char *, const char *>>{
+        {"abc", "71e7cfd72d484e2fda4675aed3aaa913b4181ae784906c4f7baac0e933392cc54aa458b7b1e7face"},
+        {"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
+         "c04078f85a30f6ba2593a1cb793e5ee01fef4771cbcbad6265a756bd6df1d5e14aa458b7b1e7face"},
+    }));
+
+TEST_P(HashCityTest, ComputeHash) {
     auto [input, expected] = GetParam();
 
-    HashSha1 sha1;
-    sha1.update(reinterpret_cast<const uint8_t *>(input), strlen(input));
-    ASSERT_EQ(expected, sha1.final());
+    HashCity hash;
+    std::string fakeConfig = "fake-config";
+    hash.updateConfigurationHash(reinterpret_cast<const uint8_t *>(fakeConfig.data()),
+                                 fakeConfig.size());
+    ASSERT_EQ(expected, hash.final(reinterpret_cast<const uint8_t *>(input), strlen(input)));
 }
 
 } // namespace L0

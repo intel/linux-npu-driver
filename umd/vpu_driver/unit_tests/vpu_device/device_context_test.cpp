@@ -56,13 +56,13 @@ struct DeviceContextTest : public ::testing::Test {
                 EXPECT_GT(vpuAddr, 0) << "Invalid timestamp address in VPU_CMD_TIMESTAMP";
                 break;
             }
-            case VPU_CMD_COPY_LOCAL_TO_LOCAL: {
+            case VPU_CMD_COPY: {
                 cmd->patchDescriptorAddress(expDescOffset);
 
                 auto offset =
                     reinterpret_cast<const vpu_cmd_copy_buffer_t *>(cmd->getCommitStream())
                         ->desc_start_offset;
-                EXPECT_EQ(offset, expDescOffset) << "Invalid descriptor offset in VPU_CMD_COPY_*";
+                EXPECT_EQ(offset, expDescOffset) << "Invalid descriptor offset in VPU_CMD_COPY";
                 break;
             }
             default:

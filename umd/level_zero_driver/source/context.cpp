@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -16,15 +16,25 @@
 #include "metric.hpp"
 #include "metric_query.hpp"
 #include "metric_streamer.hpp"
+#include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_device.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <errno.h>
+#include <limits>
 #include <linux/sysinfo.h>
 #include <string.h>
 #include <sys/sysinfo.h>
 
 namespace L0 {
+
+Context::Context(DriverHandle *driverHandle, std::unique_ptr<VPU::VPUDeviceContext> ctx)
+    : driverHandle(driverHandle)
+    , ctx(std::move(ctx)) {
+    if (this->ctx->getDeviceCapabilities().npuArch >= VPU::NPU40XX) {
+        resourceCleaner = std::make_unique<ResourceCleaner>(this, idleTimeout);
+    }
+}
 
 ze_result_t Context::destroy() {
     delete this;
@@ -199,6 +209,85 @@ ze_result_t Context::queryContextMemory(ze_graph_memory_query_type_t type,
     }
 
     return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t Context::setProperties(const ze_context_properties_npu_ext_t *pContextProperties) {
+    bool enableIdleOptimizations =
+        (pContextProperties->options & ZE_NPU_CONTEXT_OPTION_IDLE_OPTIMIZATIONS) != 0;
+    if (enableIdleOptimizations) {
+        if (ctx->getDeviceCapabilities().npuArch < VPU::NPU40XX) {
+            return ZE_RESULT_SUCCESS;
+        }
+        std::unique_lock<std::mutex> lock(cleanerMutex);
+        if (!resourceCleaner) {
+            resourceCleaner = std::make_unique<ResourceCleaner>(this, idleTimeout);
+        }
+    } else {
+        std::unique_lock<std::mutex> lock(cleanerMutex);
+        resourceCleaner = nullptr;
+    }
+
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t Context::releaseMemory() {
+    ctx->preemptionCachePrune();
+    ctx->scratchCachePrune(std::numeric_limits<size_t>::max());
+    return ZE_RESULT_SUCCESS;
+}
+
+void Context::setIdle() {
+    std::unique_lock<std::mutex> lock(cleanerMutex);
+    if (resourceCleaner) {
+        resourceCleaner->setIdle();
+    }
+}
+
+void Context::setIdlePruningTimeout(uint64_t timeout) {
+    idleTimeout = std::chrono::milliseconds(timeout);
+    std::unique_lock<std::mutex> lock(cleanerMutex);
+    if (resourceCleaner) {
+        resourceCleaner->setIdleTimeout(idleTimeout);
+    }
+}
+
+ResourceCleaner::ResourceCleaner(Context *ctx, std::chrono::milliseconds timeout)
+    : idleTimeout(timeout)
+    , thread(
+          [this](Context *ctx) {
+              std::unique_lock<std::mutex> lock(mutex);
+              auto timeout = std::chrono::time_point<std::chrono::steady_clock>::max();
+              while (action != Action::BREAK) {
+                  if (cv.wait_until(lock, timeout) == std::cv_status::timeout) {
+                      ctx->releaseMemory();
+                      timeout = std::chrono::time_point<std::chrono::steady_clock>::max();
+                  } else if (action == Action::PRUNE_AFTER_TIMEOUT) {
+                      timeout = std::chrono::steady_clock::now() + idleTimeout;
+                  }
+              }
+          },
+          ctx) {}
+
+ResourceCleaner::~ResourceCleaner() {
+    {
+        std::unique_lock<std::mutex> lock(mutex);
+        action = Action::BREAK;
+    }
+    cv.notify_one();
+    thread.join();
+}
+
+void ResourceCleaner::setIdle() {
+    {
+        std::unique_lock<std::mutex> lock(mutex);
+        action = Action::PRUNE_AFTER_TIMEOUT;
+    }
+    cv.notify_one();
+}
+
+void ResourceCleaner::setIdleTimeout(std::chrono::milliseconds timeout) {
+    idleTimeout = timeout;
+    cv.notify_one();
 }
 
 } // namespace L0

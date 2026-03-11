@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2022-2024 Intel Corporation
+# Copyright (C) 2022-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 #
@@ -9,11 +9,7 @@ set(TARGET_NAME_L0_DRV level_zero_driver)
 add_library(${TARGET_NAME_L0_DRV} STATIC)
 set_property(TARGET ${TARGET_NAME_L0_DRV} PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-target_link_libraries(${TARGET_NAME_L0_DRV}
-    fw_vpu_api_headers
-    vpu_driver
-    npu_elf
-)
+target_link_libraries(${TARGET_NAME_L0_DRV} vpu_driver)
 
 string(TIMESTAMP UNIX_SECONDS %s UTC)
 set(DRIVER_VERSION ${UNIX_SECONDS} CACHE STRING "Decimal value that set Level Zero driverVersion")
@@ -23,6 +19,8 @@ target_compile_definitions(${TARGET_NAME_L0_DRV} PUBLIC DRIVER_VERSION=${DRIVER_
 if(NOT ENABLE_COMPILATION_FLAGS_OVERRIDE)
     target_compile_definitions(${TARGET_NAME_L0_DRV} PRIVATE NO_COMPILER_FLAGS_OVERRIDE)
 endif()
+
+target_compile_options(${TARGET_NAME_L0_DRV} PRIVATE -msse4.2)
 
 target_sources(${TARGET_NAME_L0_DRV} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/cmdlist.cpp
@@ -65,8 +63,9 @@ target_sources(${TARGET_NAME_L0_DRV} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/profiling_data.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/query_network.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/query_network.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/ext/sha1/sha1.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/ext/sha1/sha1.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ext/cityhash/city.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ext/cityhash/city.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ext/cityhash/citycrc.h
 )
 
-target_include_directories(${TARGET_NAME_L0_DRV} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/ext/sha1)
+target_include_directories(${TARGET_NAME_L0_DRV} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/ext/cityhash)

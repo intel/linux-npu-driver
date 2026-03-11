@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -14,6 +14,7 @@
 #include "level_zero_driver/include/l0_exception.hpp"
 #include "level_zero_driver/include/nested_structs_handler.hpp"
 #include "metric_query.hpp"
+#include "umd_common.hpp"
 #include "vpu_driver/source/command/barrier_command.hpp"
 #include "vpu_driver/source/command/command.hpp"
 #include "vpu_driver/source/command/copy_command.hpp"
@@ -25,11 +26,11 @@
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 
 #include <algorithm>
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_graph_ext.h>
 #include <optional>
 #include <string.h>
 #include <type_traits>
+#include <ze_api.h>
+#include <ze_graph_ext.h>
 
 namespace L0 {
 
@@ -782,7 +783,9 @@ using CommandUpdatesMap = std::unordered_map<uint64_t, // key: command id
 static std::optional<const void *>
 getCommandUpdates(const void *pNext,
                   const std::unordered_map<uint64_t, uint64_t> &commandIdMap,
-                  CommandUpdatesMap &updatesMap) {
+                  CommandUpdatesMap &updatesMap,
+                  int64_t &prevCommandId,
+                  int &prevArgIndex) {
     const auto stype =
         *reinterpret_cast<const std::underlying_type_t<ze_structure_type_t> *>(pNext);
 
@@ -798,15 +801,51 @@ getCommandUpdates(const void *pNext,
 
         uint32_t argIndex = desc->argIndex;
 
-        if (updatesMap[commandId].count(argIndex) > 0) {
+        if (updatesMap[commandId].count(argIndex) > 0 && updatesMap[commandId][argIndex].ptr) {
             LOG_W("Argument %u for command %lu is being mutated more than once. "
                   "Verify the values in ze_mutable_graph_argument_exp_desc_t structs",
                   argIndex,
                   commandId);
         }
 
-        updatesMap[commandId][argIndex] = desc->pArgValue;
+        updatesMap[commandId][argIndex].ptr = desc->pArgValue;
         LOG(CMDLIST, "Mutate GraphArgument[%u] = %p", argIndex, desc->pArgValue);
+
+        prevCommandId = safe_cast<int64_t>(commandId);
+        prevArgIndex = safe_cast<int>(argIndex);
+
+        return desc->pNext;
+    }
+    case ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_STRIDES: {
+        const ze_graph_argument_value_strides_t *desc =
+            static_cast<const ze_graph_argument_value_strides_t *>(pNext);
+
+        if (prevCommandId == -1 || prevArgIndex == -1) {
+            LOG_E("Unable to mutate graph argument strides. ze_mutable_graph_argument_exp_desc_t "
+                  "has to be present before ze_graph_argument_value_strides_t in structure chain");
+            return {};
+        }
+
+        uint64_t commandId = safe_cast<uint64_t>(prevCommandId);
+        uint32_t argIndex = safe_cast<uint32_t>(prevArgIndex);
+
+        if (updatesMap[commandId].count(argIndex) > 0 && updatesMap[commandId][argIndex].strides) {
+            LOG_W("Strides for argument %u for command %lu are being mutated more than once. "
+                  "Verify the values in ze_mutable_graph_argument_strides_desc_t structs",
+                  argIndex,
+                  commandId);
+        }
+
+        ArgumentStrides strides;
+        for (size_t i = 0; i < ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE; i++) {
+            strides[i] = desc->userStrides[i];
+        }
+        updatesMap[commandId][argIndex].strides = strides;
+
+        LOG(CMDLIST, "Mutate GraphArgument[%u]'s strides", argIndex);
+
+        prevCommandId = -1;
+        prevArgIndex = -1;
 
         return desc->pNext;
     }
@@ -822,7 +861,14 @@ getCommandUpdates(const void *pNext,
 static bool gatherCommandUpdates(const void *pNext,
                                  const std::unordered_map<uint64_t, uint64_t> &commandIdMap,
                                  CommandUpdatesMap &updatesMap) {
-    return handleNestedStructs(pNext, getCommandUpdates, commandIdMap, updatesMap);
+    int64_t commandId = -1;
+    int argIndex = -1;
+    return handleNestedStructs(pNext,
+                               getCommandUpdates,
+                               commandIdMap,
+                               updatesMap,
+                               commandId,
+                               argIndex);
 }
 
 ze_result_t CommandList::updateMutableCommands(const ze_mutable_commands_exp_desc_t *desc) {

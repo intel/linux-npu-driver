@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -18,12 +18,12 @@
 #include "umd_common.hpp"
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/zet_api.h>
 #include <memory>
 #include <string.h>
 #include <string>
 #include <vector>
+#include <ze_api.h>
+#include <zet_api.h>
 
 namespace L0 {
 namespace ult {

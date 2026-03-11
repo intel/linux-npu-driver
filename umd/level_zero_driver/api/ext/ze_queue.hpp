@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include "level_zero/ze_api.h"
-#include "level_zero/ze_command_queue_npu_ext.h"
+#include <ze_api.h>
+#include <ze_command_queue_npu_ext.h>
 
 namespace L0 {
 

@@ -48,6 +48,7 @@ extern bool verbose_logs;
 extern bool run_skipped_tests;
 extern bool disable_unbind;
 extern unsigned pause_after_test_ms;
+extern int device_index;
 
 int hex_dump(void *data, long size, const char *name);
 

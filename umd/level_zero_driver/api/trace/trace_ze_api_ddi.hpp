@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -12,8 +12,8 @@
 #include "trace_ze_api.hpp"
 
 #include <iostream>
-#include <level_zero/ze_ddi.h>
 #include <sstream>
+#include <ze_ddi.h>
 
 inline std::string
 _trace_zeGetRTASBuilderExpProcAddrTable(ze_api_version_t version,

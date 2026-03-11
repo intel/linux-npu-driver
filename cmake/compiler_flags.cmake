@@ -1,4 +1,4 @@
-# Copyright (C) 2022-2025 Intel Corporation
+# Copyright (C) 2022-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 
@@ -15,14 +15,9 @@ add_compile_options(
   $<$<CONFIG:Release>:-fstack-clash-protection>
   # Use relative paths for debug information
   -fdebug-prefix-map=${CMAKE_SOURCE_DIR}=.
+  # Enable macro security features
+  $<$<CONFIG:Release>:-D_FORTIFY_SOURCE=2>
 )
-
-if(NOT ${LINUX_SYSTEM_NAME} STREQUAL "cros_sdk")
-    add_compile_options(
-      # Enable macro security features
-      $<$<CONFIG:Release>:-D_FORTIFY_SOURCE=2>
-    )
-endif()
 
 add_link_options(
   # Read only relocation (RERLO)

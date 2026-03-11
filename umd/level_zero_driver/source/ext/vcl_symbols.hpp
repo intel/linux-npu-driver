@@ -85,10 +85,8 @@ class Vcl {
         getDecodedProfilingBuffer =
             getSymbolAddr<decltype(getDecodedProfilingBuffer)>("vclGetDecodedProfilingBuffer");
         logHandleGetString = getSymbolAddr<decltype(logHandleGetString)>("vclLogHandleGetString");
-        allocatedExecutableCreate =
-            getSymbolAddr<decltype(allocatedExecutableCreate)>("vclAllocatedExecutableCreate");
-        allocatedExecutableCreate2 = getSymbolAddrOrNullptr<decltype(allocatedExecutableCreate2)>(
-            "vclAllocatedExecutableCreate2");
+        allocatedExecutableCreate2 =
+            getSymbolAddr<decltype(allocatedExecutableCreate2)>("vclAllocatedExecutableCreate2");
         getVersion = getSymbolAddr<decltype(getVersion)>("vclGetVersion");
         getCompilerSupportedOptions = getSymbolAddrOrNullptr<decltype(getCompilerSupportedOptions)>(
             "vclGetCompilerSupportedOptions");
@@ -114,8 +112,7 @@ class Vcl {
     decltype(vclProfilingGetProperties) *profilingGetProperties = &missingSymbol;
     decltype(vclGetDecodedProfilingBuffer) *getDecodedProfilingBuffer = &missingSymbol;
     decltype(vclLogHandleGetString) *logHandleGetString = &missingSymbol;
-    decltype(vclAllocatedExecutableCreate) *allocatedExecutableCreate = &missingSymbol;
-    decltype(vclAllocatedExecutableCreate2) *allocatedExecutableCreate2 = nullptr;
+    decltype(vclAllocatedExecutableCreate2) *allocatedExecutableCreate2 = &missingSymbol;
     decltype(vclGetVersion) *getVersion = &missingSymbol;
     decltype(vclGetCompilerSupportedOptions) *getCompilerSupportedOptions = nullptr;
     decltype(vclGetCompilerIsOptionSupported) *getCompilerIsOptionSupported = nullptr;

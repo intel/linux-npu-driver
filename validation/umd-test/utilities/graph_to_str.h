@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <level_zero/ze_graph_ext.h>
+#include <ze_graph_ext.h>
 
 inline const char *zeGraphArgumentToStr(ze_graph_argument_type_t a) {
     switch (a) {
@@ -133,4 +133,17 @@ inline const char *getStatusStr(int status) {
         return "ZE_LAYER_STATUS_EXECUTED";
     }
     return "";
+}
+
+inline const char *getGraphProfilingTypeStr(ze_graph_profiling_type_t t) {
+    switch (t) {
+    case ZE_GRAPH_PROFILING_LAYER_LEVEL:
+        return "ZE_GRAPH_PROFILING_LAYER_LEVEL";
+    case ZE_GRAPH_PROFILING_TASK_LEVEL:
+        return "ZE_GRAPH_PROFILING_TASK_LEVEL";
+    case ZE_GRAPH_PROFILING_RAW:
+        return "ZE_GRAPH_PROFILING_RAW";
+    default:
+        return "UNKNOWN";
+    }
 }

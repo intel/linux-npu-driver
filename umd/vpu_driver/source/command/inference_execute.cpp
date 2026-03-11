@@ -14,6 +14,8 @@
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
+#include <array>
+#include <optional>
 #include <unordered_map>
 #include <utility>
 
@@ -23,6 +25,8 @@ VPUInferenceExecute::VPUInferenceExecute(std::shared_ptr<L0::ElfParser> &parser,
                                          std::shared_ptr<elf::HostParsedInference> &hpi,
                                          const std::vector<const void *> &inputs,
                                          const std::vector<const void *> &outputs,
+                                         const ArgumentStridesMap &inputStrides,
+                                         const ArgumentStridesMap &outputStrides,
                                          L0::GraphProfilingQuery *profilingQuery,
                                          uint64_t inferenceId,
                                          std::vector<std::shared_ptr<VPUBufferObject>> &bos,
@@ -31,7 +35,10 @@ VPUInferenceExecute::VPUInferenceExecute(std::shared_ptr<L0::ElfParser> &parser,
     , hpi(hpi)
     , inputs(inputs)
     , outputs(outputs)
-    , profilingQuery(profilingQuery) {
+    , inputStrides(inputStrides)
+    , outputStrides(outputStrides)
+    , profilingQuery(profilingQuery)
+    , userArgIndex(bos.size()) {
     vpu_cmd_inference_execute_t cmd = {};
     cmd.header.type = VPU_CMD_INFERENCE_EXECUTE;
     cmd.header.size = sizeof(vpu_cmd_inference_execute_t);
@@ -61,12 +68,20 @@ VPUInferenceExecute::create(std::shared_ptr<L0::ElfParser> parser,
                             std::shared_ptr<elf::HostParsedInference> &cmdHpi,
                             const std::vector<const void *> &inputPtrs,
                             const std::vector<const void *> &outputPtrs,
+                            const ArgumentStridesMap &inputStrides,
+                            const ArgumentStridesMap &outputStrides,
                             L0::GraphProfilingQuery *profilingQuery,
                             uint64_t inferenceId,
                             std::vector<std::shared_ptr<VPUBufferObject>> &bos) {
     std::vector<std::shared_ptr<VPUBufferObject>> userBos;
     userBos.reserve(inputPtrs.size() + outputPtrs.size());
-    if (!parser->applyInputOutputs(cmdHpi, inputPtrs, outputPtrs, profilingQuery, userBos)) {
+    if (!parser->applyInputOutputs(cmdHpi,
+                                   inputPtrs,
+                                   outputPtrs,
+                                   inputStrides,
+                                   outputStrides,
+                                   profilingQuery,
+                                   userBos)) {
         LOG_E("Failed to apply arguments to elf executor");
         return nullptr;
     }
@@ -75,6 +90,8 @@ VPUInferenceExecute::create(std::shared_ptr<L0::ElfParser> parser,
                                                  cmdHpi,
                                                  inputPtrs,
                                                  outputPtrs,
+                                                 inputStrides,
+                                                 outputStrides,
                                                  profilingQuery,
                                                  inferenceId,
                                                  bos,
@@ -86,7 +103,7 @@ bool VPUInferenceExecute::setUpdates(const ArgumentUpdatesMap &updatesMap) {
     uint32_t numOutputArgs = safe_cast<uint32_t>(outputs.size());
     uint32_t numArgs = numInputArgs + numOutputArgs;
 
-    for (const auto &[argIndex, newArg] : updatesMap) {
+    for (const auto &[argIndex, argUpdate] : updatesMap) {
         if (argIndex >= numArgs) {
             LOG_E("Invalid argument index (%u). It exceeds the number of graph arguments %u",
                   argIndex,
@@ -95,12 +112,22 @@ bool VPUInferenceExecute::setUpdates(const ArgumentUpdatesMap &updatesMap) {
         }
 
         if (argIndex < numInputArgs) {
-            inputs[argIndex] = newArg;
+            if (argUpdate.ptr) {
+                inputs[argIndex] = *argUpdate.ptr;
+            }
+            if (argUpdate.strides) {
+                inputStrides[argIndex] = *argUpdate.strides;
+            }
         } else {
-            outputs[argIndex - numInputArgs] = newArg;
+            uint32_t outputIndex = argIndex - numInputArgs;
+            if (argUpdate.ptr) {
+                outputs[outputIndex] = *argUpdate.ptr;
+            }
+            if (argUpdate.strides) {
+                outputStrides[outputIndex] = *argUpdate.strides;
+            }
         }
     }
-
     cmdNeedsUpdate = true;
     return true;
 }
@@ -112,7 +139,13 @@ bool VPUInferenceExecute::update(VPUCommandBuffer *commandBuffer) {
     cmdNeedsUpdate = false;
 
     std::vector<std::shared_ptr<VPUBufferObject>> userArgs;
-    if (!parser->applyInputOutputs(hpi, inputs, outputs, profilingQuery, userArgs)) {
+    if (!parser->applyInputOutputs(hpi,
+                                   inputs,
+                                   outputs,
+                                   inputStrides,
+                                   outputStrides,
+                                   profilingQuery,
+                                   userArgs)) {
         return false;
     }
 

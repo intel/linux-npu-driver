@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -13,9 +13,9 @@
 #include "level_zero_driver/source/device.hpp"
 #include "level_zero_driver/source/driver_handle.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/zes_api.h>
-#include <level_zero/zes_ddi.h>
+#include <ze_api.h>
+#include <zes_api.h>
+#include <zes_ddi.h>
 
 namespace L0 {
 
@@ -113,55 +113,36 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zesGetDeviceProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGetProperties = L0::zesDeviceGetProperties;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGetProperties = L0::zesDeviceGetProperties;
+        pDdiTable->pfnGetState = nullptr;
+        pDdiTable->pfnReset = nullptr;
+        pDdiTable->pfnProcessesGetState = nullptr;
+        pDdiTable->pfnPciGetProperties = nullptr;
+        pDdiTable->pfnPciGetState = nullptr;
+        pDdiTable->pfnPciGetBars = nullptr;
+        pDdiTable->pfnPciGetStats = nullptr;
+        pDdiTable->pfnEnumDiagnosticTestSuites = nullptr;
+        pDdiTable->pfnEnumEngineGroups = L0::zesDeviceEnumEngineGroups;
+        pDdiTable->pfnEventRegister = nullptr;
+        pDdiTable->pfnEnumFabricPorts = nullptr;
+        pDdiTable->pfnEnumFans = nullptr;
+        pDdiTable->pfnEnumFirmwares = nullptr;
+        pDdiTable->pfnEnumFrequencyDomains = nullptr;
+        pDdiTable->pfnEnumLeds = nullptr;
+        pDdiTable->pfnEnumMemoryModules = nullptr;
+        pDdiTable->pfnEnumPerformanceFactorDomains = nullptr;
+        pDdiTable->pfnEnumPowerDomains = nullptr;
+        pDdiTable->pfnEnumPsus = nullptr;
+        pDdiTable->pfnEnumRasErrorSets = nullptr;
+        pDdiTable->pfnEnumSchedulers = nullptr;
+        pDdiTable->pfnEnumStandbyDomains = nullptr;
+        pDdiTable->pfnEnumTemperatureSensors = nullptr;
+    }
 
-    pDdiTable->pfnGetState = nullptr;
-
-    pDdiTable->pfnReset = nullptr;
-
-    pDdiTable->pfnProcessesGetState = nullptr;
-
-    pDdiTable->pfnPciGetProperties = nullptr;
-
-    pDdiTable->pfnPciGetState = nullptr;
-
-    pDdiTable->pfnPciGetBars = nullptr;
-
-    pDdiTable->pfnPciGetStats = nullptr;
-
-    pDdiTable->pfnEnumDiagnosticTestSuites = nullptr;
-
-    pDdiTable->pfnEnumEngineGroups = L0::zesDeviceEnumEngineGroups;
-
-    pDdiTable->pfnEventRegister = nullptr;
-
-    pDdiTable->pfnEnumFabricPorts = nullptr;
-
-    pDdiTable->pfnEnumFans = nullptr;
-
-    pDdiTable->pfnEnumFirmwares = nullptr;
-
-    pDdiTable->pfnEnumFrequencyDomains = nullptr;
-
-    pDdiTable->pfnEnumLeds = nullptr;
-
-    pDdiTable->pfnEnumMemoryModules = nullptr;
-
-    pDdiTable->pfnEnumPerformanceFactorDomains = nullptr;
-
-    pDdiTable->pfnEnumPowerDomains = nullptr;
-
-    pDdiTable->pfnEnumPsus = nullptr;
-
-    pDdiTable->pfnEnumRasErrorSets = nullptr;
-
-    pDdiTable->pfnEnumSchedulers = nullptr;
-
-    pDdiTable->pfnEnumStandbyDomains = nullptr;
-
-    pDdiTable->pfnEnumTemperatureSensors = nullptr;
-
-    pDdiTable->pfnGet = L0::zesDeviceGet;
+    if (version >= ZE_API_VERSION_1_5) {
+        pDdiTable->pfnGet = L0::zesDeviceGet;
+    }
 
 exit:
     trace_zesGetDeviceProcAddrTable(ret, version, pDdiTable);

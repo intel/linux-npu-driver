@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -7,14 +7,14 @@
 
 #include <cstddef>
 
-#include "level_zero/loader/ze_loader.h"
 #include "level_zero_driver/api/trace/trace_zet_api_ddi.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <dlfcn.h>
-#include <level_zero/ze_api.h>
-#include <level_zero/zet_ddi.h>
+#include <loader/ze_loader.h>
 #include <string>
+#include <ze_api.h>
+#include <zet_ddi.h>
 
 extern "C" {
 ///////////////////////////////////////////////////////////////////////////////
@@ -44,7 +44,9 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetDeviceProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGetDebugProperties = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGetDebugProperties = nullptr;
+    }
 
 exit:
     trace_zetGetDeviceProcAddrTable(ret, version, pDdiTable);
@@ -78,7 +80,9 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetKernelProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGetProfileInfo = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGetProfileInfo = nullptr;
+    }
 
 exit:
     trace_zetGetKernelProcAddrTable(ret, version, pDdiTable);
@@ -112,7 +116,9 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetModuleProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnGetDebugInfo = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnGetDebugInfo = nullptr;
+    }
 
 exit:
     trace_zetGetModuleProcAddrTable(ret, version, pDdiTable);
@@ -146,27 +152,19 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetDebugProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnAttach = nullptr;
-
-    pDdiTable->pfnDetach = nullptr;
-
-    pDdiTable->pfnReadEvent = nullptr;
-
-    pDdiTable->pfnAcknowledgeEvent = nullptr;
-
-    pDdiTable->pfnInterrupt = nullptr;
-
-    pDdiTable->pfnResume = nullptr;
-
-    pDdiTable->pfnReadMemory = nullptr;
-
-    pDdiTable->pfnWriteMemory = nullptr;
-
-    pDdiTable->pfnGetRegisterSetProperties = nullptr;
-
-    pDdiTable->pfnReadRegisters = nullptr;
-
-    pDdiTable->pfnWriteRegisters = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnAttach = nullptr;
+        pDdiTable->pfnDetach = nullptr;
+        pDdiTable->pfnReadEvent = nullptr;
+        pDdiTable->pfnAcknowledgeEvent = nullptr;
+        pDdiTable->pfnInterrupt = nullptr;
+        pDdiTable->pfnResume = nullptr;
+        pDdiTable->pfnReadMemory = nullptr;
+        pDdiTable->pfnWriteMemory = nullptr;
+        pDdiTable->pfnGetRegisterSetProperties = nullptr;
+        pDdiTable->pfnReadRegisters = nullptr;
+        pDdiTable->pfnWriteRegisters = nullptr;
+    }
 
 exit:
     trace_zetGetDebugProcAddrTable(ret, version, pDdiTable);
@@ -200,15 +198,13 @@ ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetTracerExpProcAddrTable(
 
     ret = ZE_RESULT_SUCCESS;
 
-    pDdiTable->pfnCreate = nullptr;
-
-    pDdiTable->pfnDestroy = nullptr;
-
-    pDdiTable->pfnSetPrologues = nullptr;
-
-    pDdiTable->pfnSetEpilogues = nullptr;
-
-    pDdiTable->pfnSetEnabled = nullptr;
+    if (version >= ZE_API_VERSION_1_0) {
+        pDdiTable->pfnCreate = nullptr;
+        pDdiTable->pfnDestroy = nullptr;
+        pDdiTable->pfnSetPrologues = nullptr;
+        pDdiTable->pfnSetEpilogues = nullptr;
+        pDdiTable->pfnSetEnabled = nullptr;
+    }
 
 exit:
     trace_zetGetTracerExpProcAddrTable(ret, version, pDdiTable);
@@ -231,9 +227,12 @@ zetGetMetricDecoderExpProcAddrTable(ze_api_version_t version,
         goto exit;
     }
 
-    pDdiTable->pfnCreateExp = nullptr;
-    pDdiTable->pfnDestroyExp = nullptr;
-    pDdiTable->pfnGetDecodableMetricsExp = nullptr;
+    if (version >= ZE_API_VERSION_1_11) {
+        pDdiTable->pfnCreateExp = nullptr;
+        pDdiTable->pfnDestroyExp = nullptr;
+        pDdiTable->pfnGetDecodableMetricsExp = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -257,12 +256,15 @@ zetGetMetricTracerExpProcAddrTable(ze_api_version_t version,
         goto exit;
     }
 
-    pDdiTable->pfnCreateExp = nullptr;
-    pDdiTable->pfnDestroyExp = nullptr;
-    pDdiTable->pfnEnableExp = nullptr;
-    pDdiTable->pfnDisableExp = nullptr;
-    pDdiTable->pfnReadDataExp = nullptr;
-    pDdiTable->pfnDecodeExp = nullptr;
+    if (version >= ZE_API_VERSION_1_11) {
+        pDdiTable->pfnCreateExp = nullptr;
+        pDdiTable->pfnDestroyExp = nullptr;
+        pDdiTable->pfnEnableExp = nullptr;
+        pDdiTable->pfnDisableExp = nullptr;
+        pDdiTable->pfnReadDataExp = nullptr;
+        pDdiTable->pfnDecodeExp = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -286,10 +288,13 @@ zetGetMetricProgrammableExpProcAddrTable(ze_api_version_t version,
         goto exit;
     }
 
-    pDdiTable->pfnGetExp = nullptr;
-    pDdiTable->pfnGetPropertiesExp = nullptr;
-    pDdiTable->pfnGetParamInfoExp = nullptr;
-    pDdiTable->pfnGetParamValueInfoExp = nullptr;
+    if (version >= ZE_API_VERSION_1_9) {
+        pDdiTable->pfnGetExp = nullptr;
+        pDdiTable->pfnGetPropertiesExp = nullptr;
+        pDdiTable->pfnGetParamInfoExp = nullptr;
+        pDdiTable->pfnGetParamValueInfoExp = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -312,8 +317,11 @@ zetGetDeviceExpProcAddrTable(ze_api_version_t version, zet_device_exp_dditable_t
         goto exit;
     }
 
-    pDdiTable->pfnGetConcurrentMetricGroupsExp = nullptr;
-    pDdiTable->pfnCreateMetricGroupsFromMetricsExp = nullptr;
+    if (version >= ZE_API_VERSION_1_11) {
+        pDdiTable->pfnGetConcurrentMetricGroupsExp = nullptr;
+        pDdiTable->pfnCreateMetricGroupsFromMetricsExp = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -336,9 +344,15 @@ zetGetMetricExpProcAddrTable(ze_api_version_t version, zet_metric_exp_dditable_t
         goto exit;
     }
 
-    pDdiTable->pfnCreateFromProgrammableExp2 = nullptr;
-    pDdiTable->pfnCreateFromProgrammableExp = nullptr;
-    pDdiTable->pfnDestroyExp = nullptr;
+    if (version >= ZE_API_VERSION_1_9) {
+        pDdiTable->pfnCreateFromProgrammableExp = nullptr;
+        pDdiTable->pfnDestroyExp = nullptr;
+    }
+
+    if (version >= ZE_API_VERSION_1_12) {
+        pDdiTable->pfnCreateFromProgrammableExp2 = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:
@@ -362,15 +376,24 @@ zetGetMetricGroupExpProcAddrTable(ze_api_version_t version,
         goto exit;
     }
 
-    pDdiTable->pfnCreateExp = nullptr;
-    pDdiTable->pfnCalculateMultipleMetricValuesExp = nullptr;
-    pDdiTable->pfnGetGlobalTimestampsExp = nullptr;
-    pDdiTable->pfnGetExportDataExp = nullptr;
-    pDdiTable->pfnCalculateMetricExportDataExp = nullptr;
-    pDdiTable->pfnAddMetricExp = nullptr;
-    pDdiTable->pfnRemoveMetricExp = nullptr;
-    pDdiTable->pfnCloseExp = nullptr;
-    pDdiTable->pfnDestroyExp = nullptr;
+    if (version >= ZE_API_VERSION_1_5) {
+        pDdiTable->pfnCalculateMultipleMetricValuesExp = nullptr;
+        pDdiTable->pfnGetGlobalTimestampsExp = nullptr;
+    }
+
+    if (version >= ZE_API_VERSION_1_6) {
+        pDdiTable->pfnGetExportDataExp = nullptr;
+        pDdiTable->pfnCalculateMetricExportDataExp = nullptr;
+    }
+
+    if (version >= ZE_API_VERSION_1_9) {
+        pDdiTable->pfnCreateExp = nullptr;
+        pDdiTable->pfnAddMetricExp = nullptr;
+        pDdiTable->pfnRemoveMetricExp = nullptr;
+        pDdiTable->pfnCloseExp = nullptr;
+        pDdiTable->pfnDestroyExp = nullptr;
+    }
+
     ret = ZE_RESULT_SUCCESS;
 
 exit:

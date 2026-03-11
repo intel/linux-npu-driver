@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -10,10 +10,10 @@
 #include <cstdint>
 
 #include <functional>
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_graph_profiling_ext.h>
 #include <memory>
 #include <vector>
+#include <ze_api.h>
+#include <ze_graph_profiling_ext.h>
 
 namespace VPU {
 class VPUBufferObject;

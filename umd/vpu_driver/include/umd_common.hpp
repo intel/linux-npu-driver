@@ -9,11 +9,13 @@
 
 #include <cstdint>
 
+#include <array>
 #include <limits>
 #include <linux/kernel.h>
 #include <stdexcept>
 #include <type_traits>
 #include <typeinfo>
+#include <unordered_map>
 
 template <typename T>
 bool checkPtrAlignment(const void *p) noexcept {
@@ -68,3 +70,6 @@ To safe_cast(From x) {
 inline size_t getFwDataCacheAlign(size_t a) {
     return ALIGN(a, 64);
 }
+
+using ArgumentStrides = std::array<uint32_t, 5>;
+using ArgumentStridesMap = std::unordered_map<uint32_t, ArgumentStrides>;

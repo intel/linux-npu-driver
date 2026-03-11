@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -12,9 +12,8 @@
 #include "disk_cache.hpp"
 #include "elf_parser.hpp"
 #include "interface_parser.hpp"
-#include "level_zero/ze_api.h"
-#include "level_zero/ze_graph_ext.h"
 #include "level_zero_driver/include/l0_exception.hpp"
+#include "level_zero_driver/include/nested_structs_handler.hpp"
 #include "level_zero_driver/source/context.hpp"
 #include "level_zero_driver/source/device.hpp"
 #include "level_zero_driver/source/driver.hpp"
@@ -31,11 +30,15 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <stdlib.h>
 #include <string.h>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
+#include <ze_api.h>
+#include <ze_graph_ext.h>
 
 namespace L0 {
 static thread_local std::string lastFailLog;
@@ -159,6 +162,52 @@ ze_result_t Graph::setArgumentValue(uint32_t argIndex, const void *pArgValue) {
     return ZE_RESULT_SUCCESS;
 }
 
+std::optional<const void *> gatherArgumentValues(const void *pNext, size_t argIndex, Graph &graph) {
+    size_t numInputs = graph.inputArgs.size();
+    const auto stype =
+        *reinterpret_cast<const std::underlying_type_t<ze_structure_type_graph_ext_t> *>(pNext);
+
+    switch (stype) {
+    case ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_TENSOR: {
+        const ze_graph_argument_value_tensor_t *value =
+            static_cast<const ze_graph_argument_value_tensor_t *>(pNext);
+        if (argIndex < numInputs)
+            graph.inputArgs[argIndex] = value->pTensor;
+        else
+            graph.outputArgs[argIndex - numInputs] = value->pTensor;
+        return value->pNext;
+    }
+    case ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_STRIDES: {
+        const ze_graph_argument_value_strides_t *value =
+            static_cast<const ze_graph_argument_value_strides_t *>(pNext);
+        ArgumentStrides &strides =
+            argIndex < numInputs ? graph.inputStrides[safe_cast<uint32_t>(argIndex)]
+                                 : graph.outputStrides[safe_cast<uint32_t>(argIndex - numInputs)];
+        for (size_t i = 0; i < strides.size(); i++) {
+            strides[i] = value->userStrides[i];
+        }
+        return value->pNext;
+    }
+    default: {
+        LOG_E("Invalid structure type (%#x) for zeGraphSetArgumentValue2", stype);
+        return {};
+    }
+    }
+}
+
+ze_result_t Graph::setArgumentValue2(uint32_t argIndex, const void *pArgValue) {
+    if (pArgValue == nullptr)
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+
+    if (argIndex >= (argumentProperties.size()))
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+
+    if (!handleNestedStructs(pArgValue, gatherArgumentValues, argIndex, *this))
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+
+    return ZE_RESULT_SUCCESS;
+}
+
 ze_result_t Graph::getProperties(ze_graph_properties_t *pGraphProperties) {
     if (pGraphProperties == nullptr) {
         LOG_E("Invalid pointer");
@@ -183,6 +232,30 @@ ze_result_t Graph::getProperties3(ze_graph_properties_3_t *pGraphProperties) {
     return ZE_RESULT_SUCCESS;
 }
 
+std::optional<void *> setArgumentProperties(void *pNext, size_t argIndex, const Graph &graph) {
+    size_t numInputs = graph.inputArgs.size();
+    const auto stype =
+        *reinterpret_cast<const std::underlying_type_t<ze_structure_type_graph_ext_t> *>(pNext);
+
+    switch (stype) {
+    case ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTY_STRIDES: {
+        ze_graph_argument_property_strides_t *prop =
+            static_cast<ze_graph_argument_property_strides_t *>(pNext);
+        if (argIndex < numInputs)
+            prop->supportsDynamicStrides =
+                graph.argumentProperties[argIndex].supportsDynamicStrides;
+        else
+            prop->supportsDynamicStrides =
+                graph.argumentProperties[argIndex - numInputs].supportsDynamicStrides;
+        return prop->pNext;
+    }
+    default: {
+        LOG_E("Invalid structure type (%#x) for zeGraphGetArgumentProperties", stype);
+        return {};
+    }
+    }
+}
+
 ze_result_t Graph::getArgumentProperties(uint32_t argIndex,
                                          ze_graph_argument_properties_t *pGraphArgProps) {
     if (pGraphArgProps == nullptr) {
@@ -197,7 +270,20 @@ ze_result_t Graph::getArgumentProperties(uint32_t argIndex,
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    memcpy(pGraphArgProps, &argumentProperties[argIndex], sizeof(ze_graph_argument_properties_t));
+    ze_structure_type_graph_ext_t stype = pGraphArgProps->stype;
+    void *pNext = pGraphArgProps->pNext;
+    memcpy(pGraphArgProps,
+           &argumentProperties[argIndex].properties,
+           sizeof(ze_graph_argument_properties_t));
+
+    if (stype == ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES) {
+        if (!handleNestedStructs(pNext, setArgumentProperties, argIndex, *this))
+            return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    pGraphArgProps->stype = stype;
+    pGraphArgProps->pNext = pNext;
+
     return ZE_RESULT_SUCCESS;
 }
 
@@ -215,7 +301,19 @@ ze_result_t Graph::getArgumentProperties2(uint32_t argIndex,
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    memcpy(pGraphArgProps, &argumentProperties[argIndex], sizeof(ze_graph_argument_properties_2_t));
+    ze_structure_type_graph_ext_t stype = pGraphArgProps->stype;
+    void *pNext = pGraphArgProps->pNext;
+    memcpy(pGraphArgProps,
+           &argumentProperties[argIndex].properties,
+           sizeof(ze_graph_argument_properties_2_t));
+
+    if (stype == ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_2) {
+        if (!handleNestedStructs(pNext, setArgumentProperties, argIndex, *this))
+            return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    pGraphArgProps->stype = stype;
+    pGraphArgProps->pNext = pNext;
     return ZE_RESULT_SUCCESS;
 }
 
@@ -233,7 +331,17 @@ ze_result_t Graph::getArgumentProperties3(uint32_t argIndex,
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    *pGraphArgProps = argumentProperties[argIndex];
+    ze_structure_type_graph_ext_t stype = pGraphArgProps->stype;
+    void *pNext = pGraphArgProps->pNext;
+    *pGraphArgProps = argumentProperties[argIndex].properties;
+
+    if (stype == ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_3) {
+        if (!handleNestedStructs(pNext, setArgumentProperties, argIndex, *this))
+            return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    pGraphArgProps->stype = stype;
+    pGraphArgProps->pNext = pNext;
     return ZE_RESULT_SUCCESS;
 }
 
@@ -251,7 +359,12 @@ ze_result_t Graph::getArgumentMetadata(uint32_t argIndex,
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
+    ze_structure_type_graph_ext_t stype = pGraphArgMetadata->stype;
+    void *pNext = pGraphArgMetadata->pNext;
     *pGraphArgMetadata = argumentMetadata[argIndex];
+
+    pGraphArgMetadata->stype = stype;
+    pGraphArgMetadata->pNext = pNext;
     return ZE_RESULT_SUCCESS;
 }
 
@@ -596,11 +709,15 @@ void Graph::initialize(std::string &log) {
                   ZE_RESULT_ERROR_INVALID_ARGUMENT);
 
     for (const auto &prop : argumentProperties) {
-        if (prop.type == ZE_GRAPH_ARGUMENT_TYPE_INPUT) {
+        if (prop.properties.type == ZE_GRAPH_ARGUMENT_TYPE_INPUT) {
             inputArgs.emplace_back(nullptr);
         } else {
             outputArgs.emplace_back(nullptr);
         }
+    }
+
+    if (profilingOutputSize > 0) {
+        propFlags |= ZE_GRAPH_PROPERTIES_FLAG_PROFILING_ENABLED;
     }
 }
 
@@ -614,7 +731,11 @@ std::shared_ptr<VPU::VPUCommand> Graph::allocateGraphInitCommand(VPU::VPUDeviceC
 
 std::shared_ptr<VPU::VPUCommand>
 Graph::allocateGraphExecuteCommand(GraphProfilingQuery *profilingQuery) {
-    return parser->allocateExecuteCommand(inputArgs, outputArgs, profilingQuery);
+    return parser->allocateExecuteCommand(inputArgs,
+                                          outputArgs,
+                                          inputStrides,
+                                          outputStrides,
+                                          profilingQuery);
 }
 
 ze_result_t Graph::getLogString(uint32_t *pSize, char *pBuildLog) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -12,15 +12,17 @@
 
 #include "blob_container.hpp"
 #include "level_zero_driver/include/l0_handler.hpp"
+#include "umd_common.hpp"
 #include "vpu_driver/source/command/command.hpp"
 
-#include <level_zero/ze_api.h>
-#include <level_zero/ze_graph_ext.h>
-#include <level_zero/ze_graph_profiling_ext.h>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <ze_api.h>
+#include <ze_graph_ext.h>
+#include <ze_graph_profiling_ext.h>
 
 namespace VPU {
 class VPUDeviceContext;
@@ -51,6 +53,11 @@ struct GraphBuildLog : _ze_graph_build_log_handle_t, IContextObject {
     std::string log;
 };
 
+struct GraphArgumentProperties {
+    ze_graph_argument_properties_3_t properties;
+    bool supportsDynamicStrides;
+};
+
 struct Graph : _ze_graph_handle_t, IContextObject {
     Graph(Context *pCtx, const ze_graph_desc_2_t *pDesc, std::string &log);
     ~Graph() = default;
@@ -64,6 +71,7 @@ struct Graph : _ze_graph_handle_t, IContextObject {
     ze_result_t getNativeBinary(size_t *pSize, uint8_t *pGraphNativeBinary);
     ze_result_t getNativeBinary2(size_t *pSize, const uint8_t **pGraphNativeBinary);
     ze_result_t setArgumentValue(uint32_t argIndex, const void *pArgValue);
+    ze_result_t setArgumentValue2(uint32_t argIndex, const void *pArgValue);
     ze_result_t getProperties(ze_graph_properties_t *pGraphProperties);
     ze_result_t getProperties2(ze_graph_properties_2_t *pGraphProperties);
     ze_result_t getProperties3(ze_graph_properties_3_t *pGraphProperties);
@@ -116,6 +124,10 @@ struct Graph : _ze_graph_handle_t, IContextObject {
     void initialize(std::string &log);
     std::unique_ptr<BlobContainer> getBlobContainerNative();
     std::unique_ptr<BlobContainer> getBlobContainerNGraphLite(std::string &log);
+    friend std::optional<const void *>
+    gatherArgumentValues(const void *pNext, size_t argIndex, Graph &graph);
+    friend std::optional<void *>
+    setArgumentProperties(void *pNext, size_t argIndex, const Graph &graph);
 
     Context *pContext;
     VPU::VPUDeviceContext *ctx;
@@ -126,8 +138,11 @@ struct Graph : _ze_graph_handle_t, IContextObject {
 
     std::vector<const void *> inputArgs;
     std::vector<const void *> outputArgs;
+    ArgumentStridesMap inputStrides;
+    ArgumentStridesMap outputStrides;
 
-    std::vector<ze_graph_argument_properties_3_t> argumentProperties;
+    std::vector<GraphArgumentProperties> argumentProperties;
+
     std::vector<ze_graph_argument_metadata_t> argumentMetadata;
     uint32_t profilingOutputSize = 0u;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -8,7 +8,7 @@
 #include "test_app.h"
 #include "umd_test.h"
 
-#include <level_zero/ze_api.h>
+#include <ze_api.h>
 
 class ExternalMemoryZe : public UmdTest {
   public:
@@ -39,8 +39,8 @@ void ExternalMemoryZe::ExportImport(struct Xpu x0, struct Xpu x1) {
     const size_t sz = 1024u;
     ze_result_t ret;
 
-    if (!isVPU37xx() && !isVPU40xx())
-        SKIP_("Test for MTL (37xx) and LNL(40xx) platforms only.");
+    if (!isVPU37xx() && !isVPU40xx() && !isVPU50xx())
+        SKIP_("Test for MTL (37xx), LNL (40xx) and PTL (50xx) platforms only.");
 
     if (!test_vars::forceGpu)
         SKIP_("Flag --gpu not set.");

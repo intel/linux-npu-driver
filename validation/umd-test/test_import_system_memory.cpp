@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 Intel Corporation
+ * Copyright (C) 2025-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -10,8 +10,8 @@
 
 #include <cstdlib>
 #include <fcntl.h>
-#include <level_zero/ze_mem_import_system_memory_ext.h>
 #include <sys/mman.h>
+#include <ze_mem_import_system_memory_ext.h>
 
 class ImportSystemMemoryNoParam : public UmdTest {
   public:
@@ -249,7 +249,8 @@ TEST_P(ImportSystemMemory, OpenFileInReadOnlyThenExecuteCopy) {
     scopedFd = std::shared_ptr<int>(&fd, [fd](auto) { close(fd); });
 
     struct stat sb = {};
-    fstat(fd, &sb);
+    int res = fstat(fd, &sb);
+    ASSERT_EQ(res, 0) << "fstat() failed while retrieving file metadata";
     ASSERT_EQ(static_cast<uint64_t>(sb.st_size), testSize) << "File size mismatch";
 
     void *rdonlyPtr = mmap(nullptr, testSize, PROT_READ, MAP_SHARED, fd, 0);
@@ -333,7 +334,7 @@ TEST_P(CommandGraphImportSystemMemory, GetNativeBinaryThenImportItAndRunInferenc
     ASSERT_NE(graph, nullptr) << "Unable to create new Graph object from native binary";
 
     ze_graph_properties_3_t graphProps = {};
-    graphProps.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
+    graphProps.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES_3;
     ASSERT_EQ(graph->getGraphProperties(&graphProps), ZE_RESULT_SUCCESS);
     ASSERT_EQ(graphProps.flags & ZE_GRAPH_PROPERTIES_FLAG_NO_STANDARD_ALLOCATION, 0);
 
@@ -380,7 +381,7 @@ TEST_P(CommandGraphImportSystemMemory, WriteNativeBinaryToFileThenImportItAndRun
     ASSERT_NE(graph, nullptr) << "Unable to create new Graph object from native binary";
 
     ze_graph_properties_3_t graphProps = {};
-    graphProps.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
+    graphProps.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES_3;
     ASSERT_EQ(graph->getGraphProperties(&graphProps), ZE_RESULT_SUCCESS);
     ASSERT_EQ(graphProps.flags & ZE_GRAPH_PROPERTIES_FLAG_NO_STANDARD_ALLOCATION, 0);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -12,8 +12,7 @@
 #include <cstdint>
 
 #include "blob_container.hpp"
-#include "level_zero/ze_api.h"
-#include "level_zero/ze_graph_ext.h"
+#include "graph.hpp"
 #include "level_zero_driver/include/l0_exception.hpp"
 #include "profiling_data.hpp"
 #include "umd_common.hpp"
@@ -36,6 +35,7 @@
 #include <map>
 #include <memory>
 #include <string.h>
+#include <unordered_map>
 #include <vpux_elf/accessor.hpp>
 #include <vpux_elf/types/data_types.hpp>
 #include <vpux_elf/types/section_header.hpp>
@@ -50,6 +50,8 @@
 #include <vpux_headers/metadata_primitives.hpp>
 #include <vpux_headers/platform.hpp>
 #include <vpux_hpi.hpp>
+#include <ze_api.h>
+#include <ze_graph_ext.h>
 
 namespace L0 {
 
@@ -304,6 +306,10 @@ ElfParser::~ElfParser() {
 }
 
 bool ElfParser::checkMagic(const std::unique_ptr<BlobContainer> &blob) {
+    if (blob == nullptr)
+        return false;
+    if (blob->ptr == nullptr)
+        return false;
     if (blob->size == 0)
         return false;
 
@@ -512,10 +518,9 @@ static ze_graph_argument_precision_t getTensorPrecision(elf::DType type) {
         return ZE_GRAPH_ARGUMENT_PRECISION_BF16;
     case elf::DType::DType_I4X:
         return ZE_GRAPH_ARGUMENT_PRECISION_NF4;
-    case elf::DType::DType_LOG:
+    default:
         return ZE_GRAPH_ARGUMENT_PRECISION_UNKNOWN;
     }
-    return ZE_GRAPH_ARGUMENT_PRECISION_UNKNOWN;
 }
 
 static constexpr std::array<std::pair<size_t, ze_graph_argument_layout_t>, 8> orderToLayout = {
@@ -622,18 +627,19 @@ static ze_graph_argument_layout_t getDeviceLayout(const elf::TensorRef &tensor) 
     return computeLayoutFromStride(tensor.strides, tensor.strides_size);
 }
 
-static void fillDeviceProperties(const elf::TensorRef &devTensor,
-                                 ze_graph_argument_properties_3_t &prop) {
+static void fillDeviceProperties(const elf::TensorRef &devTensor, GraphArgumentProperties &prop) {
     for (size_t j = 0; j < ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE; j++) {
         if (j < devTensor.dimensions_size) {
-            prop.dims[j] = devTensor.dimensions[j];
+            prop.properties.dims[j] = devTensor.dimensions[j];
         } else {
-            prop.dims[j] = 1;
+            prop.properties.dims[j] = 1;
         }
     }
-    prop.dims_count = devTensor.dimensions_size;
-    prop.devicePrecision = getTensorPrecision(devTensor.data_type);
-    prop.deviceLayout = getDeviceLayout(devTensor);
+    prop.properties.dims_count = devTensor.dimensions_size;
+    prop.properties.devicePrecision = getTensorPrecision(devTensor.data_type);
+    prop.properties.deviceLayout = getDeviceLayout(devTensor);
+    prop.supportsDynamicStrides =
+        (devTensor.flags & elf::TENSOR_REF_FLAG_DYNAMIC_STRIDES_SUPPORT) != 0;
 }
 
 static void fillNetworkProperties(const elf::TensorRef &netTensor,
@@ -662,48 +668,48 @@ static void fillOVNodeProperties(const elf::OVNode &node, ze_graph_argument_prop
     prop.associated_tensor_names_count = tensorNamesCount;
 }
 
-bool ElfParser::getArgumentProperties(std::vector<ze_graph_argument_properties_3_t> &props) const {
+bool ElfParser::getArgumentProperties(std::vector<GraphArgumentProperties> &props) const {
     TRACE_EVENT_BEGIN("NPU_ELF", "elf::HostParsedInference::getMetadata");
     auto metadata = hpiManager->head()->getMetadata();
     TRACE_EVENT_END("NPU_ELF");
     props.reserve(metadata->mInTensorDescriptors.size() + metadata->mOutTensorDescriptors.size());
 
     for (size_t i = 0; i < metadata->mInTensorDescriptors.size(); i++) {
-        ze_graph_argument_properties_3_t prop = {};
-        prop.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES;
-        prop.type = ZE_GRAPH_ARGUMENT_TYPE_INPUT;
+        GraphArgumentProperties prop = {};
+        prop.properties.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_3;
+        prop.properties.type = ZE_GRAPH_ARGUMENT_TYPE_INPUT;
 
-        prop.quantReverseScale = 1.f;
-        prop.quantZeroPoint = 0;
+        prop.properties.quantReverseScale = 1.f;
+        prop.properties.quantZeroPoint = 0;
 
         if (metadata->mInTensorDescriptors.size() > i)
             fillDeviceProperties(metadata->mInTensorDescriptors[i], prop);
 
         if (metadata->mNetInputs.size() > i)
-            fillNetworkProperties(metadata->mNetInputs[i], prop);
+            fillNetworkProperties(metadata->mNetInputs[i], prop.properties);
 
         if (metadata->mOVParameters.size() > i)
-            fillOVNodeProperties(metadata->mOVParameters[i], prop);
+            fillOVNodeProperties(metadata->mOVParameters[i], prop.properties);
 
         props.push_back(prop);
     }
 
     for (size_t i = 0; i < metadata->mOutTensorDescriptors.size(); i++) {
-        ze_graph_argument_properties_3_t prop = {};
-        prop.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES;
-        prop.type = ZE_GRAPH_ARGUMENT_TYPE_OUTPUT;
+        GraphArgumentProperties prop = {};
+        prop.properties.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_3;
+        prop.properties.type = ZE_GRAPH_ARGUMENT_TYPE_OUTPUT;
 
-        prop.quantReverseScale = 0.f;
-        prop.quantZeroPoint = 0;
+        prop.properties.quantReverseScale = 0.f;
+        prop.properties.quantZeroPoint = 0;
 
         if (metadata->mOutTensorDescriptors.size() > i)
             fillDeviceProperties(metadata->mOutTensorDescriptors[i], prop);
 
         if (metadata->mNetOutputs.size() > i)
-            fillNetworkProperties(metadata->mNetOutputs[i], prop);
+            fillNetworkProperties(metadata->mNetOutputs[i], prop.properties);
 
         if (metadata->mOVResults.size() > i)
-            fillOVNodeProperties(metadata->mOVResults[i], prop);
+            fillOVNodeProperties(metadata->mOVResults[i], prop.properties);
 
         props.push_back(prop);
     }
@@ -753,6 +759,12 @@ bool ElfParser::getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &a
             }
         }
 
+        if (node.shape_size > ZE_MAX_GRAPH_TENSOR_REF_DIMS) {
+            LOG_E("Tensor shape size exceeds the Graph Extension limits (%u > %u)",
+                  node.shape_size,
+                  ZE_MAX_GRAPH_TENSOR_REF_DIMS);
+            return false;
+        }
         std::copy(node.shape, node.shape + node.shape_size, &arg.shape[0]);
         arg.shape_size = node.shape_size;
 
@@ -848,6 +860,8 @@ void ElfParser::updateSharedScratchBuffers(std::shared_ptr<elf::HostParsedInfere
 bool ElfParser::applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &cmdHpi,
                                   const std::vector<const void *> &inputPtrs,
                                   const std::vector<const void *> &outputPtrs,
+                                  const ArgumentStridesMap &inputStrides,
+                                  const ArgumentStridesMap &outputStrides,
                                   GraphProfilingQuery *profilingQuery,
                                   std::vector<std::shared_ptr<VPU::VPUBufferObject>> &bos) {
     auto getDeviceBuffers = [this, &bos](const std::vector<const void *> &ptrs,
@@ -894,6 +908,13 @@ bool ElfParser::applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &cmd
     if (!getDeviceBuffers(outputPtrs, outputDeviceBuffers))
         return false;
 
+    for (const auto &[i, strides] : inputStrides) {
+        inputDeviceBuffers[i].set_user_strides(strides);
+    }
+    for (const auto &[i, strides] : outputStrides) {
+        outputDeviceBuffers[i].set_user_strides(strides);
+    }
+
     std::vector<elf::DeviceBuffer> profilingDeviceBuffers;
     if (profilingQuery) {
         auto profilingBo = profilingQuery->getBo();
@@ -934,6 +955,8 @@ bool ElfParser::applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &cmd
 std::shared_ptr<VPU::VPUInferenceExecute>
 ElfParser::createInferenceExecuteCommand(const std::vector<const void *> &inputPtrs,
                                          const std::vector<const void *> &outputPtrs,
+                                         const ArgumentStridesMap &inputStrides,
+                                         const ArgumentStridesMap &outputStrides,
                                          GraphProfilingQuery *profilingQuery) {
     uint64_t inferenceId = 0;
     if (!ctx->getUniqueInferenceId(inferenceId))
@@ -973,6 +996,8 @@ ElfParser::createInferenceExecuteCommand(const std::vector<const void *> &inputP
                                                 cmdHpi,
                                                 inputPtrs,
                                                 outputPtrs,
+                                                inputStrides,
+                                                outputStrides,
                                                 profilingQuery,
                                                 inferenceId,
                                                 bos);
@@ -982,7 +1007,7 @@ ElfParser::createInferenceExecuteCommand(const std::vector<const void *> &inputP
     return cmd;
 }
 
-ze_result_t ElfParser::parse(std::vector<ze_graph_argument_properties_3_t> &argumentProperties,
+ze_result_t ElfParser::parse(std::vector<GraphArgumentProperties> &argumentProperties,
                              std::vector<ze_graph_argument_metadata_t> &argumentMetadata,
                              uint32_t &profilingOutputSize) {
     if (!getArgumentProperties(argumentProperties)) {
@@ -1031,8 +1056,14 @@ std::shared_ptr<VPU::VPUCommand> ElfParser::allocateInitCommand(VPU::VPUDeviceCo
 std::shared_ptr<VPU::VPUCommand>
 ElfParser::allocateExecuteCommand(const std::vector<const void *> &inputArgs,
                                   const std::vector<const void *> &outputArgs,
+                                  const ArgumentStridesMap &inputStrides,
+                                  const ArgumentStridesMap &outputStrides,
                                   GraphProfilingQuery *profilingQuery) {
-    return createInferenceExecuteCommand(inputArgs, outputArgs, profilingQuery);
+    return createInferenceExecuteCommand(inputArgs,
+                                         outputArgs,
+                                         inputStrides,
+                                         outputStrides,
+                                         profilingQuery);
 }
 
 } // namespace L0
