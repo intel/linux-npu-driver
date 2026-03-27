@@ -110,7 +110,7 @@ TEST_F(GraphNativeTest, whenCreatingGraphFromMalformedBufferInvalidArgumentIsRet
     ze_graph_handle_t hGraphNew;
 
     auto res = L0::Graph::create(context, device, &graphDesc, &hGraphNew);
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_ARGUMENT, res);
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NATIVE_BINARY, res);
 
     EXPECT_TRUE(ctx->freeMemAlloc(data));
 }

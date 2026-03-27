@@ -10,8 +10,9 @@
 #include <cstddef> // IWYU pragma: keep
 #include <cstdint> // IWYU pragma: keep
 
+#include "api/vpu_jsm_api.h"
 #include "api/vpu_jsm_job_cmd_api.h"
-#include "api/vpu_nnrt_api_40xx.h"
+#include "api/vpu_nnrt_api_ver.h"
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_40xx/vpu_hw_40xx.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
@@ -30,11 +31,15 @@ VPUHwInfo getHwInfo50xx(uint32_t deviceId) {
                       .getCopyCommand = getHwInfo40xx().getCopyCommand,
                       .printCopyDescriptor = getHwInfo40xx().printCopyDescriptor,
                       .fwMappedInferenceIndex = VPU_NNRT_40XX_API_VER_INDEX,
-                      .fwJsmCmdApiVerIndex = VPU_JSM_JOB_CMD_API_VER_INDEX};
+                      .fwJsmCmdApiVerIndex = VPU_JSM_JOB_CMD_API_VER_INDEX,
+                      .fwJsmApiVerIndex = VPU_JSM_API_VER_INDEX};
 
     switch (deviceId) {
     case PCI_DEVICE_ID_PTL_P:
         info.tileFuseMask = 0x7;
+        break;
+    case PCI_DEVICE_ID_WCL:
+        info.tileFuseMask = 0x1;
         break;
     default:
         LOG_W("Unknown platform");

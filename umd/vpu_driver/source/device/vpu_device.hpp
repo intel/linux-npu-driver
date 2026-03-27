@@ -43,6 +43,7 @@ class VPUDevice {
     bool isConnected();
 
     std::string jsmApiVersion;
+    std::string jsmCmdApiVersion;
     std::string mappedInferenceVersion;
 
   private:

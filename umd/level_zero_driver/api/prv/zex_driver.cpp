@@ -15,6 +15,7 @@
 #include <filesystem>
 #include <loader/ze_loader.h>
 #include <string>
+#include <ze_api.h>
 
 extern "C" {
 ze_result_t ZE_APICALL zexDiskCacheSetSize(size_t size) {

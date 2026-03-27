@@ -14,14 +14,23 @@
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <algorithm>
+#include <mutex>
 #include <string.h>
 #include <string>
+#include <thread>
+#include <unordered_map>
 #include <utility>
 #include <ze_api.h>
 
 namespace L0 {
 
-static thread_local std::string lastErrorMsg = {};
+static std::mutex msgMutex;
+static std::unordered_map<std::thread::id, std::string> lastErrorMsgs;
+
+static std::string &getLastErrorMsg() {
+    std::unique_lock<std::mutex> lock(msgMutex);
+    return lastErrorMsgs[std::this_thread::get_id()];
+}
 
 GraphProfilingPool::GraphProfilingPool(const uint32_t size,
                                        const uint32_t count,
@@ -91,6 +100,7 @@ ze_result_t GraphProfilingQuery::getData(ze_graph_profiling_type_t profilingType
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
+    std::string &lastErrorMsg = getLastErrorMsg();
     if (profilingType == ZE_GRAPH_PROFILING_LAYER_LEVEL ||
         profilingType == ZE_GRAPH_PROFILING_TASK_LEVEL) {
         return Compiler::getDecodedProfilingBuffer(profilingType,
@@ -128,6 +138,7 @@ ze_result_t GraphProfilingQuery::getLogString(uint32_t *pSize, char *pProfilingL
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
+    std::string &lastErrorMsg = getLastErrorMsg();
     if (*pSize == 0) {
         *pSize = static_cast<uint32_t>(lastErrorMsg.size() + 1);
         return ZE_RESULT_SUCCESS;

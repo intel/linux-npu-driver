@@ -20,9 +20,10 @@
 #include "level_zero_driver/source/driver_handle.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
-#include <array>
+#include <algorithm>
 #include <dlfcn.h>
 #include <string.h>
+#include <vector>
 #include <ze_api.h>
 #include <ze_command_queue_npu_ext.h>
 #include <ze_context_npu_ext.h>
@@ -126,24 +127,10 @@ exit:
 
 ze_result_t zeDriverGetExtensionProperties(ze_driver_handle_t hDriver,
                                            uint32_t *pCount,
-                                           ze_driver_extension_properties_t *pExtensionProperties) {
-    trace_zeDriverGetExtensionProperties(hDriver, pCount, pExtensionProperties);
+                                           ze_driver_extension_properties_t *pExtProps) {
+    trace_zeDriverGetExtensionProperties(hDriver, pCount, pExtProps);
     ze_result_t ret;
-
-    std::array<ze_driver_extension_properties_t, 12> supportedExts = {{
-        {ZE_GRAPH_EXT_NAME, ZE_GRAPH_EXT_VERSION_CURRENT},
-        {ZE_PROFILING_DATA_EXT_NAME, ZE_PROFILING_DATA_EXT_VERSION_1_0},
-        {ZE_MUTABLE_COMMAND_LIST_EXP_NAME, ZE_MUTABLE_COMMAND_LIST_EXP_VERSION_1_1},
-        {ZE_COMMAND_QUEUE_NPU_EXT_NAME, ZE_COMMAND_QUEUE_NPU_EXT_VERSION_1_0},
-        {ZE_CONTEXT_NPU_EXT_NAME, ZE_CONTEXT_NPU_EXT_VERSION_CURRENT},
-        {"ZE_extension_graph_1_2", ZE_GRAPH_EXT_VERSION_1_2},
-        {"ZE_extension_graph_1_3", ZE_GRAPH_EXT_VERSION_1_3},
-        {"ZE_extension_graph_1_4", ZE_GRAPH_EXT_VERSION_1_4},
-        {"ZE_extension_graph_1_5", ZE_GRAPH_EXT_VERSION_1_5},
-        {"ZE_extension_graph_1_6", ZE_GRAPH_EXT_VERSION_1_6},
-        {"ZE_extension_graph_1_7", ZE_GRAPH_EXT_VERSION_1_7},
-        {"ZE_extension_graph_1_8", ZE_GRAPH_EXT_VERSION_1_8},
-    }};
+    std::vector<ze_driver_extension_properties_t> exts;
 
     if (hDriver == nullptr) {
         ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
@@ -155,37 +142,27 @@ ze_result_t zeDriverGetExtensionProperties(ze_driver_handle_t hDriver,
         goto exit;
     }
 
-    for (auto &ext : supportedExts) {
-        if (strcmp(ext.name, ZE_COMMAND_QUEUE_NPU_EXT_NAME) == 0) {
-            auto driver = DriverHandle::fromHandle(hDriver);
-            ext.version = driver->getSupportedCmdQueueExtVersion();
-            break;
-        }
-    }
-
+    exts = DriverHandle::fromHandle(hDriver)->getSupportedExtensions();
     if (*pCount == 0) {
-        *pCount = supportedExts.size();
+        *pCount = static_cast<uint32_t>(exts.size());
         ret = ZE_RESULT_SUCCESS;
         goto exit;
     }
 
-    if (*pCount > supportedExts.size())
-        *pCount = supportedExts.size();
-
-    if (pExtensionProperties == nullptr) {
+    *pCount = std::min(*pCount, static_cast<uint32_t>(exts.size()));
+    if (pExtProps == nullptr) {
         ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
         goto exit;
     }
 
     for (size_t i = 0; i < *pCount; i++) {
-        *pExtensionProperties = supportedExts[i];
-        pExtensionProperties++;
+        *pExtProps = exts[i];
+        pExtProps++;
     }
 
     ret = ZE_RESULT_SUCCESS;
-
 exit:
-    trace_zeDriverGetExtensionProperties(ret, hDriver, pCount, pExtensionProperties);
+    trace_zeDriverGetExtensionProperties(ret, hDriver, pCount, pExtProps);
     return ret;
 }
 

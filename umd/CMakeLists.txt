@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2022-2024 Intel Corporation
+# Copyright (C) 2022-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 #
@@ -20,6 +20,7 @@ if (ENABLE_INCLUDE_WHAT_YOU_USE)
 endif()
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     add_compile_options(-Wno-unknown-warning-option -Wno-unknown-pragmas)
+    add_link_options(-fuse-ld=lld)
 endif()
 
 if ("${LINUX_SYSTEM_NAME}" STREQUAL "ubuntu" AND "${LINUX_SYSTEM_VERSION_ID}" STREQUAL "22.04")
@@ -30,6 +31,13 @@ endif()
 
 if (NOT UMD_LOGLEVEL)
   set(UMD_LOGLEVEL ERROR)
+endif()
+
+option(ENABLE_NPU_LOGGING "Build with logging enabled" ON)
+if (ENABLE_NPU_LOGGING)
+    add_compile_definitions(ENABLE_NPU_LOGGING)
+else()
+    add_compile_options(-Wno-unused-but-set-variable -Wno-unused-variable)
 endif()
 
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -g")
@@ -48,6 +56,8 @@ add_compile_options(-Winvalid-pch -Wconversion -Wuninitialized -ftrapv)
 add_compile_options(-fvisibility=hidden)
 add_compile_options(-mwaitpkg)
 add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>)
+add_compile_options(-flto=auto)
+add_link_options(-flto=auto)
 
 # Project-wide include paths
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/vpu_driver/include")

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -17,6 +17,8 @@
 
 #include <string.h>
 #include <utility>
+#include <ze_api.h>
+#include <zet_api.h>
 
 namespace L0 {
 

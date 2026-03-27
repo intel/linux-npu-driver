@@ -18,9 +18,15 @@
 #include <ze_command_queue_npu_ext.h>
 #include <ze_context_npu_ext.h>
 
+#ifdef ENABLE_NPU_LOGGING
 #define IS_API_TRACE() (VPU::getLogLevel() == INFO && VPU::getLogMask() & API)
 #define IS_API_DDI_TRACE() (VPU::getLogLevel() == INFO && VPU::getLogMask() & API_DDI)
 #define IS_API_EXT_TRACE() (VPU::getLogLevel() == INFO && VPU::getLogMask() & API_EXT)
+#else
+#define IS_API_TRACE() false
+#define IS_API_DDI_TRACE() false
+#define IS_API_EXT_TRACE() false
+#endif
 
 const inline char *ze_result_to_str(unsigned long r) {
     switch (r) {

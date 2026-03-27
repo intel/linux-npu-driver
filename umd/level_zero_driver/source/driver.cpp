@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -23,6 +23,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <ze_api.h>
 
 namespace L0 {
 
@@ -85,10 +86,13 @@ void Driver::displayComponentVersions() {
     LOG(MISC, "Compiler version: %s", Compiler::getCompilerVersionString().c_str());
     if (pGlobalDriverHandle) {
         for (auto &device : pGlobalDriverHandle->devices) {
-            LOG(MISC, "Device JSM version: %s", device->getVPUDevice()->jsmApiVersion.c_str());
+            LOG(MISC,
+                "Device JSM Command Job API version: %s",
+                device->getVPUDevice()->jsmCmdApiVersion.c_str());
             LOG(MISC,
                 "Device NNRT version: %s",
                 device->getVPUDevice()->mappedInferenceVersion.c_str());
+            LOG(MISC, "Device JSM API version: %s", device->getVPUDevice()->jsmApiVersion.c_str());
         }
     }
 }

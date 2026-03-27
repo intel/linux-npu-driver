@@ -30,7 +30,7 @@ class DiskCache {
 
     Key computeKey(const ze_graph_desc_2_t &desc);
     std::unique_ptr<BlobContainer> getBlob(const Key &key);
-    void setBlob(const Key &key, const std::unique_ptr<BlobContainer> &blob);
+    std::unique_ptr<BlobContainer> setBlob(const Key &key, std::unique_ptr<BlobContainer> blob);
 
     void setMaxSize(size_t size) { maxSize = size; }
     size_t getMaxSize() { return maxSize; }

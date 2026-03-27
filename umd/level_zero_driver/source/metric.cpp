@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -13,6 +13,8 @@
 
 #include <algorithm>
 #include <array>
+#include <ze_api.h>
+#include <zet_api.h>
 
 namespace L0 {
 
@@ -345,25 +347,19 @@ ze_result_t MetricContext::activateMetricGroups(int vpuFd,
         LOG_E("Device is uninitialized");
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
+    if (count > 0 && phMetricGroups == nullptr) {
+        LOG_E("Invalid size option passed in. count: %u when phMetricGroups is NULL", count);
+        return ZE_RESULT_ERROR_INVALID_SIZE;
+    }
 
     ze_result_t result = ZE_RESULT_SUCCESS;
-
-    if (count > 0) {
-        if (phMetricGroups == nullptr) {
-            LOG_E("Invalid size option passed in. count: %u when phMetricGroups is NULL", count);
-            return ZE_RESULT_ERROR_INVALID_SIZE;
+    // Deactivate all metric groups first and re-activate those passed into phMetricGroups
+    deactivateMetricGroups(vpuFd);
+    for (uint32_t i = 0; i < count; i++) {
+        if (!activateMetricGroup(vpuFd, phMetricGroups[i])) {
+            LOG_E("Activation failed for Metric Group with index %u.", i);
+            result = ZE_RESULT_ERROR_INVALID_ARGUMENT;
         }
-
-        // Deactivate all metric groups first and re-activate those passed into phMetricGroups
-        deactivateMetricGroups(vpuFd);
-        for (uint32_t i = 0; i < count; i++) {
-            if (!activateMetricGroup(vpuFd, phMetricGroups[i])) {
-                LOG_E("Invalid Metric Group (%p) was passed in.", phMetricGroups[i]);
-                result = ZE_RESULT_ERROR_INVALID_ARGUMENT;
-            }
-        }
-    } else if (phMetricGroups == nullptr) {
-        deactivateMetricGroups(vpuFd);
     }
 
     return result;

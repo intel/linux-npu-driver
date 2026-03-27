@@ -325,6 +325,8 @@ static inline elf::platform::ArchKind toArchKind(uint32_t deviceId) {
         return elf::platform::ArchKind::VPUX40XX;
     case PCI_DEVICE_ID_PTL_P:
         return elf::platform::ArchKind::VPUX501X;
+    case PCI_DEVICE_ID_WCL:
+        return elf::platform::ArchKind::VPUX502X;
     default:
         return elf::platform::ArchKind::UNKNOWN;
     }
@@ -360,7 +362,7 @@ createHostParsedInference(elf::BufferManager *buffer,
             "Failed to create elf::HostParsedInference, type: elf::CompatibilityError, reason: %s",
             err.what());
         errorMsg += std::string(err.what()) + "\n";
-        throw DriverError(ZE_RESULT_ERROR_UNSUPPORTED_VERSION);
+        throw DriverError(ZE_RESULT_ERROR_INVALID_NATIVE_BINARY);
     } catch (const elf::RuntimeError &err) {
         LOG_E("Failed to create elf::HostParsedInference, type: elf::RuntimeError, reason: %s",
               err.what());
@@ -389,7 +391,7 @@ copyHostParsedInference(std::shared_ptr<elf::HostParsedInference> &hpi) {
     } catch (elf::CompatibilityError &err) {
         LOG_E("Failed to copy elf::HostParsedInference, type: elf::CompatibilityError, reason: %s",
               err.what());
-        throw DriverError(ZE_RESULT_ERROR_UNSUPPORTED_VERSION);
+        throw DriverError(ZE_RESULT_ERROR_INVALID_NATIVE_BINARY);
     } catch (const elf::RuntimeError &err) {
         LOG_E("Failed to copy elf::HostParsedInference, type: elf::RuntimeError, reason: %s",
               err.what());
@@ -415,7 +417,7 @@ static void loadHostParsedInference(const std::shared_ptr<elf::HostParsedInferen
     } catch (elf::CompatibilityError &err) {
         LOG_E("Failed to load elf::HostParsedInference, type: elf::CompatibilityError, reason: %s",
               err.what());
-        throw DriverError(ZE_RESULT_ERROR_UNSUPPORTED_VERSION);
+        throw DriverError(ZE_RESULT_ERROR_INVALID_NATIVE_BINARY);
     } catch (const elf::RuntimeError &err) {
         LOG_E("Failed to load elf::HostParsedInference, type: elf::RuntimeError, reason: %s",
               err.what());

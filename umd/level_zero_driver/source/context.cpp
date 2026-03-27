@@ -25,6 +25,8 @@
 #include <linux/sysinfo.h>
 #include <string.h>
 #include <sys/sysinfo.h>
+#include <ze_api.h>
+#include <zet_api.h>
 
 namespace L0 {
 

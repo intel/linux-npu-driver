@@ -10,8 +10,9 @@
 #include <cstddef>
 #include <cstdint> // IWYU pragma: keep
 
+#include "api/vpu_jsm_api.h"
 #include "api/vpu_jsm_job_cmd_api.h"
-#include "api/vpu_nnrt_api_40xx.h"
+#include "api/vpu_nnrt_api_ver.h"
 #include "vpu_driver/source/command/copy_command.hpp"
 #include "vpu_driver/source/device/hw_info.hpp"
 
@@ -41,7 +42,8 @@ struct VPUHwInfo vpuHwInfo40xx = {.platformName = "40xx",
                                   .getCopyCommand = &getCopyCommandDescriptor40xx,
                                   .printCopyDescriptor = &printCopyDescriptor40xx,
                                   .fwMappedInferenceIndex = VPU_NNRT_40XX_API_VER_INDEX,
-                                  .fwJsmCmdApiVerIndex = VPU_JSM_JOB_CMD_API_VER_INDEX};
+                                  .fwJsmCmdApiVerIndex = VPU_JSM_JOB_CMD_API_VER_INDEX,
+                                  .fwJsmApiVerIndex = VPU_JSM_API_VER_INDEX};
 
 VPUHwInfo getHwInfo40xx() {
     return vpuHwInfo40xx;

@@ -18,7 +18,6 @@
 
 #include <ze_api.h>
 #include <ze_ddi.h>
-#include <ze_mem_import_system_memory_ext.h>
 
 namespace L0 {
 static VPU::VPUBufferObject::Type flagToBufferObjectType(ze_host_mem_alloc_flags_t flag) {
@@ -242,15 +241,15 @@ ze_result_t zeMemAllocHost(ze_context_handle_t hContext,
         ret = ZE_RESULT_ERROR_INVALID_ENUMERATION;
         break;
     }
-    case ZE_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMPORT_SYSTEM_MEMORY: {
-        const ze_external_memory_import_system_memory_t *pImportMemDesc =
-            reinterpret_cast<const ze_external_memory_import_system_memory_t *>(hostDesc->pNext);
-        L0_HANDLE_EXCEPTION(
-            ret,
-            L0::Context::fromHandle(hContext)->importUserPtr(pImportMemDesc->pSystemMemory,
-                                                             pImportMemDesc->size,
-                                                             hostDesc->flags,
-                                                             pptr));
+    case ZE_STRUCTURE_TYPE_EXTERNAL_MEMMAP_SYSMEM_EXT_DESC: {
+        const ze_external_memmap_sysmem_ext_desc_t *pImportMemDesc =
+            reinterpret_cast<const ze_external_memmap_sysmem_ext_desc_t *>(hostDesc->pNext);
+        L0_HANDLE_EXCEPTION(ret,
+                            L0::Context::fromHandle(hContext)->importUserPtr(
+                                const_cast<void *>(pImportMemDesc->pSystemMemory),
+                                pImportMemDesc->size,
+                                hostDesc->flags,
+                                pptr));
         break;
     }
     default:

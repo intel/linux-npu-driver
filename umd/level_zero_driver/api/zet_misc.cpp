@@ -12,6 +12,7 @@
 
 #include <dlfcn.h>
 #include <loader/ze_loader.h>
+#include <memory>
 #include <string>
 #include <ze_api.h>
 #include <zet_ddi.h>
@@ -410,20 +411,26 @@ exit:
 
 namespace L0 {
 
-void *getLoaderHandle() {
-    static void *loaderHandle = dlopen(LIB_ZE_LOADER_NAME, RTLD_LAZY | RTLD_LOCAL);
+static void unloadLoader(void *handle) {
+    dlclose(handle);
+}
+
+static std::unique_ptr<void, decltype(&unloadLoader)> getLoaderHandle() {
+    std::unique_ptr<void, decltype(&unloadLoader)> loaderHandle(
+        dlopen(LIB_ZE_LOADER_NAME, RTLD_NOW | RTLD_NOLOAD),
+        &unloadLoader);
     return loaderHandle;
 }
 
 std::string getLoaderVersion() {
     std::string version = "not available";
-    void *loaderHandle = getLoaderHandle();
 
+    auto loaderHandle = getLoaderHandle();
     if (loaderHandle == nullptr) {
         return version;
     }
 
-    static void *functionPointer = dlsym(loaderHandle, "zelLoaderGetVersions");
+    void *functionPointer = dlsym(loaderHandle.get(), "zelLoaderGetVersions");
     if (functionPointer == nullptr) {
         return version;
     }
@@ -443,13 +450,13 @@ std::string getLoaderVersion() {
 }
 
 ze_result_t translateHandle(zel_handle_type_t type, void *handler, void **pHandler) {
-    void *loaderHandle = getLoaderHandle();
+    auto loaderHandle = getLoaderHandle();
     if (loaderHandle == nullptr) {
         LOG_E("Failed to open " LIB_ZE_LOADER_NAME " library");
         return ZE_RESULT_ERROR_UNKNOWN;
     }
 
-    static void *functionPointer = dlsym(loaderHandle, "zelLoaderTranslateHandle");
+    void *functionPointer = dlsym(loaderHandle.get(), "zelLoaderTranslateHandle");
     if (functionPointer == nullptr) {
         LOG_E("Failed to get 'zelLoaderTranslateHandle' from " LIB_ZE_LOADER_NAME ", reason: %s",
               dlerror());

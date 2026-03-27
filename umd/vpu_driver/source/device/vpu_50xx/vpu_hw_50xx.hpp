@@ -12,6 +12,7 @@
 namespace VPU {
 
 #define PCI_DEVICE_ID_PTL_P 0xb03e
+#define PCI_DEVICE_ID_WCL 0xfd3e
 
 struct VPUHwInfo;
 
