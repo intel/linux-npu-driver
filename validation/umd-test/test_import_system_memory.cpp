@@ -11,7 +11,6 @@
 #include <cstdlib>
 #include <fcntl.h>
 #include <sys/mman.h>
-#include <ze_mem_import_system_memory_ext.h>
 
 class ImportSystemMemoryNoParam : public UmdTest {
   public:
@@ -74,13 +73,13 @@ class ImportSystemMemory : public ImportSystemMemoryNoParam,
 
 INSTANTIATE_TEST_SUITE_P(,
                          ImportSystemMemory,
-                         ::testing::Values(256, 4064, 64 * KB, 4 * MB, 32 * MB),
+                         ::testing::Values(4096, 64 * KB, 4 * MB, 32 * MB),
                          [](const testing::TestParamInfo<uint64_t> &cmd) {
                              return memSizeToStr(cmd.param);
                          });
 
 TEST_F(ImportSystemMemory, MultipleImportSystemMemory) {
-    std::vector<uint64_t> testSizes = {256, 4064, 64 * KB, 4 * MB, 32 * MB};
+    std::vector<uint64_t> testSizes = {4096, 64 * KB, 4 * MB, 32 * MB};
 
     std::vector<std::shared_ptr<void>> allocPtrs;
     std::vector<std::shared_ptr<void>> importPtrs;

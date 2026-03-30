@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -253,6 +253,12 @@ uint32_t KmdContext::get_id() {
     return ssid;
 }
 
+size_t KmdContext::get_preemption_buf_size() {
+    uint64_t val = 0;
+    get_param(DRM_IVPU_PARAM_PREEMPT_BUFFER_SIZE, &val);
+    return val;
+}
+
 bool KmdContext::valid() {
     return get_id() != 0;
 }
@@ -294,12 +300,14 @@ void KmdTest::SetUp() {
     get_param(DRM_IVPU_PARAM_PLATFORM_TYPE, &platform_type);
     if (has_debugfs) {
         read_debugfs_file("reset_counter", initial_reset_counter);
+        read_debugfs_file("engine_reset_counter", initial_engine_reset_counter);
     }
     ASSERT_EQ(sched_getaffinity(getpid(), sizeof(original_affinity), &original_affinity), 0);
 }
 
 void KmdTest::TearDown() {
     int current_reset_counter = 0;
+    int current_engine_reset_counter = 0;
     int reset_pending = 0;
 
     if (custom_affinity) {
@@ -319,6 +327,13 @@ void KmdTest::TearDown() {
         EXPECT_EQ(expected_resets, actual_resets)
             << "The test failed because it caused " << actual_resets
             << " VPU resets/recoveries but " << expected_resets << " were expected";
+    }
+
+    if (has_debugfs && !read_debugfs_file("engine_reset_counter", current_engine_reset_counter)) {
+        int actual_resets = current_engine_reset_counter - initial_engine_reset_counter;
+        EXPECT_EQ(expected_engine_resets, actual_resets)
+            << "The test failed because it caused " << actual_resets << " VPU engine resets but "
+            << expected_engine_resets << " were expected";
     }
 }
 
@@ -391,6 +406,18 @@ bool KmdTest::is_autosuspend_enabled() {
     return false;
 }
 
+bool KmdTest::is_debugfs_file_accessible(const char *fname) {
+    if (!debugfs_is_available())
+        return false;
+    if (debugfs_is_locked_down())
+        return false;
+    if (!test_app::has_root_access())
+        return false;
+    if (!debugfs_file_exists(fname))
+        return false;
+    return true;
+}
+
 void KmdTest::get_context_num() {
     uint64_t param_value;
     ASSERT_EQ(0, get_param(DRM_IVPU_PARAM_NUM_CONTEXTS, &param_value));
@@ -445,6 +472,26 @@ bool KmdTest::wait_for_resume(int timeout_ms) {
         int err = read_sysfs_file("power/runtime_status", status);
         if (!err && status == "active")
             return true;
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    } while (std::chrono::steady_clock::now() < timeout);
+
+    return false;
+}
+
+bool KmdTest::wait_for_engine_reset(int timeout_ms) {
+    test_app::overwrite_timeout(timeout_ms);
+    auto timeout = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+    int count;
+
+    if (!is_debugfs_file_accessible("engine_reset_counter")) {
+        return true;
+    }
+
+    do {
+        if (!read_debugfs_file("engine_reset_counter", count) &&
+            count >= initial_engine_reset_counter + expected_engine_resets) {
+            return true;
+        }
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     } while (std::chrono::steady_clock::now() < timeout);
 
@@ -644,6 +691,7 @@ int KmdTest::bind_module() const {
 
 int KmdTest::unbind_module() {
     initial_reset_counter = 0;
+    initial_engine_reset_counter = 0;
     expected_resets = 0;
 
     if (test_app::disable_unbind)

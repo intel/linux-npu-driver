@@ -40,6 +40,7 @@
 #define PCI_ID_ARL 0xAD1D
 #define PCI_ID_LNL 0x643E
 #define PCI_ID_PTL_P 0xB03E
+#define PCI_ID_WCL 0xFD3E
 
 namespace test_app {
 

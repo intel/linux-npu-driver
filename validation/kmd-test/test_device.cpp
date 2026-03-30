@@ -23,6 +23,8 @@ void Device::ResetEngine() {
     SKIP_NO_DEBUGFS("reset_engine");
     SKIP_NO_DEBUGFS("resume_engine");
 
+    expected_engine_resets = 1;
+
     ASSERT_EQ(write_debugfs_file("reset_engine", ENGINE_COMPUTE), 0);
     if (is_hws_enabled()) {
         ASSERT_EQ(write_debugfs_file("resume_engine", ENGINE_COMPUTE), 0);
@@ -31,6 +33,8 @@ void Device::ResetEngine() {
     if (is_autosuspend_enabled()) {
         ASSERT_TRUE(wait_for_suspend());
     }
+
+    ASSERT_TRUE(wait_for_engine_reset());
 }
 
 TEST_F(Device, Open) {

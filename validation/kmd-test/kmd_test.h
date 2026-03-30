@@ -235,6 +235,7 @@ class KmdContext {
     int destroy_cmdq(uint32_t cmdq_id);
 
     uint32_t get_id();
+    size_t get_preemption_buf_size();
 
     bool valid();
     bool is_vpu37xx();
@@ -299,11 +300,13 @@ class KmdTest : public ::testing::Test {
     bool api_version_lt(int major, int minor);
     bool is_patchset();
     bool is_autosuspend_enabled();
+    bool is_debugfs_file_accessible(const char *fname);
 
     bool resume();
     bool wait_for_resume(int timeout_ms = PM_STATE_TIMEOUT_MS);
     bool wait_for_suspend(int timeout_ms = PM_STATE_TIMEOUT_MS, bool expect_timeout = false);
     bool wait_for_recovery_event(int timeout_ms = PM_STATE_TIMEOUT_MS);
+    bool wait_for_engine_reset(int timeout_ms = PM_STATE_TIMEOUT_MS);
     int force_recovery();
     int get_autosuspend_delay(int &delay);
     int set_autosuspend_delay(int delay);
@@ -399,7 +402,9 @@ class KmdTest : public ::testing::Test {
     PmMonitor pm_mon;
     std::string fw_name;
     int initial_reset_counter = 0;
+    int initial_engine_reset_counter = 0;
     int expected_resets = 0;
+    int expected_engine_resets = 0;
     bool custom_affinity = false;
     cpu_set_t original_affinity;
     bool has_debugfs = false;
@@ -489,6 +494,7 @@ struct MemoryBuffer {
     uint64_t vpu_addr();
     void fill(uint8_t pattern = 0, size_t offset = 0, size_t len = -1);
     void clear(size_t offset = 0, size_t len = -1);
+    void write(int offset, uint64_t val) { *ptr64(offset) = val; }
     size_t size() { return _size; }
     void set_size(size_t size) { _size = size; }
 

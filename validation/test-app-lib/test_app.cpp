@@ -366,6 +366,7 @@ bool is_vpu40xx(uint16_t pci_id) {
 bool is_vpu50xx(uint16_t pci_id) {
     switch (pci_id) {
     case PCI_ID_PTL_P:
+    case PCI_ID_WCL:
         return true;
     default:
         return false;

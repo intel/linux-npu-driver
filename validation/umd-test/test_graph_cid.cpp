@@ -102,7 +102,6 @@ class CompilerInDriverWithProfiling : public CompilerInDriverLongT,
   protected:
     void SetUp() override {
         CompilerInDriverLongT::SetUp();
-
         const YAML::Node node = GetParam();
 
         if (node["graph_profiling"].IsDefined() && node["graph_profiling"].as<bool>() == false) {
