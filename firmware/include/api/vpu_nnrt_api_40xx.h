@@ -8,8 +8,8 @@
 
 /**
  * @file
- * @brief header file containing the VpuHostParsedInference and the structs required for
- * non workload management (non-WLM) inferences.
+ * @brief header file containing the structs required for non workload
+ * management (non-WLM) inferences.
  */
 
 /**
@@ -20,168 +20,22 @@
 #include "vpu_nce_hw_40xx.h"
 #include "vpu_dma_hw.h"
 #include "vpu_media_hw.h"
-#include "vpu_pwrmgr_api.h"
 #include "vpu_nnrt_wlm.h"
 #include "vpu_nnrt_common.h"
-
-/*
- * When a change is made to vpu_nnrt_api_40xx.h that breaks backwards compatibility
- * (old blob does not work with new firmware) VPU_NNRT_40XX_API_VER_MAJOR must be incremented.
- *
- * If a change preserves backwards compatibility but breaks forwards compatibility
- * (new blob does not work with old firmware) then VPU_NNRT_40XX_API_VER_MINOR
- * should be incremented. It resets to 0 when the major version is incremented.
- *
- * If vpu_nnrt_api_40xx.h is modified (field names, documentation, formatting) but the API
- * itself is not changed, then VPU_NNRT_40XX_API_VER_PATCH should be incremented.
- *
- * When the compiler creates a MappedInference in an ELF blob
- * VpuMappedInference.vpu_nnrt_api_ver is set to the version of the NNRT API used.
- * NNRuntime checks this version at inference time to ensure it is current and
- * returns an error if the major version does not match.
- * Note: VPU_NNRT_40XX_API_VER_PATCH is not stored in the MappedInference as
- * compatibility is not affected if this changes.
- */
-
- /*
- * API changelog
- * ------------
- * 11.13.1:
- *   - Replaced stack frame storage in VpuNNShaveRuntimeConfigs with a union,
- *     providing a fixed-size array for NPU4-5.
- *
- * 11.13:
- *   - Accept CMX Shave stack frames from the blob
- * 11.12:
- *   - 1KB Shave scratch region is moved to the end of CMX,
- *     default CMX Shave stacks increased to 7.5kB per Shave
- * 11.11:
- *   - Add the ManagedMappedInference directly to the VpuHostParsedInference.
- *
- * 11.10.3:
- *   - update Field name from reserved_1 to noc_clk_en in DPU Descriptor.
- *
- * 11.10:
- *   - Increase the minor version number to uniquely identify the UD24 release from earlier versions
- *
- * 11.9:
- *   - Added VpuManagedMappedInference::model_identifier to enable the compiler to assign a unique identifier
- *     to an inference.
- *
- * 11.8.1:
- *   - Added VpuActKernelInvocation::invo_index to track the ID of enqueued ActShave workloads.
- *
- * 11.8
- *   - Added support for shave sub_unit selection for work items to allow compiler to specify
- *     (if it wants to) which shave is to execute a work item.
- *
- * 11.7:
- *   - Added VpuManagedMappedInference::inference_feature_cfg to allow the passing
- *     of additional information.
- *     Added disable_dma_sw_fifo_ to allow skipping the use of DMA SW FIFO
- *     when it is not required by an inference.
- *
- * 11.6:
- *   - Added VpuWorkItem::next_workitem_idx to allow a linked list of work items to be enqueued.
- *
- * 11.5:
- *   - Added barrier configuration data (barriers_configuration, num_of_barrier_reprogrammings,
- *     barrier_programming_mode and barrier_configuration_stride in VpuManagedMappedInference)
- *     to allow runtime to efficiently fill barrier FIFOs.
- */
-#define VPU_NNRT_40XX_API_VER_MAJOR 11
-#define VPU_NNRT_40XX_API_VER_MINOR 13
-#define VPU_NNRT_40XX_API_VER_PATCH 1
-#define VPU_NNRT_40XX_API_VER ((VPU_NNRT_40XX_API_VER_MAJOR << 16) | VPU_NNRT_40XX_API_VER_MINOR)
-
-/* Index in the API version table, same for all HW generations */
-#define VPU_NNRT_40XX_API_VER_INDEX 7
-
-/*
- * When a change is made to the Activation Shave Runtime / Mangement kernel
- * (nnActEntry.cpp), that breaks backwards compatibility (e.g. changing the
- * nnActEntry function parameters) VPU_ACT_RT_VER_MAJOR must be incremented.
- *
- * If a change preserves backwards compatibility then VPU_ACT_RT_VER_MINOR
- * should be incremented. It resets to 0 when the major version is incremented.
- *
- * Act Runtime changelog:
- * ----------------------
- * 1.16:
- *  - Transition to one Shave cache op per Shave, removing the RISC communication path.
- *
- * 1.15:
- *  - Add cleanup function to clear specific registers at the beginning of shave entry
- *
- * 1.14:
- *  - Preemption handling fixes
- *
- * 1.13:
- *  - Window 1F reset to the beginning of CMX tile
- *
- * 1.12:
- *  - Cache operation fix
- *
- * 1.11:
- *  - Improve compatibility
- *
- * 1.10:
- *   - Support for executing shave tasks directly from DDR (expects two FIFO pushes
- *     with the full 32 bit AKI address and NW_PAGE is already correct)
- *
- * 1.9.2 (NPU4 only):
- *  - Preemption handling fixes
- *
- * 1.9.1 (NPU4 only):
- *  - Window 1F reset to the beginning of CMX tile
- *
- * 1.9:
- *   - Add NVL clock gating support
- *
- * 1.8:
- *   - Support Shave Shutdown control message
- *
- */
-#if !defined(CONFIG_TARGET_SOC_5000)
-#define VPU_ACT_RT_VER_MAJOR 1
-#define VPU_ACT_RT_VER_MINOR 9
-#define VPU_ACT_RT_VER_PATCH 3
-#else
-#define VPU_ACT_RT_VER_MAJOR 1
-#define VPU_ACT_RT_VER_MINOR 16
-#define VPU_ACT_RT_VER_PATCH 0
-#endif
-#define VPU_ACT_RT_VER ((VPU_ACT_RT_VER_MAJOR << 16) | VPU_ACT_RT_VER_MINOR)
-
-/*
- * IMPORTANT:
- *
- * In order to guarantee that layout of structures will be the same
- * on different compilers and platforms the following means are used:
- *
- * 1. pack(1) enabled to disallow compiler to add any padding.
- *    Padding has been added manually to align every member to its
- *    natural alignment.
- * 2. Required alignment for struct as a whole is set explicitly -
- *    structures are aligned to the biggest alignment of all its members.
- *
- * In case of changing any of the structures - make sure that the data alignment is kept:
- *
- * 1. Struct alignment should be at least the size of the widest struct member.
- * 2. Struct size should be a multiple of its alignment, use padding as necessary at the end of the struct.
- * 3. The offset of each struct member should be a multiple of it's natural alignment, e.g. the offset of a uint64_t
- *    member should be a multiple of 8.
- */
-
-#if defined(_MSC_VER)
-#define VPU_ALIGNED_STRUCT(alignment) __declspec(align(alignment))
-#elif defined(__GNUC__) || defined(__clang__)
-#define VPU_ALIGNED_STRUCT(alignment) __attribute__((aligned(alignment)))
-#else
-#error Define alignment macro
-#endif
+#include "vpu_nnrt_api.h" // To be removed. Temporary w/a for loader build.
 
 namespace nn_public {
+
+// base resources
+constexpr uint32_t VPU_MAX_TILES = 6;
+constexpr uint32_t VPU_BARRIERS_PER_GROUP = 16;
+constexpr uint32_t VPU_DPU_PER_TILE = 1;
+constexpr uint32_t VPU_SNN_PER_TILE = VPU_DPU_PER_TILE;
+constexpr uint32_t VPU_SNN_TOTAL = VPU_SNN_PER_TILE * VPU_MAX_TILES;
+constexpr uint32_t VPU_AS_PER_TILE = 2;
+// On NPU4-5, there is only one physical DMA engine, but it is logically split into two interfaces.
+constexpr uint32_t VPU_MAX_DMA_ENGINES = 2;
+constexpr uint32_t VPU_AS_TOTAL = VPU_AS_PER_TILE * VPU_MAX_TILES;
 
 #pragma pack(push, 1)
 
@@ -384,42 +238,7 @@ static_assert(offsetof(VpuMappedInference, shv_rt_configs) % 8 == 0, "Alignment 
 static_assert(offsetof(VpuMappedInference, hwp_workpoint_cfg_addr) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuMappedInference, managed_inference) % 8 == 0, "Alignment error");
 
-/* structs after this point are used by workload management inferences and should be included
-   in the documentation. */
-
 /** @endcond */
-
-/**
- * @brief The struct passed to the firmware to run the inference.
- */
-struct VPU_ALIGNED_STRUCT(64) VpuHostParsedInference {
-    uint64_t reserved_;
-    VpuResourceRequirements resource_requirements_;
-
-    /**
-     * @brief Determines whether the access to the VpuManagedMappedInference is direct or indirect.
-     */
-    enum VpuMmiAccessMode : uint8_t {
-        INDIRECT = 0, /**< The managed inference is accessed indirectly, through the managed_inference member of the
-                         VpuMappedInference struct. */
-        DIRECT,       /**< The managed inference is accessed directly from the managed_inference_ member of the
-                         VpuHostParsedInference  struct. */
-        UNKNOWN = 255
-    };
-
-    VpuMmiAccessMode mmi_access_;
-    uint8_t pad_[3];
-    struct VpuPerformanceMetrics performance_metrics_;
-    union VPU_ALIGNED_STRUCT(8) {
-        VpuTaskReference<VpuMappedInference> mapped_;
-        VpuTaskReference<VpuManagedMappedInference> managed_inference_;
-    };
-};
-
-static_assert(sizeof(VpuHostParsedInference) == 384, "VpuHostParsedInference size != 384");
-static_assert(offsetof(VpuHostParsedInference, resource_requirements_) % 4 == 0, "Alignment error");
-static_assert(offsetof(VpuHostParsedInference, performance_metrics_) % 8 == 0, "Alignment error");
-static_assert(offsetof(VpuHostParsedInference, mapped_) % 8 == 0, "Alignment error");
 
 #pragma pack(pop)
 

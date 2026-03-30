@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (c) 2022-2025, Intel Corporation.
+ * Copyright (c) 2022-2026, Intel Corporation.
  */
 
 /**
@@ -27,40 +27,13 @@
 #ifndef VPU_NNRT_WLM_H
 #define VPU_NNRT_WLM_H
 
+#include "vpu_nnrt_common.h"
+#include "vpu_nnrt_shavert.h"
+
 /**
  * @addtogroup NNRT
  * @{
  */
-
-/*
- * IMPORTANT:
- *
- * In order to guarantee that layout of structures will be the same
- * on different compilers and platforms the following means are used:
- *
- * 1. pack(1) enabled to disallow compiler to add any padding.
- *    Padding has been added manually to align every member to its
- *    natural alignment.
- * 2. Required alignment for struct as a whole is set explicitly -
- *    structures are aligned to the biggest alignment of all its members.
- *
- * In case of changing any of the structures - make sure that the data alignment is kept:
- *
- * 1. Struct alignment should be at least the size of the widest struct member.
- * 2. Struct size should be a multiple of its alignment, use padding as necessary at the end of the struct.
- * 3. The offset of each struct member should be a multiple of its natural alignment, e.g., the offset of a uint64_t
- *    member should be a multiple of 8.
- */
-
-#include "vpu_nnrt_common.h"
-
-#if defined(_MSC_VER)
-#define VPU_ALIGNED_STRUCT(alignment) __declspec(align(alignment))
-#elif defined(__GNUC__) || defined(__clang__)
-#define VPU_ALIGNED_STRUCT(alignment) __attribute__((aligned(alignment)))
-#else
-#error Define alignment macro
-#endif
 
 namespace nn_public {
 
@@ -307,19 +280,19 @@ struct VPU_ALIGNED_STRUCT(8) VpuManagedMappedInferenceInfo {
     VpuTaskReference<uint32_t> barrier_consumer_ref_offsets;
 
     /**
-     * Convenience members used for statically parsing the VpuManagedMappedInference.
+     * UNUSED. Convenience members used for statically parsing the VpuManagedMappedInference.
      *
      * These are not used by the firmware during normal execution.
      *
      * The base addresses of the task lists in DDR. work_item_reference in
      * VpuTaskInfo is used to offset from these base addresses.
      */
-    uint64_t ref_info_base_vars[VPU_MAX_TILES];
-    uint64_t ref_info_base_invars[VPU_MAX_TILES];
-    uint64_t ref_info_base_akr[VPU_MAX_TILES];
-    uint64_t ref_info_base_aki[VPU_MAX_TILES];
-    uint64_t ref_info_base_dma_from_ddr[VPU_MAX_DMA_ENGINES];
-    uint64_t ref_info_base_dma_from_cmx[VPU_MAX_DMA_ENGINES];
+    uint64_t ref_info_base_vars[6];
+    uint64_t ref_info_base_invars[6];
+    uint64_t ref_info_base_akr[6];
+    uint64_t ref_info_base_aki[6];
+    uint64_t ref_info_base_dma_from_ddr[2];
+    uint64_t ref_info_base_dma_from_cmx[2];
     uint64_t ref_info_base_media;
 };
 
