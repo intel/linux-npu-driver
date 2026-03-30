@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 #
@@ -14,9 +14,6 @@ set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION
 
 # Create package per component
 set(CPACK_RPM_COMPONENT_INSTALL ON)
-
-# Component conflicts
-set(CPACK_RPM_LEVEL_ZERO_PACKAGE_CONFLICTS "level-zero, level-zero-devel")
 
 # Get system architecture
 execute_process(
