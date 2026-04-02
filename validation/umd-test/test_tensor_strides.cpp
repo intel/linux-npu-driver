@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 Intel Corporation
+ * Copyright (C) 2025-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -8,10 +8,17 @@
 #include "graph_utilities.hpp"
 #include "umd_test.h"
 
+using StridesMap = std::unordered_map<uint32_t, std::array<uint32_t, 5>>;
+
 class TensorStridesBase : public UmdTest {
   public:
     void SetUp() override {
         UmdTest::SetUp();
+
+        if (isVPU37xx()) {
+            SKIP_("Tensor strides feature is not available on NPU37xx");
+        }
+
         modelPath = globalConfig.modelDir + "mul_add/mul_add.xml";
 
         ze_result_t result;
@@ -24,9 +31,6 @@ class TensorStridesBase : public UmdTest {
                                           .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
         queue = zeScope::commandQueueCreate(zeContext, zeDevice, queueDesc, result);
         ASSERT_EQ(ZE_RESULT_SUCCESS, result);
-
-        graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, modelPath);
-        ASSERT_NE(graph, nullptr);
     }
 
     zeScope::SharedPtr<ze_command_list_handle_t> createCmdList() {
@@ -41,6 +45,31 @@ class TensorStridesBase : public UmdTest {
     }
 
   protected:
+    std::string getBuildOptions(const StridesMap &stridesMap) {
+        std::string config = "--config NPU_ENABLE_STRIDES_FOR=\"";
+        for (auto it = stridesMap.begin(); it != stridesMap.end();) {
+            config += friendlyNames[it->first];
+            it++;
+            if (it != stridesMap.end()) {
+                config += ",";
+            }
+        }
+        config += "\"";
+        return config;
+    }
+
+    std::string getBuildOptions(const std::vector<int> &argsWithStrides) {
+        std::string config = "--config NPU_ENABLE_STRIDES_FOR=\"";
+        for (size_t i = 0; i < argsWithStrides.size(); i++) {
+            config += friendlyNames[argsWithStrides[i]];
+            if (i < argsWithStrides.size() - 1) {
+                config += ",";
+            }
+        }
+        config += "\"";
+        return config;
+    }
+
     std::string modelPath;
     zeScope::SharedPtr<ze_command_queue_handle_t> queue = nullptr;
     std::shared_ptr<Graph> graph = nullptr;
@@ -55,8 +84,6 @@ class TensorStridesBase : public UmdTest {
                                               "Result_6",
                                               "Result_7"};
 };
-
-using StridesMap = std::unordered_map<uint32_t, std::array<uint32_t, 5>>;
 
 static std::vector<StridesMap> getParams() {
     return {
@@ -84,25 +111,25 @@ static std::vector<StridesMap> getParams() {
     };
 }
 
-// TODO: EISW-197317
-class DISABLED_TensorStrides : public TensorStridesBase,
-                               public testing::WithParamInterface<StridesMap> {};
+class TensorStrides : public TensorStridesBase, public testing::WithParamInterface<StridesMap> {};
 
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DISABLED_TensorStrides);
-INSTANTIATE_TEST_SUITE_P(,
-                         DISABLED_TensorStrides,
-                         testing::ValuesIn(getParams()),
-                         [](const testing::TestParamInfo<StridesMap> &info) {
-                             std::string str;
-                             for (const auto &[i, strides] : info.param) {
-                                 str += "argument_" + std::to_string(i) + "_strides";
-                                 for (auto s : strides) {
-                                     str += "_" + std::to_string(s);
-                                 }
-                                 str += "_";
-                             }
-                             return str;
-                         });
+static std::string getTestCaseName(const testing::TestParamInfo<StridesMap> &info) {
+    std::string str;
+    for (auto it = info.param.begin(); it != info.param.end();) {
+        str += "argument_" + std::to_string(it->first) + "_strides";
+        for (auto s : it->second) {
+            str += "_" + std::to_string(s);
+        }
+        it++;
+        if (it != info.param.end()) {
+            str += "_";
+        }
+    }
+    return str;
+}
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(TensorStrides);
+INSTANTIATE_TEST_SUITE_P(, TensorStrides, testing::ValuesIn(getParams()), getTestCaseName);
 
 static void initializeBuffer(float16 *input, size_t size, size_t start) {
     for (size_t i = 0; i < size; i++) {
@@ -143,10 +170,17 @@ static void verifyOutputs(const std::vector<float16 *> &inputs,
     }
 }
 
-TEST_P(DISABLED_TensorStrides, SetTensorTogetherWithStrides) {
+TEST_P(TensorStrides, SetTensorTogetherWithStrides) {
     const auto &stridesMap = GetParam();
     std::vector<uint32_t> fullShape = {8, 12, 20};
     std::vector<uint32_t> slice = {2, 3, 4};
+
+    graph = Graph::create(zeContext,
+                          zeDevice,
+                          zeGraphDDITableExt,
+                          modelPath,
+                          getBuildOptions(stridesMap));
+    ASSERT_NE(graph, nullptr);
 
     size_t fullSize =
         std::accumulate(fullShape.begin(), fullShape.end(), 1, std::multiplies<uint32_t>());
@@ -198,10 +232,48 @@ TEST_P(DISABLED_TensorStrides, SetTensorTogetherWithStrides) {
     ASSERT_EQ(ZE_RESULT_SUCCESS, zeCommandQueueSynchronize(queue.get(), graphSyncTimeout));
 
     verifyOutputs(inputs, outputs, slice, stridesMap);
+
+    // restart the inference without tensor strides
+    for (size_t i = 0; i < numInputs; i++) {
+        ASSERT_EQ(ZE_RESULT_SUCCESS, graph->setArgumentValue(i, inputs[i]));
+    }
+
+    for (size_t i = 0; i < numOutputs; i++) {
+        ASSERT_EQ(ZE_RESULT_SUCCESS, graph->setArgumentValue2(i + numInputs, outputs[i]));
+    }
+    ASSERT_EQ(ZE_RESULT_SUCCESS, zeCommandListReset(cmdList));
+    ASSERT_EQ(ZE_RESULT_SUCCESS,
+              zeGraphDDITableExt
+                  ->pfnAppendGraphExecute(cmdList, graph->handle, nullptr, nullptr, 0, nullptr));
+    ASSERT_EQ(ZE_RESULT_SUCCESS, zeCommandListClose(cmdList));
+    ASSERT_EQ(ZE_RESULT_SUCCESS,
+              zeCommandQueueExecuteCommandLists(queue.get(), 1, &cmdList, nullptr));
+    ASSERT_EQ(ZE_RESULT_SUCCESS, zeCommandQueueSynchronize(queue.get(), graphSyncTimeout));
+
+    verifyOutputs(inputs, outputs, slice);
 }
 
-// TODO: EISW-197317
-class DISABLED_TensorStridesMutableCmdList : public DISABLED_TensorStrides {
+using TensorStridesNegative = TensorStridesBase;
+
+TEST_F(TensorStridesNegative, SetStridesOnArgumentWithStridesDisabled) {
+    std::vector<uint32_t> fullShape = {8, 12, 20};
+
+    graph = Graph::create(zeContext,
+                          zeDevice,
+                          zeGraphDDITableExt,
+                          modelPath,
+                          "--config NPU_ENABLE_STRIDES_FOR=\"Parameter_1\"");
+    ASSERT_NE(graph, nullptr);
+
+    size_t fullSize =
+        std::accumulate(fullShape.begin(), fullShape.end(), 1, std::multiplies<uint32_t>());
+
+    void *input = graph->allocMemory(fullSize * sizeof(float16), MemType::SHARED_MEMORY);
+    std::array<uint32_t, 5> strides = {1, 2, 0, 0, 0};
+    ASSERT_NE(ZE_RESULT_SUCCESS, graph->setArgumentValue2(1, input, strides));
+}
+
+class TensorStridesMutableCmdList : public TensorStrides {
   public:
     zeScope::SharedPtr<ze_command_list_handle_t> createMutableCmdList() {
         ze_mutable_command_list_exp_desc_t mutableCmdListDesc{
@@ -220,26 +292,23 @@ class DISABLED_TensorStridesMutableCmdList : public DISABLED_TensorStrides {
     }
 };
 
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DISABLED_TensorStridesMutableCmdList);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(TensorStridesMutableCmdList);
 INSTANTIATE_TEST_SUITE_P(,
-                         DISABLED_TensorStridesMutableCmdList,
+                         TensorStridesMutableCmdList,
                          testing::ValuesIn(getParams()),
-                         [](const testing::TestParamInfo<StridesMap> &info) {
-                             std::string str;
-                             for (const auto &[i, strides] : info.param) {
-                                 str += "argument_" + std::to_string(i) + "_strides";
-                                 for (auto s : strides) {
-                                     str += "_" + std::to_string(s);
-                                 }
-                                 str += "_";
-                             }
-                             return str;
-                         });
+                         getTestCaseName);
 
-TEST_P(DISABLED_TensorStridesMutableCmdList, AddStridesThenUpdateStridesAndTensor) {
+TEST_P(TensorStridesMutableCmdList, AddStridesThenUpdateStridesAndTensor) {
     auto stridesMap = GetParam();
     std::vector<uint32_t> shape = {8, 12, 20};
     std::vector<uint32_t> slice = {2, 3, 4};
+
+    graph = Graph::create(zeContext,
+                          zeDevice,
+                          zeGraphDDITableExt,
+                          modelPath,
+                          getBuildOptions(stridesMap));
+    ASSERT_NE(graph, nullptr);
 
     size_t fullSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<uint32_t>());
     size_t sliceSize = std::accumulate(slice.begin(), slice.end(), 1, std::multiplies<uint32_t>());
@@ -371,12 +440,69 @@ TEST_P(DISABLED_TensorStridesMutableCmdList, AddStridesThenUpdateStridesAndTenso
     ASSERT_EQ(ZE_RESULT_SUCCESS, zeCommandQueueSynchronize(queue.get(), graphSyncTimeout));
 
     verifyOutputs(inputs, outputs, slice, stridesMap);
+
+    // restart the inference without strides
+    argumentDesc = graphArgumentDescs.begin();
+    pNext = nullptr;
+    for (size_t i = 0; i < numInputs + numOutputs; i++) {
+        argumentDesc->stype = ZE_STRUCTURE_TYPE_MUTABLE_GRAPH_ARGUMENT_EXP_DESC;
+        argumentDesc->pNext = pNext;
+        argumentDesc->argIndex = i;
+        argumentDesc->commandId = commandId;
+        if (i < numInputs) {
+            argumentDesc->pArgValue = inputs[i];
+        } else {
+            argumentDesc->pArgValue = outputs[i - numInputs];
+        }
+        pNext = &(*argumentDesc);
+        argumentDesc++;
+    }
+
+    mutableCommandsDesc.pNext = &(*(argumentDesc - 1));
+    ASSERT_EQ(ZE_RESULT_SUCCESS,
+              zeCommandListUpdateMutableCommandsExp(cmdList, &mutableCommandsDesc));
+    ASSERT_EQ(ZE_RESULT_SUCCESS, zeCommandListClose(cmdList));
+    ASSERT_EQ(ZE_RESULT_SUCCESS,
+              zeCommandQueueExecuteCommandLists(queue.get(), 1, &cmdList, nullptr));
+    ASSERT_EQ(ZE_RESULT_SUCCESS, zeCommandQueueSynchronize(queue.get(), graphSyncTimeout));
+
+    verifyOutputs(inputs, outputs, slice);
 }
 
-// TODO: EISW-197317
-using DISABLED_StridesProperty = TensorStridesBase;
+class StridesProperty : public TensorStridesBase,
+                        public testing::WithParamInterface<std::vector<int>> {};
 
-TEST_F(DISABLED_StridesProperty, GetArgumentProperties) {
+static std::vector<std::vector<int>> stridesPropertyParams = {
+    {1},
+    {0, 1},
+    {0, 3},
+    {2, 4},
+    {0, 1, 2, 3, 4},
+};
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(StridesProperty);
+INSTANTIATE_TEST_SUITE_P(,
+                         StridesProperty,
+                         testing::ValuesIn(stridesPropertyParams),
+                         [](const testing::TestParamInfo<std::vector<int>> &info) {
+                             std::string str = "arguments_";
+                             for (size_t i = 0; i < info.param.size(); i++) {
+                                 str += std::to_string(info.param[i]);
+                                 if (i < info.param.size() - 1) {
+                                     str += "_";
+                                 }
+                             }
+                             return str;
+                         });
+
+TEST_P(StridesProperty, GetArgumentProperties) {
+    const auto &argsWithStrides = GetParam();
+    graph = Graph::create(zeContext,
+                          zeDevice,
+                          zeGraphDDITableExt,
+                          modelPath,
+                          getBuildOptions(argsWithStrides));
+    ASSERT_NE(graph, nullptr);
+
     ze_graph_properties_t graphProps = {};
     graphProps.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
     ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties(graph->handle, &graphProps), ZE_RESULT_SUCCESS)
@@ -407,11 +533,24 @@ TEST_F(DISABLED_StridesProperty, GetArgumentProperties) {
         ASSERT_EQ(graphArgumentProps.networkPrecision, ZE_GRAPH_ARGUMENT_PRECISION_FP16);
         ASSERT_EQ(graphArgumentProps.deviceLayout, ZE_GRAPH_ARGUMENT_LAYOUT_CHW);
         ASSERT_EQ(graphArgumentProps.devicePrecision, ZE_GRAPH_ARGUMENT_PRECISION_FP16);
-        ASSERT_TRUE(stridesProp.supportsDynamicStrides);
+        if (std::find(argsWithStrides.begin(), argsWithStrides.end(), index) !=
+            argsWithStrides.end()) {
+            ASSERT_TRUE(stridesProp.supportsDynamicStrides) << "argument " << index;
+        } else {
+            ASSERT_FALSE(stridesProp.supportsDynamicStrides) << "argument " << index;
+        }
     }
 }
 
-TEST_F(DISABLED_StridesProperty, GetArgumentProperties2) {
+TEST_P(StridesProperty, GetArgumentProperties2) {
+    const auto &argsWithStrides = GetParam();
+    graph = Graph::create(zeContext,
+                          zeDevice,
+                          zeGraphDDITableExt,
+                          modelPath,
+                          getBuildOptions(argsWithStrides));
+    ASSERT_NE(graph, nullptr);
+
     ze_graph_properties_t graphProps = {};
     graphProps.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
     ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties(graph->handle, &graphProps), ZE_RESULT_SUCCESS)
@@ -450,11 +589,24 @@ TEST_F(DISABLED_StridesProperty, GetArgumentProperties2) {
             ASSERT_EQ(graphArgumentProps.quantReverseScale, 0);
         }
         ASSERT_EQ(graphArgumentProps.quantZeroPoint, 0);
-        ASSERT_TRUE(stridesProp.supportsDynamicStrides);
+        if (std::find(argsWithStrides.begin(), argsWithStrides.end(), index) !=
+            argsWithStrides.end()) {
+            ASSERT_TRUE(stridesProp.supportsDynamicStrides) << "argument " << index;
+        } else {
+            ASSERT_FALSE(stridesProp.supportsDynamicStrides) << "argument " << index;
+        }
     }
 }
 
-TEST_F(DISABLED_StridesProperty, GetArgumentProperties3) {
+TEST_P(StridesProperty, GetArgumentProperties3) {
+    const auto &argsWithStrides = GetParam();
+    graph = Graph::create(zeContext,
+                          zeDevice,
+                          zeGraphDDITableExt,
+                          modelPath,
+                          getBuildOptions(argsWithStrides));
+    ASSERT_NE(graph, nullptr);
+
     ze_graph_properties_t graphProps = {};
     graphProps.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
     ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties(graph->handle, &graphProps), ZE_RESULT_SUCCESS)
@@ -495,6 +647,11 @@ TEST_F(DISABLED_StridesProperty, GetArgumentProperties3) {
         ASSERT_EQ(graphArgumentProps.quantZeroPoint, 0);
         ASSERT_EQ(graphArgumentProps.dims_count, 3);
         ASSERT_EQ(friendlyNames[index], graphArgumentProps.debug_friendly_name);
-        ASSERT_TRUE(stridesProp.supportsDynamicStrides);
+        if (std::find(argsWithStrides.begin(), argsWithStrides.end(), index) !=
+            argsWithStrides.end()) {
+            ASSERT_TRUE(stridesProp.supportsDynamicStrides) << "argument " << index;
+        } else {
+            ASSERT_FALSE(stridesProp.supportsDynamicStrides) << "argument " << index;
+        }
     }
 }

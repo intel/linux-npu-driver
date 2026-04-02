@@ -134,17 +134,6 @@ DiskCache::Key DiskCache::computeKey(const ze_graph_desc_2_t &desc) {
     return hash.final(desc.pInput, desc.inputSize);
 }
 
-static bool validBlobChecksum(VPU::OsFile &file) {
-    uint8_t *filePtr = static_cast<uint8_t *>(file.mmap());
-    if (filePtr == nullptr)
-        return false;
-
-    uint64_t offsetSum = file.size() - HashCity::DigestLength;
-    HashCity::DigestType fileSum = reinterpret_cast<HashCity::DigestType>(filePtr + offsetSum);
-    std::string computedSum = HashCity::getDigest(filePtr, offsetSum);
-    return computedSum == std::string_view(fileSum, HashCity::DigestLength);
-}
-
 std::unique_ptr<BlobContainer> DiskCache::getBlob(const Key &key) {
     if (cachePath.empty())
         return {};
@@ -157,18 +146,25 @@ std::unique_ptr<BlobContainer> DiskCache::getBlob(const Key &key) {
         LOG(CACHE, "Cache missed using %s key", filename.c_str());
         return nullptr;
     }
+    /* Validate blob checksum */
+    uint8_t *filePtr = static_cast<uint8_t *>(file->mmap());
+    if (filePtr == nullptr)
+        return nullptr;
 
-    if (!validBlobChecksum(*file)) {
-        LOG(CACHE, "Cache missed using %s key: Incorrect checksum, removing it", filename.c_str());
+    uint64_t offsetSum = file->size() - HashCity::DigestLength;
+    HashCity::DigestType fileSum = reinterpret_cast<HashCity::DigestType>(filePtr + offsetSum);
+    std::string computedSum = HashCity::getDigest(filePtr, offsetSum);
+
+    if (computedSum != std::string_view(fileSum, HashCity::DigestLength)) {
+        LOG_W("Cache missed using %s key: Incorrect checksum, removing it", filename.c_str());
         /* Remove the file without setting exclusive lock comparing to "setBlob()" function */
+
         osInfc.osiFileRemove(dataPath);
         return nullptr;
     }
 
     LOG(CACHE, "Cache hit using %s key", filename.c_str());
-    return std::make_unique<BlobContainer>(static_cast<uint8_t *>(file->mmap()),
-                                           file->size() - HashCity::DigestLength,
-                                           std::move(file));
+    return std::make_unique<BlobContainer>(filePtr, offsetSum, std::move(file));
 }
 
 static size_t
@@ -203,34 +199,34 @@ removeLeastUsedFiles(VPU::OsInterface &osInfc, std::filesystem::path &cachePath,
     return removedSize;
 }
 
-void DiskCache::setBlob(const Key &key, const std::unique_ptr<BlobContainer> &blob) {
+std::unique_ptr<BlobContainer> DiskCache::setBlob(const Key &key,
+                                                  std::unique_ptr<BlobContainer> blob) {
     if (blob == nullptr || cachePath.empty())
-        return;
-
+        return blob;
     // Add checksum after blob
     size_t cachedBlobSize = blob->size + HashCity::DigestLength;
     size_t cacheSize = getCacheSize();
 
     if (cachedBlobSize > maxSize) {
-        return;
+        return blob;
     } else if (cacheSize + cachedBlobSize > maxSize) {
         cacheSize -= removeLeastUsedFiles(osInfc, cachePath, cacheSize + cachedBlobSize - maxSize);
     }
 
     std::filesystem::path dstPath = cachePath / key;
     auto file = osInfc.osiOpenWithExclusiveLock(dstPath, true);
-    if (!file)
-        return;
-
+    if (!file) {
+        return blob;
+    }
     if (!file->write(blob->ptr, blob->size)) {
         osInfc.osiFileRemove(dstPath);
-        return;
+        return blob;
     }
 
     auto blobSum = HashCity::getDigest(blob->ptr, blob->size);
     if (blobSum.empty() || !file->write(blobSum.data(), blobSum.size())) {
         osInfc.osiFileRemove(dstPath);
-        return;
+        return blob;
     }
 
     cacheSize += cachedBlobSize;
@@ -239,6 +235,15 @@ void DiskCache::setBlob(const Key &key, const std::unique_ptr<BlobContainer> &bl
         key.c_str(),
         blob->size,
         cacheSize);
+
+    file.reset();
+
+    auto newBlob = getBlob(key);
+    if (newBlob == nullptr) {
+        LOG_E("Failed to read back cached blob for key %s\n", key.c_str());
+        return blob;
+    }
+    return newBlob;
 }
 
 } // namespace L0

@@ -31,6 +31,7 @@
 #include <type_traits>
 #include <ze_api.h>
 #include <ze_graph_ext.h>
+#include <zet_api.h>
 
 namespace L0 {
 

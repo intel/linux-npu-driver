@@ -91,7 +91,7 @@ TEST_F(Metric, GetProperties) {
         TRACE("MetricGroup[%i].domain: %i\n", i, groupProp.domain);
         TRACE("MetricGroup[%i].metricCount: %i\n", i, groupProp.metricCount);
 
-        EXPECT_TRUE((groupProp.samplingType & ZET_METRIC_GROUP_SAMPLING_TYPE_FLAG_EVENT_BASED) &&
+        EXPECT_TRUE((groupProp.samplingType & ZET_METRIC_GROUP_SAMPLING_TYPE_FLAG_EVENT_BASED) ||
                     (groupProp.samplingType & ZET_METRIC_GROUP_SAMPLING_TYPE_FLAG_TIME_BASED));
         EXPECT_GT(groupProp.domain, 0u);
         EXPECT_GT(groupProp.metricCount, 0u);

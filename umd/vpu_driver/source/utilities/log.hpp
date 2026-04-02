@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -51,6 +51,7 @@ enum LogMask : uint64_t {
      MISC | VPU_CMD | VPU_CTX | VPU_JOB | CACHE | API | API_EXT)
 #endif
 
+#ifdef ENABLE_NPU_LOGGING
 #define __FNAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define _LOG(LEVEL, MASK, fmt, ...)                           \
     do {                                                      \
@@ -75,6 +76,11 @@ enum LogMask : uint64_t {
                     __LINE__,                                 \
                     ##__VA_ARGS__);                           \
     } while (0)
+#else
+#define _LOG(LEVEL, MASK, fmt, ...) \
+    do {                            \
+    } while (false)
+#endif
 
 #define LOG_E(...) _LOG(ERROR, DRIVER, __VA_ARGS__)
 #define LOG_W(...) _LOG(WARNING, DRIVER, __VA_ARGS__)

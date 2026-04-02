@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -117,6 +117,8 @@ bool VPUInferenceExecute::setUpdates(const ArgumentUpdatesMap &updatesMap) {
             }
             if (argUpdate.strides) {
                 inputStrides[argIndex] = *argUpdate.strides;
+            } else {
+                inputStrides.erase(argIndex);
             }
         } else {
             uint32_t outputIndex = argIndex - numInputArgs;
@@ -125,6 +127,8 @@ bool VPUInferenceExecute::setUpdates(const ArgumentUpdatesMap &updatesMap) {
             }
             if (argUpdate.strides) {
                 outputStrides[outputIndex] = *argUpdate.strides;
+            } else {
+                outputStrides.erase(outputIndex);
             }
         }
     }

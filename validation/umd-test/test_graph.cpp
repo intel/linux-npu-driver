@@ -287,14 +287,14 @@ TEST_F(GraphApi, GetArgumentProperties2) {
     ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties(graph->handle, &graphProps), ZE_RESULT_SUCCESS)
         << "Failed to get Graph properties";
 
-    ze_graph_argument_properties_2_t graphArgumentProperties = {};
-    graphArgumentProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_2;
-
     for (uint32_t index = 0; index < graphProps.numGraphArgs; index++) {
+        ze_graph_argument_properties_2_t graphArgumentProperties = {};
+        graphArgumentProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_2;
         ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties2(graph->handle,
                                                                 index,
                                                                 &graphArgumentProperties),
                   ZE_RESULT_SUCCESS);
+        ASSERT_GT(strlen(graphArgumentProperties.name), 0);
         if (index == 0) {
             ASSERT_EQ(graphArgumentProperties.type, ZE_GRAPH_ARGUMENT_TYPE_INPUT);
         } else if (index == graphProps.numGraphArgs - 1) {
@@ -320,6 +320,8 @@ TEST_F(GraphApi, GetArgumentProperties2) {
         ASSERT_EQ(graphArgumentProperties.quantZeroPoint, 0);
     }
 
+    ze_graph_argument_properties_2_t graphArgumentProperties = {};
+    graphArgumentProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_2;
     ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties2(graph->handle,
                                                             graphProps.numGraphArgs,
                                                             &graphArgumentProperties),
@@ -336,14 +338,14 @@ TEST_F(GraphApi, GetArgumentProperties3) {
     ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties(graph->handle, &graphProps), ZE_RESULT_SUCCESS)
         << "Failed to get Graph properties";
 
-    ze_graph_argument_properties_3_t graphArgumentProperties = {};
-    graphArgumentProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_3;
-
     for (uint32_t index = 0; index < graphProps.numGraphArgs; index++) {
+        ze_graph_argument_properties_3_t graphArgumentProperties = {};
+        graphArgumentProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_3;
         ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties3(graph->handle,
                                                                 index,
                                                                 &graphArgumentProperties),
                   ZE_RESULT_SUCCESS);
+        ASSERT_GT(strlen(graphArgumentProperties.name), 0);
         if (index == 0) {
             ASSERT_EQ(graphArgumentProperties.type, ZE_GRAPH_ARGUMENT_TYPE_INPUT);
         } else if (index == graphProps.numGraphArgs - 1) {
@@ -367,8 +369,14 @@ TEST_F(GraphApi, GetArgumentProperties3) {
             ASSERT_EQ(graphArgumentProperties.quantReverseScale, 0);
         }
         ASSERT_EQ(graphArgumentProperties.quantZeroPoint, 0);
+        ASSERT_GT(strlen(graphArgumentProperties.debug_friendly_name), 0);
+        for (uint32_t i = 0; i < graphArgumentProperties.associated_tensor_names_count; i++) {
+            ASSERT_GT(strlen(graphArgumentProperties.associated_tensor_names[i]), 0);
+        }
     }
 
+    ze_graph_argument_properties_3_t graphArgumentProperties = {};
+    graphArgumentProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_3;
     ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties3(graph->handle,
                                                             graphProps.numGraphArgs,
                                                             &graphArgumentProperties),

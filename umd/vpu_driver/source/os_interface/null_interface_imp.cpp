@@ -52,6 +52,10 @@ bool NullOsInterfaceImp::configureNullDevice() {
         nullHwInfo = getHwInfoByDeviceId(PCI_DEVICE_ID_PTL_P);
         nullHwInfo.deviceId = PCI_DEVICE_ID_PTL_P;
         LOG_W("PTL(%#x) null device is set.", nullHwInfo.deviceId);
+    } else if (std::string("INPU_WCL") == env || std::string("WILDCATLAKE") == env) {
+        nullHwInfo = getHwInfoByDeviceId(PCI_DEVICE_ID_WCL);
+        nullHwInfo.deviceId = PCI_DEVICE_ID_WCL;
+        LOG_W("WCL(%#x) null device is set.", nullHwInfo.deviceId);
     } else if (std::string("ARROWLAKE") == env) {
         nullHwInfo = getHwInfoByDeviceId(PCI_DEVICE_ID_ARL);
         nullHwInfo.deviceId = PCI_DEVICE_ID_ARL;

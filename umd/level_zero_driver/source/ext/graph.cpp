@@ -30,18 +30,27 @@
 
 #include <algorithm>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <stdlib.h>
 #include <string.h>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <type_traits>
 #include <utility>
 #include <ze_api.h>
 #include <ze_graph_ext.h>
 
 namespace L0 {
-static thread_local std::string lastFailLog;
+
+static std::mutex logMutex;
+static std::unordered_map<std::thread::id, std::string> lastFailLogs;
+
+static std::string &getLastFailLog() {
+    std::unique_lock<std::mutex> lock(logMutex);
+    return lastFailLogs[std::this_thread::get_id()];
+}
 
 GraphBuildLog::GraphBuildLog(Context *pCtx)
     : pContext(pCtx) {}
@@ -94,6 +103,7 @@ ze_result_t Graph::create(const ze_context_handle_t hContext,
         LOG_E("Device Context failed to be retrieved");
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
+    std::string &lastFailLog = getLastFailLog();
     lastFailLog.clear();
     auto logObject = std::make_unique<GraphBuildLog>(Context::fromHandle(hContext));
     auto &logBuffer = logObject->getBuffer();
@@ -155,10 +165,14 @@ ze_result_t Graph::setArgumentValue(uint32_t argIndex, const void *pArgValue) {
     if (argIndex >= (argumentProperties.size()))
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
 
-    if (argIndex < inputArgs.size())
+    if (argIndex < inputArgs.size()) {
         inputArgs[argIndex] = pArgValue;
-    else
-        outputArgs[argIndex - inputArgs.size()] = pArgValue;
+        inputStrides.erase(argIndex);
+    } else {
+        argIndex -= safe_cast<uint32_t>(inputArgs.size());
+        outputArgs[argIndex] = pArgValue;
+        outputStrides.erase(argIndex);
+    }
     return ZE_RESULT_SUCCESS;
 }
 
@@ -178,6 +192,10 @@ std::optional<const void *> gatherArgumentValues(const void *pNext, size_t argIn
         return value->pNext;
     }
     case ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_STRIDES: {
+        if (!graph.argumentProperties[argIndex].supportsDynamicStrides) {
+            LOG_E("Argument %zu doesn't support dynamic strides", argIndex);
+            return {};
+        }
         const ze_graph_argument_value_strides_t *value =
             static_cast<const ze_graph_argument_value_strides_t *>(pNext);
         ArgumentStrides &strides =
@@ -201,6 +219,13 @@ ze_result_t Graph::setArgumentValue2(uint32_t argIndex, const void *pArgValue) {
 
     if (argIndex >= (argumentProperties.size()))
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+
+    uint32_t numInputs = safe_cast<uint32_t>(inputArgs.size());
+    if (argIndex < numInputs) {
+        inputStrides.erase(argIndex);
+    } else {
+        outputStrides.erase(argIndex - numInputs);
+    }
 
     if (!handleNestedStructs(pArgValue, gatherArgumentValues, argIndex, *this))
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
@@ -233,7 +258,6 @@ ze_result_t Graph::getProperties3(ze_graph_properties_3_t *pGraphProperties) {
 }
 
 std::optional<void *> setArgumentProperties(void *pNext, size_t argIndex, const Graph &graph) {
-    size_t numInputs = graph.inputArgs.size();
     const auto stype =
         *reinterpret_cast<const std::underlying_type_t<ze_structure_type_graph_ext_t> *>(pNext);
 
@@ -241,12 +265,7 @@ std::optional<void *> setArgumentProperties(void *pNext, size_t argIndex, const 
     case ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTY_STRIDES: {
         ze_graph_argument_property_strides_t *prop =
             static_cast<ze_graph_argument_property_strides_t *>(pNext);
-        if (argIndex < numInputs)
-            prop->supportsDynamicStrides =
-                graph.argumentProperties[argIndex].supportsDynamicStrides;
-        else
-            prop->supportsDynamicStrides =
-                graph.argumentProperties[argIndex - numInputs].supportsDynamicStrides;
+        prop->supportsDynamicStrides = graph.argumentProperties[argIndex].supportsDynamicStrides;
         return prop->pNext;
     }
     default: {
@@ -632,6 +651,8 @@ std::unique_ptr<BlobContainer> Graph::getBlobContainerNGraphLite(std::string &lo
     addDeviceConfigToBuildFlags();
     desc.pBuildFlags = buildFlags.c_str();
 
+    std::string &lastFailLog = getLastFailLog();
+
     if (!cacheDisabled) {
         key = cache.computeKey(desc);
         blob = cache.getBlob(key);
@@ -653,7 +674,7 @@ std::unique_ptr<BlobContainer> Graph::getBlobContainerNGraphLite(std::string &lo
     }
 
     if (!cacheDisabled) {
-        cache.setBlob(key, blob);
+        blob = cache.setBlob(key, std::move(blob));
         log += "ZE DynamicCaching cache_status_t: cache_status_t::stored\n";
         /* Cache status is stored also in fail log due to back compatibility */
         lastFailLog = "ZE DynamicCaching cache_status_t: cache_status_t::stored\n";
@@ -694,7 +715,7 @@ void Graph::initialize(std::string &log) {
     if (!ElfParser::checkMagic(blob)) {
         LOG_E("Failed to recognize blob format");
         log += "[NPU_DRV] Failed to recognize native binary format\n";
-        throw DriverError(ZE_RESULT_ERROR_INVALID_ARGUMENT);
+        throw DriverError(ZE_RESULT_ERROR_INVALID_NATIVE_BINARY);
     }
 
     if (!blob->hasBackingStore()) {
@@ -744,6 +765,7 @@ ze_result_t Graph::getLogString(uint32_t *pSize, char *pBuildLog) {
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
+    std::string &lastFailLog = getLastFailLog();
     if (pBuildLog == nullptr) {
         *pSize = static_cast<uint32_t>(lastFailLog.size() + 1);
         return ZE_RESULT_SUCCESS;

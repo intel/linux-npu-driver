@@ -18,7 +18,6 @@
 #include <sys/resource.h>
 #include <sys/sysinfo.h>
 #include <ze_api.h>
-#include <ze_mem_import_system_memory_ext.h>
 
 static DevicePwrStates getNpuState(std::ifstream &fileInputStream) {
     std::string state;
@@ -193,6 +192,12 @@ bool UmdTest::isSilicon() {
 }
 
 bool UmdTest::isImportSystemMemorySupported() {
+    if (Environment::getInstance()->isDriverExtensionSupported(
+            ZE_EXTERNAL_MEMORY_MAPPING_EXT_NAME,
+            ZE_EXTERNAL_MEMMAP_SYSMEM_EXT_VERSION_1_0))
+        return true;
+
+    // Fall back to the deprecated method to maintain backward compatibility
     ze_device_external_memory_properties_t extMemProps = {};
     extMemProps.stype = ZE_STRUCTURE_TYPE_DEVICE_EXTERNAL_MEMORY_PROPERTIES;
     auto ret = zeDeviceGetExternalMemoryProperties(zeDevice, &extMemProps);
@@ -219,11 +224,8 @@ std::shared_ptr<void> UmdTest::AllocHostMemory(size_t size, ze_host_mem_alloc_fl
 
 std::shared_ptr<void>
 UmdTest::importSystemMemory(void *ptr, size_t size, bool readOnly /* = false */) {
-    ze_external_memory_import_system_memory_t importSystemMemory = {
-        ZE_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMPORT_SYSTEM_MEMORY, // NOLINT
-        nullptr,
-        ptr,
-        size};
+    ze_external_memmap_sysmem_ext_desc_t importSystemMemory =
+        {ZE_STRUCTURE_TYPE_EXTERNAL_MEMMAP_SYSMEM_EXT_DESC, nullptr, ptr, size};
     ze_host_mem_alloc_desc_t hostMemAllocDesc = {
         ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC,
         &importSystemMemory,

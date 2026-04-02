@@ -43,6 +43,8 @@ bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
             drvApi->getDeviceParam(DRM_IVPU_PARAM_FW_API_VERSION, hwInfo.fwMappedInferenceIndex);
         hwInfo.fwJsmCmdApiVersion =
             drvApi->getDeviceParam(DRM_IVPU_PARAM_FW_API_VERSION, hwInfo.fwJsmCmdApiVerIndex);
+        hwInfo.fwJsmApiVersion =
+            drvApi->getDeviceParam(DRM_IVPU_PARAM_FW_API_VERSION, hwInfo.fwJsmApiVerIndex);
         uint32_t tileConfigParam = drvApi->getDeviceParam<uint32_t>(DRM_IVPU_PARAM_TILE_CONFIG);
         hwInfo.tileConfig = ~tileConfigParam & hwInfo.tileFuseMask;
 
@@ -66,8 +68,9 @@ bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
         drvApi->checkDeviceCapability(DRM_IVPU_CAP_BO_CREATE_FROM_USERPTR))
         hwInfo.userPtrCapability = true;
 
+    jsmApiVersion = drvApi->getFWComponentVersion(hwInfo.fwJsmApiVerIndex);
+    jsmCmdApiVersion = drvApi->getFWComponentVersion(hwInfo.fwJsmCmdApiVerIndex);
     mappedInferenceVersion = drvApi->getFWComponentVersion(hwInfo.fwMappedInferenceIndex);
-    jsmApiVersion = drvApi->getFWComponentVersion(hwInfo.fwJsmCmdApiVerIndex);
 
     return true;
 }
@@ -124,6 +127,7 @@ bool VPUDevice::initializeMetricGroups(VPUDriverApi *drvApi) {
         groupInfo.groupIndex = group_desc->group_id;
         groupInfo.metricCount = group_desc->num_counters;
         groupInfo.domain = group_desc->domain;
+        groupInfo.samplingType = group_desc->sampling_type;
         uint32_t groupNameStringSize = group_desc->name_string_size;
         uint32_t groupDescriptionStringSize = group_desc->description_string_size;
 
@@ -147,6 +151,7 @@ bool VPUDevice::initializeMetricGroups(VPUDriverApi *drvApi) {
         LOG(METRIC, "num_counters: %u", groupInfo.metricCount);
         LOG(METRIC, "metric_group_data_size: %u", group_desc->metric_group_data_size);
         LOG(METRIC, "domain: %u", groupInfo.domain);
+        LOG(METRIC, "sampling_type: %u", groupInfo.samplingType);
         LOG(METRIC, "name_string_size: %u", groupNameStringSize);
         LOG(METRIC, "description_string_size: %u", groupDescriptionStringSize);
         LOG(METRIC, "metric_group_name: %s", groupInfo.metricGroupName.c_str());

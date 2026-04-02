@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (c) 2020-2025, Intel Corporation.
+ * Copyright (c) 2020-2026, Intel Corporation.
  */
 
 /**
@@ -23,7 +23,7 @@
 /*
  * Minor version changes when API backward compatibility is preserved.
  */
-#define VPU_JSM_API_VER_MINOR 34
+#define VPU_JSM_API_VER_MINOR 35
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
@@ -1585,7 +1585,13 @@ struct vpu_jsm_metric_group_descriptor {
     uint32_t name_string_size;
     /** Counter description string size, @see name_string_size */
     uint32_t description_string_size;
-    uint64_t reserved_0;
+    /**
+     * Mask of sampling types supported by this group.
+     * Encoding follows Level Zero API sampling type definition
+     * with BIT(0) for event based and BIT(1) for time based sampling.
+     */
+    uint32_t sampling_type;
+    uint32_t reserved_0;
     /**
      * Right after this structure, the VPU writes name and description of
      * the metric group.

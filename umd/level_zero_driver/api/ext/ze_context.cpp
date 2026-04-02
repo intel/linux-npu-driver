@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 Intel Corporation
+ * Copyright (C) 2026-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -13,6 +13,7 @@
 #include "level_zero_driver/source/context.hpp"
 
 #include <loader/ze_loader.h>
+#include <ze_api.h>
 
 namespace L0 {
 ze_result_t zeContextSetProperties(ze_context_handle_t hContext,

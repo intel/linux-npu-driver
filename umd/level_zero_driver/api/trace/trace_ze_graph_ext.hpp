@@ -298,7 +298,7 @@ static std::optional<const void *> printArgumentValue(const void *pNext, std::st
         const ze_graph_argument_value_strides_t *value =
             static_cast<const ze_graph_argument_value_strides_t *>(pNext);
         ss << " ze_graph_argument_value_strides_t{" << "stype: " << value->stype
-           << ", pNext: " << value->pNext << ", userStrides: {";
+           << ", pNext: " << value->pNext << ", userStrides: {" << std::dec;
         for (int i = 0; i < ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE; i++) {
             ss << value->userStrides[i];
             if (i < ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE - 1)

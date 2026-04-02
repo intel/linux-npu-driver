@@ -63,6 +63,7 @@ struct GroupInfo {
     std::string metricGroupDescription;
     uint32_t domain;
     uint32_t metricCount;
+    uint32_t samplingType;
     std::vector<CounterInfo> counterInfo;
 };
 

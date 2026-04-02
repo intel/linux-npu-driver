@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (c) 2022-2023, Intel Corporation.
+ * Copyright (c) 2022-2026, Intel Corporation.
  */
 
 #ifndef VPU_NNRT_API_37XX_H
@@ -36,7 +36,7 @@
 #define VPU_NNRT_37XX_API_VER_INDEX 7
 
 /*
- * When a change is made to the Activation Shave Runtime / Mangement kernel
+ * When a change is made to the Activation Shave Runtime / Management kernel
  * (nnActEntry.cpp), that breaks backwards compatibility (e.g. changing the
  * nnActEntry function parameters) VPU_ACT_RT_VER_MAJOR must be incremented.
  *

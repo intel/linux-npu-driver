@@ -36,9 +36,12 @@
 #include <string>
 #include <sys/sysinfo.h>
 #include <utility>
+#include <ze_api.h>
+#include <ze_context_npu_ext.h>
 #include <ze_graph_ext.h>
 #include <ze_intel_npu_uuid.h>
-#include <ze_mem_import_system_memory_ext.h>
+#include <zes_api.h>
+#include <zet_api.h>
 
 namespace L0 {
 
@@ -296,6 +299,10 @@ ze_result_t Device::getGetExternalMemoryProperties(
     pExternalMemoryProperties->memoryAllocationImportTypes = ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF;
     pExternalMemoryProperties->memoryAllocationExportTypes = ZE_EXTERNAL_MEMORY_TYPE_FLAG_DMA_BUF;
 
+    /*
+     * ZE_EXTERNAL_MEMORY_TYPE_FLAG_STANDARD_ALLOCATION flag is deprecated and is replaced with
+     * ZE_EXTERNAL_MEMORY_MAPPING_EXT_NAME. Keep it for backward compatibility.
+     */
     if (vpuDevice && vpuDevice->getHwInfo().userPtrCapability) {
         pExternalMemoryProperties->memoryAllocationImportTypes |=
             static_cast<uint32_t>(ZE_EXTERNAL_MEMORY_TYPE_FLAG_STANDARD_ALLOCATION); // NOLINT
@@ -562,8 +569,14 @@ void Device::loadMetricGroupsInfo(std::vector<VPU::GroupInfo> &metricGroupsInfo)
                 metricGroupInfo.metricGroupDescription.c_str(),
                 ZET_MAX_METRIC_GROUP_DESCRIPTION - 1);
         groupProperties.description[ZET_MAX_METRIC_GROUP_DESCRIPTION - 1] = '\0';
-        groupProperties.samplingType = ZET_METRIC_GROUP_SAMPLING_TYPE_FLAG_EVENT_BASED |
-                                       ZET_METRIC_GROUP_SAMPLING_TYPE_FLAG_TIME_BASED;
+
+        if (isJsmApiGreaterOrEqualThan(getVPUDevice()->getHwInfo(), 3, 35)) {
+            groupProperties.samplingType = metricGroupInfo.samplingType;
+        } else {
+            groupProperties.samplingType = ZET_METRIC_GROUP_SAMPLING_TYPE_FLAG_EVENT_BASED |
+                                           ZET_METRIC_GROUP_SAMPLING_TYPE_FLAG_TIME_BASED;
+        }
+
         groupProperties.domain = metricGroupInfo.domain;
         groupProperties.metricCount = metricGroupInfo.metricCount;
 

@@ -69,3 +69,4 @@ target_sources(${TARGET_NAME_L0_DRV} PRIVATE
 )
 
 target_include_directories(${TARGET_NAME_L0_DRV} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/ext/cityhash)
+target_include_directories(${TARGET_NAME_L0_DRV} PUBLIC $<TARGET_PROPERTY:npu_compiler,INTERFACE_INCLUDE_DIRECTORIES>)

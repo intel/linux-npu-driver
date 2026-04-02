@@ -31,6 +31,8 @@ const std::vector<std::pair<std::string, uint64_t>> testedPlatforms = {
     {"METEORLAKE", PCI_DEVICE_ID_MTL},
     {"INPU_PTL", PCI_DEVICE_ID_PTL_P},
     {"PANTHERLAKE", PCI_DEVICE_ID_PTL_P},
+    {"INPU_WCL", PCI_DEVICE_ID_WCL},
+    {"WILDCATLAKE", PCI_DEVICE_ID_WCL},
     {"ARROWLAKE", PCI_DEVICE_ID_ARL}};
 
 struct NPUNullDeviceTest : public ::testing::Test {

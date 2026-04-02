@@ -52,6 +52,7 @@ struct VPUHwInfo {
     uint32_t extraDmaDescriptorSize = 0;
     uint64_t fwMappedInferenceVersion = 0;
     uint64_t fwJsmCmdApiVersion = 0;
+    uint64_t fwJsmApiVersion = 0;
     uint32_t fwTimestampType = 0;
     uint64_t fwPreemptBufSize = 0;
 
@@ -66,6 +67,7 @@ struct VPUHwInfo {
 
     uint32_t fwMappedInferenceIndex = UINT32_MAX;
     uint32_t fwJsmCmdApiVerIndex = UINT32_MAX;
+    uint32_t fwJsmApiVerIndex = UINT32_MAX;
 };
 
 inline VPUHwInfo getHwInfoByDeviceId(uint32_t deviceId) {
@@ -76,14 +78,21 @@ inline VPUHwInfo getHwInfoByDeviceId(uint32_t deviceId) {
     case PCI_DEVICE_ID_LNL:
         return getHwInfo40xx();
     case PCI_DEVICE_ID_PTL_P:
+    case PCI_DEVICE_ID_WCL:
         return getHwInfo50xx(deviceId);
     }
     throw std::runtime_error("Unrecognized PCI device ID");
 }
 
+// Refers to the vpu_jsm_job_cmd_api.h FW header
 inline bool isJsmCmdApiGreaterThan(const VPUHwInfo &hwInfo, uint32_t major, uint32_t minor) {
     uint64_t version = static_cast<uint64_t>((major << 16) | (minor & 0xFFFF));
-
     return hwInfo.fwJsmCmdApiVersion > version;
+}
+
+// Refers to the vpu_jsm_api.h FW header
+inline bool isJsmApiGreaterOrEqualThan(const VPUHwInfo &hwInfo, uint32_t major, uint32_t minor) {
+    uint64_t version = static_cast<uint64_t>((major << 16) | (minor & 0xFFFF));
+    return hwInfo.fwJsmApiVersion >= version;
 }
 } // namespace VPU

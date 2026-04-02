@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -21,6 +21,7 @@
 #include <limits>
 #include <memory>
 #include <utility>
+#include <ze_api.h>
 
 namespace L0 {
 ImmediateCommandList::ImmediateCommandList(Context *pCtx, CommandQueue *pCmdQueue)
