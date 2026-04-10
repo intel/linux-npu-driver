@@ -51,16 +51,31 @@ SPDX-License-Identifier: MIT
 
 ## Changelog
 
-<details><summary>The Panther Lake support is available from version v1.28.0</summary></details>
+<details>
+<summary>Wildcat Lake platform support (from v1.32.0)</summary>
+Added support for the next-generation Wildcat Lake platform.
+</details>
+
+<details>
+<summary>Removal of Level Zero submodule (from v1.32.0)</summary>
+The `third_party/level-zero` submodule has been removed, simplifying repository maintenance and reducing overall complexity.
+</details>
+
+<details>
+<summary>Ubuntu 24.04 snapshot package support (from v1.32.0)</summary>
+Added support for Ubuntu 24.04 via PPA snapshots, including automatic download of `libze1` and `libze-dev` packages and their extraction during the build process.
+</details>
+
+<details>
+<summary>The Panther Lake support is available from version v1.28.0</summary>
+</details>
 
 <details>
 <summary>Driver library name change from libze_intel_vpu.so to libze_intel_npu.so (from v1.16.0)</summary>
-
 Starting from v1.16.0 release the driver library name has been changed from `libze_intel_vpu.so` to
 `libze_intel_npu.so`. The old library name is still supported for backward compatibility in Level
 Zero loader, but it is recommended to use the new library name. Using an older version of Level Zero
 than v1.17.17 requires to keep the old library name.
-
 </details>
 
 <details>
@@ -74,12 +89,10 @@ command.
 
 Ref.:
 https://spec.oneapi.io/level-zero/latest/core/EXT_Exp_MutableCommandList.html#mutable-command-list
-
 </details>
 
 <details>
 <summary>Model driver caching (from v1.5.0)</summary>
-
 Starting from v1.5.0 release the driver allows to cache compiled model in
 filesystem. Whenever user compiles a model (using zeGraphCreate), the driver
 saves the compiled model representation in the user directory
@@ -108,12 +121,10 @@ found in `<build-dir>/bin`
 <summary>Support for Arrow Lake and Lunar Lake CPUs (from v1.5.0)</summary>
 
 In v1.5.0 release introduced support for Arrow Lake and Lunar Lake family processors.
-
 </details>
 
 <details>
 <summary>Log mask for granular control over logging (from v1.5.0)</summary>
-
 In v1.5.0 release there is new environment variable `ZE_INTEL_NPU_LOGMASK` that
 allows the user to enable specific log groups in driver. The
 `ZE_INTEL_NPU_LOGLEVEL` variable is used to enable logging. The available log
@@ -129,7 +140,6 @@ export ZE_INTEL_NPU_LOGLEVEL=INFO
 # Set log mask to only print from DEVICE, DRIVER and CACHE groups
 export ZE_INTEL_NPU_LOGMASK=$((1<<4|1<<3|1<<17))
 ```
-
 </details>
 
 ## Supported devices
@@ -139,7 +149,8 @@ The Intel® NPU driver supports following Intel® processor families:
 * [Meteor Lake](https://ark.intel.com/content/www/us/en/ark/products/codename/90353/products-formerly-meteor-lake.html)
 * [Arrow Lake](https://www.intel.com/content/www/us/en/ark/products/codename/225837/products-formerly-arrow-lake.html)
 * [Lunar Lake](https://www.intel.com/content/www/us/en/ark/products/codename/213792/products-formerly-lunar-lake.html)
-* Panther Lake
+* [Panther Lake](https://www.intel.com/content/www/us/en/ark/products/codename/237132/products-formerly-panther-lake.html)
+* Wildcat Lake
 
 For detailed information on kernel support and NPU driver releases, please refer to the [release
 page](https://github.com/intel/linux-npu-driver/releases).

@@ -8,11 +8,11 @@ SPDX-License-Identifier: MIT
 
 ## Overview
 
-This document provides a description how to test the NPU driver using npu-umd-test tool
+This document describes how to test the NPU driver using the `npu-umd-test` tool.
 
 ## Prerequisites
 
-Install the driver and compile the npu-umd-test tool as described in the [Installation
+Install the driver and compile the `npu-umd-test` tool as described in the [Installation
 Guide](overview.md#driver-package-installation).
 
 Check if the driver is loaded and the device is visible in the system:
@@ -28,9 +28,9 @@ ls /dev/accel/
 
 ## Prepare npu-umd-test
 
-The npu-umd-test is not provided in release packages. It has to be built separately. The build
-process is described in the [Installation Guide](overview.md#building-a-standalone-driver). If
-driver is already installed, you can build the npu-umd-test target only:
+The `npu-umd-test` tool is not included in the release packages and must be built separately.
+The build process is described in the [Installation Guide](overview.md#building-a-standalone-driver).
+If the driver is already installed, you can build only the `npu-umd-test` target:
 
 ```bash
 # Download a repository
@@ -50,14 +50,13 @@ cd ../
 ln -rsf ./linux-npu-driver/build/bin/npu-umd-test npu-umd-test
 ```
 
-## Prepare OpenVINO IR model set
+## Prepare the OpenVINO IR model set
 
-The NPU driver supports models in the OpenVINO IR format. OpenVINO allows to convert model from
-different frameworks, see [Conventional Model
-Preparation](https://docs.openvino.ai/2025/openvino-workflow/model-preparation.html) docs.
+The NPU driver supports models in the OpenVINO IR format. OpenVINO enables conversion of models from various frameworks into this format.
+For more details, see the [Conventional Model Preparation](https://docs.openvino.ai/2025/openvino-workflow/model-preparation.html) documentation.
 
-The npu-umd-test is able to run tests with a set of models. The models have to be converted to the
-OpenVINO IR format.
+The `npu-umd-test` framework supports running tests using a set of models.
+These models must be converted to the OpenVINO IR format prior to execution.
 
 Adding `add_abc.xml` network from [overview.md](overview.md):
 ```bash
@@ -78,9 +77,8 @@ touch models/mul_add/mul_add.bin
 
 ### Imagenet Classification Model - ResNet-50
 
-The npu-umd-test allows to test output of image classification model trained on ImageNet dataset.
-Below is an example of how to download and convert a ResNet-50 model from Pytorch to OpenVINO IR
-format.
+The `npu-umd-test` tool can be used to validate the output of image classification models trained on the ImageNet dataset.
+Below is an example showing how to download and convert a ResNet-50 model from PyTorch to the OpenVINO IR format.
 
 ```bash
 python3 -m venv openvino-venv
@@ -90,10 +88,10 @@ pip install --upgrade pip
 pip install --extra-index-url=https://download.pytorch.org/whl/cpu openvino torch torchvision opencv-python
 ```
 
-Pick up ResNet-50 from PyTorch and apply image prepostprocessing using OpenVINO. This can be done using Python code:
+Select a ResNet-50 model from PyTorch and apply image prepostprocessing using OpenVINO. This can be done using the following Python code:
 
 ```python
-# Download and convert ResNet-50 to OpenVINO IR format using Python
+# Download and convert a ResNet-50 to the OpenVINO IR format using Python
 import openvino
 import os
 import torch
@@ -116,7 +114,7 @@ ov_model = ppp.build()
 openvino.save_model(ov_model, "models/resnet50.xml")
 ```
 
-Prepare an image, download and resize it to 224x224 using OpenCV:
+Prepare an image by downloading it and resizing it to 224×224 using OpenCV:
 
 ```python
 # Prepare an image using OpenCV
@@ -160,7 +158,7 @@ for class_id in top_10:
     print(f'{class_id}{probability_indent}{probs[class_id]:.7f}')
 ```
 
-Add the model and the image to the new npu-umd-test config file:
+Add the model and image to a new `npu-umd-test` configuration file:
 
 ```bash
 cat <<EOF > resnet_config.yaml
@@ -176,18 +174,20 @@ image_classification_imagenet:
 EOF
 ```
 
-Test the image classification model:
+Run the image classification model test:
 
 ```bash
 ./npu-umd-test --config=resnet_config.yaml --verbose */resnet50
 ```
 
-### Object Detection Model - Yolo
+### Object Detection Model – YOLO
 
-The npu-umd-test does not support output validation for object detection models. The npu-umd-test
-framework can still be used to run inference on these models, but without accuracy tests. Let's
-download and convert a YOLOv8 object detection model to OpenVINO IR format. First download
-Ultralytics package:
+The `npu-umd-test` framework does not support output validation for object detection models. 
+However, it can still be used to run inference on these models, without performing accuracy verification.
+
+In this section, we will download a YOLOv8 object detection model and convert it to the OpenVINO IR format for further testing.
+
+First, install the Ultralytics package:
 
 ```bash
 # Install Ultralytics package in same virtual environment
@@ -195,10 +195,10 @@ source openvino-venv/bin/activate
 pip install ultralytics
 ```
 
-Download Yolov8s model and convert it to OpenVINO IR format:
+Download the YOLOv8s model and convert it to the OpenVINO IR format:
 
 ```python
-# Convert YOLOv8s to OpenVINO IR format using Python
+# Convert YOLOv8s to the OpenVINO IR format using Python
 from ultralytics import YOLO
 import os
 
@@ -237,11 +237,10 @@ https://docs.ultralytics.com/integrations/openvino/
 
 ### Run tests
 
-There are many sections in the npu-umd-test configuration file. All sections are described in the
-[../validation/umd-test/configs/README.md documentation](../validation/umd-test/configs/README.md).
-Let's set up a config file with models downloaded in previous section [Prepare a
-model](#prepare-a-model). New configuration file covers all available test sections:
+The `npu-umd-test` configuration file contains multiple sections,
+each described in detail in the [configuration documentation](../validation/umd-test/configs/README.md).
 
+In this example, we will create a configuration file using the models prepared in the previous section.
 ```yaml
 # filename: extend.yaml
 model_dir: models/
@@ -249,17 +248,12 @@ image_dir: images/
 
 graph_execution:
   - path: add_abc/add_abc.xml
-    # The GraphQueryNetwork* requires to pass any compiler acceptable flag.
-    # TODO: Fix in the next release after v1.23.0
-    flags: "--config"
   - path: resnet50.xml
     name: resnet50
-    flags: "--config"
     in: [ dog.bmp ]
     class_index: [ 258 ]
   - path: yolov8s.xml
     name: yolov8s
-    flags: "--config"
 
 image_classification_imagenet:
   - path: resnet50.xml
@@ -268,6 +262,7 @@ image_classification_imagenet:
     class_index: [ 258 ]
 
 driver_cache:
+  - path: add_abc/add_abc.xml
   - path: resnet50.xml
   - path: yolov8s.xml
 
@@ -282,7 +277,7 @@ multi_inference:
       exec_time_in_secs: 10
 ```
 
-Run tests with the new config file:
+Run the tests using the newly created configuration file:
 
 ```bash
 ./npu-umd-test --config=extend.yaml
@@ -290,29 +285,21 @@ Run tests with the new config file:
 
 ### Run additional tests using options
 
-The npu-umd-test comes with extra test cases:
-* Driver initialization tests that require to be run in new process.
+The `npu-umd-test` tool provides additional test cases:
+
+* Driver initialization tests, which must be executed in a separate process:
 ```bash
 ./npu-umd-test --ze-init-tests
 ```
-* GPU and NPU tests using Level Zero API. Require
-  [compute-runtime](https://github.com/intel/compute-runtime/releases) to be installed.
+* GPU and NPU tests using the Level Zero API. These require the [compute-runtime](https://github.com/intel/compute-runtime/releases) package to be installed:
 ```bash
 ./npu-umd-test --gpu
 ```
-* External memory tests using System DMA Heap. Require access to /dev/dma_heap/system that is
-  limited to root access in Ubuntu.
+* External memory tests using the System DMA Heap. These require access to /dev/dma_heap/system, which is restricted to root privileges on Ubuntu:
 ```bash
 sudo ./npu-umd-test --dma-heap
 ```
 
 ### Reference test results
 
-The table contains test results collected using [v1.23.0 release](https://github.com/intel/linux-npu-driver/releases/tag/v1.23.0)
-
-|Platform|System|Command|Test Result|Test Skipped|
-|:---:|:---:|:---:|:---:|:---:|
-|Intel(R) Core(TM) Ultra 5 125H|Ubuntu 24.04.3 LTS with HWE Kernel 6.14.0-29-generic|`npu-umd-test --config=extend.yaml`|265/291 passed|26 skipped|
-|||`npu-umd-test --ze-init-tests`|6/6 passed|0 skipped|
-|||`npu-umd-test --gpu`|1/2 passed|1 skipped|
-|||`sudo npu-umd-test --dma-heap`|3/3 passed|0 skipped|
+UMD test results are published on the [release page](https://github.com/intel/linux-npu-driver/releases/latest).
