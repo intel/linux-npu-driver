@@ -18,7 +18,11 @@ message(STATUS "NPU_COMPILER_PACKAGE_DIR: ${NPU_COMPILER_PACKAGE_DIR}")
 target_include_directories(npu_compiler INTERFACE ${NPU_COMPILER_PACKAGE_DIR})
 
 set(NPU_COMPILER_LIBS ${NPU_COMPILER_PACKAGE_DIR}/lib/libnpu_driver_compiler.so)
-target_link_libraries(npu_compiler INTERFACE ${NPU_COMPILER_LIBS})
+
+if(NOT ANDROID)
+  # Set the RPATH for the npu_compiler to find the shared library at runtime
+  target_link_libraries(npu_compiler INTERFACE ${NPU_COMPILER_LIBS})
+endif()
 
 install(FILES ${NPU_COMPILER_LIBS}
         TYPE LIB
