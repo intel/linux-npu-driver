@@ -1,0 +1,36 @@
+From ab0c95f9c0fe9be00de6a1a050ccf93226af8520 Mon Sep 17 00:00:00 2001
+From: Jeevaka Prabu Badrappan <jeevaka.badrappan@intel.com>
+Date: Fri, 6 Mar 2026 12:33:07 +0530
+Subject: [PATCH] Add /vendor/lib64 to driver search path for android
+
+Related-To: NEO-18093
+Signed-off-by: Jeevaka Prabu Badrappan <jeevaka.badrappan@intel.com>
+---
+ source/loader/linux/driver_discovery_lin.cpp | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/source/loader/linux/driver_discovery_lin.cpp b/source/loader/linux/driver_discovery_lin.cpp
+index 260aac0..f349b7e 100644
+--- a/source/loader/linux/driver_discovery_lin.cpp
++++ b/source/loader/linux/driver_discovery_lin.cpp
+@@ -46,6 +46,9 @@ static std::vector<std::string> getLibrarySearchPaths() {
+     auto split = splitPaths(ldLibPath);
+     paths.insert(paths.end(), split.begin(), split.end());
+   }
++#if defined(ANDROID)
++  paths.push_back("/vendor/lib64");
++#else
+   // Standard locations - Common across all Linux distributions
+   paths.push_back("/lib");
+   paths.push_back("/usr/lib");
+@@ -68,6 +71,7 @@ static std::vector<std::string> getLibrarySearchPaths() {
+   paths.push_back("/var/lib/flatpak/runtime");
+   paths.push_back("/snap/core/current/lib");
+   paths.push_back("/snap/core/current/usr/lib");
++#endif // ANDROID
+ 
+   // /etc/ld.so.conf and included files
+   std::ifstream ldSoConf("/etc/ld.so.conf");
+-- 
+2.52.0
+

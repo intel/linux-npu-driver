@@ -11,13 +11,13 @@ find_package(LevelZero ${LEVEL_ZERO_VERSION})
 if(NOT LevelZero_FOUND
    AND LINUX_SYSTEM_NAME STREQUAL "ubuntu"
    AND LINUX_SYSTEM_VERSION_ID STREQUAL "24.04")
-  set(SNAPSHOT_TS 20260324)
+
   set(PKG_NAMES libze1;libze-dev)
   set(PKG_MD5S 51d16a079cc08a624deb3a89a5542b0f;55f8e903d470dbf13cdeaaaddc2e3787)
-  set(PPA_URL https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu)
+  set(PPA_URL https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260324T100000Z/pool/main/l/level-zero-loader)
   foreach(PKG_NAME PKG_MD5 IN ZIP_LISTS PKG_NAMES PKG_MD5S)
     set(PKG_URL
-        ${PPA_URL}/${SNAPSHOT_TS}T100000Z/pool/main/l/level-zero-loader/${PKG_NAME}_${LEVEL_ZERO_VERSION}-1~24.04~ppa2_amd64.deb
+	${PPA_URL}/${PKG_NAME}_${LEVEL_ZERO_VERSION}-1~24.04~ppa2_amd64.deb
     )
 
     message(STATUS "Downloading LevelZero package: ${PKG_NAME} from ${PKG_URL}")
@@ -43,12 +43,18 @@ endif()
 
 if(NOT LevelZero_FOUND)
   message(STATUS "LevelZero not found. Downloads source from v${LEVEL_ZERO_VERSION} tag")
+  # TODO: Remove patch when LEVEL_ZERO_VERSION tag includes https://github.com/oneapi-src/level-zero/pull/433
+  set(LEVEL_ZERO_PATCHES
+    ${CMAKE_CURRENT_SOURCE_DIR}/level-zero-patches/0001-Add-vendor-lib64-to-driver-search-path-for-android.patch)
+
   FetchContent_Declare(
     level_zero
     GIT_REPOSITORY https://github.com/oneapi-src/level-zero.git
     GIT_TAG "v${LEVEL_ZERO_VERSION}"
     GIT_SHALLOW TRUE
-    # EXCLUDE_FROM_ALL is used due to level-zero-devel install destination starts with root
+    PATCH_COMMAND
+      git -C <SOURCE_DIR> reset --hard HEAD &&
+      git -C <SOURCE_DIR> apply ${LEVEL_ZERO_PATCHES}
     EXCLUDE_FROM_ALL)
   FetchContent_MakeAvailable(level_zero)
 
