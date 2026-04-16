@@ -42,6 +42,7 @@ option(ENABLE_OFFLINE_COMPILATION_SUPPORT "Enable model compilation support for 
 option(ENABLE_COMPILATION_FLAGS_OVERRIDE "Allow to override flags passed to compiler" ON)
 # The npu_elf target is picked up from the compiler package
 option(ENABLE_NPU_ELF_BUILD "Enable building NPU Elf library in driver" OFF)
+option(ENABLE_TOOLS_BUILD "Enable building tools" OFF)
 
 message(STATUS "option ENABLE_NPU_COMPILER_BUILD: ${ENABLE_NPU_COMPILER_BUILD}")
 message(STATUS "option ENABLE_NPU_PERFETTO_BUILD: ${ENABLE_NPU_PERFETTO_BUILD}")
@@ -50,6 +51,7 @@ message(STATUS "option ENABLE_VALIDATION_BUILD: ${ENABLE_VALIDATION_BUILD}")
 message(STATUS "option ENABLE_OFFLINE_COMPILATION_SUPPORT: ${ENABLE_OFFLINE_COMPILATION_SUPPORT}")
 message(STATUS "option ENABLE_COMPILATION_FLAGS_OVERRIDE: ${ENABLE_COMPILATION_FLAGS_OVERRIDE}")
 message(STATUS "option ENABLE_NPU_ELF_BUILD: ${ENABLE_NPU_ELF_BUILD}")
+message(STATUS "option ENABLE_TOOLS_BUILD: ${ENABLE_TOOLS_BUILD}")
 
 include(GNUInstallDirs)
 
@@ -62,6 +64,7 @@ set(VALIDATION_INSTALL_DATADIR "${CMAKE_INSTALL_DATADIR}/vpu/validation")
 add_subdirectory(compiler)
 add_subdirectory(firmware)
 add_subdirectory(third_party)
+add_subdirectory(tools)
 add_subdirectory(umd)
 add_subdirectory(validation)
 
