@@ -113,23 +113,8 @@ static std::vector<StridesMap> getParams() {
 
 class TensorStrides : public TensorStridesBase, public testing::WithParamInterface<StridesMap> {};
 
-static std::string getTestCaseName(const testing::TestParamInfo<StridesMap> &info) {
-    std::string str;
-    for (auto it = info.param.begin(); it != info.param.end();) {
-        str += "argument_" + std::to_string(it->first) + "_strides";
-        for (auto s : it->second) {
-            str += "_" + std::to_string(s);
-        }
-        it++;
-        if (it != info.param.end()) {
-            str += "_";
-        }
-    }
-    return str;
-}
-
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(TensorStrides);
-INSTANTIATE_TEST_SUITE_P(, TensorStrides, testing::ValuesIn(getParams()), getTestCaseName);
+INSTANTIATE_TEST_SUITE_P(, TensorStrides, testing::ValuesIn(getParams()));
 
 static void initializeBuffer(float16 *input, size_t size, size_t start) {
     for (size_t i = 0; i < size; i++) {
@@ -293,10 +278,7 @@ class TensorStridesMutableCmdList : public TensorStrides {
 };
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(TensorStridesMutableCmdList);
-INSTANTIATE_TEST_SUITE_P(,
-                         TensorStridesMutableCmdList,
-                         testing::ValuesIn(getParams()),
-                         getTestCaseName);
+INSTANTIATE_TEST_SUITE_P(, TensorStridesMutableCmdList, testing::ValuesIn(getParams()));
 
 TEST_P(TensorStridesMutableCmdList, AddStridesThenUpdateStridesAndTensor) {
     auto stridesMap = GetParam();
@@ -480,19 +462,7 @@ static std::vector<std::vector<int>> stridesPropertyParams = {
     {0, 1, 2, 3, 4},
 };
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(StridesProperty);
-INSTANTIATE_TEST_SUITE_P(,
-                         StridesProperty,
-                         testing::ValuesIn(stridesPropertyParams),
-                         [](const testing::TestParamInfo<std::vector<int>> &info) {
-                             std::string str = "arguments_";
-                             for (size_t i = 0; i < info.param.size(); i++) {
-                                 str += std::to_string(info.param[i]);
-                                 if (i < info.param.size() - 1) {
-                                     str += "_";
-                                 }
-                             }
-                             return str;
-                         });
+INSTANTIATE_TEST_SUITE_P(, StridesProperty, testing::ValuesIn(stridesPropertyParams));
 
 TEST_P(StridesProperty, GetArgumentProperties) {
     const auto &argsWithStrides = GetParam();
