@@ -27,17 +27,3 @@ endif()
 install(FILES ${NPU_COMPILER_LIBS}
         TYPE LIB
         COMPONENT driver-compiler-npu)
-
-add_library(npu_elf INTERFACE)
-add_dependencies(npu_elf npu_compiler)
-target_link_libraries(npu_elf INTERFACE
-  ${NPU_COMPILER_PACKAGE_DIR}/vpux_elf/lib/Release/libnpu_elf.a)
-
-target_include_directories(npu_elf INTERFACE
-  ${NPU_COMPILER_PACKAGE_DIR}/vpux_elf/core/include
-  ${NPU_COMPILER_PACKAGE_DIR}/vpux_elf/loader/include
-  ${NPU_COMPILER_PACKAGE_DIR}/vpux_elf/loader/include/common
-  ${NPU_COMPILER_PACKAGE_DIR}/vpux_elf/hpi_component/include/3720
-  ${NPU_COMPILER_PACKAGE_DIR}/vpux_elf/hpi_component/include/4000
-  ${NPU_COMPILER_PACKAGE_DIR}/vpux_elf/hpi_component/include/5000
-  ${NPU_COMPILER_PACKAGE_DIR}/vpux_elf/hpi_component/include/common)
