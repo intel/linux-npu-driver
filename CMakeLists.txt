@@ -39,7 +39,7 @@ option(ENABLE_NPU_COMPILER_BUILD "Enable building compiler in driver" OFF)
 option(ENABLE_NPU_PERFETTO_BUILD "Enable building with Perfetto library" OFF)
 option(ENABLE_VALIDATION_BUILD "Enable building validation tests" ON)
 option(ENABLE_OFFLINE_COMPILATION_SUPPORT "Enable model compilation support for user defined device" OFF)
-option(ENABLE_COMPILATION_FLAGS_OVERRIDE "Allow to override flags passed to compiler" ON)
+option(ENABLE_COMPILATION_FLAGS_OVERRIDE "Allow to override flags passed to compiler" OFF)
 # The npu_elf target is picked up from the compiler package
 option(ENABLE_NPU_ELF_BUILD "Enable building NPU Elf library in driver" OFF)
 option(ENABLE_TOOLS_BUILD "Enable building tools" OFF)
