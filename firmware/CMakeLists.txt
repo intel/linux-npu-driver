@@ -14,5 +14,6 @@ if (FIRMWARE_BINARIES)
   install(FILES ${FIRMWARE_BINARIES}
     DESTINATION /lib/firmware/updates/intel/vpu/
     PERMISSIONS OWNER_READ
-    COMPONENT fw-npu)
+    COMPONENT fw-npu
+    EXCLUDE_FROM_ALL)
 endif()

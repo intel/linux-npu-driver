@@ -19,7 +19,7 @@ if(THREADING STREQUAL "TBB")
   ExternalProject_Add(
     ${ONETBB_BUILD}
     GIT_REPOSITORY https://github.com/oneapi-src/oneTBB
-    GIT_TAG v2022.2.0
+    GIT_TAG v2022.3.0
     GIT_SHALLOW TRUE
     SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/src/onetbb
     BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/onetbb-build

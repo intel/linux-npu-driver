@@ -9,7 +9,7 @@ set(TARGET_NAME_L0_DRV level_zero_driver)
 add_library(${TARGET_NAME_L0_DRV} STATIC)
 set_property(TARGET ${TARGET_NAME_L0_DRV} PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-target_link_libraries(${TARGET_NAME_L0_DRV} vpu_driver)
+target_link_libraries(${TARGET_NAME_L0_DRV} vpu_driver npu_compiler)
 
 string(TIMESTAMP UNIX_SECONDS %s UTC)
 set(DRIVER_VERSION ${UNIX_SECONDS} CACHE STRING "Decimal value that set Level Zero driverVersion")
@@ -69,4 +69,3 @@ target_sources(${TARGET_NAME_L0_DRV} PRIVATE
 )
 
 target_include_directories(${TARGET_NAME_L0_DRV} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/ext/cityhash)
-target_include_directories(${TARGET_NAME_L0_DRV} PUBLIC $<TARGET_PROPERTY:npu_compiler,INTERFACE_INCLUDE_DIRECTORIES>)

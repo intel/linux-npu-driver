@@ -846,7 +846,7 @@ size_t ElfParser::getSharedScratchSize() const {
 void ElfParser::updateSharedScratchBuffers(std::shared_ptr<elf::HostParsedInference> &cmdHpi,
                                            std::shared_ptr<VPU::VPUBufferObject> &bo) {
     std::vector<elf::DeviceBuffer> buffers{
-        elf::DeviceBuffer(bo->getBasePointer(), bo->getVPUAddr(), bo->getAllocSize())};
+        elf::DeviceBuffer(bo->getBasePointer(), bo->getVPUAddr(), 0)};
 
     LOG(GRAPH,
         "HostParsedInference[%p]->updateSharedScratchBuffers: cpu: %p, vpu: %#lx, size: %lu",

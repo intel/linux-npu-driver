@@ -24,6 +24,7 @@ target_link_libraries(
   fw_vpu_api_headers
   gmock
   gtest
-  vpu_driver_mocks)
+  vpu_driver_mocks
+  npu_compiler)
 
 add_subdirectories()
