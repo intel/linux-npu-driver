@@ -169,6 +169,28 @@ int VPUDriverApi::commandQueueDestroy(uint32_t queueId) const {
     return ret;
 }
 
+int VPUDriverApi::commandQueueGetInfo(drm_ivpu_cmdq_info *arg) const {
+    int ret = doIoctl(DRM_IOCTL_IVPU_CMDQ_INFO, arg);
+    if (ret)
+        LOG_E("DRM_IOCTL_IVPU_CMDQ_INFO failed, error %d", ret);
+    return ret;
+}
+
+int VPUDriverApi::commandQueueUmqEnable(drm_ivpu_cmdq_umq_enable *arg) const {
+    int ret = doIoctl(DRM_IOCTL_IVPU_CMDQ_UMQ_ENABLE, arg);
+    if (ret)
+        LOG_E("DRM_IOCTL_IVPU_CMDQ_UMQ_ENABLE failed, error %d", ret);
+    return ret;
+}
+
+int VPUDriverApi::commandQueueUmqDisable(uint32_t cmdqId) const {
+    drm_ivpu_cmdq_umq_disable args = {cmdqId, 0};
+    int ret = doIoctl(DRM_IOCTL_IVPU_CMDQ_UMQ_DISABLE, &args);
+    if (ret)
+        LOG_E("DRM_IOCTL_IVPU_CMDQ_UMQ_DISABLE failed, error %d", ret);
+    return ret;
+}
+
 int VPUDriverApi::submitCommandBuffer(drm_ivpu_submit *arg) const {
     return doIoctl(DRM_IOCTL_IVPU_SUBMIT, arg);
 }

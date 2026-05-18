@@ -26,6 +26,7 @@
 #include <limits>
 #include <ratio>
 #include <string.h>
+#include <thread>
 #include <utility>
 
 namespace VPU {
@@ -275,13 +276,60 @@ void VPUCommandBuffer::useBusyWait() {
 }
 
 bool VPUCommandBuffer::waitForCompletion(int64_t timeout_abs_ns) {
-    if (useBusyWaitFlag)
-        busyWait(timeout_abs_ns, VPUDeviceContext::getCpuTscFreqMHz());
+    if (!umqMode) {
+        if (useBusyWaitFlag)
+            busyWait(timeout_abs_ns, VPUDeviceContext::getCpuTscFreqMHz());
 
-    bool result = wait(timeout_abs_ns);
+        bool result = wait(timeout_abs_ns);
+        if (!result)
+            return false;
+    } else {
+        /* UMQ mode: NPU writes STATE_DEVICE_SIGNAL to fenceValue when done.
+         * Use umonitor/umwait with short per-iteration timeouts matching the
+         * Intel GPU ULLS-Light pattern (compute-runtime WaitUtils, 16000 cycles
+         * ≈ 8 µs @ 2 GHz) and yield between iterations so other OS threads can
+         * run while the NPU executes. No BO_WAIT ioctl needed. */
+        CommandHeader *cmdHeader = reinterpret_cast<CommandHeader *>(buffer->getBasePointer());
+        if (!cmdHeader)
+            return false;
 
-    if (!result)
-        return false;
+        if (cmdHeader->fenceValue != VPUEventCommand::State::STATE_DEVICE_SIGNAL) {
+#ifdef __x86_64__
+            constexpr uint64_t kCyclesPerIter = 16000u; /* ~8 µs @ 2 GHz */
+            auto durationNs =
+                (std::chrono::steady_clock::time_point(std::chrono::nanoseconds(timeout_abs_ns)) -
+                 std::chrono::steady_clock::now())
+                    .count();
+            if (durationNs > 0) {
+                unsigned long long tscDeadline =
+                    __rdtsc() + static_cast<uint64_t>(durationNs) *
+                                    VPUDeviceContext::getCpuTscFreqMHz() / 1'000ULL;
+                do {
+                    _umonitor(&cmdHeader->fenceValue);
+                    if (cmdHeader->fenceValue == VPUEventCommand::State::STATE_DEVICE_SIGNAL)
+                        break;
+                    _umwait(0, __rdtsc() + kCyclesPerIter);
+                    _mm_mfence(); /* ensure read is ordered after UMWAIT */
+                    if (cmdHeader->fenceValue == VPUEventCommand::State::STATE_DEVICE_SIGNAL)
+                        break;
+                    std::this_thread::yield(); /* allow other threads to run between iterations */
+                } while (__rdtsc() < tscDeadline);
+            }
+#else
+            /* Non-x86: spin with yield until fence is signalled or timeout */
+            auto deadline = std::chrono::steady_clock::time_point(
+                std::chrono::nanoseconds(timeout_abs_ns));
+            while (cmdHeader->fenceValue != VPUEventCommand::State::STATE_DEVICE_SIGNAL &&
+                   std::chrono::steady_clock::now() < deadline)
+                std::this_thread::yield();
+#endif
+        }
+
+        if (cmdHeader->fenceValue != VPUEventCommand::State::STATE_DEVICE_SIGNAL)
+            return false;
+        /* BO_WAIT ioctl is skipped in UMQ mode; set status so jobStatusToResult() sees SUCCESS. */
+        jobStatus = DRM_IVPU_JOB_STATUS_SUCCESS;
+    }
 
     useBusyWaitFlag = false;
     inferenceScratchBuffer.reset();
@@ -321,6 +369,7 @@ void VPUCommandBuffer::busyWait(int64_t timeout_abs_ns, uint32_t tscFreqMHz) {
 
     CommandHeader *cmdHeader = reinterpret_cast<CommandHeader *>(buffer->getBasePointer());
     if (cmdHeader && cmdHeader->fenceValue != VPUEventCommand::State::STATE_DEVICE_SIGNAL) {
+#ifdef __x86_64__
         // Use UMONITOR/UMWAIT to do efficient busy wait
         // UMWAIT waits until the monitored address is written or the timeout expires
         // The timeout is specified in CPU clock ticks
@@ -336,6 +385,13 @@ void VPUCommandBuffer::busyWait(int64_t timeout_abs_ns, uint32_t tscFreqMHz) {
             _umwait(0, timeoutTime);
             _mm_mfence(); // ensure that the read is not moved before the UMWAIT
         } while (cmdHeader->fenceValue != VPUEventCommand::State::STATE_DEVICE_SIGNAL);
+#else
+        /* Non-x86: spin with yield until fence is signalled or timeout */
+        auto deadline = std::chrono::steady_clock::now() + timeoutNs;
+        while (cmdHeader->fenceValue != VPUEventCommand::State::STATE_DEVICE_SIGNAL &&
+               std::chrono::steady_clock::now() < deadline)
+            std::this_thread::yield();
+#endif
     }
 
     return;

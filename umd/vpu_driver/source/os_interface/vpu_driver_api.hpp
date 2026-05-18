@@ -44,6 +44,9 @@ class VPUDriverApi final {
     int commandQueueCreate(uint32_t priority, uint32_t &queueId, bool isTurboMode);
     int commandQueueSubmit(drm_ivpu_cmdq_submit *arg) const;
     int commandQueueDestroy(uint32_t queueId) const;
+    int commandQueueGetInfo(drm_ivpu_cmdq_info *arg) const;
+    int commandQueueUmqEnable(drm_ivpu_cmdq_umq_enable *arg) const;
+    int commandQueueUmqDisable(uint32_t cmdqId) const;
 
     int submitCommandBuffer(drm_ivpu_submit *arg) const;
     bool checkDeviceCapability(uint32_t index) const;

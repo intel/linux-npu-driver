@@ -61,6 +61,7 @@ struct VPUHwInfo {
     bool primeBuffersCapability = false;
     bool cmdQueueCreationCapability = false;
     bool userPtrCapability = false;
+    bool umqCapability = false;
 
     GetCopyCommand *getCopyCommand = nullptr;
     PrintCopyDescriptor *printCopyDescriptor = nullptr;

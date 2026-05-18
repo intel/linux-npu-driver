@@ -8,8 +8,12 @@
 #pragma once
 #include <stdint.h>
 
+#include <atomic>
 #include <memory>
 #include <uapi/drm/ivpu_accel.h>
+
+/* vpu_job_queue structures needed for UMQ ring-buffer write */
+#include "api/vpu_jsm_api.h"
 
 namespace VPU {
 class VPUJob;
@@ -87,5 +91,73 @@ class VPUDeviceQueueManaged final : public VPUDeviceQueue {
 
     uint32_t modeFlags;
     std::shared_ptr<VPUBufferObject> lastWaitBo;
+};
+
+/**
+ * VPUDeviceQueueUMQ - User Mode Queue fast path.
+ *
+ * Wraps a managed command queue and adds direct ring-buffer writes plus
+ * doorbell MMIO writes, bypassing the CMDQ_SUBMIT ioctl in the hot path.
+ * Falls back to the slow ioctl path on ring-full (EBUSY) or after a device reset.
+ */
+class VPUDeviceQueueUMQ final : public VPUDeviceQueue {
+  public:
+    /**
+     * @brief Try to create a UMQ queue.  Returns nullptr if UMQ is not supported.
+     */
+    static std::unique_ptr<VPUDeviceQueueUMQ>
+    tryCreate(VPUDriverApi *api, uint32_t cmdqId, uint32_t mode);
+
+    ~VPUDeviceQueueUMQ() override;
+
+    bool submit(VPUJob *job) override;
+    bool toBackgroundPriority() override { return true; } /* no background queue for UMQ */
+    bool toDefaultPriority() override { return true; }
+    bool isInOrder() override { return modeFlags & IN_ORDER ? true : false; }
+    bool isTurbo() const override { return modeFlags & TURBO ? true : false; }
+
+  protected:
+    int submitCommandBuffer(const std::unique_ptr<VPUCommandBuffer> &cmdBuf) override;
+
+  private:
+    VPUDeviceQueueUMQ(VPUDriverApi *api,
+                      uint32_t cmdqId,
+                      uint32_t mode,
+                      void *ringPtr,
+                      volatile uint32_t *doorbellPtr,
+                      const drm_ivpu_cmdq_info &info,
+                      size_t ringSize);
+
+    /** Ring one job entry into the job queue and write the doorbell. */
+    int ringJob(uint64_t batchBufAddr, uint32_t jobId, uint32_t preemptBufSize,
+                uint64_t preemptBufAddr, uint32_t secPreemptBufSize,
+                uint64_t secPreemptBufAddr);
+
+    /** Return true if the device has been reset since we last checked. */
+    bool checkReset();
+
+    uint32_t cmdqId;
+    uint32_t modeFlags;
+
+    /* Mmap'd ring buffer (vpu_job_queue) */
+    vpu_job_queue *ringBuf;
+    size_t ringSize;
+
+    /* Mmap'd doorbell MMIO page — write any value to ring the bell */
+    volatile uint32_t *doorbell;
+
+    /* Constant info from CMDQ_INFO */
+    uint32_t entryCount;
+    uint32_t jobIdBase;
+    uint64_t primaryPreemptBufVpuAddr;
+    uint32_t primaryPreemptBufSize;
+    uint64_t secondaryPreemptBufVpuAddr;
+    uint32_t secondaryPreemptBufSize;
+
+    /* Monotonically incrementing job-ID counter (lower bits from job_id_base) */
+    std::atomic<uint32_t> jobIdCounter;
+
+    /* Reset counter at the time we last enabled UMQ */
+    uint32_t lastResetCounter;
 };
 } // namespace VPU
