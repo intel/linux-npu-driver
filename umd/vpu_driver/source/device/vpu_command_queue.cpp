@@ -84,10 +84,14 @@ VPUDeviceQueue::create(VPUDeviceContext *VPUContext, Priority queuePriority, uin
     }
     if (VPUContext->getDeviceCapabilities().cmdQueueCreationCapability) {
         uint32_t defaultQueue;
+        /* NPU_PERSISTENT_CMDQ=0 disables persistent flag at runtime (for benchmarking) */
+        const bool persistentEnabled = VPUContext->getDeviceCapabilities().umqCapability &&
+                                       (getenv("NPU_PERSISTENT_CMDQ") == nullptr ||
+                                        std::string(getenv("NPU_PERSISTENT_CMDQ")) != "0");
         if (pApi->commandQueueCreate(static_cast<uint32_t>(queuePriority),
                                      defaultQueue,
                                      mode & ModeFlags::TURBO ? true : false,
-                                     VPUContext->getDeviceCapabilities().umqCapability)) {
+                                     persistentEnabled)) {
             LOG_E("Command queue creation failed.");
             return nullptr;
         }
