@@ -86,7 +86,8 @@ VPUDeviceQueue::create(VPUDeviceContext *VPUContext, Priority queuePriority, uin
         uint32_t defaultQueue;
         if (pApi->commandQueueCreate(static_cast<uint32_t>(queuePriority),
                                      defaultQueue,
-                                     mode & ModeFlags::TURBO ? true : false)) {
+                                     mode & ModeFlags::TURBO ? true : false,
+                                     VPUContext->getDeviceCapabilities().umqCapability)) {
             LOG_E("Command queue creation failed.");
             return nullptr;
         }

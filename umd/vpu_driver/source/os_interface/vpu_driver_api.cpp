@@ -136,13 +136,14 @@ bool VPUDriverApi::isVpuDevice() const {
     return true;
 }
 
-int VPUDriverApi::commandQueueCreate(uint32_t priority, uint32_t &queueId, bool isTurboMode) {
+int VPUDriverApi::commandQueueCreate(uint32_t priority, uint32_t &queueId, bool isTurboMode, bool isPersistent) {
     drm_ivpu_cmdq_create createArgs = {};
 
     createArgs.priority = priority;
-    if (isTurboMode) {
-        createArgs.flags = DRM_IVPU_CMDQ_FLAG_TURBO;
-    }
+    if (isTurboMode)
+        createArgs.flags |= DRM_IVPU_CMDQ_FLAG_TURBO;
+    if (isPersistent)
+        createArgs.flags |= DRM_IVPU_CMDQ_FLAG_PERSISTENT;
     int ret = doIoctl(DRM_IOCTL_IVPU_CMDQ_CREATE, &createArgs);
     if (ret) {
         LOG_E("DRM_IOCTL_IVPU_CMDQ_CREATE failed, error %d", ret);

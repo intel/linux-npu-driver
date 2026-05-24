@@ -537,36 +537,44 @@ struct drm_ivpu_metric_streamer_get_data {
 };
 
 /* Command queue flags */
-#define DRM_IVPU_CMDQ_FLAG_TURBO 0x00000001
+#define DRM_IVPU_CMDQ_FLAG_TURBO       0x00000001 /* BIT(0): low-latency turbo scheduling */
+#define DRM_IVPU_CMDQ_FLAG_PERSISTENT  0x00000002 /* BIT(1): persistent CmdQ — hold NPU tile between inferences */
 
 /**
  * struct drm_ivpu_cmdq_create - Create command queue for job submission
  */
 struct drm_ivpu_cmdq_create {
-	/** @cmdq_id: Returned ID of created command queue */
-	__u32 cmdq_id;
-	/**
-	 * @priority:
-	 *
-	 * Priority to be set for related job command queue, can be one of the following:
-	 * %DRM_IVPU_JOB_PRIORITY_DEFAULT
-	 * %DRM_IVPU_JOB_PRIORITY_IDLE
-	 * %DRM_IVPU_JOB_PRIORITY_NORMAL
-	 * %DRM_IVPU_JOB_PRIORITY_FOCUS
-	 * %DRM_IVPU_JOB_PRIORITY_REALTIME
-	 */
-	__u32 priority;
-	/**
-	 * @flags:
-	 *
-	 * Supported flags:
-	 *
-	 * %DRM_IVPU_CMDQ_FLAG_TURBO
-	 *
-	 * Enable low-latency mode for the command queue. The NPU will maximize performance
-	 * when executing jobs from such queue at the cost of increased power usage.
-	 */
-	__u32 flags;
+        /** @cmdq_id: Returned ID of created command queue */
+        __u32 cmdq_id;
+        /**
+         * @priority:
+         *
+         * Priority to be set for related job command queue, can be one of the following:
+         * %DRM_IVPU_JOB_PRIORITY_DEFAULT
+         * %DRM_IVPU_JOB_PRIORITY_IDLE
+         * %DRM_IVPU_JOB_PRIORITY_NORMAL
+         * %DRM_IVPU_JOB_PRIORITY_FOCUS
+         * %DRM_IVPU_JOB_PRIORITY_REALTIME
+         */
+        __u32 priority;
+        /**
+         * @flags:
+         *
+         * Supported flags:
+         *
+         * %DRM_IVPU_CMDQ_FLAG_TURBO
+         *
+         * Enable low-latency mode for the command queue. The NPU will maximize performance
+         * when executing jobs from such queue at the cost of increased power usage.
+         *
+         * %DRM_IVPU_CMDQ_FLAG_PERSISTENT
+         *
+         * Keep the NPU tile allocated between inferences, eliminating per-inference
+         * tile acquire/release overhead. Used with UMQ fast path.
+         */
+        __u32 flags;
+        /** @_pad: Reserved, must be zero. */
+        __u32 _pad;
 };
 
 /**
