@@ -50,8 +50,10 @@ add_compile_options(-Winvalid-pch -Wconversion -Wuninitialized -ftrapv)
 add_compile_options(-fvisibility=hidden)
 add_compile_options(-mwaitpkg)
 add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>)
-add_compile_options(-flto=auto)
-add_link_options(-flto=auto)
+
+# Using CMAKE's INTERPROCEDURAL_OPTIMIZATION variable instead of -flto=auto
+# helps the correct AR (that is LTO-plugin-aware) gets pulled in
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
 
 # Project-wide include paths
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/vpu_driver/include")
