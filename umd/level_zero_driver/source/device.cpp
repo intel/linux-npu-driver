@@ -14,7 +14,6 @@
 #include "context.hpp"
 #include "driver.hpp"
 #include "driver_handle.hpp"
-#include "ext/compiler.hpp"
 #include "level_zero_driver/include/nested_structs_handler.hpp"
 #include "metric.hpp"
 #include "umd_common.hpp"
@@ -33,7 +32,6 @@
 #include <linux/sysinfo.h>
 #include <optional>
 #include <string.h>
-#include <string>
 #include <sys/sysinfo.h>
 #include <utility>
 #include <ze_api.h>
@@ -51,12 +49,9 @@ Device::Device(DriverHandle *driverHandle, std::unique_ptr<VPU::VPUDevice> devic
     , metricContext(std::make_shared<MetricContext>(this)) {
     if (vpuDevice != nullptr) {
         Driver *pDriver = Driver::getInstance();
-        if (pDriver && pDriver->getEnvVariables().metrics) {
+        if (pDriver && pDriver->getEnvVariables().metrics && vpuDevice->getCapMetricStreamer()) {
             std::vector<VPU::GroupInfo> metricGroupsInfo = vpuDevice->getMetricGroupsInfo();
             loadMetricGroupsInfo(metricGroupsInfo);
-        }
-        if (Compiler::compilerInit(vpuDevice.get()) != ZE_RESULT_SUCCESS) {
-            LOG_W("Failed to initialize VPU compiler");
         }
     }
 }
@@ -555,6 +550,7 @@ void Device::loadMetricGroupsInfo(std::vector<VPU::GroupInfo> &metricGroupsInfo)
     size_t numberOfMetricGroups = metricGroupsInfo.size();
     LOG(DEVICE, "Number of metric groups: %lu", numberOfMetricGroups);
 
+    metricGroups.clear();
     metricGroups.reserve(metricGroupsInfo.size());
 
     for (auto const &metricGroupInfo : metricGroupsInfo) {
@@ -626,8 +622,52 @@ bool Device::isMetricGroupAvailable(MetricGroup *metricGroup) const {
             return true;
         }
     }
-
     return false;
+}
+
+ze_result_t Device::enableMetrics() {
+    if (getVPUDevice() == nullptr || !getVPUDevice()->getCapMetricStreamer()) {
+        LOG_W("Metrics are not supported");
+        return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    }
+    if (isMetricsLoaded()) {
+        /* Metrics already initialized, according spec NOP return */
+        return ZE_RESULT_SUCCESS;
+    }
+
+    std::vector<VPU::GroupInfo> metricGroupsInfo = vpuDevice->getMetricGroupsInfo();
+    if (metricGroupsInfo.empty()) {
+        LOG_E("Failed to initialize metric groups");
+        return ZE_RESULT_ERROR_UNINITIALIZED;
+    }
+    loadMetricGroupsInfo(metricGroupsInfo);
+
+    return isMetricsLoaded() ? ZE_RESULT_SUCCESS : ZE_RESULT_ERROR_UNINITIALIZED;
+}
+
+ze_result_t Device::disableMetrics() {
+    if (getVPUDevice() == nullptr || !getVPUDevice()->getCapMetricStreamer()) {
+        LOG_W("Metrics are not supported");
+        return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    }
+    Driver *pDriver = Driver::getInstance();
+    if (pDriver->getEnvVariables().metrics) {
+        LOG_W("Metrics environment variable is enabled, metrics cannot be disabled");
+        return ZE_RESULT_ERROR_NOT_AVAILABLE;
+    }
+
+    if (!isMetricsLoaded()) {
+        return ZE_RESULT_SUCCESS;
+    }
+
+    for (auto &metricGroup : metricGroups) {
+        if (metricGroup->isActivated()) {
+            return ZE_RESULT_ERROR_HANDLE_OBJECT_IN_USE;
+        }
+    }
+    metricGroups.clear();
+    metricsLoaded = false;
+    return ZE_RESULT_SUCCESS;
 }
 
 ze_result_t Device::metricGroupGet(uint32_t *pCount, zet_metric_group_handle_t *phMetricGroups) {

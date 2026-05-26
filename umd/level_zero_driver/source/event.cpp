@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <chrono> // IWYU pragma: keep
+#include <compare>
 #include <thread>
 #include <ze_api.h>
 

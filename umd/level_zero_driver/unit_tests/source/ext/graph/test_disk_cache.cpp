@@ -85,11 +85,22 @@ TEST_F(DiskCacheTest, MissCache) {
     EXPECT_EQ(cache->getBlob(key), nullptr);
 }
 
-TEST_F(DiskCacheTest, MissCacheInvalidFileSize) {
+TEST_F(DiskCacheTest, MissCacheInvalidFileZeroSize) {
     auto osFile = std::make_unique<VPU::GMockOsFileImp>();
     EXPECT_CALL(*osFile, size).WillOnce(::testing::Return(0));
-
     EXPECT_CALL(osInfc, osiOpenWithSharedLock).WillOnce(::testing::Return(std::move(osFile)));
+    EXPECT_CALL(osInfc, osiFileRemove).WillOnce(::testing::Return(true));
+
+    ze_graph_desc_2_t desc = {};
+    auto key = cache->computeKey(desc);
+    EXPECT_EQ(cache->getBlob(key), nullptr);
+}
+
+TEST_F(DiskCacheTest, MissCacheInvalidFileEqChecksumSize) {
+    auto osFile = std::make_unique<VPU::GMockOsFileImp>();
+    EXPECT_CALL(*osFile, size).WillOnce(::testing::Return(HashCity::DigestLength));
+    EXPECT_CALL(osInfc, osiOpenWithSharedLock).WillOnce(::testing::Return(std::move(osFile)));
+    EXPECT_CALL(osInfc, osiFileRemove).WillOnce(::testing::Return(true));
 
     ze_graph_desc_2_t desc = {};
     auto key = cache->computeKey(desc);

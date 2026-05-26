@@ -30,7 +30,6 @@
 #include <array>
 #include <filesystem>
 #include <memory>
-#include <string>
 #include <vector>
 #include <ze_api.h>
 #include <ze_graph_ext.h>
@@ -170,6 +169,7 @@ struct CommandListGraphFixture : CommandListFixture {
 
 struct CommandListMetricFixture : CommandListFixture {
     void SetUp() override {
+        DeviceFixture::setTestEnvironmentVar("ZET_ENABLE_METRICS", "1");
         CommandListFixture::SetUp();
 
         ASSERT_EQ(device->metricGroupGet(&metricGroupCount, nullptr), ZE_RESULT_SUCCESS);

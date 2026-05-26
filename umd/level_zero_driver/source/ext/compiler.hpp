@@ -32,7 +32,7 @@ class BlobContainer;
 class Compiler {
   public:
     static bool isVclCompilerApiCompatible();
-    static ze_result_t compilerInit(VPU::VPUDevice *vpuDev);
+    static ze_result_t compilerInit(const VPU::VPUHwInfo &hwInfo);
     static ze_result_t compilerCreate(const VPU::VPUHwInfo &hwInfo,
                                       vcl_compiler_handle_t &compiler,
                                       vcl_log_handle_t &logHandle);
@@ -41,11 +41,12 @@ class Compiler {
                                        ze_graph_desc_2_t &desc,
                                        std::unique_ptr<BlobContainer> &graphBlob,
                                        std::string &log);
-    static ze_result_t getCompilerProperties(vcl_compiler_properties_t *pProperties);
+    static ze_result_t getCompilerProperties(const VPU::VPUDevice &vpuDevice,
+                                             vcl_compiler_properties_t *pProperties);
 
     static vcl_version_info_t getVclCompilerApiVersion();
-    static std::string getCompilerVersionString();
-    static ze_result_t getDecodedProfilingBuffer(ze_graph_profiling_type_t profilingType,
+    static ze_result_t getDecodedProfilingBuffer(const VPU::VPUHwInfo &hwInfo,
+                                                 ze_graph_profiling_type_t profilingType,
                                                  const BlobContainer &blob,
                                                  const uint8_t *profData,
                                                  uint64_t profSize,

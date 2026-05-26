@@ -17,8 +17,7 @@ class OsInterface;
 
 class DeviceFactory {
   public:
-    static std::vector<std::unique_ptr<VPUDevice>> createDevices(OsInterface *osi,
-                                                                 bool enableMetrics);
+    static std::vector<std::unique_ptr<VPUDevice>> createDevices(OsInterface *osi);
 };
 
 } // namespace VPU

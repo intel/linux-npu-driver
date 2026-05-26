@@ -51,6 +51,9 @@ exit:
     return ret;
 }
 
+zes_engine_dditable_t zesEngineDdiTable = {.pfnGetProperties = zesEngineGetProperties,
+                                           .pfnGetActivity = zesEngineGetActivity,
+                                           .pfnGetActivityExt = nullptr};
 } // namespace L0
 
 extern "C" {

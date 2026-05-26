@@ -10,6 +10,7 @@
 #include <stdint.h>
 
 #include "level_zero_driver/api/ext/ze_context.hpp"
+#include "level_zero_driver/api/ext/ze_driver_npu.hpp"
 #include "level_zero_driver/api/ext/ze_graph.hpp"
 #include "level_zero_driver/api/ext/ze_queue.hpp"
 #include "level_zero_driver/api/prv/zex_driver.hpp"
@@ -28,6 +29,7 @@
 #include <ze_command_queue_npu_ext.h>
 #include <ze_context_npu_ext.h>
 #include <ze_ddi.h>
+#include <ze_driver_npu_ext.h>
 #include <ze_graph_ext.h>
 #include <ze_graph_profiling_ext.h>
 
@@ -156,8 +158,7 @@ ze_result_t zeDriverGetExtensionProperties(ze_driver_handle_t hDriver,
     }
 
     for (size_t i = 0; i < *pCount; i++) {
-        *pExtProps = exts[i];
-        pExtProps++;
+        pExtProps[i] = exts[i];
     }
 
     ret = ZE_RESULT_SUCCESS;
@@ -184,95 +185,102 @@ ze_result_t zeDriverGetExtensionFunctionAddress(ze_driver_handle_t hDriver,
     }
 
     if (strcmp(name, ZE_PROFILING_DATA_EXT_NAME) == 0) {
-        static ze_graph_profiling_dditable_ext_t table;
-        table.pfnProfilingPoolCreate = L0::zeGraphProfilingPoolCreate;
-        table.pfnProfilingPoolDestroy = L0::zeGraphProfilingPoolDestroy;
-        table.pfnProfilingQueryCreate = L0::zeGraphProfilingQueryCreate;
-        table.pfnProfilingQueryDestroy = L0::zeGraphProfilingQueryDestroy;
-        table.pfnProfilingQueryGetData = L0::zeGraphProfilingQueryGetData;
-        table.pfnDeviceGetProfilingDataProperties = L0::zeDeviceGetProfilingDataProperties;
-        table.pfnProfilingLogGetString = L0::zeGraphProfilingLogGetString;
+        static ze_graph_profiling_dditable_ext_t table = {
+            .pfnProfilingPoolCreate = L0::zeGraphProfilingPoolCreate,
+            .pfnProfilingPoolDestroy = L0::zeGraphProfilingPoolDestroy,
+            .pfnProfilingQueryCreate = L0::zeGraphProfilingQueryCreate,
+            .pfnProfilingQueryDestroy = L0::zeGraphProfilingQueryDestroy,
+            .pfnProfilingQueryGetData = L0::zeGraphProfilingQueryGetData,
+            .pfnDeviceGetProfilingDataProperties = L0::zeDeviceGetProfilingDataProperties,
+            .pfnProfilingLogGetString = L0::zeGraphProfilingLogGetString,
+        };
+
         *ppFunctionAddress = reinterpret_cast<void *>(&table);
         ret = ZE_RESULT_SUCCESS;
         goto exit;
     }
 
     if (strcmp(name, ZE_COMMAND_QUEUE_NPU_EXT_NAME) == 0) {
-        static ze_command_queue_npu_dditable_ext_t table;
+        static ze_command_queue_npu_dditable_ext_t table = {
+            .pfnSetWorkloadType = L0::zeCommandQueueSetWorkloadType,
+        };
 
-        table.pfnSetWorkloadType = L0::zeCommandQueueSetWorkloadType;
         *ppFunctionAddress = reinterpret_cast<void *>(&table);
         ret = ZE_RESULT_SUCCESS;
         goto exit;
     }
 
     if (strcmp(name, ZE_CONTEXT_NPU_EXT_NAME) == 0) {
-        static ze_context_npu_dditable_ext_t table;
+        static ze_context_npu_dditable_ext_t table = {
+            .pfnSetProperties = L0::zeContextSetProperties,
+            .pfnReleaseMemory = L0::zeContextReleaseMemory,
+        };
 
-        table.pfnSetProperties = L0::zeContextSetProperties;
-        table.pfnReleaseMemory = L0::zeContextReleaseMemory;
         *ppFunctionAddress = reinterpret_cast<void *>(&table);
         ret = ZE_RESULT_SUCCESS;
         goto exit;
     }
 
-    static ze_graph_dditable_ext_t table;
-    // version 1.0
-    table.pfnCreate = L0::zeGraphCreate;
-    table.pfnDestroy = L0::zeGraphDestroy;
-    table.pfnGetNativeBinary = L0::zeGraphGetNativeBinary;
-    table.pfnGetProperties = L0::zeGraphGetProperties;
-    table.pfnGetArgumentProperties = L0::zeGraphGetArgumentProperties;
-    table.pfnSetArgumentValue = L0::zeGraphSetArgumentValue;
-    table.pfnAppendGraphInitialize = L0::zeAppendGraphInitialize;
-    table.pfnAppendGraphExecute = L0::zeAppendGraphExecute;
-    table.pfnDeviceGetGraphProperties = L0::zeDeviceGetGraphProperties;
+    if (strcmp(name, ZE_DRIVER_NPU_EXT_NAME) == 0) {
+        static ze_driver_npu_dditable_ext_t table = {
+            .pfnGetExtension = L0::zeDriverGetExtensionExt,
+        };
 
-    // version 1.1
-    table.pfnGraphGetArgumentMetadata = L0::zeGraphGetArgumentMetadata;
-    table.pfnGetArgumentProperties2 = L0::zeGraphGetArgumentProperties2;
+        *ppFunctionAddress = reinterpret_cast<void *>(&table);
+        ret = ZE_RESULT_SUCCESS;
+        goto exit;
+    }
 
-    // version 1.2
-    table.pfnGetArgumentProperties3 = L0::zeGraphGetArgumentProperties3;
+    static ze_graph_dditable_ext_t table = {
+        // version 1.0
+        .pfnCreate = L0::zeGraphCreate,
+        .pfnDestroy = L0::zeGraphDestroy,
+        .pfnGetProperties = L0::zeGraphGetProperties,
+        .pfnGetArgumentProperties = L0::zeGraphGetArgumentProperties,
+        .pfnSetArgumentValue = L0::zeGraphSetArgumentValue,
+        .pfnAppendGraphInitialize = L0::zeAppendGraphInitialize,
+        .pfnAppendGraphExecute = L0::zeAppendGraphExecute,
+        .pfnGetNativeBinary = L0::zeGraphGetNativeBinary,
+        .pfnDeviceGetGraphProperties = L0::zeDeviceGetGraphProperties,
+        // version 1.1
+        .pfnGraphGetArgumentMetadata = L0::zeGraphGetArgumentMetadata,
+        .pfnGetArgumentProperties2 = L0::zeGraphGetArgumentProperties2,
+        // version 1.2
+        .pfnGetArgumentProperties3 = L0::zeGraphGetArgumentProperties3,
+        // version 1.3
+        .pfnQueryNetworkCreate = L0::zeGraphQueryNetworkCreate,
+        .pfnQueryNetworkDestroy = L0::zeGraphQueryNetworkDestroy,
+        .pfnQueryNetworkGetSupportedLayers = L0::zeGraphQueryNetworkGetSupportedLayers,
+        // version 1.4
+        .pfnBuildLogGetString = L0::zeGraphBuildLogGetString,
+        // version 1.5
+        .pfnCreate2 = L0::zeGraphCreate2,
+        .pfnQueryNetworkCreate2 = L0::zeGraphQueryNetworkCreate2,
+        .pfnQueryContextMemory = L0::zeGraphQueryContextMemory,
+        // version 1.6
+        .pfnDeviceGetGraphProperties2 = L0::zeDeviceGetGraphProperties2,
+        // version 1.7
+        .pfnGetNativeBinary2 = L0::zeGraphGetNativeBinary2,
 
-    // version 1.3
-    table.pfnQueryNetworkCreate = L0::zeGraphQueryNetworkCreate;
-    table.pfnQueryNetworkDestroy = L0::zeGraphQueryNetworkDestroy;
-    table.pfnQueryNetworkGetSupportedLayers = L0::zeGraphQueryNetworkGetSupportedLayers;
+        // version 1.8
+        .pfnGetProperties2 = L0::zeGraphGetProperties2,
+        .pfnGraphInitialize = L0::zeGraphInitialize,
 
-    // version 1.4
-    table.pfnBuildLogGetString = L0::zeGraphBuildLogGetString;
+        // version 1.11
+        .pfnCompilerGetSupportedOptions = L0::zeGraphCompilerGetSupportedOptions,
+        .pfnCompilerIsOptionSupported = L0::zeGraphCompilerIsOptionSupported,
+        // version 1.12
+        .pfnCreate3 = L0::zeGraphCreate3,
+        .pfnGetProperties3 = L0::zeGraphGetProperties3,
+        .pfnBuildLogGetString2 = L0::zeGraphBuildLogGetString2,
+        .pfnBuildLogDestroy = L0::zeGraphBuildLogDestroy,
 
-    // version 1.5
-    table.pfnCreate2 = L0::zeGraphCreate2;
-    table.pfnQueryNetworkCreate2 = L0::zeGraphQueryNetworkCreate2;
-    table.pfnQueryContextMemory = L0::zeGraphQueryContextMemory;
+        // version 1.15
+        .pfnSetArgumentValue2 = L0::zeGraphSetArgumentValue2,
 
-    // version 1.6
-    table.pfnDeviceGetGraphProperties2 = L0::zeDeviceGetGraphProperties2;
-
-    // version 1.7
-    table.pfnGetNativeBinary2 = L0::zeGraphGetNativeBinary2;
-
-    // version 1.8
-    table.pfnGetProperties2 = L0::zeGraphGetProperties2;
-    table.pfnGraphInitialize = L0::zeGraphInitialize;
-
-    // version 1.11
-    table.pfnCompilerGetSupportedOptions = L0::zeGraphCompilerGetSupportedOptions;
-    table.pfnCompilerIsOptionSupported = L0::zeGraphCompilerIsOptionSupported;
-
-    // version 1.12
-    table.pfnCreate3 = L0::zeGraphCreate3;
-    table.pfnGetProperties3 = L0::zeGraphGetProperties3;
-    table.pfnBuildLogGetString2 = L0::zeGraphBuildLogGetString2;
-    table.pfnBuildLogDestroy = L0::zeGraphBuildLogDestroy;
-
-    // version 1.15
-    table.pfnSetArgumentValue2 = L0::zeGraphSetArgumentValue2;
-
-    // version 1.16
-    table.pfnEvict = L0::zeGraphEvict;
+        // version 1.16
+        .pfnEvict = L0::zeGraphEvict,
+    };
 
     if (strstr(name, ZE_GRAPH_EXT_NAME) != nullptr) {
         *ppFunctionAddress = reinterpret_cast<void *>(&table);
@@ -295,10 +303,28 @@ ze_result_t zeDriverGetExtensionFunctionAddress(ze_driver_handle_t hDriver,
     CHECK_PRIVATE_FUNCTION(zexContextSetIdlePruningTimeout);
 
     LOG_E("Driver Function Extension with %s name does not exist", name);
+
 exit:
     trace_zeDriverGetExtensionFunctionAddress(ret, hDriver, name, ppFunctionAddress);
     return ret;
 }
+
+ze_global_dditable_t zeGlobalDdiTable = {
+    .pfnInit = L0::zeInit,
+    .pfnInitDrivers = L0::zeInitDrivers,
+};
+
+ze_driver_dditable_t zeDriverDdiTable = {
+    .pfnGet = zeDriverGet,
+    .pfnGetApiVersion = zeDriverGetApiVersion,
+    .pfnGetProperties = zeDriverGetProperties,
+    .pfnGetIpcProperties = zeDriverGetIpcProperties,
+    .pfnGetExtensionProperties = zeDriverGetExtensionProperties,
+    .pfnGetExtensionFunctionAddress = zeDriverGetExtensionFunctionAddress,
+    .pfnGetLastErrorDescription = nullptr,
+    .pfnRTASFormatCompatibilityCheckExt = nullptr,
+    .pfnGetDefaultContext = nullptr};
+
 } // namespace L0
 
 extern "C" {

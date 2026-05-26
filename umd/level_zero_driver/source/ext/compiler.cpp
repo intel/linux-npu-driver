@@ -23,6 +23,7 @@
 
 #include <bitset>
 #include <memory>
+#include <mutex>
 #include <string.h>
 #include <ze_api.h>
 
@@ -128,7 +129,14 @@ ze_result_t Compiler::compilerDestroy(vcl_compiler_handle_t compiler) {
     return vclToL0Err(Vcl::sym().compilerDestroy(compiler));
 }
 
-ze_result_t Compiler::compilerInit(VPU::VPUDevice *vpuDevice) {
+static std::mutex compilerInitMutex;
+
+ze_result_t Compiler::compilerInit(const VPU::VPUHwInfo &hwInfo) {
+    std::unique_lock<std::mutex> lock(compilerInitMutex);
+
+    if (compilerProperties.id)
+        return ZE_RESULT_SUCCESS;
+
     if (!Vcl::sym().ok())
         return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
 
@@ -141,9 +149,17 @@ ze_result_t Compiler::compilerInit(VPU::VPUDevice *vpuDevice) {
         return ret;
     }
 
+    LOG(MISC, "Loaded compiler library: %s", Vcl::sym().getLibPath().c_str());
+    LOG(MISC,
+        "VCL Compiler API version: %d.%d, VCL Profiling API version: %d.%d",
+        vclCompilerApiVersion.major,
+        vclCompilerApiVersion.minor,
+        vclProfilingApiVersion.major,
+        vclProfilingApiVersion.minor);
+
     vcl_compiler_handle_t compiler = nullptr;
     vcl_log_handle_t logHandle = nullptr;
-    ret = compilerCreate(vpuDevice->getHwInfo(), compiler, logHandle);
+    ret = compilerCreate(hwInfo, compiler, logHandle);
     if (ret != ZE_RESULT_SUCCESS) {
         LOG_E("Failed to create compiler! Result:%#x", ret);
         return ret;
@@ -159,8 +175,16 @@ ze_result_t Compiler::compilerInit(VPU::VPUDevice *vpuDevice) {
         return ret;
     }
 
+    LOG(MISC,
+        "Compiler properties: id=%s, version=%d.%d, supported opsets=0x%X",
+        compilerProperties.id,
+        compilerProperties.version.major,
+        compilerProperties.version.minor,
+        compilerProperties.supportedOpsets);
+
     TRACE_EVENT("NPU_COMPILER", "vclCompilerDestroy");
     Vcl::sym().compilerDestroy(compiler);
+
     return ret;
 }
 
@@ -254,8 +278,9 @@ ze_result_t Compiler::getCompiledBlob(VPU::VPUDeviceContext *ctx,
                                       ze_graph_desc_2_t &desc,
                                       std::unique_ptr<BlobContainer> &blob,
                                       std::string &log) {
-    if (!Vcl::sym().ok())
-        return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    ze_result_t ret = Compiler::compilerInit(ctx->getDeviceCapabilities());
+    if (ret != ZE_RESULT_SUCCESS)
+        return ret;
 
     if (!isVclCompilerApiCompatible()) {
         log += "[NPU_DRV] Driver reports VCL Compiler API version mismatch. Expected version: " +
@@ -268,7 +293,7 @@ ze_result_t Compiler::getCompiledBlob(VPU::VPUDeviceContext *ctx,
 
     vcl_compiler_handle_t compiler = NULL;
     vcl_log_handle_t logHandle = NULL;
-    ze_result_t ret = compilerCreate(ctx->getDeviceCapabilities(), compiler, logHandle);
+    ret = compilerCreate(ctx->getDeviceCapabilities(), compiler, logHandle);
     if (ret != ZE_RESULT_SUCCESS) {
         log += "[NPU_DRV] Driver reports a failure from vclCompilerCreate, return code: " +
                std::to_string(ret) + '\n';
@@ -286,9 +311,11 @@ ze_result_t Compiler::getCompiledBlob(VPU::VPUDeviceContext *ctx,
     return ret;
 }
 
-ze_result_t Compiler::getCompilerProperties(vcl_compiler_properties_t *pProperties) {
-    if (!Vcl::sym().ok())
-        return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+ze_result_t Compiler::getCompilerProperties(const VPU::VPUDevice &vpuDevice,
+                                            vcl_compiler_properties_t *pProperties) {
+    ze_result_t ret = Compiler::compilerInit(vpuDevice.getHwInfo());
+    if (ret != ZE_RESULT_SUCCESS)
+        return ret;
 
     if (pProperties == nullptr)
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
@@ -301,26 +328,30 @@ vcl_version_info_t Compiler::getVclCompilerApiVersion() {
     return vclCompilerApiVersion;
 }
 
-std::string Compiler::getCompilerVersionString() {
-    std::string version = "not available";
-    if (!compilerProperties.version.major)
-        return version;
-    return std::to_string(compilerProperties.version.major) + "." +
-           std::to_string(compilerProperties.version.minor) + "(" + compilerProperties.id + ")";
-}
-
-ze_result_t Compiler::getDecodedProfilingBuffer(ze_graph_profiling_type_t profilingType,
+ze_result_t Compiler::getDecodedProfilingBuffer(const VPU::VPUHwInfo &hwInfo,
+                                                ze_graph_profiling_type_t profilingType,
                                                 const BlobContainer &blob,
                                                 const uint8_t *profData,
                                                 uint64_t profSize,
                                                 uint32_t *pSize,
                                                 void *pData,
                                                 std::string &logBuffer) {
-    if (!Vcl::sym().ok())
-        return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    ze_result_t ret = Compiler::compilerInit(hwInfo);
+    if (ret != ZE_RESULT_SUCCESS) {
+        logBuffer +=
+            "[NPU_DRV] Failed to initialize compiler for profiling data decoding, return code: " +
+            std::to_string(ret) + '\n';
+        return ret;
+    }
 
-    if (!isVclProfilingApiCompatible())
+    if (!isVclProfilingApiCompatible()) {
+        logBuffer += "[NPU_DRV] VCL Profiling API version mismatch. Expected version: " +
+                     std::to_string(VCL_PROFILING_VERSION_MAJOR) + "." +
+                     std::to_string(VCL_PROFILING_VERSION_MINOR) +
+                     ", current version: " + std::to_string(vclProfilingApiVersion.major) + "." +
+                     std::to_string(vclProfilingApiVersion.minor) + '\n';
         return ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+    }
 
     vcl_profiling_handle_t profHandle = NULL;
     vcl_profiling_input_t profilingApiInput = {.blobData = blob.ptr,
@@ -330,8 +361,7 @@ ze_result_t Compiler::getDecodedProfilingBuffer(ze_graph_profiling_type_t profil
     vcl_log_handle_t logHandle = NULL;
 
     TRACE_EVENT_BEGIN("NPU_COMPILER", "vclProfilingCreate");
-    ze_result_t ret =
-        vclToL0Err(Vcl::sym().profilingCreate(&profilingApiInput, &profHandle, &logHandle));
+    ret = vclToL0Err(Vcl::sym().profilingCreate(&profilingApiInput, &profHandle, &logHandle));
     TRACE_EVENT_END("NPU_COMPILER");
     if (ret != ZE_RESULT_SUCCESS) {
         logBuffer += "[NPU_DRV] Driver reports a failure from vclProfilingCreate, return code: " +
@@ -401,8 +431,9 @@ ze_result_t Compiler::queryNetworkDestroy(vcl_query_handle_t query) {
 
 ze_result_t
 Compiler::getSupportedOptions(VPU::VPUDevice *vpuDevice, size_t *pSize, char *pSupportedOptions) {
-    if (!Vcl::sym().ok())
-        return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    ze_result_t ret = Compiler::compilerInit(vpuDevice->getHwInfo());
+    if (ret != ZE_RESULT_SUCCESS)
+        return ret;
 
     if (Vcl::sym().getCompilerSupportedOptions == nullptr)
         return ZE_RESULT_ERROR_DEPENDENCY_UNAVAILABLE;
@@ -413,7 +444,7 @@ Compiler::getSupportedOptions(VPU::VPUDevice *vpuDevice, size_t *pSize, char *pS
     vcl_compiler_handle_t compiler = nullptr;
     vcl_log_handle_t compilerLog = nullptr;
 
-    ze_result_t ret = compilerCreate(vpuDevice->getHwInfo(), compiler, compilerLog);
+    ret = compilerCreate(vpuDevice->getHwInfo(), compiler, compilerLog);
     if (ret != ZE_RESULT_SUCCESS) {
         LOG_E("Failed to create compiler! Result:%#x", ret);
         return ret;
@@ -433,8 +464,9 @@ Compiler::getSupportedOptions(VPU::VPUDevice *vpuDevice, size_t *pSize, char *pS
 
 ze_result_t
 Compiler::isOptionSupported(VPU::VPUDevice *vpuDevice, const char *pOption, const char *pValue) {
-    if (!Vcl::sym().ok())
-        return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    ze_result_t ret = Compiler::compilerInit(vpuDevice->getHwInfo());
+    if (ret != ZE_RESULT_SUCCESS)
+        return ret;
 
     if (Vcl::sym().getCompilerIsOptionSupported == nullptr)
         return ZE_RESULT_ERROR_DEPENDENCY_UNAVAILABLE;
@@ -445,7 +477,7 @@ Compiler::isOptionSupported(VPU::VPUDevice *vpuDevice, const char *pOption, cons
     vcl_compiler_handle_t compiler = nullptr;
     vcl_log_handle_t compilerLog = nullptr;
 
-    ze_result_t ret = compilerCreate(vpuDevice->getHwInfo(), compiler, compilerLog);
+    ret = compilerCreate(vpuDevice->getHwInfo(), compiler, compilerLog);
     if (ret != ZE_RESULT_SUCCESS) {
         LOG_E("Failed to create compiler! Result:%#x", ret);
         return ret;

@@ -18,6 +18,7 @@
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <chrono> // IWYU pragma: keep
+#include <compare>
 #include <errno.h>
 #include <memory>
 #include <thread>

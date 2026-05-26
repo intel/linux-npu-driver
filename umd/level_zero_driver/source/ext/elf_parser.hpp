@@ -93,7 +93,6 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
                       uint32_t &profilingOutputSize) override;
 
     ze_result_t initialize() override;
-    std::shared_ptr<VPU::VPUBufferObject> allocateInternal(size_t size) override;
 
     std::shared_ptr<VPU::VPUCommand> allocateInitCommand(VPU::VPUDeviceContext *ctx) override;
 

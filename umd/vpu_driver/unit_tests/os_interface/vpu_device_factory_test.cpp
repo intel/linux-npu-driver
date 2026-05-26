@@ -25,6 +25,6 @@ TEST(DeviceFactoryTest, devicesDiscoveredWithUDevFuncs) {
     EXPECT_CALL(gmockInfc, osiIoctl).Times(64);
 
     // Devices vector will be returned upon number of discovered devices.
-    auto devVector = DeviceFactory::createDevices(&gmockInfc, true);
+    auto devVector = DeviceFactory::createDevices(&gmockInfc);
     EXPECT_EQ(0u, devVector.size());
 }

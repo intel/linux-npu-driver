@@ -8,8 +8,9 @@
 #pragma once
 
 // IWYU pragma: no_include <bits/chrono.h>
-
 #include <stdint.h>
+
+#include "level_zero_driver/api/zet_misc.hpp"
 
 #include <chrono> // IWYU pragma: keep
 #include <memory>
@@ -20,7 +21,7 @@ namespace VPU {
 class VPUJob;
 } // namespace VPU
 
-struct _ze_fence_handle_t {};
+struct _ze_fence_handle_t : public L0::_ze_generic_handle_t {};
 
 namespace L0 {
 

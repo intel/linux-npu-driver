@@ -348,6 +348,20 @@ ze_result_t zeMemCloseIpcHandle(ze_context_handle_t hContext, const void *ptr) {
     trace_zeMemCloseIpcHandle(ret, hContext, ptr);
     return ret;
 }
+
+ze_mem_dditable_t zeMemDdiTable = {.pfnAllocShared = zeMemAllocShared,
+                                   .pfnAllocDevice = zeMemAllocDevice,
+                                   .pfnAllocHost = zeMemAllocHost,
+                                   .pfnFree = zeMemFree,
+                                   .pfnGetAllocProperties = zeMemGetAllocProperties,
+                                   .pfnGetAddressRange = zeMemGetAddressRange,
+                                   .pfnGetIpcHandle = zeMemGetIpcHandle,
+                                   .pfnOpenIpcHandle = zeMemOpenIpcHandle,
+                                   .pfnCloseIpcHandle = zeMemCloseIpcHandle,
+                                   .pfnFreeExt = nullptr,
+                                   .pfnPutIpcHandle = nullptr,
+                                   .pfnGetPitchFor2dImage = nullptr,
+                                   .pfnGetIpcHandleWithProperties = nullptr};
 } // namespace L0
 
 extern "C" {

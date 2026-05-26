@@ -84,6 +84,14 @@ exit:
     trace_zeCommandQueueSynchronize(ret, hCommandQueue, timeout);
     return ret;
 }
+
+ze_command_queue_dditable_t zeCommandQueueDdiTable = {.pfnCreate = zeCommandQueueCreate,
+                                                      .pfnDestroy = zeCommandQueueDestroy,
+                                                      .pfnExecuteCommandLists =
+                                                          zeCommandQueueExecuteCommandLists,
+                                                      .pfnSynchronize = zeCommandQueueSynchronize,
+                                                      .pfnGetOrdinal = nullptr,
+                                                      .pfnGetIndex = nullptr};
 } // namespace L0
 
 extern "C" {

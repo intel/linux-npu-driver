@@ -75,7 +75,7 @@ using DriverVersionTest = Test<DeviceFixture>;
 TEST_F(DriverVersionTest, returnsExpectedDriverVersion) {
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, driverHandle->getProperties(nullptr));
 
-    ze_driver_properties_t properties;
+    ze_driver_properties_t properties = {};
     EXPECT_EQ(ZE_RESULT_SUCCESS, driverHandle->getProperties(&properties));
     EXPECT_EQ(DRIVER_VERSION, properties.driverVersion);
 

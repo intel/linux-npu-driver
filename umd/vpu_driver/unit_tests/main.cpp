@@ -8,10 +8,20 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "vpu_driver/source/utilities/log.hpp"
+#include "ze_ddi.h"
+#include "zer_ddi.h"
+#include "zes_ddi.h"
+#include "zet_ddi.h"
 
 #include <getopt.h>
 #include <stdio.h>
 #include <unistd.h>
+
+/* Define empty Ddi tables to satisfy linker, these tables are not used by unit tests */
+zet_dditable_driver_t toolsDdiTable = {};
+ze_dditable_driver_t coreDDITable = {};
+zes_dditable_driver_t sysmanDdiTable = {};
+zer_dditable_driver_t runtimeDdiTable = {};
 
 static void printHelpMessage() {
     constexpr auto helpMessage =

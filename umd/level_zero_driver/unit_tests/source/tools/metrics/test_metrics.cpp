@@ -28,14 +28,14 @@
 namespace L0 {
 namespace ult {
 
-using MetricNonEnvTest = Test<DeviceFixtureWithoutEnvVariables>;
+using MetricNonEnvTest = Test<DeviceFixtureWithoutMetrics>;
 
 TEST_F(MetricNonEnvTest, metricGroupGetReturnsFailureWithoutEnvVariables) {
     uint32_t count = 0;
     EXPECT_EQ(device->metricGroupGet(&count, nullptr), ZE_RESULT_ERROR_UNINITIALIZED);
 }
 
-using MetricTest = Test<DeviceFixture>;
+using MetricTest = Test<DeviceFixtureWithMetrics>;
 
 TEST_F(MetricTest, metricGroupGetReturnsExpectedResultsWithInitializedDevice) {
     EXPECT_EQ(device->metricGroupGet(nullptr, nullptr), ZE_RESULT_ERROR_INVALID_NULL_POINTER);
@@ -50,7 +50,7 @@ TEST_F(MetricTest, metricGroupGetReturnsExpectedResultsWithInitializedDevice) {
     EXPECT_NE(*metricGroups.data(), nullptr);
 }
 
-using MetricContextTest = Test<ContextFixture>;
+using MetricContextTest = Test<ContextFixtureWithMetrics>;
 
 TEST_F(MetricContextTest, metricContextActivateMetricGroupsReturnsFailureWithoutInitializedDevice) {
     auto deviceNew = std::make_unique<Device>(nullptr, nullptr);
@@ -60,9 +60,9 @@ TEST_F(MetricContextTest, metricContextActivateMetricGroupsReturnsFailureWithout
               ZE_RESULT_ERROR_UNINITIALIZED);
 }
 
-struct MetricGroupShared : public ContextFixture {
+struct MetricGroupShared : public ContextFixtureWithMetrics {
     void SetUp() override {
-        ContextFixture::SetUp();
+        ContextFixtureWithMetrics::SetUp();
 
         ASSERT_EQ(device->metricGroupGet(&metricGroupCount, nullptr), ZE_RESULT_SUCCESS);
         ASSERT_GT(metricGroupCount, 0u);
@@ -86,7 +86,7 @@ struct MetricGroupShared : public ContextFixture {
             EXPECT_EQ(mockMetricContext->getActivatedMetricGroupsSize(), 0u);
         }
 
-        ContextFixture::TearDown();
+        ContextFixtureWithMetrics::TearDown();
     }
 
     void checkMetricsData(std::string metricGroupName,

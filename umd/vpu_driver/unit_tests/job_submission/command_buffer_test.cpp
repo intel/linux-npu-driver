@@ -16,7 +16,6 @@
 #include "vpu_driver/unit_tests/mocks/mock_vpu_device.hpp"
 
 #include <memory>
-#include <string>
 #include <vector>
 
 namespace VPU {

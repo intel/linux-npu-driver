@@ -26,6 +26,7 @@
 
 namespace VPU {
 class VPUDeviceContext;
+class VPUDevice;
 } // namespace VPU
 
 struct _ze_graph_handle_t {};
@@ -59,7 +60,10 @@ struct GraphArgumentProperties {
 };
 
 struct Graph : _ze_graph_handle_t, IContextObject {
-    Graph(Context *pCtx, const ze_graph_desc_2_t *pDesc, std::string &log);
+    Graph(Context *pCtx,
+          const VPU::VPUDevice *vpuDevice,
+          const ze_graph_desc_2_t *pDesc,
+          std::string &log);
     ~Graph() = default;
 
     static ze_result_t create(const ze_context_handle_t hContext,
@@ -121,9 +125,10 @@ struct Graph : _ze_graph_handle_t, IContextObject {
     std::string getBuildFlags() { return buildFlags; }
 
   private:
-    void initialize(std::string &log);
+    void initialize(const VPU::VPUDevice &vpuDevice, std::string &log);
     std::unique_ptr<BlobContainer> getBlobContainerNative();
-    std::unique_ptr<BlobContainer> getBlobContainerNGraphLite(std::string &log);
+    std::unique_ptr<BlobContainer> getBlobContainerNGraphLite(const VPU::VPUDevice &vpuDevice,
+                                                              std::string &log);
     friend std::optional<const void *>
     gatherArgumentValues(const void *pNext, size_t argIndex, Graph &graph);
     friend std::optional<void *>

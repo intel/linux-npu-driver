@@ -12,6 +12,8 @@
 #include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/source/utilities/trace_perfetto.hpp"
 
+#include <cctype>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <ze_api.h>
@@ -27,6 +29,43 @@
 #define IS_API_DDI_TRACE() false
 #define IS_API_EXT_TRACE() false
 #endif
+
+inline std::stringstream trace_ascii_array(const char *value, size_t maxLen) {
+    std::stringstream ss;
+    for (size_t i = 0; i <= maxLen; ++i) {
+        if (i == maxLen) {
+            ss << "...";
+            break;
+        }
+        const auto c = static_cast<unsigned char>(value[i]);
+        if (c == '\0') {
+            break;
+        }
+        if (std::isprint(c) != 0) {
+            ss << static_cast<char>(c);
+        } else {
+            ss << "0x" << std::hex << std::setw(2) << std::setfill('0')
+               << static_cast<unsigned int>(c);
+        }
+    }
+    return ss;
+}
+
+inline std::stringstream trace_u8_array_hex(const uint8_t *value, size_t len) {
+    std::stringstream ss;
+    for (size_t i = 0; i < len; ++i) {
+        const auto c = static_cast<unsigned char>(value[i]);
+        if (i > 0) {
+            ss << " ";
+        }
+        ss << "0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<unsigned int>(c);
+    }
+    return ss;
+}
+
+inline std::stringstream trace_char_array_hex(const char *value, size_t len) {
+    return trace_u8_array_hex(reinterpret_cast<const uint8_t *>(value), len);
+}
 
 const inline char *ze_result_to_str(unsigned long r) {
     switch (r) {
@@ -223,22 +262,9 @@ inline std::string _trace_zeDriverGetProperties(ze_driver_handle_t hDriver,
         ss << "stype: " << pDriverProperties->stype;
         ss << ", pNext: " << pDriverProperties->pNext;
         ss << ", uuid {";
-        ss << "id: " << static_cast<int>(pDriverProperties->uuid.id[0]) << " "
-           << static_cast<int>(pDriverProperties->uuid.id[1]) << " "
-           << static_cast<int>(pDriverProperties->uuid.id[2]) << " "
-           << static_cast<int>(pDriverProperties->uuid.id[3]) << " "
-           << static_cast<int>(pDriverProperties->uuid.id[4]) << " "
-           << static_cast<int>(pDriverProperties->uuid.id[5]) << " "
-           << static_cast<int>(pDriverProperties->uuid.id[6]) << " "
-           << static_cast<int>(pDriverProperties->uuid.id[7]) << " "
-           << static_cast<int>(pDriverProperties->uuid.id[8]) << " "
-           << static_cast<int>(pDriverProperties->uuid.id[9]) << " "
-           << static_cast<int>(pDriverProperties->uuid.id[10]) << " "
-           << static_cast<int>(pDriverProperties->uuid.id[11]) << " "
-           << static_cast<int>(pDriverProperties->uuid.id[12]) << " "
-           << static_cast<int>(pDriverProperties->uuid.id[13]) << " "
-           << static_cast<int>(pDriverProperties->uuid.id[14]) << " "
-           << static_cast<int>(pDriverProperties->uuid.id[15]);
+        ss << "id: ";
+        ss << trace_u8_array_hex(pDriverProperties->uuid.id, sizeof(pDriverProperties->uuid.id))
+                  .str();
         ss << "}";
         ss << ", driverVersion: " << pDriverProperties->driverVersion;
         ss << "}";
@@ -310,137 +336,21 @@ _trace_zeDriverGetExtensionProperties(ze_driver_handle_t hDriver,
     if (pExtensionProperties == nullptr) {
         ss << ", pExtensionProperties: nullptr";
     } else {
-        ss << ", pExtensionProperties {";
-        ss << "name: " << pExtensionProperties->name[0] << pExtensionProperties->name[1]
-           << pExtensionProperties->name[2] << pExtensionProperties->name[3]
-           << pExtensionProperties->name[4] << pExtensionProperties->name[5]
-           << pExtensionProperties->name[6] << pExtensionProperties->name[7]
-           << pExtensionProperties->name[8] << pExtensionProperties->name[9]
-           << pExtensionProperties->name[10] << pExtensionProperties->name[11]
-           << pExtensionProperties->name[12] << pExtensionProperties->name[13]
-           << pExtensionProperties->name[14] << pExtensionProperties->name[15]
-           << pExtensionProperties->name[16] << pExtensionProperties->name[17]
-           << pExtensionProperties->name[18] << pExtensionProperties->name[19]
-           << pExtensionProperties->name[20] << pExtensionProperties->name[21]
-           << pExtensionProperties->name[22] << pExtensionProperties->name[23]
-           << pExtensionProperties->name[24] << pExtensionProperties->name[25]
-           << pExtensionProperties->name[26] << pExtensionProperties->name[27]
-           << pExtensionProperties->name[28] << pExtensionProperties->name[29]
-           << pExtensionProperties->name[30] << pExtensionProperties->name[31]
-           << pExtensionProperties->name[32] << pExtensionProperties->name[33]
-           << pExtensionProperties->name[34] << pExtensionProperties->name[35]
-           << pExtensionProperties->name[36] << pExtensionProperties->name[37]
-           << pExtensionProperties->name[38] << pExtensionProperties->name[39]
-           << pExtensionProperties->name[40] << pExtensionProperties->name[41]
-           << pExtensionProperties->name[42] << pExtensionProperties->name[43]
-           << pExtensionProperties->name[44] << pExtensionProperties->name[45]
-           << pExtensionProperties->name[46] << pExtensionProperties->name[47]
-           << pExtensionProperties->name[48] << pExtensionProperties->name[49]
-           << pExtensionProperties->name[50] << pExtensionProperties->name[51]
-           << pExtensionProperties->name[52] << pExtensionProperties->name[53]
-           << pExtensionProperties->name[54] << pExtensionProperties->name[55]
-           << pExtensionProperties->name[56] << pExtensionProperties->name[57]
-           << pExtensionProperties->name[58] << pExtensionProperties->name[59]
-           << pExtensionProperties->name[60] << pExtensionProperties->name[61]
-           << pExtensionProperties->name[62] << pExtensionProperties->name[63]
-           << pExtensionProperties->name[64] << pExtensionProperties->name[65]
-           << pExtensionProperties->name[66] << pExtensionProperties->name[67]
-           << pExtensionProperties->name[68] << pExtensionProperties->name[69]
-           << pExtensionProperties->name[70] << pExtensionProperties->name[71]
-           << pExtensionProperties->name[72] << pExtensionProperties->name[73]
-           << pExtensionProperties->name[74] << pExtensionProperties->name[75]
-           << pExtensionProperties->name[76] << pExtensionProperties->name[77]
-           << pExtensionProperties->name[78] << pExtensionProperties->name[79]
-           << pExtensionProperties->name[80] << pExtensionProperties->name[81]
-           << pExtensionProperties->name[82] << pExtensionProperties->name[83]
-           << pExtensionProperties->name[84] << pExtensionProperties->name[85]
-           << pExtensionProperties->name[86] << pExtensionProperties->name[87]
-           << pExtensionProperties->name[88] << pExtensionProperties->name[89]
-           << pExtensionProperties->name[90] << pExtensionProperties->name[91]
-           << pExtensionProperties->name[92] << pExtensionProperties->name[93]
-           << pExtensionProperties->name[94] << pExtensionProperties->name[95]
-           << pExtensionProperties->name[96] << pExtensionProperties->name[97]
-           << pExtensionProperties->name[98] << pExtensionProperties->name[99]
-           << pExtensionProperties->name[100] << pExtensionProperties->name[101]
-           << pExtensionProperties->name[102] << pExtensionProperties->name[103]
-           << pExtensionProperties->name[104] << pExtensionProperties->name[105]
-           << pExtensionProperties->name[106] << pExtensionProperties->name[107]
-           << pExtensionProperties->name[108] << pExtensionProperties->name[109]
-           << pExtensionProperties->name[110] << pExtensionProperties->name[111]
-           << pExtensionProperties->name[112] << pExtensionProperties->name[113]
-           << pExtensionProperties->name[114] << pExtensionProperties->name[115]
-           << pExtensionProperties->name[116] << pExtensionProperties->name[117]
-           << pExtensionProperties->name[118] << pExtensionProperties->name[119]
-           << pExtensionProperties->name[120] << pExtensionProperties->name[121]
-           << pExtensionProperties->name[122] << pExtensionProperties->name[123]
-           << pExtensionProperties->name[124] << pExtensionProperties->name[125]
-           << pExtensionProperties->name[126] << pExtensionProperties->name[127]
-           << pExtensionProperties->name[128] << pExtensionProperties->name[129]
-           << pExtensionProperties->name[130] << pExtensionProperties->name[131]
-           << pExtensionProperties->name[132] << pExtensionProperties->name[133]
-           << pExtensionProperties->name[134] << pExtensionProperties->name[135]
-           << pExtensionProperties->name[136] << pExtensionProperties->name[137]
-           << pExtensionProperties->name[138] << pExtensionProperties->name[139]
-           << pExtensionProperties->name[140] << pExtensionProperties->name[141]
-           << pExtensionProperties->name[142] << pExtensionProperties->name[143]
-           << pExtensionProperties->name[144] << pExtensionProperties->name[145]
-           << pExtensionProperties->name[146] << pExtensionProperties->name[147]
-           << pExtensionProperties->name[148] << pExtensionProperties->name[149]
-           << pExtensionProperties->name[150] << pExtensionProperties->name[151]
-           << pExtensionProperties->name[152] << pExtensionProperties->name[153]
-           << pExtensionProperties->name[154] << pExtensionProperties->name[155]
-           << pExtensionProperties->name[156] << pExtensionProperties->name[157]
-           << pExtensionProperties->name[158] << pExtensionProperties->name[159]
-           << pExtensionProperties->name[160] << pExtensionProperties->name[161]
-           << pExtensionProperties->name[162] << pExtensionProperties->name[163]
-           << pExtensionProperties->name[164] << pExtensionProperties->name[165]
-           << pExtensionProperties->name[166] << pExtensionProperties->name[167]
-           << pExtensionProperties->name[168] << pExtensionProperties->name[169]
-           << pExtensionProperties->name[170] << pExtensionProperties->name[171]
-           << pExtensionProperties->name[172] << pExtensionProperties->name[173]
-           << pExtensionProperties->name[174] << pExtensionProperties->name[175]
-           << pExtensionProperties->name[176] << pExtensionProperties->name[177]
-           << pExtensionProperties->name[178] << pExtensionProperties->name[179]
-           << pExtensionProperties->name[180] << pExtensionProperties->name[181]
-           << pExtensionProperties->name[182] << pExtensionProperties->name[183]
-           << pExtensionProperties->name[184] << pExtensionProperties->name[185]
-           << pExtensionProperties->name[186] << pExtensionProperties->name[187]
-           << pExtensionProperties->name[188] << pExtensionProperties->name[189]
-           << pExtensionProperties->name[190] << pExtensionProperties->name[191]
-           << pExtensionProperties->name[192] << pExtensionProperties->name[193]
-           << pExtensionProperties->name[194] << pExtensionProperties->name[195]
-           << pExtensionProperties->name[196] << pExtensionProperties->name[197]
-           << pExtensionProperties->name[198] << pExtensionProperties->name[199]
-           << pExtensionProperties->name[200] << pExtensionProperties->name[201]
-           << pExtensionProperties->name[202] << pExtensionProperties->name[203]
-           << pExtensionProperties->name[204] << pExtensionProperties->name[205]
-           << pExtensionProperties->name[206] << pExtensionProperties->name[207]
-           << pExtensionProperties->name[208] << pExtensionProperties->name[209]
-           << pExtensionProperties->name[210] << pExtensionProperties->name[211]
-           << pExtensionProperties->name[212] << pExtensionProperties->name[213]
-           << pExtensionProperties->name[214] << pExtensionProperties->name[215]
-           << pExtensionProperties->name[216] << pExtensionProperties->name[217]
-           << pExtensionProperties->name[218] << pExtensionProperties->name[219]
-           << pExtensionProperties->name[220] << pExtensionProperties->name[221]
-           << pExtensionProperties->name[222] << pExtensionProperties->name[223]
-           << pExtensionProperties->name[224] << pExtensionProperties->name[225]
-           << pExtensionProperties->name[226] << pExtensionProperties->name[227]
-           << pExtensionProperties->name[228] << pExtensionProperties->name[229]
-           << pExtensionProperties->name[230] << pExtensionProperties->name[231]
-           << pExtensionProperties->name[232] << pExtensionProperties->name[233]
-           << pExtensionProperties->name[234] << pExtensionProperties->name[235]
-           << pExtensionProperties->name[236] << pExtensionProperties->name[237]
-           << pExtensionProperties->name[238] << pExtensionProperties->name[239]
-           << pExtensionProperties->name[240] << pExtensionProperties->name[241]
-           << pExtensionProperties->name[242] << pExtensionProperties->name[243]
-           << pExtensionProperties->name[244] << pExtensionProperties->name[245]
-           << pExtensionProperties->name[246] << pExtensionProperties->name[247]
-           << pExtensionProperties->name[248] << pExtensionProperties->name[249]
-           << pExtensionProperties->name[250] << pExtensionProperties->name[251]
-           << pExtensionProperties->name[252] << pExtensionProperties->name[253]
-           << pExtensionProperties->name[254] << pExtensionProperties->name[255];
-        ss << ", version: " << pExtensionProperties->version;
-        ss << "}";
+        const uint32_t count = (pCount != nullptr) ? *pCount : 0U;
+        ss << ", pExtensionProperties[";
+        if (count > 0) {
+            ss << "{";
+            ss << "name: ";
+            ss << trace_ascii_array(pExtensionProperties[0].name,
+                                    sizeof(pExtensionProperties[0].name))
+                      .str();
+            ss << ", version: " << pExtensionProperties[0].version;
+            ss << "}";
+            if (count > 1) {
+                ss << ", ...";
+            }
+        }
+        ss << "]";
     }
     ss << ")";
     return ss.str();
@@ -653,150 +563,12 @@ inline std::string _trace_zeDeviceGetProperties(ze_device_handle_t hDevice,
         ss << ", timestampValidBits: " << pDeviceProperties->timestampValidBits;
         ss << ", kernelTimestampValidBits: " << pDeviceProperties->kernelTimestampValidBits;
         ss << ", uuid {";
-        ss << "id: " << static_cast<int>(pDeviceProperties->uuid.id[0]) << " "
-           << static_cast<int>(pDeviceProperties->uuid.id[1]) << " "
-           << static_cast<int>(pDeviceProperties->uuid.id[2]) << " "
-           << static_cast<int>(pDeviceProperties->uuid.id[3]) << " "
-           << static_cast<int>(pDeviceProperties->uuid.id[4]) << " "
-           << static_cast<int>(pDeviceProperties->uuid.id[5]) << " "
-           << static_cast<int>(pDeviceProperties->uuid.id[6]) << " "
-           << static_cast<int>(pDeviceProperties->uuid.id[7]) << " "
-           << static_cast<int>(pDeviceProperties->uuid.id[8]) << " "
-           << static_cast<int>(pDeviceProperties->uuid.id[9]) << " "
-           << static_cast<int>(pDeviceProperties->uuid.id[10]) << " "
-           << static_cast<int>(pDeviceProperties->uuid.id[11]) << " "
-           << static_cast<int>(pDeviceProperties->uuid.id[12]) << " "
-           << static_cast<int>(pDeviceProperties->uuid.id[13]) << " "
-           << static_cast<int>(pDeviceProperties->uuid.id[14]) << " "
-           << static_cast<int>(pDeviceProperties->uuid.id[15]);
+        ss << "id: ";
+        ss << trace_u8_array_hex(pDeviceProperties->uuid.id, sizeof(pDeviceProperties->uuid.id))
+                  .str();
         ss << "}";
-        ss << ", name: " << pDeviceProperties->name[0] << pDeviceProperties->name[1]
-           << pDeviceProperties->name[2] << pDeviceProperties->name[3] << pDeviceProperties->name[4]
-           << pDeviceProperties->name[5] << pDeviceProperties->name[6] << pDeviceProperties->name[7]
-           << pDeviceProperties->name[8] << pDeviceProperties->name[9]
-           << pDeviceProperties->name[10] << pDeviceProperties->name[11]
-           << pDeviceProperties->name[12] << pDeviceProperties->name[13]
-           << pDeviceProperties->name[14] << pDeviceProperties->name[15]
-           << pDeviceProperties->name[16] << pDeviceProperties->name[17]
-           << pDeviceProperties->name[18] << pDeviceProperties->name[19]
-           << pDeviceProperties->name[20] << pDeviceProperties->name[21]
-           << pDeviceProperties->name[22] << pDeviceProperties->name[23]
-           << pDeviceProperties->name[24] << pDeviceProperties->name[25]
-           << pDeviceProperties->name[26] << pDeviceProperties->name[27]
-           << pDeviceProperties->name[28] << pDeviceProperties->name[29]
-           << pDeviceProperties->name[30] << pDeviceProperties->name[31]
-           << pDeviceProperties->name[32] << pDeviceProperties->name[33]
-           << pDeviceProperties->name[34] << pDeviceProperties->name[35]
-           << pDeviceProperties->name[36] << pDeviceProperties->name[37]
-           << pDeviceProperties->name[38] << pDeviceProperties->name[39]
-           << pDeviceProperties->name[40] << pDeviceProperties->name[41]
-           << pDeviceProperties->name[42] << pDeviceProperties->name[43]
-           << pDeviceProperties->name[44] << pDeviceProperties->name[45]
-           << pDeviceProperties->name[46] << pDeviceProperties->name[47]
-           << pDeviceProperties->name[48] << pDeviceProperties->name[49]
-           << pDeviceProperties->name[50] << pDeviceProperties->name[51]
-           << pDeviceProperties->name[52] << pDeviceProperties->name[53]
-           << pDeviceProperties->name[54] << pDeviceProperties->name[55]
-           << pDeviceProperties->name[56] << pDeviceProperties->name[57]
-           << pDeviceProperties->name[58] << pDeviceProperties->name[59]
-           << pDeviceProperties->name[60] << pDeviceProperties->name[61]
-           << pDeviceProperties->name[62] << pDeviceProperties->name[63]
-           << pDeviceProperties->name[64] << pDeviceProperties->name[65]
-           << pDeviceProperties->name[66] << pDeviceProperties->name[67]
-           << pDeviceProperties->name[68] << pDeviceProperties->name[69]
-           << pDeviceProperties->name[70] << pDeviceProperties->name[71]
-           << pDeviceProperties->name[72] << pDeviceProperties->name[73]
-           << pDeviceProperties->name[74] << pDeviceProperties->name[75]
-           << pDeviceProperties->name[76] << pDeviceProperties->name[77]
-           << pDeviceProperties->name[78] << pDeviceProperties->name[79]
-           << pDeviceProperties->name[80] << pDeviceProperties->name[81]
-           << pDeviceProperties->name[82] << pDeviceProperties->name[83]
-           << pDeviceProperties->name[84] << pDeviceProperties->name[85]
-           << pDeviceProperties->name[86] << pDeviceProperties->name[87]
-           << pDeviceProperties->name[88] << pDeviceProperties->name[89]
-           << pDeviceProperties->name[90] << pDeviceProperties->name[91]
-           << pDeviceProperties->name[92] << pDeviceProperties->name[93]
-           << pDeviceProperties->name[94] << pDeviceProperties->name[95]
-           << pDeviceProperties->name[96] << pDeviceProperties->name[97]
-           << pDeviceProperties->name[98] << pDeviceProperties->name[99]
-           << pDeviceProperties->name[100] << pDeviceProperties->name[101]
-           << pDeviceProperties->name[102] << pDeviceProperties->name[103]
-           << pDeviceProperties->name[104] << pDeviceProperties->name[105]
-           << pDeviceProperties->name[106] << pDeviceProperties->name[107]
-           << pDeviceProperties->name[108] << pDeviceProperties->name[109]
-           << pDeviceProperties->name[110] << pDeviceProperties->name[111]
-           << pDeviceProperties->name[112] << pDeviceProperties->name[113]
-           << pDeviceProperties->name[114] << pDeviceProperties->name[115]
-           << pDeviceProperties->name[116] << pDeviceProperties->name[117]
-           << pDeviceProperties->name[118] << pDeviceProperties->name[119]
-           << pDeviceProperties->name[120] << pDeviceProperties->name[121]
-           << pDeviceProperties->name[122] << pDeviceProperties->name[123]
-           << pDeviceProperties->name[124] << pDeviceProperties->name[125]
-           << pDeviceProperties->name[126] << pDeviceProperties->name[127]
-           << pDeviceProperties->name[128] << pDeviceProperties->name[129]
-           << pDeviceProperties->name[130] << pDeviceProperties->name[131]
-           << pDeviceProperties->name[132] << pDeviceProperties->name[133]
-           << pDeviceProperties->name[134] << pDeviceProperties->name[135]
-           << pDeviceProperties->name[136] << pDeviceProperties->name[137]
-           << pDeviceProperties->name[138] << pDeviceProperties->name[139]
-           << pDeviceProperties->name[140] << pDeviceProperties->name[141]
-           << pDeviceProperties->name[142] << pDeviceProperties->name[143]
-           << pDeviceProperties->name[144] << pDeviceProperties->name[145]
-           << pDeviceProperties->name[146] << pDeviceProperties->name[147]
-           << pDeviceProperties->name[148] << pDeviceProperties->name[149]
-           << pDeviceProperties->name[150] << pDeviceProperties->name[151]
-           << pDeviceProperties->name[152] << pDeviceProperties->name[153]
-           << pDeviceProperties->name[154] << pDeviceProperties->name[155]
-           << pDeviceProperties->name[156] << pDeviceProperties->name[157]
-           << pDeviceProperties->name[158] << pDeviceProperties->name[159]
-           << pDeviceProperties->name[160] << pDeviceProperties->name[161]
-           << pDeviceProperties->name[162] << pDeviceProperties->name[163]
-           << pDeviceProperties->name[164] << pDeviceProperties->name[165]
-           << pDeviceProperties->name[166] << pDeviceProperties->name[167]
-           << pDeviceProperties->name[168] << pDeviceProperties->name[169]
-           << pDeviceProperties->name[170] << pDeviceProperties->name[171]
-           << pDeviceProperties->name[172] << pDeviceProperties->name[173]
-           << pDeviceProperties->name[174] << pDeviceProperties->name[175]
-           << pDeviceProperties->name[176] << pDeviceProperties->name[177]
-           << pDeviceProperties->name[178] << pDeviceProperties->name[179]
-           << pDeviceProperties->name[180] << pDeviceProperties->name[181]
-           << pDeviceProperties->name[182] << pDeviceProperties->name[183]
-           << pDeviceProperties->name[184] << pDeviceProperties->name[185]
-           << pDeviceProperties->name[186] << pDeviceProperties->name[187]
-           << pDeviceProperties->name[188] << pDeviceProperties->name[189]
-           << pDeviceProperties->name[190] << pDeviceProperties->name[191]
-           << pDeviceProperties->name[192] << pDeviceProperties->name[193]
-           << pDeviceProperties->name[194] << pDeviceProperties->name[195]
-           << pDeviceProperties->name[196] << pDeviceProperties->name[197]
-           << pDeviceProperties->name[198] << pDeviceProperties->name[199]
-           << pDeviceProperties->name[200] << pDeviceProperties->name[201]
-           << pDeviceProperties->name[202] << pDeviceProperties->name[203]
-           << pDeviceProperties->name[204] << pDeviceProperties->name[205]
-           << pDeviceProperties->name[206] << pDeviceProperties->name[207]
-           << pDeviceProperties->name[208] << pDeviceProperties->name[209]
-           << pDeviceProperties->name[210] << pDeviceProperties->name[211]
-           << pDeviceProperties->name[212] << pDeviceProperties->name[213]
-           << pDeviceProperties->name[214] << pDeviceProperties->name[215]
-           << pDeviceProperties->name[216] << pDeviceProperties->name[217]
-           << pDeviceProperties->name[218] << pDeviceProperties->name[219]
-           << pDeviceProperties->name[220] << pDeviceProperties->name[221]
-           << pDeviceProperties->name[222] << pDeviceProperties->name[223]
-           << pDeviceProperties->name[224] << pDeviceProperties->name[225]
-           << pDeviceProperties->name[226] << pDeviceProperties->name[227]
-           << pDeviceProperties->name[228] << pDeviceProperties->name[229]
-           << pDeviceProperties->name[230] << pDeviceProperties->name[231]
-           << pDeviceProperties->name[232] << pDeviceProperties->name[233]
-           << pDeviceProperties->name[234] << pDeviceProperties->name[235]
-           << pDeviceProperties->name[236] << pDeviceProperties->name[237]
-           << pDeviceProperties->name[238] << pDeviceProperties->name[239]
-           << pDeviceProperties->name[240] << pDeviceProperties->name[241]
-           << pDeviceProperties->name[242] << pDeviceProperties->name[243]
-           << pDeviceProperties->name[244] << pDeviceProperties->name[245]
-           << pDeviceProperties->name[246] << pDeviceProperties->name[247]
-           << pDeviceProperties->name[248] << pDeviceProperties->name[249]
-           << pDeviceProperties->name[250] << pDeviceProperties->name[251]
-           << pDeviceProperties->name[252] << pDeviceProperties->name[253]
-           << pDeviceProperties->name[254] << pDeviceProperties->name[255];
+        ss << ", name: ";
+        ss << trace_ascii_array(pDeviceProperties->name, sizeof(pDeviceProperties->name)).str();
         ss << "}";
     }
     ss << ")";
@@ -885,22 +657,10 @@ _trace_zeDeviceGetModuleProperties(ze_device_handle_t hDevice,
         ss << ", maxArgumentsSize: " << pModuleProperties->maxArgumentsSize;
         ss << ", printfBufferSize: " << pModuleProperties->printfBufferSize;
         ss << ", nativeKernelSupported {";
-        ss << "id: " << static_cast<int>(pModuleProperties->nativeKernelSupported.id[0]) << " "
-           << static_cast<int>(pModuleProperties->nativeKernelSupported.id[1]) << " "
-           << static_cast<int>(pModuleProperties->nativeKernelSupported.id[2]) << " "
-           << static_cast<int>(pModuleProperties->nativeKernelSupported.id[3]) << " "
-           << static_cast<int>(pModuleProperties->nativeKernelSupported.id[4]) << " "
-           << static_cast<int>(pModuleProperties->nativeKernelSupported.id[5]) << " "
-           << static_cast<int>(pModuleProperties->nativeKernelSupported.id[6]) << " "
-           << static_cast<int>(pModuleProperties->nativeKernelSupported.id[7]) << " "
-           << static_cast<int>(pModuleProperties->nativeKernelSupported.id[8]) << " "
-           << static_cast<int>(pModuleProperties->nativeKernelSupported.id[9]) << " "
-           << static_cast<int>(pModuleProperties->nativeKernelSupported.id[10]) << " "
-           << static_cast<int>(pModuleProperties->nativeKernelSupported.id[11]) << " "
-           << static_cast<int>(pModuleProperties->nativeKernelSupported.id[12]) << " "
-           << static_cast<int>(pModuleProperties->nativeKernelSupported.id[13]) << " "
-           << static_cast<int>(pModuleProperties->nativeKernelSupported.id[14]) << " "
-           << static_cast<int>(pModuleProperties->nativeKernelSupported.id[15]);
+        ss << "id: ";
+        ss << trace_u8_array_hex(pModuleProperties->nativeKernelSupported.id,
+                                 sizeof(pModuleProperties->nativeKernelSupported.id))
+                  .str();
         ss << "}";
         ss << "}";
     }
@@ -938,14 +698,22 @@ inline std::string _trace_zeDeviceGetCommandQueueGroupProperties(
     if (pCommandQueueGroupProperties == nullptr) {
         ss << ", pCommandQueueGroupProperties: nullptr";
     } else {
-        ss << ", pCommandQueueGroupProperties {";
-        ss << "stype: " << pCommandQueueGroupProperties->stype;
-        ss << ", pNext: " << pCommandQueueGroupProperties->pNext;
-        ss << ", flags: " << pCommandQueueGroupProperties->flags;
-        ss << ", maxMemoryFillPatternSize: "
-           << pCommandQueueGroupProperties->maxMemoryFillPatternSize;
-        ss << ", numQueues: " << pCommandQueueGroupProperties->numQueues;
-        ss << "}";
+        const uint32_t count = (pCount != nullptr) ? *pCount : 0U;
+        ss << ", pCommandQueueGroupProperties[";
+        if (count > 0) {
+            ss << "{";
+            ss << "stype: " << pCommandQueueGroupProperties[0].stype;
+            ss << ", pNext: " << pCommandQueueGroupProperties[0].pNext;
+            ss << ", flags: " << pCommandQueueGroupProperties[0].flags;
+            ss << ", maxMemoryFillPatternSize: "
+               << pCommandQueueGroupProperties[0].maxMemoryFillPatternSize;
+            ss << ", numQueues: " << pCommandQueueGroupProperties[0].numQueues;
+            ss << "}";
+            if (count > 1) {
+                ss << ", ...";
+            }
+        }
+        ss << "]";
     }
     ss << ")";
     return ss.str();
@@ -990,100 +758,24 @@ _trace_zeDeviceGetMemoryProperties(ze_device_handle_t hDevice,
     if (pMemProperties == nullptr) {
         ss << ", pMemProperties: nullptr";
     } else {
-        ss << ", pMemProperties {";
-        ss << "stype: " << pMemProperties->stype;
-        ss << ", pNext: " << pMemProperties->pNext;
-        ss << ", flags: " << pMemProperties->flags;
-        ss << ", maxClockRate: " << pMemProperties->maxClockRate;
-        ss << ", maxBusWidth: " << pMemProperties->maxBusWidth;
-        ss << ", totalSize: " << pMemProperties->totalSize;
-        ss << ", name: " << pMemProperties->name[0] << pMemProperties->name[1]
-           << pMemProperties->name[2] << pMemProperties->name[3] << pMemProperties->name[4]
-           << pMemProperties->name[5] << pMemProperties->name[6] << pMemProperties->name[7]
-           << pMemProperties->name[8] << pMemProperties->name[9] << pMemProperties->name[10]
-           << pMemProperties->name[11] << pMemProperties->name[12] << pMemProperties->name[13]
-           << pMemProperties->name[14] << pMemProperties->name[15] << pMemProperties->name[16]
-           << pMemProperties->name[17] << pMemProperties->name[18] << pMemProperties->name[19]
-           << pMemProperties->name[20] << pMemProperties->name[21] << pMemProperties->name[22]
-           << pMemProperties->name[23] << pMemProperties->name[24] << pMemProperties->name[25]
-           << pMemProperties->name[26] << pMemProperties->name[27] << pMemProperties->name[28]
-           << pMemProperties->name[29] << pMemProperties->name[30] << pMemProperties->name[31]
-           << pMemProperties->name[32] << pMemProperties->name[33] << pMemProperties->name[34]
-           << pMemProperties->name[35] << pMemProperties->name[36] << pMemProperties->name[37]
-           << pMemProperties->name[38] << pMemProperties->name[39] << pMemProperties->name[40]
-           << pMemProperties->name[41] << pMemProperties->name[42] << pMemProperties->name[43]
-           << pMemProperties->name[44] << pMemProperties->name[45] << pMemProperties->name[46]
-           << pMemProperties->name[47] << pMemProperties->name[48] << pMemProperties->name[49]
-           << pMemProperties->name[50] << pMemProperties->name[51] << pMemProperties->name[52]
-           << pMemProperties->name[53] << pMemProperties->name[54] << pMemProperties->name[55]
-           << pMemProperties->name[56] << pMemProperties->name[57] << pMemProperties->name[58]
-           << pMemProperties->name[59] << pMemProperties->name[60] << pMemProperties->name[61]
-           << pMemProperties->name[62] << pMemProperties->name[63] << pMemProperties->name[64]
-           << pMemProperties->name[65] << pMemProperties->name[66] << pMemProperties->name[67]
-           << pMemProperties->name[68] << pMemProperties->name[69] << pMemProperties->name[70]
-           << pMemProperties->name[71] << pMemProperties->name[72] << pMemProperties->name[73]
-           << pMemProperties->name[74] << pMemProperties->name[75] << pMemProperties->name[76]
-           << pMemProperties->name[77] << pMemProperties->name[78] << pMemProperties->name[79]
-           << pMemProperties->name[80] << pMemProperties->name[81] << pMemProperties->name[82]
-           << pMemProperties->name[83] << pMemProperties->name[84] << pMemProperties->name[85]
-           << pMemProperties->name[86] << pMemProperties->name[87] << pMemProperties->name[88]
-           << pMemProperties->name[89] << pMemProperties->name[90] << pMemProperties->name[91]
-           << pMemProperties->name[92] << pMemProperties->name[93] << pMemProperties->name[94]
-           << pMemProperties->name[95] << pMemProperties->name[96] << pMemProperties->name[97]
-           << pMemProperties->name[98] << pMemProperties->name[99] << pMemProperties->name[100]
-           << pMemProperties->name[101] << pMemProperties->name[102] << pMemProperties->name[103]
-           << pMemProperties->name[104] << pMemProperties->name[105] << pMemProperties->name[106]
-           << pMemProperties->name[107] << pMemProperties->name[108] << pMemProperties->name[109]
-           << pMemProperties->name[110] << pMemProperties->name[111] << pMemProperties->name[112]
-           << pMemProperties->name[113] << pMemProperties->name[114] << pMemProperties->name[115]
-           << pMemProperties->name[116] << pMemProperties->name[117] << pMemProperties->name[118]
-           << pMemProperties->name[119] << pMemProperties->name[120] << pMemProperties->name[121]
-           << pMemProperties->name[122] << pMemProperties->name[123] << pMemProperties->name[124]
-           << pMemProperties->name[125] << pMemProperties->name[126] << pMemProperties->name[127]
-           << pMemProperties->name[128] << pMemProperties->name[129] << pMemProperties->name[130]
-           << pMemProperties->name[131] << pMemProperties->name[132] << pMemProperties->name[133]
-           << pMemProperties->name[134] << pMemProperties->name[135] << pMemProperties->name[136]
-           << pMemProperties->name[137] << pMemProperties->name[138] << pMemProperties->name[139]
-           << pMemProperties->name[140] << pMemProperties->name[141] << pMemProperties->name[142]
-           << pMemProperties->name[143] << pMemProperties->name[144] << pMemProperties->name[145]
-           << pMemProperties->name[146] << pMemProperties->name[147] << pMemProperties->name[148]
-           << pMemProperties->name[149] << pMemProperties->name[150] << pMemProperties->name[151]
-           << pMemProperties->name[152] << pMemProperties->name[153] << pMemProperties->name[154]
-           << pMemProperties->name[155] << pMemProperties->name[156] << pMemProperties->name[157]
-           << pMemProperties->name[158] << pMemProperties->name[159] << pMemProperties->name[160]
-           << pMemProperties->name[161] << pMemProperties->name[162] << pMemProperties->name[163]
-           << pMemProperties->name[164] << pMemProperties->name[165] << pMemProperties->name[166]
-           << pMemProperties->name[167] << pMemProperties->name[168] << pMemProperties->name[169]
-           << pMemProperties->name[170] << pMemProperties->name[171] << pMemProperties->name[172]
-           << pMemProperties->name[173] << pMemProperties->name[174] << pMemProperties->name[175]
-           << pMemProperties->name[176] << pMemProperties->name[177] << pMemProperties->name[178]
-           << pMemProperties->name[179] << pMemProperties->name[180] << pMemProperties->name[181]
-           << pMemProperties->name[182] << pMemProperties->name[183] << pMemProperties->name[184]
-           << pMemProperties->name[185] << pMemProperties->name[186] << pMemProperties->name[187]
-           << pMemProperties->name[188] << pMemProperties->name[189] << pMemProperties->name[190]
-           << pMemProperties->name[191] << pMemProperties->name[192] << pMemProperties->name[193]
-           << pMemProperties->name[194] << pMemProperties->name[195] << pMemProperties->name[196]
-           << pMemProperties->name[197] << pMemProperties->name[198] << pMemProperties->name[199]
-           << pMemProperties->name[200] << pMemProperties->name[201] << pMemProperties->name[202]
-           << pMemProperties->name[203] << pMemProperties->name[204] << pMemProperties->name[205]
-           << pMemProperties->name[206] << pMemProperties->name[207] << pMemProperties->name[208]
-           << pMemProperties->name[209] << pMemProperties->name[210] << pMemProperties->name[211]
-           << pMemProperties->name[212] << pMemProperties->name[213] << pMemProperties->name[214]
-           << pMemProperties->name[215] << pMemProperties->name[216] << pMemProperties->name[217]
-           << pMemProperties->name[218] << pMemProperties->name[219] << pMemProperties->name[220]
-           << pMemProperties->name[221] << pMemProperties->name[222] << pMemProperties->name[223]
-           << pMemProperties->name[224] << pMemProperties->name[225] << pMemProperties->name[226]
-           << pMemProperties->name[227] << pMemProperties->name[228] << pMemProperties->name[229]
-           << pMemProperties->name[230] << pMemProperties->name[231] << pMemProperties->name[232]
-           << pMemProperties->name[233] << pMemProperties->name[234] << pMemProperties->name[235]
-           << pMemProperties->name[236] << pMemProperties->name[237] << pMemProperties->name[238]
-           << pMemProperties->name[239] << pMemProperties->name[240] << pMemProperties->name[241]
-           << pMemProperties->name[242] << pMemProperties->name[243] << pMemProperties->name[244]
-           << pMemProperties->name[245] << pMemProperties->name[246] << pMemProperties->name[247]
-           << pMemProperties->name[248] << pMemProperties->name[249] << pMemProperties->name[250]
-           << pMemProperties->name[251] << pMemProperties->name[252] << pMemProperties->name[253]
-           << pMemProperties->name[254] << pMemProperties->name[255];
-        ss << "}";
+        const uint32_t count = (pCount != nullptr) ? *pCount : 0U;
+        ss << ", pMemProperties[";
+        if (count > 0) {
+            ss << "{";
+            ss << "stype: " << pMemProperties[0].stype;
+            ss << ", pNext: " << pMemProperties[0].pNext;
+            ss << ", flags: " << pMemProperties[0].flags;
+            ss << ", maxClockRate: " << pMemProperties[0].maxClockRate;
+            ss << ", maxBusWidth: " << pMemProperties[0].maxBusWidth;
+            ss << ", totalSize: " << pMemProperties[0].totalSize;
+            ss << ", name: ";
+            ss << trace_ascii_array(pMemProperties[0].name, sizeof(pMemProperties[0].name)).str();
+            ss << "}";
+            if (count > 1) {
+                ss << ", ...";
+            }
+        }
+        ss << "]";
     }
     ss << ")";
     return ss.str();
@@ -1165,12 +857,20 @@ _trace_zeDeviceGetCacheProperties(ze_device_handle_t hDevice,
     if (pCacheProperties == nullptr) {
         ss << ", pCacheProperties: nullptr";
     } else {
-        ss << ", pCacheProperties {";
-        ss << "stype: " << pCacheProperties->stype;
-        ss << ", pNext: " << pCacheProperties->pNext;
-        ss << ", flags: " << pCacheProperties->flags;
-        ss << ", cacheSize: " << pCacheProperties->cacheSize;
-        ss << "}";
+        const uint32_t count = (pCount != nullptr) ? *pCount : 0U;
+        ss << ", pCacheProperties[";
+        if (count > 0) {
+            ss << "{";
+            ss << "stype: " << pCacheProperties[0].stype;
+            ss << ", pNext: " << pCacheProperties[0].pNext;
+            ss << ", flags: " << pCacheProperties[0].flags;
+            ss << ", cacheSize: " << pCacheProperties[0].cacheSize;
+            ss << "}";
+            if (count > 1) {
+                ss << ", ...";
+            }
+        }
+        ss << "]";
     }
     ss << ")";
     return ss.str();
@@ -3110,22 +2810,8 @@ inline std::string _trace_zeEventPoolGetIpcHandle(ze_event_pool_handle_t hEventP
         ss << ", phIpc: nullptr";
     } else {
         ss << ", phIpc {";
-        ss << "data: " << phIpc->data[0] << phIpc->data[1] << phIpc->data[2] << phIpc->data[3]
-           << phIpc->data[4] << phIpc->data[5] << phIpc->data[6] << phIpc->data[7] << phIpc->data[8]
-           << phIpc->data[9] << phIpc->data[10] << phIpc->data[11] << phIpc->data[12]
-           << phIpc->data[13] << phIpc->data[14] << phIpc->data[15] << phIpc->data[16]
-           << phIpc->data[17] << phIpc->data[18] << phIpc->data[19] << phIpc->data[20]
-           << phIpc->data[21] << phIpc->data[22] << phIpc->data[23] << phIpc->data[24]
-           << phIpc->data[25] << phIpc->data[26] << phIpc->data[27] << phIpc->data[28]
-           << phIpc->data[29] << phIpc->data[30] << phIpc->data[31] << phIpc->data[32]
-           << phIpc->data[33] << phIpc->data[34] << phIpc->data[35] << phIpc->data[36]
-           << phIpc->data[37] << phIpc->data[38] << phIpc->data[39] << phIpc->data[40]
-           << phIpc->data[41] << phIpc->data[42] << phIpc->data[43] << phIpc->data[44]
-           << phIpc->data[45] << phIpc->data[46] << phIpc->data[47] << phIpc->data[48]
-           << phIpc->data[49] << phIpc->data[50] << phIpc->data[51] << phIpc->data[52]
-           << phIpc->data[53] << phIpc->data[54] << phIpc->data[55] << phIpc->data[56]
-           << phIpc->data[57] << phIpc->data[58] << phIpc->data[59] << phIpc->data[60]
-           << phIpc->data[61] << phIpc->data[62] << phIpc->data[63];
+        ss << "data: ";
+        ss << trace_char_array_hex(phIpc->data, sizeof(phIpc->data)).str();
         ss << "}";
     }
     ss << ")";
@@ -3152,19 +2838,8 @@ inline std::string _trace_zeEventPoolPutIpcHandle(ze_context_handle_t hContext,
     ss << "NPU_LOG: [API] zeEventPoolPutIpcHandle(";
     ss << "hContext: " << hContext;
     ss << ", hIpc {";
-    ss << "data: " << hIpc.data[0] << hIpc.data[1] << hIpc.data[2] << hIpc.data[3] << hIpc.data[4]
-       << hIpc.data[5] << hIpc.data[6] << hIpc.data[7] << hIpc.data[8] << hIpc.data[9]
-       << hIpc.data[10] << hIpc.data[11] << hIpc.data[12] << hIpc.data[13] << hIpc.data[14]
-       << hIpc.data[15] << hIpc.data[16] << hIpc.data[17] << hIpc.data[18] << hIpc.data[19]
-       << hIpc.data[20] << hIpc.data[21] << hIpc.data[22] << hIpc.data[23] << hIpc.data[24]
-       << hIpc.data[25] << hIpc.data[26] << hIpc.data[27] << hIpc.data[28] << hIpc.data[29]
-       << hIpc.data[30] << hIpc.data[31] << hIpc.data[32] << hIpc.data[33] << hIpc.data[34]
-       << hIpc.data[35] << hIpc.data[36] << hIpc.data[37] << hIpc.data[38] << hIpc.data[39]
-       << hIpc.data[40] << hIpc.data[41] << hIpc.data[42] << hIpc.data[43] << hIpc.data[44]
-       << hIpc.data[45] << hIpc.data[46] << hIpc.data[47] << hIpc.data[48] << hIpc.data[49]
-       << hIpc.data[50] << hIpc.data[51] << hIpc.data[52] << hIpc.data[53] << hIpc.data[54]
-       << hIpc.data[55] << hIpc.data[56] << hIpc.data[57] << hIpc.data[58] << hIpc.data[59]
-       << hIpc.data[60] << hIpc.data[61] << hIpc.data[62] << hIpc.data[63];
+    ss << "data: ";
+    ss << trace_char_array_hex(hIpc.data, sizeof(hIpc.data)).str();
     ss << "}";
     ss << ")";
     return ss.str();
@@ -3191,19 +2866,8 @@ inline std::string _trace_zeEventPoolOpenIpcHandle(ze_context_handle_t hContext,
     ss << "NPU_LOG: [API] zeEventPoolOpenIpcHandle(";
     ss << "hContext: " << hContext;
     ss << ", hIpc {";
-    ss << "data: " << hIpc.data[0] << hIpc.data[1] << hIpc.data[2] << hIpc.data[3] << hIpc.data[4]
-       << hIpc.data[5] << hIpc.data[6] << hIpc.data[7] << hIpc.data[8] << hIpc.data[9]
-       << hIpc.data[10] << hIpc.data[11] << hIpc.data[12] << hIpc.data[13] << hIpc.data[14]
-       << hIpc.data[15] << hIpc.data[16] << hIpc.data[17] << hIpc.data[18] << hIpc.data[19]
-       << hIpc.data[20] << hIpc.data[21] << hIpc.data[22] << hIpc.data[23] << hIpc.data[24]
-       << hIpc.data[25] << hIpc.data[26] << hIpc.data[27] << hIpc.data[28] << hIpc.data[29]
-       << hIpc.data[30] << hIpc.data[31] << hIpc.data[32] << hIpc.data[33] << hIpc.data[34]
-       << hIpc.data[35] << hIpc.data[36] << hIpc.data[37] << hIpc.data[38] << hIpc.data[39]
-       << hIpc.data[40] << hIpc.data[41] << hIpc.data[42] << hIpc.data[43] << hIpc.data[44]
-       << hIpc.data[45] << hIpc.data[46] << hIpc.data[47] << hIpc.data[48] << hIpc.data[49]
-       << hIpc.data[50] << hIpc.data[51] << hIpc.data[52] << hIpc.data[53] << hIpc.data[54]
-       << hIpc.data[55] << hIpc.data[56] << hIpc.data[57] << hIpc.data[58] << hIpc.data[59]
-       << hIpc.data[60] << hIpc.data[61] << hIpc.data[62] << hIpc.data[63];
+    ss << "data: ";
+    ss << trace_char_array_hex(hIpc.data, sizeof(hIpc.data)).str();
     ss << "}";
     if (phEventPool == nullptr) {
         ss << ", phEventPool: nullptr";
@@ -4220,28 +3884,8 @@ inline std::string _trace_zeMemGetIpcHandle(ze_context_handle_t hContext,
         ss << ", pIpcHandle: nullptr";
     } else {
         ss << ", pIpcHandle {";
-        ss << "data: " << pIpcHandle->data[0] << pIpcHandle->data[1] << pIpcHandle->data[2]
-           << pIpcHandle->data[3] << pIpcHandle->data[4] << pIpcHandle->data[5]
-           << pIpcHandle->data[6] << pIpcHandle->data[7] << pIpcHandle->data[8]
-           << pIpcHandle->data[9] << pIpcHandle->data[10] << pIpcHandle->data[11]
-           << pIpcHandle->data[12] << pIpcHandle->data[13] << pIpcHandle->data[14]
-           << pIpcHandle->data[15] << pIpcHandle->data[16] << pIpcHandle->data[17]
-           << pIpcHandle->data[18] << pIpcHandle->data[19] << pIpcHandle->data[20]
-           << pIpcHandle->data[21] << pIpcHandle->data[22] << pIpcHandle->data[23]
-           << pIpcHandle->data[24] << pIpcHandle->data[25] << pIpcHandle->data[26]
-           << pIpcHandle->data[27] << pIpcHandle->data[28] << pIpcHandle->data[29]
-           << pIpcHandle->data[30] << pIpcHandle->data[31] << pIpcHandle->data[32]
-           << pIpcHandle->data[33] << pIpcHandle->data[34] << pIpcHandle->data[35]
-           << pIpcHandle->data[36] << pIpcHandle->data[37] << pIpcHandle->data[38]
-           << pIpcHandle->data[39] << pIpcHandle->data[40] << pIpcHandle->data[41]
-           << pIpcHandle->data[42] << pIpcHandle->data[43] << pIpcHandle->data[44]
-           << pIpcHandle->data[45] << pIpcHandle->data[46] << pIpcHandle->data[47]
-           << pIpcHandle->data[48] << pIpcHandle->data[49] << pIpcHandle->data[50]
-           << pIpcHandle->data[51] << pIpcHandle->data[52] << pIpcHandle->data[53]
-           << pIpcHandle->data[54] << pIpcHandle->data[55] << pIpcHandle->data[56]
-           << pIpcHandle->data[57] << pIpcHandle->data[58] << pIpcHandle->data[59]
-           << pIpcHandle->data[60] << pIpcHandle->data[61] << pIpcHandle->data[62]
-           << pIpcHandle->data[63];
+        ss << "data: ";
+        ss << trace_char_array_hex(pIpcHandle->data, sizeof(pIpcHandle->data)).str();
         ss << "}";
     }
     ss << ")";
@@ -4275,28 +3919,8 @@ inline std::string _trace_zeMemGetIpcHandleFromFileDescriptorExp(ze_context_hand
         ss << ", pIpcHandle: nullptr";
     } else {
         ss << ", pIpcHandle {";
-        ss << "data: " << pIpcHandle->data[0] << pIpcHandle->data[1] << pIpcHandle->data[2]
-           << pIpcHandle->data[3] << pIpcHandle->data[4] << pIpcHandle->data[5]
-           << pIpcHandle->data[6] << pIpcHandle->data[7] << pIpcHandle->data[8]
-           << pIpcHandle->data[9] << pIpcHandle->data[10] << pIpcHandle->data[11]
-           << pIpcHandle->data[12] << pIpcHandle->data[13] << pIpcHandle->data[14]
-           << pIpcHandle->data[15] << pIpcHandle->data[16] << pIpcHandle->data[17]
-           << pIpcHandle->data[18] << pIpcHandle->data[19] << pIpcHandle->data[20]
-           << pIpcHandle->data[21] << pIpcHandle->data[22] << pIpcHandle->data[23]
-           << pIpcHandle->data[24] << pIpcHandle->data[25] << pIpcHandle->data[26]
-           << pIpcHandle->data[27] << pIpcHandle->data[28] << pIpcHandle->data[29]
-           << pIpcHandle->data[30] << pIpcHandle->data[31] << pIpcHandle->data[32]
-           << pIpcHandle->data[33] << pIpcHandle->data[34] << pIpcHandle->data[35]
-           << pIpcHandle->data[36] << pIpcHandle->data[37] << pIpcHandle->data[38]
-           << pIpcHandle->data[39] << pIpcHandle->data[40] << pIpcHandle->data[41]
-           << pIpcHandle->data[42] << pIpcHandle->data[43] << pIpcHandle->data[44]
-           << pIpcHandle->data[45] << pIpcHandle->data[46] << pIpcHandle->data[47]
-           << pIpcHandle->data[48] << pIpcHandle->data[49] << pIpcHandle->data[50]
-           << pIpcHandle->data[51] << pIpcHandle->data[52] << pIpcHandle->data[53]
-           << pIpcHandle->data[54] << pIpcHandle->data[55] << pIpcHandle->data[56]
-           << pIpcHandle->data[57] << pIpcHandle->data[58] << pIpcHandle->data[59]
-           << pIpcHandle->data[60] << pIpcHandle->data[61] << pIpcHandle->data[62]
-           << pIpcHandle->data[63];
+        ss << "data: ";
+        ss << trace_char_array_hex(pIpcHandle->data, sizeof(pIpcHandle->data)).str();
         ss << "}";
     }
     ss << ")";
@@ -4328,23 +3952,8 @@ inline std::string _trace_zeMemGetFileDescriptorFromIpcHandleExp(ze_context_hand
     ss << "NPU_LOG: [API] zeMemGetFileDescriptorFromIpcHandleExp(";
     ss << "hContext: " << hContext;
     ss << ", ipcHandle {";
-    ss << "data: " << ipcHandle.data[0] << ipcHandle.data[1] << ipcHandle.data[2]
-       << ipcHandle.data[3] << ipcHandle.data[4] << ipcHandle.data[5] << ipcHandle.data[6]
-       << ipcHandle.data[7] << ipcHandle.data[8] << ipcHandle.data[9] << ipcHandle.data[10]
-       << ipcHandle.data[11] << ipcHandle.data[12] << ipcHandle.data[13] << ipcHandle.data[14]
-       << ipcHandle.data[15] << ipcHandle.data[16] << ipcHandle.data[17] << ipcHandle.data[18]
-       << ipcHandle.data[19] << ipcHandle.data[20] << ipcHandle.data[21] << ipcHandle.data[22]
-       << ipcHandle.data[23] << ipcHandle.data[24] << ipcHandle.data[25] << ipcHandle.data[26]
-       << ipcHandle.data[27] << ipcHandle.data[28] << ipcHandle.data[29] << ipcHandle.data[30]
-       << ipcHandle.data[31] << ipcHandle.data[32] << ipcHandle.data[33] << ipcHandle.data[34]
-       << ipcHandle.data[35] << ipcHandle.data[36] << ipcHandle.data[37] << ipcHandle.data[38]
-       << ipcHandle.data[39] << ipcHandle.data[40] << ipcHandle.data[41] << ipcHandle.data[42]
-       << ipcHandle.data[43] << ipcHandle.data[44] << ipcHandle.data[45] << ipcHandle.data[46]
-       << ipcHandle.data[47] << ipcHandle.data[48] << ipcHandle.data[49] << ipcHandle.data[50]
-       << ipcHandle.data[51] << ipcHandle.data[52] << ipcHandle.data[53] << ipcHandle.data[54]
-       << ipcHandle.data[55] << ipcHandle.data[56] << ipcHandle.data[57] << ipcHandle.data[58]
-       << ipcHandle.data[59] << ipcHandle.data[60] << ipcHandle.data[61] << ipcHandle.data[62]
-       << ipcHandle.data[63];
+    ss << "data: ";
+    ss << trace_char_array_hex(ipcHandle.data, sizeof(ipcHandle.data)).str();
     ss << "}";
     if (pHandle == nullptr) {
         ss << ", pHandle: nullptr";
@@ -4379,22 +3988,8 @@ inline std::string _trace_zeMemPutIpcHandle(ze_context_handle_t hContext,
     ss << "NPU_LOG: [API] zeMemPutIpcHandle(";
     ss << "hContext: " << hContext;
     ss << ", handle {";
-    ss << "data: " << handle.data[0] << handle.data[1] << handle.data[2] << handle.data[3]
-       << handle.data[4] << handle.data[5] << handle.data[6] << handle.data[7] << handle.data[8]
-       << handle.data[9] << handle.data[10] << handle.data[11] << handle.data[12] << handle.data[13]
-       << handle.data[14] << handle.data[15] << handle.data[16] << handle.data[17]
-       << handle.data[18] << handle.data[19] << handle.data[20] << handle.data[21]
-       << handle.data[22] << handle.data[23] << handle.data[24] << handle.data[25]
-       << handle.data[26] << handle.data[27] << handle.data[28] << handle.data[29]
-       << handle.data[30] << handle.data[31] << handle.data[32] << handle.data[33]
-       << handle.data[34] << handle.data[35] << handle.data[36] << handle.data[37]
-       << handle.data[38] << handle.data[39] << handle.data[40] << handle.data[41]
-       << handle.data[42] << handle.data[43] << handle.data[44] << handle.data[45]
-       << handle.data[46] << handle.data[47] << handle.data[48] << handle.data[49]
-       << handle.data[50] << handle.data[51] << handle.data[52] << handle.data[53]
-       << handle.data[54] << handle.data[55] << handle.data[56] << handle.data[57]
-       << handle.data[58] << handle.data[59] << handle.data[60] << handle.data[61]
-       << handle.data[62] << handle.data[63];
+    ss << "data: ";
+    ss << trace_char_array_hex(handle.data, sizeof(handle.data)).str();
     ss << "}";
     ss << ")";
     return ss.str();
@@ -4422,22 +4017,8 @@ inline std::string _trace_zeMemOpenIpcHandle(ze_context_handle_t hContext,
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     ss << ", handle {";
-    ss << "data: " << handle.data[0] << handle.data[1] << handle.data[2] << handle.data[3]
-       << handle.data[4] << handle.data[5] << handle.data[6] << handle.data[7] << handle.data[8]
-       << handle.data[9] << handle.data[10] << handle.data[11] << handle.data[12] << handle.data[13]
-       << handle.data[14] << handle.data[15] << handle.data[16] << handle.data[17]
-       << handle.data[18] << handle.data[19] << handle.data[20] << handle.data[21]
-       << handle.data[22] << handle.data[23] << handle.data[24] << handle.data[25]
-       << handle.data[26] << handle.data[27] << handle.data[28] << handle.data[29]
-       << handle.data[30] << handle.data[31] << handle.data[32] << handle.data[33]
-       << handle.data[34] << handle.data[35] << handle.data[36] << handle.data[37]
-       << handle.data[38] << handle.data[39] << handle.data[40] << handle.data[41]
-       << handle.data[42] << handle.data[43] << handle.data[44] << handle.data[45]
-       << handle.data[46] << handle.data[47] << handle.data[48] << handle.data[49]
-       << handle.data[50] << handle.data[51] << handle.data[52] << handle.data[53]
-       << handle.data[54] << handle.data[55] << handle.data[56] << handle.data[57]
-       << handle.data[58] << handle.data[59] << handle.data[60] << handle.data[61]
-       << handle.data[62] << handle.data[63];
+    ss << "data: ";
+    ss << trace_char_array_hex(handle.data, sizeof(handle.data)).str();
     ss << "}";
     ss << ", flags: " << flags;
     ss << ", pptr: " << pptr;
@@ -5296,38 +4877,12 @@ inline std::string _trace_zeKernelGetProperties(ze_kernel_handle_t hKernel,
         ss << ", privateMemSize: " << pKernelProperties->privateMemSize;
         ss << ", spillMemSize: " << pKernelProperties->spillMemSize;
         ss << ", uuid {";
-        ss << "kid: " << static_cast<int>(pKernelProperties->uuid.kid[0]) << " "
-           << static_cast<int>(pKernelProperties->uuid.kid[1]) << " "
-           << static_cast<int>(pKernelProperties->uuid.kid[2]) << " "
-           << static_cast<int>(pKernelProperties->uuid.kid[3]) << " "
-           << static_cast<int>(pKernelProperties->uuid.kid[4]) << " "
-           << static_cast<int>(pKernelProperties->uuid.kid[5]) << " "
-           << static_cast<int>(pKernelProperties->uuid.kid[6]) << " "
-           << static_cast<int>(pKernelProperties->uuid.kid[7]) << " "
-           << static_cast<int>(pKernelProperties->uuid.kid[8]) << " "
-           << static_cast<int>(pKernelProperties->uuid.kid[9]) << " "
-           << static_cast<int>(pKernelProperties->uuid.kid[10]) << " "
-           << static_cast<int>(pKernelProperties->uuid.kid[11]) << " "
-           << static_cast<int>(pKernelProperties->uuid.kid[12]) << " "
-           << static_cast<int>(pKernelProperties->uuid.kid[13]) << " "
-           << static_cast<int>(pKernelProperties->uuid.kid[14]) << " "
-           << static_cast<int>(pKernelProperties->uuid.kid[15]);
-        ss << ", mid: " << static_cast<int>(pKernelProperties->uuid.mid[0]) << " "
-           << static_cast<int>(pKernelProperties->uuid.mid[1]) << " "
-           << static_cast<int>(pKernelProperties->uuid.mid[2]) << " "
-           << static_cast<int>(pKernelProperties->uuid.mid[3]) << " "
-           << static_cast<int>(pKernelProperties->uuid.mid[4]) << " "
-           << static_cast<int>(pKernelProperties->uuid.mid[5]) << " "
-           << static_cast<int>(pKernelProperties->uuid.mid[6]) << " "
-           << static_cast<int>(pKernelProperties->uuid.mid[7]) << " "
-           << static_cast<int>(pKernelProperties->uuid.mid[8]) << " "
-           << static_cast<int>(pKernelProperties->uuid.mid[9]) << " "
-           << static_cast<int>(pKernelProperties->uuid.mid[10]) << " "
-           << static_cast<int>(pKernelProperties->uuid.mid[11]) << " "
-           << static_cast<int>(pKernelProperties->uuid.mid[12]) << " "
-           << static_cast<int>(pKernelProperties->uuid.mid[13]) << " "
-           << static_cast<int>(pKernelProperties->uuid.mid[14]) << " "
-           << static_cast<int>(pKernelProperties->uuid.mid[15]);
+        ss << "kid: ";
+        ss << trace_u8_array_hex(pKernelProperties->uuid.kid, sizeof(pKernelProperties->uuid.kid))
+                  .str();
+        ss << ", mid: ";
+        ss << trace_u8_array_hex(pKernelProperties->uuid.mid, sizeof(pKernelProperties->uuid.mid))
+                  .str();
         ss << "}";
         ss << "}";
     }
@@ -6279,16 +5834,21 @@ inline std::string _trace_zeEventQueryTimestampsExp(ze_event_handle_t hEvent,
     if (pTimestamps == nullptr) {
         ss << ", pTimestamps: nullptr";
     } else {
-        ss << ", pTimestamps {";
-        ss << ", global {";
-        ss << "kernelStart: " << pTimestamps->global.kernelStart;
-        ss << ", kernelEnd: " << pTimestamps->global.kernelEnd;
-        ss << "}";
-        ss << ", context {";
-        ss << "kernelStart: " << pTimestamps->context.kernelStart;
-        ss << ", kernelEnd: " << pTimestamps->context.kernelEnd;
-        ss << "}";
-        ss << "}";
+        const uint32_t count = (pCount != nullptr) ? *pCount : 0U;
+        ss << ", pTimestamps[";
+        if (count > 0) {
+            ss << "{ global {";
+            ss << "kernelStart: " << pTimestamps[0].global.kernelStart;
+            ss << ", kernelEnd: " << pTimestamps[0].global.kernelEnd;
+            ss << "}, context {";
+            ss << "kernelStart: " << pTimestamps[0].context.kernelStart;
+            ss << ", kernelEnd: " << pTimestamps[0].context.kernelEnd;
+            ss << "}}";
+            if (count > 1) {
+                ss << ", ...";
+            }
+        }
+        ss << "]";
     }
     ss << ")";
     return ss.str();
@@ -6943,22 +6503,9 @@ _trace_zeFabricVertexGetPropertiesExp(ze_fabric_vertex_handle_t hVertex,
         ss << "stype: " << pVertexProperties->stype;
         ss << ", pNext: " << pVertexProperties->pNext;
         ss << ", uuid {";
-        ss << "id: " << static_cast<int>(pVertexProperties->uuid.id[0]) << " "
-           << static_cast<int>(pVertexProperties->uuid.id[1]) << " "
-           << static_cast<int>(pVertexProperties->uuid.id[2]) << " "
-           << static_cast<int>(pVertexProperties->uuid.id[3]) << " "
-           << static_cast<int>(pVertexProperties->uuid.id[4]) << " "
-           << static_cast<int>(pVertexProperties->uuid.id[5]) << " "
-           << static_cast<int>(pVertexProperties->uuid.id[6]) << " "
-           << static_cast<int>(pVertexProperties->uuid.id[7]) << " "
-           << static_cast<int>(pVertexProperties->uuid.id[8]) << " "
-           << static_cast<int>(pVertexProperties->uuid.id[9]) << " "
-           << static_cast<int>(pVertexProperties->uuid.id[10]) << " "
-           << static_cast<int>(pVertexProperties->uuid.id[11]) << " "
-           << static_cast<int>(pVertexProperties->uuid.id[12]) << " "
-           << static_cast<int>(pVertexProperties->uuid.id[13]) << " "
-           << static_cast<int>(pVertexProperties->uuid.id[14]) << " "
-           << static_cast<int>(pVertexProperties->uuid.id[15]);
+        ss << "id: ";
+        ss << trace_u8_array_hex(pVertexProperties->uuid.id, sizeof(pVertexProperties->uuid.id))
+                  .str();
         ss << "}";
         ss << ", type: " << pVertexProperties->type;
         ss << ", remote: " << pVertexProperties->remote;
@@ -7138,135 +6685,11 @@ _trace_zeFabricEdgeGetPropertiesExp(ze_fabric_edge_handle_t hEdge,
         ss << "stype: " << pEdgeProperties->stype;
         ss << ", pNext: " << pEdgeProperties->pNext;
         ss << ", uuid {";
-        ss << "id: " << static_cast<int>(pEdgeProperties->uuid.id[0]) << " "
-           << static_cast<int>(pEdgeProperties->uuid.id[1]) << " "
-           << static_cast<int>(pEdgeProperties->uuid.id[2]) << " "
-           << static_cast<int>(pEdgeProperties->uuid.id[3]) << " "
-           << static_cast<int>(pEdgeProperties->uuid.id[4]) << " "
-           << static_cast<int>(pEdgeProperties->uuid.id[5]) << " "
-           << static_cast<int>(pEdgeProperties->uuid.id[6]) << " "
-           << static_cast<int>(pEdgeProperties->uuid.id[7]) << " "
-           << static_cast<int>(pEdgeProperties->uuid.id[8]) << " "
-           << static_cast<int>(pEdgeProperties->uuid.id[9]) << " "
-           << static_cast<int>(pEdgeProperties->uuid.id[10]) << " "
-           << static_cast<int>(pEdgeProperties->uuid.id[11]) << " "
-           << static_cast<int>(pEdgeProperties->uuid.id[12]) << " "
-           << static_cast<int>(pEdgeProperties->uuid.id[13]) << " "
-           << static_cast<int>(pEdgeProperties->uuid.id[14]) << " "
-           << static_cast<int>(pEdgeProperties->uuid.id[15]);
+        ss << "id: ";
+        ss << trace_u8_array_hex(pEdgeProperties->uuid.id, sizeof(pEdgeProperties->uuid.id)).str();
         ss << "}";
-        ss << ", model: " << pEdgeProperties->model[0] << pEdgeProperties->model[1]
-           << pEdgeProperties->model[2] << pEdgeProperties->model[3] << pEdgeProperties->model[4]
-           << pEdgeProperties->model[5] << pEdgeProperties->model[6] << pEdgeProperties->model[7]
-           << pEdgeProperties->model[8] << pEdgeProperties->model[9] << pEdgeProperties->model[10]
-           << pEdgeProperties->model[11] << pEdgeProperties->model[12] << pEdgeProperties->model[13]
-           << pEdgeProperties->model[14] << pEdgeProperties->model[15] << pEdgeProperties->model[16]
-           << pEdgeProperties->model[17] << pEdgeProperties->model[18] << pEdgeProperties->model[19]
-           << pEdgeProperties->model[20] << pEdgeProperties->model[21] << pEdgeProperties->model[22]
-           << pEdgeProperties->model[23] << pEdgeProperties->model[24] << pEdgeProperties->model[25]
-           << pEdgeProperties->model[26] << pEdgeProperties->model[27] << pEdgeProperties->model[28]
-           << pEdgeProperties->model[29] << pEdgeProperties->model[30] << pEdgeProperties->model[31]
-           << pEdgeProperties->model[32] << pEdgeProperties->model[33] << pEdgeProperties->model[34]
-           << pEdgeProperties->model[35] << pEdgeProperties->model[36] << pEdgeProperties->model[37]
-           << pEdgeProperties->model[38] << pEdgeProperties->model[39] << pEdgeProperties->model[40]
-           << pEdgeProperties->model[41] << pEdgeProperties->model[42] << pEdgeProperties->model[43]
-           << pEdgeProperties->model[44] << pEdgeProperties->model[45] << pEdgeProperties->model[46]
-           << pEdgeProperties->model[47] << pEdgeProperties->model[48] << pEdgeProperties->model[49]
-           << pEdgeProperties->model[50] << pEdgeProperties->model[51] << pEdgeProperties->model[52]
-           << pEdgeProperties->model[53] << pEdgeProperties->model[54] << pEdgeProperties->model[55]
-           << pEdgeProperties->model[56] << pEdgeProperties->model[57] << pEdgeProperties->model[58]
-           << pEdgeProperties->model[59] << pEdgeProperties->model[60] << pEdgeProperties->model[61]
-           << pEdgeProperties->model[62] << pEdgeProperties->model[63] << pEdgeProperties->model[64]
-           << pEdgeProperties->model[65] << pEdgeProperties->model[66] << pEdgeProperties->model[67]
-           << pEdgeProperties->model[68] << pEdgeProperties->model[69] << pEdgeProperties->model[70]
-           << pEdgeProperties->model[71] << pEdgeProperties->model[72] << pEdgeProperties->model[73]
-           << pEdgeProperties->model[74] << pEdgeProperties->model[75] << pEdgeProperties->model[76]
-           << pEdgeProperties->model[77] << pEdgeProperties->model[78] << pEdgeProperties->model[79]
-           << pEdgeProperties->model[80] << pEdgeProperties->model[81] << pEdgeProperties->model[82]
-           << pEdgeProperties->model[83] << pEdgeProperties->model[84] << pEdgeProperties->model[85]
-           << pEdgeProperties->model[86] << pEdgeProperties->model[87] << pEdgeProperties->model[88]
-           << pEdgeProperties->model[89] << pEdgeProperties->model[90] << pEdgeProperties->model[91]
-           << pEdgeProperties->model[92] << pEdgeProperties->model[93] << pEdgeProperties->model[94]
-           << pEdgeProperties->model[95] << pEdgeProperties->model[96] << pEdgeProperties->model[97]
-           << pEdgeProperties->model[98] << pEdgeProperties->model[99]
-           << pEdgeProperties->model[100] << pEdgeProperties->model[101]
-           << pEdgeProperties->model[102] << pEdgeProperties->model[103]
-           << pEdgeProperties->model[104] << pEdgeProperties->model[105]
-           << pEdgeProperties->model[106] << pEdgeProperties->model[107]
-           << pEdgeProperties->model[108] << pEdgeProperties->model[109]
-           << pEdgeProperties->model[110] << pEdgeProperties->model[111]
-           << pEdgeProperties->model[112] << pEdgeProperties->model[113]
-           << pEdgeProperties->model[114] << pEdgeProperties->model[115]
-           << pEdgeProperties->model[116] << pEdgeProperties->model[117]
-           << pEdgeProperties->model[118] << pEdgeProperties->model[119]
-           << pEdgeProperties->model[120] << pEdgeProperties->model[121]
-           << pEdgeProperties->model[122] << pEdgeProperties->model[123]
-           << pEdgeProperties->model[124] << pEdgeProperties->model[125]
-           << pEdgeProperties->model[126] << pEdgeProperties->model[127]
-           << pEdgeProperties->model[128] << pEdgeProperties->model[129]
-           << pEdgeProperties->model[130] << pEdgeProperties->model[131]
-           << pEdgeProperties->model[132] << pEdgeProperties->model[133]
-           << pEdgeProperties->model[134] << pEdgeProperties->model[135]
-           << pEdgeProperties->model[136] << pEdgeProperties->model[137]
-           << pEdgeProperties->model[138] << pEdgeProperties->model[139]
-           << pEdgeProperties->model[140] << pEdgeProperties->model[141]
-           << pEdgeProperties->model[142] << pEdgeProperties->model[143]
-           << pEdgeProperties->model[144] << pEdgeProperties->model[145]
-           << pEdgeProperties->model[146] << pEdgeProperties->model[147]
-           << pEdgeProperties->model[148] << pEdgeProperties->model[149]
-           << pEdgeProperties->model[150] << pEdgeProperties->model[151]
-           << pEdgeProperties->model[152] << pEdgeProperties->model[153]
-           << pEdgeProperties->model[154] << pEdgeProperties->model[155]
-           << pEdgeProperties->model[156] << pEdgeProperties->model[157]
-           << pEdgeProperties->model[158] << pEdgeProperties->model[159]
-           << pEdgeProperties->model[160] << pEdgeProperties->model[161]
-           << pEdgeProperties->model[162] << pEdgeProperties->model[163]
-           << pEdgeProperties->model[164] << pEdgeProperties->model[165]
-           << pEdgeProperties->model[166] << pEdgeProperties->model[167]
-           << pEdgeProperties->model[168] << pEdgeProperties->model[169]
-           << pEdgeProperties->model[170] << pEdgeProperties->model[171]
-           << pEdgeProperties->model[172] << pEdgeProperties->model[173]
-           << pEdgeProperties->model[174] << pEdgeProperties->model[175]
-           << pEdgeProperties->model[176] << pEdgeProperties->model[177]
-           << pEdgeProperties->model[178] << pEdgeProperties->model[179]
-           << pEdgeProperties->model[180] << pEdgeProperties->model[181]
-           << pEdgeProperties->model[182] << pEdgeProperties->model[183]
-           << pEdgeProperties->model[184] << pEdgeProperties->model[185]
-           << pEdgeProperties->model[186] << pEdgeProperties->model[187]
-           << pEdgeProperties->model[188] << pEdgeProperties->model[189]
-           << pEdgeProperties->model[190] << pEdgeProperties->model[191]
-           << pEdgeProperties->model[192] << pEdgeProperties->model[193]
-           << pEdgeProperties->model[194] << pEdgeProperties->model[195]
-           << pEdgeProperties->model[196] << pEdgeProperties->model[197]
-           << pEdgeProperties->model[198] << pEdgeProperties->model[199]
-           << pEdgeProperties->model[200] << pEdgeProperties->model[201]
-           << pEdgeProperties->model[202] << pEdgeProperties->model[203]
-           << pEdgeProperties->model[204] << pEdgeProperties->model[205]
-           << pEdgeProperties->model[206] << pEdgeProperties->model[207]
-           << pEdgeProperties->model[208] << pEdgeProperties->model[209]
-           << pEdgeProperties->model[210] << pEdgeProperties->model[211]
-           << pEdgeProperties->model[212] << pEdgeProperties->model[213]
-           << pEdgeProperties->model[214] << pEdgeProperties->model[215]
-           << pEdgeProperties->model[216] << pEdgeProperties->model[217]
-           << pEdgeProperties->model[218] << pEdgeProperties->model[219]
-           << pEdgeProperties->model[220] << pEdgeProperties->model[221]
-           << pEdgeProperties->model[222] << pEdgeProperties->model[223]
-           << pEdgeProperties->model[224] << pEdgeProperties->model[225]
-           << pEdgeProperties->model[226] << pEdgeProperties->model[227]
-           << pEdgeProperties->model[228] << pEdgeProperties->model[229]
-           << pEdgeProperties->model[230] << pEdgeProperties->model[231]
-           << pEdgeProperties->model[232] << pEdgeProperties->model[233]
-           << pEdgeProperties->model[234] << pEdgeProperties->model[235]
-           << pEdgeProperties->model[236] << pEdgeProperties->model[237]
-           << pEdgeProperties->model[238] << pEdgeProperties->model[239]
-           << pEdgeProperties->model[240] << pEdgeProperties->model[241]
-           << pEdgeProperties->model[242] << pEdgeProperties->model[243]
-           << pEdgeProperties->model[244] << pEdgeProperties->model[245]
-           << pEdgeProperties->model[246] << pEdgeProperties->model[247]
-           << pEdgeProperties->model[248] << pEdgeProperties->model[249]
-           << pEdgeProperties->model[250] << pEdgeProperties->model[251]
-           << pEdgeProperties->model[252] << pEdgeProperties->model[253]
-           << pEdgeProperties->model[254] << pEdgeProperties->model[255];
+        ss << ", model: ";
+        ss << trace_ascii_array(pEdgeProperties->model, sizeof(pEdgeProperties->model)).str();
         ss << ", bandwidth: " << pEdgeProperties->bandwidth;
         ss << ", bandwidthUnit: " << pEdgeProperties->bandwidthUnit;
         ss << ", latency: " << pEdgeProperties->latency;
@@ -7310,38 +6733,50 @@ inline std::string _trace_zeEventQueryKernelTimestampsExt(
     if (pResults == nullptr) {
         ss << ", pResults: nullptr";
     } else {
-        ss << ", pResults {";
-        ss << "stype: " << pResults->stype;
-        ss << ", pNext: " << pResults->pNext;
-        if (pResults->pKernelTimestampsBuffer == nullptr) {
-            ss << ", pKernelTimestampsBuffer: nullptr";
-        } else {
-            ss << ", pKernelTimestampsBuffer {";
-            ss << ", global {";
-            ss << "kernelStart: " << pResults->pKernelTimestampsBuffer->global.kernelStart;
-            ss << ", kernelEnd: " << pResults->pKernelTimestampsBuffer->global.kernelEnd;
+        const uint32_t count = (pCount != nullptr) ? *pCount : 0U;
+        ss << ", pResults[";
+        if (count > 0) {
+            ss << "{";
+            ss << "stype: " << pResults[0].stype;
+            ss << ", pNext: " << pResults[0].pNext;
+            if (pResults[0].pKernelTimestampsBuffer == nullptr) {
+                ss << ", pKernelTimestampsBuffer: nullptr";
+            } else {
+                ss << ", pKernelTimestampsBuffer {";
+                ss << ", global {";
+                ss << "kernelStart: " << pResults[0].pKernelTimestampsBuffer->global.kernelStart;
+                ss << ", kernelEnd: " << pResults[0].pKernelTimestampsBuffer->global.kernelEnd;
+                ss << "}";
+                ss << ", context {";
+                ss << "kernelStart: " << pResults[0].pKernelTimestampsBuffer->context.kernelStart;
+                ss << ", kernelEnd: " << pResults[0].pKernelTimestampsBuffer->context.kernelEnd;
+                ss << "}";
+                ss << "}";
+            }
+            if (pResults[0].pSynchronizedTimestampsBuffer == nullptr) {
+                ss << ", pSynchronizedTimestampsBuffer: nullptr";
+            } else {
+                ss << ", pSynchronizedTimestampsBuffer {";
+                ss << ", global {";
+                ss << "kernelStart: "
+                   << pResults[0].pSynchronizedTimestampsBuffer->global.kernelStart;
+                ss << ", kernelEnd: "
+                   << pResults[0].pSynchronizedTimestampsBuffer->global.kernelEnd;
+                ss << "}";
+                ss << ", context {";
+                ss << "kernelStart: "
+                   << pResults[0].pSynchronizedTimestampsBuffer->context.kernelStart;
+                ss << ", kernelEnd: "
+                   << pResults[0].pSynchronizedTimestampsBuffer->context.kernelEnd;
+                ss << "}";
+                ss << "}";
+            }
             ss << "}";
-            ss << ", context {";
-            ss << "kernelStart: " << pResults->pKernelTimestampsBuffer->context.kernelStart;
-            ss << ", kernelEnd: " << pResults->pKernelTimestampsBuffer->context.kernelEnd;
-            ss << "}";
-            ss << "}";
+            if (count > 1) {
+                ss << ", ...";
+            }
         }
-        if (pResults->pSynchronizedTimestampsBuffer == nullptr) {
-            ss << ", pSynchronizedTimestampsBuffer: nullptr";
-        } else {
-            ss << ", pSynchronizedTimestampsBuffer {";
-            ss << ", global {";
-            ss << "kernelStart: " << pResults->pSynchronizedTimestampsBuffer->global.kernelStart;
-            ss << ", kernelEnd: " << pResults->pSynchronizedTimestampsBuffer->global.kernelEnd;
-            ss << "}";
-            ss << ", context {";
-            ss << "kernelStart: " << pResults->pSynchronizedTimestampsBuffer->context.kernelStart;
-            ss << ", kernelEnd: " << pResults->pSynchronizedTimestampsBuffer->context.kernelEnd;
-            ss << "}";
-            ss << "}";
-            ss << "}";
-        }
+        ss << "]";
     }
     ss << ")";
     return ss.str();

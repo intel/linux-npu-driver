@@ -616,6 +616,56 @@ exit:
     trace_zeCommandListAppendEventReset(ret, hCommandList, hEvent);
     return ret;
 }
+
+ze_command_list_dditable_t zeCommandListDdiTable = {
+    .pfnCreate = zeCommandListCreate,
+    .pfnCreateImmediate = zeCommandListCreateImmediate,
+    .pfnDestroy = zeCommandListDestroy,
+    .pfnClose = zeCommandListClose,
+    .pfnReset = zeCommandListReset,
+    .pfnAppendWriteGlobalTimestamp = zeCommandListAppendWriteGlobalTimestamp,
+    .pfnAppendBarrier = zeCommandListAppendBarrier,
+    .pfnAppendMemoryRangesBarrier = zeCommandListAppendMemoryRangesBarrier,
+    .pfnAppendMemoryCopy = zeCommandListAppendMemoryCopy,
+    .pfnAppendMemoryFill = zeCommandListAppendMemoryFill,
+    .pfnAppendMemoryCopyRegion = zeCommandListAppendMemoryCopyRegion,
+    .pfnAppendMemoryCopyFromContext = zeCommandListAppendMemoryCopyFromContext,
+    .pfnAppendImageCopy = zeCommandListAppendImageCopy,
+    .pfnAppendImageCopyRegion = zeCommandListAppendImageCopyRegion,
+    .pfnAppendImageCopyToMemory = zeCommandListAppendImageCopyToMemory,
+    .pfnAppendImageCopyFromMemory = zeCommandListAppendImageCopyFromMemory,
+    .pfnAppendMemoryPrefetch = zeCommandListAppendMemoryPrefetch,
+    .pfnAppendMemAdvise = zeCommandListAppendMemAdvise,
+    .pfnAppendSignalEvent = zeCommandListAppendSignalEvent,
+    .pfnAppendWaitOnEvents = zeCommandListAppendWaitOnEvents,
+    .pfnAppendEventReset = zeCommandListAppendEventReset,
+    .pfnAppendQueryKernelTimestamps = zeCommandListAppendQueryKernelTimestamps,
+    .pfnAppendLaunchKernel = nullptr,
+    .pfnAppendLaunchCooperativeKernel = nullptr,
+    .pfnAppendLaunchKernelIndirect = nullptr,
+    .pfnAppendLaunchMultipleKernelsIndirect = nullptr,
+    .pfnAppendImageCopyToMemoryExt = nullptr,
+    .pfnAppendImageCopyFromMemoryExt = nullptr,
+    .pfnHostSynchronize = zeCommandListHostSynchronize,
+    .pfnGetDeviceHandle = nullptr,
+    .pfnGetContextHandle = nullptr,
+    .pfnGetOrdinal = nullptr,
+    .pfnImmediateGetIndex = zeCommandListImmediateGetIndex,
+    .pfnIsImmediate = zeCommandListIsImmediate,
+    .pfnAppendSignalExternalSemaphoreExt = nullptr,
+    .pfnAppendWaitExternalSemaphoreExt = nullptr,
+    .pfnAppendLaunchKernelWithParameters = nullptr,
+    .pfnAppendLaunchKernelWithArguments = nullptr};
+
+ze_command_list_exp_dditable_t zeCommandListExpDdiTable = {
+    .pfnCreateCloneExp = nullptr,
+    .pfnImmediateAppendCommandListsExp = nullptr,
+    .pfnGetNextCommandIdExp = zeCommandListGetNextCommandIdExp,
+    .pfnUpdateMutableCommandsExp = zeCommandListUpdateMutableCommandsExp,
+    .pfnUpdateMutableCommandSignalEventExp = nullptr,
+    .pfnUpdateMutableCommandWaitEventsExp = nullptr,
+    .pfnGetNextCommandIdWithKernelsExp = nullptr,
+    .pfnUpdateMutableCommandKernelsExp = nullptr};
 } // namespace L0
 
 extern "C" {

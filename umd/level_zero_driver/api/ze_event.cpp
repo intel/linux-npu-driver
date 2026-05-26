@@ -178,6 +178,32 @@ ze_result_t zeEventQueryKernelTimestamp(ze_event_handle_t hEvent,
     trace_zeEventQueryKernelTimestamp(ret, hEvent, timestampType);
     return ret;
 }
+
+ze_event_pool_dditable_t zeEventPoolDdiTable = {.pfnCreate = zeEventPoolCreate,
+                                                .pfnDestroy = zeEventPoolDestroy,
+                                                .pfnGetIpcHandle = zeEventPoolGetIpcHandle,
+                                                .pfnOpenIpcHandle = zeEventPoolOpenIpcHandle,
+                                                .pfnCloseIpcHandle = zeEventPoolCloseIpcHandle,
+                                                .pfnPutIpcHandle = nullptr,
+                                                .pfnGetContextHandle = nullptr,
+                                                .pfnGetFlags = nullptr};
+
+ze_event_dditable_t zeEventDdiTable = {.pfnCreate = zeEventCreate,
+                                       .pfnDestroy = zeEventDestroy,
+                                       .pfnHostSignal = zeEventHostSignal,
+                                       .pfnHostSynchronize = zeEventHostSynchronize,
+                                       .pfnQueryStatus = zeEventQueryStatus,
+                                       .pfnHostReset = zeEventHostReset,
+                                       .pfnQueryKernelTimestamp = zeEventQueryKernelTimestamp,
+                                       .pfnQueryKernelTimestampsExt = nullptr,
+                                       .pfnGetEventPool = nullptr,
+                                       .pfnGetSignalScope = nullptr,
+                                       .pfnGetWaitScope = nullptr,
+                                       .pfnCounterBasedCreate = nullptr,
+                                       .pfnCounterBasedGetIpcHandle = nullptr,
+                                       .pfnCounterBasedOpenIpcHandle = nullptr,
+                                       .pfnCounterBasedCloseIpcHandle = nullptr,
+                                       .pfnCounterBasedGetDeviceAddress = nullptr};
 } // namespace L0
 
 extern "C" {

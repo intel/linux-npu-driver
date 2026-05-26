@@ -16,7 +16,6 @@
 
 #include <chrono> // IWYU pragma: keep
 #include <filesystem>
-#include <string>
 #include <sys/resource.h>
 #include <sys/sysinfo.h>
 #include <system_error>
@@ -50,18 +49,10 @@ void MemoryStatistics::enable(std::string_view statsPath) {
     }
 
     enabled = true;
-    statOut << "#Timestamp, "
-            << "SysUsedRam, "
-            << "SysUsedShared, "
-            << "SysUsedSwap, "
-            << "SysUsedHigh, "
-            << "DrvUsedDevice, "
-            << "DrvUsedHost, "
-            << "DrvUsedShared, "
-            << "DrvUsedInternal, "
-            << "RSS[Kb], "
-            << "UserTime[sec.usec], "
-            << "SysTime[sec.usec]" << std::endl;
+    statOut << "#Timestamp, " << "SysUsedRam, " << "SysUsedShared, " << "SysUsedSwap, "
+            << "SysUsedHigh, " << "DrvUsedDevice, " << "DrvUsedHost, " << "DrvUsedShared, "
+            << "DrvUsedInternal, " << "RSS[Kb], " << "UserTime[sec.usec], " << "SysTime[sec.usec]"
+            << std::endl;
     snapshot();
     return;
 }

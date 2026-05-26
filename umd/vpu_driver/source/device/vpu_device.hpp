@@ -23,13 +23,13 @@ class VPUDriverApi;
 
 class VPUDevice {
   public:
-    bool init(bool enableMetrics);
+    bool init();
 
     VPUDevice(std::string devPath, OsInterface &osInfc);
     virtual ~VPUDevice() = default;
 
     const VPUHwInfo &getHwInfo() const;
-    const std::vector<GroupInfo> getMetricGroupsInfo() const;
+    const std::vector<GroupInfo> &getMetricGroupsInfo();
     bool getCapMetricStreamer() const;
     bool getCapCmdQueueCreation() const;
     virtual std::unique_ptr<VPUDeviceContext> createDeviceContext();
@@ -47,8 +47,7 @@ class VPUDevice {
     std::string mappedInferenceVersion;
 
   private:
-    virtual bool initializeCaps(VPUDriverApi *drvApi);
-    virtual bool initializeMetricGroups(VPUDriverApi *drvApi);
+    bool initializeCaps(VPUDriverApi *drvApi);
 
   protected:
     VPUHwInfo hwInfo = {};

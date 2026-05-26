@@ -75,9 +75,18 @@ bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
     return true;
 }
 
-bool VPUDevice::initializeMetricGroups(VPUDriverApi *drvApi) {
+const std::vector<GroupInfo> &VPUDevice::getMetricGroupsInfo() {
     uint64_t metricGroupMask = -1llu;
     drm_ivpu_metric_streamer_get_data get_info_params = {};
+
+    if (groupsInfo.size() > 0) {
+        LOG(METRIC, "Metric groups info already initialized, returning cached data");
+        return groupsInfo;
+    }
+
+    auto drvApi = VPUDriverApi::openDriverApi(devPath, osInfc);
+    if (drvApi == nullptr)
+        return groupsInfo;
 
     // to obtain all metric groups
     get_info_params.metric_group_mask = metricGroupMask;
@@ -88,7 +97,7 @@ bool VPUDevice::initializeMetricGroups(VPUDriverApi *drvApi) {
         LOG_W("Failed to call metric_streamer_get_info ioctl. -errno: %d. Size information not "
               "obtained.",
               errno);
-        return false;
+        return groupsInfo;
     }
 
     uint64_t metricGroupsInfoSize = get_info_params.data_size;
@@ -96,7 +105,7 @@ bool VPUDevice::initializeMetricGroups(VPUDriverApi *drvApi) {
 
     if (metricGroupsInfoSize == 0) {
         LOG_W("No metric groups received");
-        return false;
+        return groupsInfo;
     }
 
     std::vector<uint8_t> metricGroupsInfo;
@@ -110,7 +119,7 @@ bool VPUDevice::initializeMetricGroups(VPUDriverApi *drvApi) {
     if (drvApi->metricStreamerGetInfo(&get_info_params)) {
         LOG_E("Failed to call metric_streamer_get_info ioctl. -errno: %d. No data obtained.",
               errno);
-        return false;
+        return groupsInfo;
     }
 
     vpu_jsm_metric_counter_descriptor *counter_desc = nullptr;
@@ -159,6 +168,21 @@ bool VPUDevice::initializeMetricGroups(VPUDriverApi *drvApi) {
 
         counter_desc = reinterpret_cast<vpu_jsm_metric_counter_descriptor *>(
             reinterpret_cast<uint64_t>(group_desc) + firstMetricOffset);
+
+        uint8_t *info_end = metricGroupsInfo.data() + metricGroupsInfo.size();
+        if (reinterpret_cast<uint8_t *>(counter_desc) >= info_end) {
+            LOG_E("Counter descriptor pointer is out of buffer bounds");
+            return groupsInfo;
+        }
+        size_t max_possible_counters =
+            static_cast<size_t>(info_end - reinterpret_cast<uint8_t *>(counter_desc)) /
+            sizeof(*counter_desc);
+        if (groupInfo.metricCount > max_possible_counters) {
+            LOG_E("num_counters value %u exceeds maximum counters that can fit in buffer (%zu)",
+                  groupInfo.metricCount,
+                  max_possible_counters);
+            return groupsInfo;
+        }
 
         for (uint i = 0; i < groupInfo.metricCount; i++) {
             CounterInfo counterInfo = {};
@@ -234,10 +258,10 @@ bool VPUDevice::initializeMetricGroups(VPUDriverApi *drvApi) {
         }
     }
 
-    return true;
+    return groupsInfo;
 }
 
-bool VPUDevice::init(bool enableMetrics) {
+bool VPUDevice::init() {
     if (devPath.empty()) {
         LOG_W("Device node is null");
         return false;
@@ -252,23 +276,12 @@ bool VPUDevice::init(bool enableMetrics) {
         return false;
     }
 
-    if (enableMetrics && getCapMetricStreamer()) {
-        if (!initializeMetricGroups(drvApi.get())) {
-            LOG_W("Failed to initialize metric groups");
-            return false;
-        }
-    }
-
     LOG(DEVICE, "VPU device initialized successfully (%s)", devPath.c_str());
     return true;
 }
 
 const VPUHwInfo &VPUDevice::getHwInfo() const {
     return hwInfo;
-}
-
-const std::vector<GroupInfo> VPUDevice::getMetricGroupsInfo() const {
-    return groupsInfo;
 }
 
 bool VPUDevice::getCapMetricStreamer() const {

@@ -10,9 +10,7 @@
 #include <stdint.h>
 
 #include "blob_container.hpp"
-#include "compiler.hpp"
 #include "hash_function.hpp"
-#include "npu_driver_compiler.h"
 #include "vpu_driver/source/os_interface/os_interface.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
@@ -27,7 +25,6 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <utility>
-#include <ze_api.h>
 #include <ze_graph_ext.h>
 
 namespace L0 {
@@ -95,7 +92,8 @@ size_t DiskCache::getCacheSize() {
     return size;
 }
 
-DiskCache::Key DiskCache::computeKey(const ze_graph_desc_2_t &desc) {
+DiskCache::Key DiskCache::computeKey(const ze_graph_desc_2_t &desc,
+                                     const vcl_compiler_properties_t *vclProp) {
     if (cachePath.empty())
         return {};
 
@@ -103,14 +101,13 @@ DiskCache::Key DiskCache::computeKey(const ze_graph_desc_2_t &desc) {
     constexpr uint32_t driverVersion = DRIVER_VERSION;
     hash.updateConfigurationHash(reinterpret_cast<const uint8_t *>(&driverVersion),
                                  sizeof(driverVersion));
-    vcl_compiler_properties_t vclProp = {};
-    if (Compiler::getCompilerProperties(&vclProp) == ZE_RESULT_SUCCESS) {
-        hash.updateConfigurationHash(reinterpret_cast<const uint8_t *>(vclProp.id),
-                                     strlen(vclProp.id));
-        hash.updateConfigurationHash(reinterpret_cast<const uint8_t *>(&vclProp.version),
-                                     sizeof(vclProp.version));
-        hash.updateConfigurationHash(reinterpret_cast<const uint8_t *>(&vclProp.supportedOpsets),
-                                     sizeof(vclProp.supportedOpsets));
+    if (vclProp) {
+        hash.updateConfigurationHash(reinterpret_cast<const uint8_t *>(vclProp->id),
+                                     strlen(vclProp->id));
+        hash.updateConfigurationHash(reinterpret_cast<const uint8_t *>(&vclProp->version),
+                                     sizeof(vclProp->version));
+        hash.updateConfigurationHash(reinterpret_cast<const uint8_t *>(&vclProp->supportedOpsets),
+                                     sizeof(vclProp->supportedOpsets));
     }
     hash.updateConfigurationHash(reinterpret_cast<const uint8_t *>(&desc.format),
                                  sizeof(desc.format));
@@ -142,10 +139,24 @@ std::unique_ptr<BlobContainer> DiskCache::getBlob(const Key &key) {
     std::filesystem::path dataPath = cachePath / filename;
 
     auto file = osInfc.osiOpenWithSharedLock(dataPath, false);
-    if (!file || file->size() == 0 || file->mmap() == nullptr) {
+    if (!file) {
         LOG(CACHE, "Cache missed using %s key", filename.c_str());
         return nullptr;
     }
+
+    if (file->size() <= HashCity::DigestLength) {
+        LOG_W("Cache missed using %s key: File size is less than checksum size, removing it",
+              filename.c_str());
+        /* Remove the file without setting exclusive lock compared to "setBlob()" function */
+        osInfc.osiFileRemove(dataPath);
+        return nullptr;
+    }
+
+    if (file->mmap() == nullptr) {
+        LOG_W("Cache missed using %s key: Failed to mmap file", filename.c_str());
+        return nullptr;
+    }
+
     /* Validate blob checksum */
     uint8_t *filePtr = static_cast<uint8_t *>(file->mmap());
     if (filePtr == nullptr)
@@ -157,7 +168,7 @@ std::unique_ptr<BlobContainer> DiskCache::getBlob(const Key &key) {
 
     if (computedSum != std::string_view(fileSum, HashCity::DigestLength)) {
         LOG_W("Cache missed using %s key: Incorrect checksum, removing it", filename.c_str());
-        /* Remove the file without setting exclusive lock comparing to "setBlob()" function */
+        /* Remove the file without setting exclusive lock compared to "setBlob()" function */
 
         osInfc.osiFileRemove(dataPath);
         return nullptr;

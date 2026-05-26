@@ -24,7 +24,6 @@
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
 
 #include <memory>
-#include <string>
 #include <vector>
 #include <ze_api.h>
 

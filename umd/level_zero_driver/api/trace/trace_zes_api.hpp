@@ -78,137 +78,21 @@ _trace_zesDriverGetExtensionProperties(zes_driver_handle_t hDriver,
     if (pExtensionProperties == nullptr) {
         ss << ", pExtensionProperties: nullptr";
     } else {
-        ss << ", pExtensionProperties {";
-        ss << "name: " << pExtensionProperties->name[0] << pExtensionProperties->name[1]
-           << pExtensionProperties->name[2] << pExtensionProperties->name[3]
-           << pExtensionProperties->name[4] << pExtensionProperties->name[5]
-           << pExtensionProperties->name[6] << pExtensionProperties->name[7]
-           << pExtensionProperties->name[8] << pExtensionProperties->name[9]
-           << pExtensionProperties->name[10] << pExtensionProperties->name[11]
-           << pExtensionProperties->name[12] << pExtensionProperties->name[13]
-           << pExtensionProperties->name[14] << pExtensionProperties->name[15]
-           << pExtensionProperties->name[16] << pExtensionProperties->name[17]
-           << pExtensionProperties->name[18] << pExtensionProperties->name[19]
-           << pExtensionProperties->name[20] << pExtensionProperties->name[21]
-           << pExtensionProperties->name[22] << pExtensionProperties->name[23]
-           << pExtensionProperties->name[24] << pExtensionProperties->name[25]
-           << pExtensionProperties->name[26] << pExtensionProperties->name[27]
-           << pExtensionProperties->name[28] << pExtensionProperties->name[29]
-           << pExtensionProperties->name[30] << pExtensionProperties->name[31]
-           << pExtensionProperties->name[32] << pExtensionProperties->name[33]
-           << pExtensionProperties->name[34] << pExtensionProperties->name[35]
-           << pExtensionProperties->name[36] << pExtensionProperties->name[37]
-           << pExtensionProperties->name[38] << pExtensionProperties->name[39]
-           << pExtensionProperties->name[40] << pExtensionProperties->name[41]
-           << pExtensionProperties->name[42] << pExtensionProperties->name[43]
-           << pExtensionProperties->name[44] << pExtensionProperties->name[45]
-           << pExtensionProperties->name[46] << pExtensionProperties->name[47]
-           << pExtensionProperties->name[48] << pExtensionProperties->name[49]
-           << pExtensionProperties->name[50] << pExtensionProperties->name[51]
-           << pExtensionProperties->name[52] << pExtensionProperties->name[53]
-           << pExtensionProperties->name[54] << pExtensionProperties->name[55]
-           << pExtensionProperties->name[56] << pExtensionProperties->name[57]
-           << pExtensionProperties->name[58] << pExtensionProperties->name[59]
-           << pExtensionProperties->name[60] << pExtensionProperties->name[61]
-           << pExtensionProperties->name[62] << pExtensionProperties->name[63]
-           << pExtensionProperties->name[64] << pExtensionProperties->name[65]
-           << pExtensionProperties->name[66] << pExtensionProperties->name[67]
-           << pExtensionProperties->name[68] << pExtensionProperties->name[69]
-           << pExtensionProperties->name[70] << pExtensionProperties->name[71]
-           << pExtensionProperties->name[72] << pExtensionProperties->name[73]
-           << pExtensionProperties->name[74] << pExtensionProperties->name[75]
-           << pExtensionProperties->name[76] << pExtensionProperties->name[77]
-           << pExtensionProperties->name[78] << pExtensionProperties->name[79]
-           << pExtensionProperties->name[80] << pExtensionProperties->name[81]
-           << pExtensionProperties->name[82] << pExtensionProperties->name[83]
-           << pExtensionProperties->name[84] << pExtensionProperties->name[85]
-           << pExtensionProperties->name[86] << pExtensionProperties->name[87]
-           << pExtensionProperties->name[88] << pExtensionProperties->name[89]
-           << pExtensionProperties->name[90] << pExtensionProperties->name[91]
-           << pExtensionProperties->name[92] << pExtensionProperties->name[93]
-           << pExtensionProperties->name[94] << pExtensionProperties->name[95]
-           << pExtensionProperties->name[96] << pExtensionProperties->name[97]
-           << pExtensionProperties->name[98] << pExtensionProperties->name[99]
-           << pExtensionProperties->name[100] << pExtensionProperties->name[101]
-           << pExtensionProperties->name[102] << pExtensionProperties->name[103]
-           << pExtensionProperties->name[104] << pExtensionProperties->name[105]
-           << pExtensionProperties->name[106] << pExtensionProperties->name[107]
-           << pExtensionProperties->name[108] << pExtensionProperties->name[109]
-           << pExtensionProperties->name[110] << pExtensionProperties->name[111]
-           << pExtensionProperties->name[112] << pExtensionProperties->name[113]
-           << pExtensionProperties->name[114] << pExtensionProperties->name[115]
-           << pExtensionProperties->name[116] << pExtensionProperties->name[117]
-           << pExtensionProperties->name[118] << pExtensionProperties->name[119]
-           << pExtensionProperties->name[120] << pExtensionProperties->name[121]
-           << pExtensionProperties->name[122] << pExtensionProperties->name[123]
-           << pExtensionProperties->name[124] << pExtensionProperties->name[125]
-           << pExtensionProperties->name[126] << pExtensionProperties->name[127]
-           << pExtensionProperties->name[128] << pExtensionProperties->name[129]
-           << pExtensionProperties->name[130] << pExtensionProperties->name[131]
-           << pExtensionProperties->name[132] << pExtensionProperties->name[133]
-           << pExtensionProperties->name[134] << pExtensionProperties->name[135]
-           << pExtensionProperties->name[136] << pExtensionProperties->name[137]
-           << pExtensionProperties->name[138] << pExtensionProperties->name[139]
-           << pExtensionProperties->name[140] << pExtensionProperties->name[141]
-           << pExtensionProperties->name[142] << pExtensionProperties->name[143]
-           << pExtensionProperties->name[144] << pExtensionProperties->name[145]
-           << pExtensionProperties->name[146] << pExtensionProperties->name[147]
-           << pExtensionProperties->name[148] << pExtensionProperties->name[149]
-           << pExtensionProperties->name[150] << pExtensionProperties->name[151]
-           << pExtensionProperties->name[152] << pExtensionProperties->name[153]
-           << pExtensionProperties->name[154] << pExtensionProperties->name[155]
-           << pExtensionProperties->name[156] << pExtensionProperties->name[157]
-           << pExtensionProperties->name[158] << pExtensionProperties->name[159]
-           << pExtensionProperties->name[160] << pExtensionProperties->name[161]
-           << pExtensionProperties->name[162] << pExtensionProperties->name[163]
-           << pExtensionProperties->name[164] << pExtensionProperties->name[165]
-           << pExtensionProperties->name[166] << pExtensionProperties->name[167]
-           << pExtensionProperties->name[168] << pExtensionProperties->name[169]
-           << pExtensionProperties->name[170] << pExtensionProperties->name[171]
-           << pExtensionProperties->name[172] << pExtensionProperties->name[173]
-           << pExtensionProperties->name[174] << pExtensionProperties->name[175]
-           << pExtensionProperties->name[176] << pExtensionProperties->name[177]
-           << pExtensionProperties->name[178] << pExtensionProperties->name[179]
-           << pExtensionProperties->name[180] << pExtensionProperties->name[181]
-           << pExtensionProperties->name[182] << pExtensionProperties->name[183]
-           << pExtensionProperties->name[184] << pExtensionProperties->name[185]
-           << pExtensionProperties->name[186] << pExtensionProperties->name[187]
-           << pExtensionProperties->name[188] << pExtensionProperties->name[189]
-           << pExtensionProperties->name[190] << pExtensionProperties->name[191]
-           << pExtensionProperties->name[192] << pExtensionProperties->name[193]
-           << pExtensionProperties->name[194] << pExtensionProperties->name[195]
-           << pExtensionProperties->name[196] << pExtensionProperties->name[197]
-           << pExtensionProperties->name[198] << pExtensionProperties->name[199]
-           << pExtensionProperties->name[200] << pExtensionProperties->name[201]
-           << pExtensionProperties->name[202] << pExtensionProperties->name[203]
-           << pExtensionProperties->name[204] << pExtensionProperties->name[205]
-           << pExtensionProperties->name[206] << pExtensionProperties->name[207]
-           << pExtensionProperties->name[208] << pExtensionProperties->name[209]
-           << pExtensionProperties->name[210] << pExtensionProperties->name[211]
-           << pExtensionProperties->name[212] << pExtensionProperties->name[213]
-           << pExtensionProperties->name[214] << pExtensionProperties->name[215]
-           << pExtensionProperties->name[216] << pExtensionProperties->name[217]
-           << pExtensionProperties->name[218] << pExtensionProperties->name[219]
-           << pExtensionProperties->name[220] << pExtensionProperties->name[221]
-           << pExtensionProperties->name[222] << pExtensionProperties->name[223]
-           << pExtensionProperties->name[224] << pExtensionProperties->name[225]
-           << pExtensionProperties->name[226] << pExtensionProperties->name[227]
-           << pExtensionProperties->name[228] << pExtensionProperties->name[229]
-           << pExtensionProperties->name[230] << pExtensionProperties->name[231]
-           << pExtensionProperties->name[232] << pExtensionProperties->name[233]
-           << pExtensionProperties->name[234] << pExtensionProperties->name[235]
-           << pExtensionProperties->name[236] << pExtensionProperties->name[237]
-           << pExtensionProperties->name[238] << pExtensionProperties->name[239]
-           << pExtensionProperties->name[240] << pExtensionProperties->name[241]
-           << pExtensionProperties->name[242] << pExtensionProperties->name[243]
-           << pExtensionProperties->name[244] << pExtensionProperties->name[245]
-           << pExtensionProperties->name[246] << pExtensionProperties->name[247]
-           << pExtensionProperties->name[248] << pExtensionProperties->name[249]
-           << pExtensionProperties->name[250] << pExtensionProperties->name[251]
-           << pExtensionProperties->name[252] << pExtensionProperties->name[253]
-           << pExtensionProperties->name[254] << pExtensionProperties->name[255];
-        ss << ", version: " << pExtensionProperties->version;
-        ss << "}";
+        const uint32_t count = (pCount != nullptr) ? *pCount : 0U;
+        ss << ", pExtensionProperties[";
+        if (count > 0) {
+            ss << "{";
+            ss << "name: "
+               << trace_ascii_array(pExtensionProperties[0].name,
+                                    sizeof(pExtensionProperties[0].name))
+                      .str();
+            ss << ", version: " << pExtensionProperties[0].version;
+            ss << "}";
+            if (count > 1) {
+                ss << ", ...";
+            }
+        }
+        ss << "]";
     }
     ss << ")";
     return ss.str();
@@ -334,308 +218,27 @@ inline std::string _trace_zesDeviceGetProperties(zes_device_handle_t hDevice,
         ss << ", timestampValidBits: " << pProperties->core.timestampValidBits;
         ss << ", kernelTimestampValidBits: " << pProperties->core.kernelTimestampValidBits;
         ss << ", uuid {";
-        ss << "id: " << static_cast<int>(pProperties->core.uuid.id[0]) << " "
-           << static_cast<int>(pProperties->core.uuid.id[1]) << " "
-           << static_cast<int>(pProperties->core.uuid.id[2]) << " "
-           << static_cast<int>(pProperties->core.uuid.id[3]) << " "
-           << static_cast<int>(pProperties->core.uuid.id[4]) << " "
-           << static_cast<int>(pProperties->core.uuid.id[5]) << " "
-           << static_cast<int>(pProperties->core.uuid.id[6]) << " "
-           << static_cast<int>(pProperties->core.uuid.id[7]) << " "
-           << static_cast<int>(pProperties->core.uuid.id[8]) << " "
-           << static_cast<int>(pProperties->core.uuid.id[9]) << " "
-           << static_cast<int>(pProperties->core.uuid.id[10]) << " "
-           << static_cast<int>(pProperties->core.uuid.id[11]) << " "
-           << static_cast<int>(pProperties->core.uuid.id[12]) << " "
-           << static_cast<int>(pProperties->core.uuid.id[13]) << " "
-           << static_cast<int>(pProperties->core.uuid.id[14]) << " "
-           << static_cast<int>(pProperties->core.uuid.id[15]);
+        ss << "id: ";
+        ss << trace_u8_array_hex(pProperties->core.uuid.id, sizeof(pProperties->core.uuid.id))
+                  .str();
         ss << "}";
-        ss << ", name: " << pProperties->core.name[0] << pProperties->core.name[1]
-           << pProperties->core.name[2] << pProperties->core.name[3] << pProperties->core.name[4]
-           << pProperties->core.name[5] << pProperties->core.name[6] << pProperties->core.name[7]
-           << pProperties->core.name[8] << pProperties->core.name[9] << pProperties->core.name[10]
-           << pProperties->core.name[11] << pProperties->core.name[12] << pProperties->core.name[13]
-           << pProperties->core.name[14] << pProperties->core.name[15] << pProperties->core.name[16]
-           << pProperties->core.name[17] << pProperties->core.name[18] << pProperties->core.name[19]
-           << pProperties->core.name[20] << pProperties->core.name[21] << pProperties->core.name[22]
-           << pProperties->core.name[23] << pProperties->core.name[24] << pProperties->core.name[25]
-           << pProperties->core.name[26] << pProperties->core.name[27] << pProperties->core.name[28]
-           << pProperties->core.name[29] << pProperties->core.name[30] << pProperties->core.name[31]
-           << pProperties->core.name[32] << pProperties->core.name[33] << pProperties->core.name[34]
-           << pProperties->core.name[35] << pProperties->core.name[36] << pProperties->core.name[37]
-           << pProperties->core.name[38] << pProperties->core.name[39] << pProperties->core.name[40]
-           << pProperties->core.name[41] << pProperties->core.name[42] << pProperties->core.name[43]
-           << pProperties->core.name[44] << pProperties->core.name[45] << pProperties->core.name[46]
-           << pProperties->core.name[47] << pProperties->core.name[48] << pProperties->core.name[49]
-           << pProperties->core.name[50] << pProperties->core.name[51] << pProperties->core.name[52]
-           << pProperties->core.name[53] << pProperties->core.name[54] << pProperties->core.name[55]
-           << pProperties->core.name[56] << pProperties->core.name[57] << pProperties->core.name[58]
-           << pProperties->core.name[59] << pProperties->core.name[60] << pProperties->core.name[61]
-           << pProperties->core.name[62] << pProperties->core.name[63] << pProperties->core.name[64]
-           << pProperties->core.name[65] << pProperties->core.name[66] << pProperties->core.name[67]
-           << pProperties->core.name[68] << pProperties->core.name[69] << pProperties->core.name[70]
-           << pProperties->core.name[71] << pProperties->core.name[72] << pProperties->core.name[73]
-           << pProperties->core.name[74] << pProperties->core.name[75] << pProperties->core.name[76]
-           << pProperties->core.name[77] << pProperties->core.name[78] << pProperties->core.name[79]
-           << pProperties->core.name[80] << pProperties->core.name[81] << pProperties->core.name[82]
-           << pProperties->core.name[83] << pProperties->core.name[84] << pProperties->core.name[85]
-           << pProperties->core.name[86] << pProperties->core.name[87] << pProperties->core.name[88]
-           << pProperties->core.name[89] << pProperties->core.name[90] << pProperties->core.name[91]
-           << pProperties->core.name[92] << pProperties->core.name[93] << pProperties->core.name[94]
-           << pProperties->core.name[95] << pProperties->core.name[96] << pProperties->core.name[97]
-           << pProperties->core.name[98] << pProperties->core.name[99]
-           << pProperties->core.name[100] << pProperties->core.name[101]
-           << pProperties->core.name[102] << pProperties->core.name[103]
-           << pProperties->core.name[104] << pProperties->core.name[105]
-           << pProperties->core.name[106] << pProperties->core.name[107]
-           << pProperties->core.name[108] << pProperties->core.name[109]
-           << pProperties->core.name[110] << pProperties->core.name[111]
-           << pProperties->core.name[112] << pProperties->core.name[113]
-           << pProperties->core.name[114] << pProperties->core.name[115]
-           << pProperties->core.name[116] << pProperties->core.name[117]
-           << pProperties->core.name[118] << pProperties->core.name[119]
-           << pProperties->core.name[120] << pProperties->core.name[121]
-           << pProperties->core.name[122] << pProperties->core.name[123]
-           << pProperties->core.name[124] << pProperties->core.name[125]
-           << pProperties->core.name[126] << pProperties->core.name[127]
-           << pProperties->core.name[128] << pProperties->core.name[129]
-           << pProperties->core.name[130] << pProperties->core.name[131]
-           << pProperties->core.name[132] << pProperties->core.name[133]
-           << pProperties->core.name[134] << pProperties->core.name[135]
-           << pProperties->core.name[136] << pProperties->core.name[137]
-           << pProperties->core.name[138] << pProperties->core.name[139]
-           << pProperties->core.name[140] << pProperties->core.name[141]
-           << pProperties->core.name[142] << pProperties->core.name[143]
-           << pProperties->core.name[144] << pProperties->core.name[145]
-           << pProperties->core.name[146] << pProperties->core.name[147]
-           << pProperties->core.name[148] << pProperties->core.name[149]
-           << pProperties->core.name[150] << pProperties->core.name[151]
-           << pProperties->core.name[152] << pProperties->core.name[153]
-           << pProperties->core.name[154] << pProperties->core.name[155]
-           << pProperties->core.name[156] << pProperties->core.name[157]
-           << pProperties->core.name[158] << pProperties->core.name[159]
-           << pProperties->core.name[160] << pProperties->core.name[161]
-           << pProperties->core.name[162] << pProperties->core.name[163]
-           << pProperties->core.name[164] << pProperties->core.name[165]
-           << pProperties->core.name[166] << pProperties->core.name[167]
-           << pProperties->core.name[168] << pProperties->core.name[169]
-           << pProperties->core.name[170] << pProperties->core.name[171]
-           << pProperties->core.name[172] << pProperties->core.name[173]
-           << pProperties->core.name[174] << pProperties->core.name[175]
-           << pProperties->core.name[176] << pProperties->core.name[177]
-           << pProperties->core.name[178] << pProperties->core.name[179]
-           << pProperties->core.name[180] << pProperties->core.name[181]
-           << pProperties->core.name[182] << pProperties->core.name[183]
-           << pProperties->core.name[184] << pProperties->core.name[185]
-           << pProperties->core.name[186] << pProperties->core.name[187]
-           << pProperties->core.name[188] << pProperties->core.name[189]
-           << pProperties->core.name[190] << pProperties->core.name[191]
-           << pProperties->core.name[192] << pProperties->core.name[193]
-           << pProperties->core.name[194] << pProperties->core.name[195]
-           << pProperties->core.name[196] << pProperties->core.name[197]
-           << pProperties->core.name[198] << pProperties->core.name[199]
-           << pProperties->core.name[200] << pProperties->core.name[201]
-           << pProperties->core.name[202] << pProperties->core.name[203]
-           << pProperties->core.name[204] << pProperties->core.name[205]
-           << pProperties->core.name[206] << pProperties->core.name[207]
-           << pProperties->core.name[208] << pProperties->core.name[209]
-           << pProperties->core.name[210] << pProperties->core.name[211]
-           << pProperties->core.name[212] << pProperties->core.name[213]
-           << pProperties->core.name[214] << pProperties->core.name[215]
-           << pProperties->core.name[216] << pProperties->core.name[217]
-           << pProperties->core.name[218] << pProperties->core.name[219]
-           << pProperties->core.name[220] << pProperties->core.name[221]
-           << pProperties->core.name[222] << pProperties->core.name[223]
-           << pProperties->core.name[224] << pProperties->core.name[225]
-           << pProperties->core.name[226] << pProperties->core.name[227]
-           << pProperties->core.name[228] << pProperties->core.name[229]
-           << pProperties->core.name[230] << pProperties->core.name[231]
-           << pProperties->core.name[232] << pProperties->core.name[233]
-           << pProperties->core.name[234] << pProperties->core.name[235]
-           << pProperties->core.name[236] << pProperties->core.name[237]
-           << pProperties->core.name[238] << pProperties->core.name[239]
-           << pProperties->core.name[240] << pProperties->core.name[241]
-           << pProperties->core.name[242] << pProperties->core.name[243]
-           << pProperties->core.name[244] << pProperties->core.name[245]
-           << pProperties->core.name[246] << pProperties->core.name[247]
-           << pProperties->core.name[248] << pProperties->core.name[249]
-           << pProperties->core.name[250] << pProperties->core.name[251]
-           << pProperties->core.name[252] << pProperties->core.name[253]
-           << pProperties->core.name[254] << pProperties->core.name[255];
+        ss << ", name: "
+           << trace_ascii_array(pProperties->core.name, sizeof(pProperties->core.name)).str();
         ss << "}";
         ss << ", numSubdevices: " << pProperties->numSubdevices;
-        ss << ", serialNumber: " << pProperties->serialNumber[0] << pProperties->serialNumber[1]
-           << pProperties->serialNumber[2] << pProperties->serialNumber[3]
-           << pProperties->serialNumber[4] << pProperties->serialNumber[5]
-           << pProperties->serialNumber[6] << pProperties->serialNumber[7]
-           << pProperties->serialNumber[8] << pProperties->serialNumber[9]
-           << pProperties->serialNumber[10] << pProperties->serialNumber[11]
-           << pProperties->serialNumber[12] << pProperties->serialNumber[13]
-           << pProperties->serialNumber[14] << pProperties->serialNumber[15]
-           << pProperties->serialNumber[16] << pProperties->serialNumber[17]
-           << pProperties->serialNumber[18] << pProperties->serialNumber[19]
-           << pProperties->serialNumber[20] << pProperties->serialNumber[21]
-           << pProperties->serialNumber[22] << pProperties->serialNumber[23]
-           << pProperties->serialNumber[24] << pProperties->serialNumber[25]
-           << pProperties->serialNumber[26] << pProperties->serialNumber[27]
-           << pProperties->serialNumber[28] << pProperties->serialNumber[29]
-           << pProperties->serialNumber[30] << pProperties->serialNumber[31]
-           << pProperties->serialNumber[32] << pProperties->serialNumber[33]
-           << pProperties->serialNumber[34] << pProperties->serialNumber[35]
-           << pProperties->serialNumber[36] << pProperties->serialNumber[37]
-           << pProperties->serialNumber[38] << pProperties->serialNumber[39]
-           << pProperties->serialNumber[40] << pProperties->serialNumber[41]
-           << pProperties->serialNumber[42] << pProperties->serialNumber[43]
-           << pProperties->serialNumber[44] << pProperties->serialNumber[45]
-           << pProperties->serialNumber[46] << pProperties->serialNumber[47]
-           << pProperties->serialNumber[48] << pProperties->serialNumber[49]
-           << pProperties->serialNumber[50] << pProperties->serialNumber[51]
-           << pProperties->serialNumber[52] << pProperties->serialNumber[53]
-           << pProperties->serialNumber[54] << pProperties->serialNumber[55]
-           << pProperties->serialNumber[56] << pProperties->serialNumber[57]
-           << pProperties->serialNumber[58] << pProperties->serialNumber[59]
-           << pProperties->serialNumber[60] << pProperties->serialNumber[61]
-           << pProperties->serialNumber[62] << pProperties->serialNumber[63];
-        ss << ", boardNumber: " << pProperties->boardNumber[0] << pProperties->boardNumber[1]
-           << pProperties->boardNumber[2] << pProperties->boardNumber[3]
-           << pProperties->boardNumber[4] << pProperties->boardNumber[5]
-           << pProperties->boardNumber[6] << pProperties->boardNumber[7]
-           << pProperties->boardNumber[8] << pProperties->boardNumber[9]
-           << pProperties->boardNumber[10] << pProperties->boardNumber[11]
-           << pProperties->boardNumber[12] << pProperties->boardNumber[13]
-           << pProperties->boardNumber[14] << pProperties->boardNumber[15]
-           << pProperties->boardNumber[16] << pProperties->boardNumber[17]
-           << pProperties->boardNumber[18] << pProperties->boardNumber[19]
-           << pProperties->boardNumber[20] << pProperties->boardNumber[21]
-           << pProperties->boardNumber[22] << pProperties->boardNumber[23]
-           << pProperties->boardNumber[24] << pProperties->boardNumber[25]
-           << pProperties->boardNumber[26] << pProperties->boardNumber[27]
-           << pProperties->boardNumber[28] << pProperties->boardNumber[29]
-           << pProperties->boardNumber[30] << pProperties->boardNumber[31]
-           << pProperties->boardNumber[32] << pProperties->boardNumber[33]
-           << pProperties->boardNumber[34] << pProperties->boardNumber[35]
-           << pProperties->boardNumber[36] << pProperties->boardNumber[37]
-           << pProperties->boardNumber[38] << pProperties->boardNumber[39]
-           << pProperties->boardNumber[40] << pProperties->boardNumber[41]
-           << pProperties->boardNumber[42] << pProperties->boardNumber[43]
-           << pProperties->boardNumber[44] << pProperties->boardNumber[45]
-           << pProperties->boardNumber[46] << pProperties->boardNumber[47]
-           << pProperties->boardNumber[48] << pProperties->boardNumber[49]
-           << pProperties->boardNumber[50] << pProperties->boardNumber[51]
-           << pProperties->boardNumber[52] << pProperties->boardNumber[53]
-           << pProperties->boardNumber[54] << pProperties->boardNumber[55]
-           << pProperties->boardNumber[56] << pProperties->boardNumber[57]
-           << pProperties->boardNumber[58] << pProperties->boardNumber[59]
-           << pProperties->boardNumber[60] << pProperties->boardNumber[61]
-           << pProperties->boardNumber[62] << pProperties->boardNumber[63];
-        ss << ", brandName: " << pProperties->brandName[0] << pProperties->brandName[1]
-           << pProperties->brandName[2] << pProperties->brandName[3] << pProperties->brandName[4]
-           << pProperties->brandName[5] << pProperties->brandName[6] << pProperties->brandName[7]
-           << pProperties->brandName[8] << pProperties->brandName[9] << pProperties->brandName[10]
-           << pProperties->brandName[11] << pProperties->brandName[12] << pProperties->brandName[13]
-           << pProperties->brandName[14] << pProperties->brandName[15] << pProperties->brandName[16]
-           << pProperties->brandName[17] << pProperties->brandName[18] << pProperties->brandName[19]
-           << pProperties->brandName[20] << pProperties->brandName[21] << pProperties->brandName[22]
-           << pProperties->brandName[23] << pProperties->brandName[24] << pProperties->brandName[25]
-           << pProperties->brandName[26] << pProperties->brandName[27] << pProperties->brandName[28]
-           << pProperties->brandName[29] << pProperties->brandName[30] << pProperties->brandName[31]
-           << pProperties->brandName[32] << pProperties->brandName[33] << pProperties->brandName[34]
-           << pProperties->brandName[35] << pProperties->brandName[36] << pProperties->brandName[37]
-           << pProperties->brandName[38] << pProperties->brandName[39] << pProperties->brandName[40]
-           << pProperties->brandName[41] << pProperties->brandName[42] << pProperties->brandName[43]
-           << pProperties->brandName[44] << pProperties->brandName[45] << pProperties->brandName[46]
-           << pProperties->brandName[47] << pProperties->brandName[48] << pProperties->brandName[49]
-           << pProperties->brandName[50] << pProperties->brandName[51] << pProperties->brandName[52]
-           << pProperties->brandName[53] << pProperties->brandName[54] << pProperties->brandName[55]
-           << pProperties->brandName[56] << pProperties->brandName[57] << pProperties->brandName[58]
-           << pProperties->brandName[59] << pProperties->brandName[60] << pProperties->brandName[61]
-           << pProperties->brandName[62] << pProperties->brandName[63];
-        ss << ", modelName: " << pProperties->modelName[0] << pProperties->modelName[1]
-           << pProperties->modelName[2] << pProperties->modelName[3] << pProperties->modelName[4]
-           << pProperties->modelName[5] << pProperties->modelName[6] << pProperties->modelName[7]
-           << pProperties->modelName[8] << pProperties->modelName[9] << pProperties->modelName[10]
-           << pProperties->modelName[11] << pProperties->modelName[12] << pProperties->modelName[13]
-           << pProperties->modelName[14] << pProperties->modelName[15] << pProperties->modelName[16]
-           << pProperties->modelName[17] << pProperties->modelName[18] << pProperties->modelName[19]
-           << pProperties->modelName[20] << pProperties->modelName[21] << pProperties->modelName[22]
-           << pProperties->modelName[23] << pProperties->modelName[24] << pProperties->modelName[25]
-           << pProperties->modelName[26] << pProperties->modelName[27] << pProperties->modelName[28]
-           << pProperties->modelName[29] << pProperties->modelName[30] << pProperties->modelName[31]
-           << pProperties->modelName[32] << pProperties->modelName[33] << pProperties->modelName[34]
-           << pProperties->modelName[35] << pProperties->modelName[36] << pProperties->modelName[37]
-           << pProperties->modelName[38] << pProperties->modelName[39] << pProperties->modelName[40]
-           << pProperties->modelName[41] << pProperties->modelName[42] << pProperties->modelName[43]
-           << pProperties->modelName[44] << pProperties->modelName[45] << pProperties->modelName[46]
-           << pProperties->modelName[47] << pProperties->modelName[48] << pProperties->modelName[49]
-           << pProperties->modelName[50] << pProperties->modelName[51] << pProperties->modelName[52]
-           << pProperties->modelName[53] << pProperties->modelName[54] << pProperties->modelName[55]
-           << pProperties->modelName[56] << pProperties->modelName[57] << pProperties->modelName[58]
-           << pProperties->modelName[59] << pProperties->modelName[60] << pProperties->modelName[61]
-           << pProperties->modelName[62] << pProperties->modelName[63];
-        ss << ", vendorName: " << pProperties->vendorName[0] << pProperties->vendorName[1]
-           << pProperties->vendorName[2] << pProperties->vendorName[3] << pProperties->vendorName[4]
-           << pProperties->vendorName[5] << pProperties->vendorName[6] << pProperties->vendorName[7]
-           << pProperties->vendorName[8] << pProperties->vendorName[9]
-           << pProperties->vendorName[10] << pProperties->vendorName[11]
-           << pProperties->vendorName[12] << pProperties->vendorName[13]
-           << pProperties->vendorName[14] << pProperties->vendorName[15]
-           << pProperties->vendorName[16] << pProperties->vendorName[17]
-           << pProperties->vendorName[18] << pProperties->vendorName[19]
-           << pProperties->vendorName[20] << pProperties->vendorName[21]
-           << pProperties->vendorName[22] << pProperties->vendorName[23]
-           << pProperties->vendorName[24] << pProperties->vendorName[25]
-           << pProperties->vendorName[26] << pProperties->vendorName[27]
-           << pProperties->vendorName[28] << pProperties->vendorName[29]
-           << pProperties->vendorName[30] << pProperties->vendorName[31]
-           << pProperties->vendorName[32] << pProperties->vendorName[33]
-           << pProperties->vendorName[34] << pProperties->vendorName[35]
-           << pProperties->vendorName[36] << pProperties->vendorName[37]
-           << pProperties->vendorName[38] << pProperties->vendorName[39]
-           << pProperties->vendorName[40] << pProperties->vendorName[41]
-           << pProperties->vendorName[42] << pProperties->vendorName[43]
-           << pProperties->vendorName[44] << pProperties->vendorName[45]
-           << pProperties->vendorName[46] << pProperties->vendorName[47]
-           << pProperties->vendorName[48] << pProperties->vendorName[49]
-           << pProperties->vendorName[50] << pProperties->vendorName[51]
-           << pProperties->vendorName[52] << pProperties->vendorName[53]
-           << pProperties->vendorName[54] << pProperties->vendorName[55]
-           << pProperties->vendorName[56] << pProperties->vendorName[57]
-           << pProperties->vendorName[58] << pProperties->vendorName[59]
-           << pProperties->vendorName[60] << pProperties->vendorName[61]
-           << pProperties->vendorName[62] << pProperties->vendorName[63];
-        ss << ", driverVersion: " << pProperties->driverVersion[0] << pProperties->driverVersion[1]
-           << pProperties->driverVersion[2] << pProperties->driverVersion[3]
-           << pProperties->driverVersion[4] << pProperties->driverVersion[5]
-           << pProperties->driverVersion[6] << pProperties->driverVersion[7]
-           << pProperties->driverVersion[8] << pProperties->driverVersion[9]
-           << pProperties->driverVersion[10] << pProperties->driverVersion[11]
-           << pProperties->driverVersion[12] << pProperties->driverVersion[13]
-           << pProperties->driverVersion[14] << pProperties->driverVersion[15]
-           << pProperties->driverVersion[16] << pProperties->driverVersion[17]
-           << pProperties->driverVersion[18] << pProperties->driverVersion[19]
-           << pProperties->driverVersion[20] << pProperties->driverVersion[21]
-           << pProperties->driverVersion[22] << pProperties->driverVersion[23]
-           << pProperties->driverVersion[24] << pProperties->driverVersion[25]
-           << pProperties->driverVersion[26] << pProperties->driverVersion[27]
-           << pProperties->driverVersion[28] << pProperties->driverVersion[29]
-           << pProperties->driverVersion[30] << pProperties->driverVersion[31]
-           << pProperties->driverVersion[32] << pProperties->driverVersion[33]
-           << pProperties->driverVersion[34] << pProperties->driverVersion[35]
-           << pProperties->driverVersion[36] << pProperties->driverVersion[37]
-           << pProperties->driverVersion[38] << pProperties->driverVersion[39]
-           << pProperties->driverVersion[40] << pProperties->driverVersion[41]
-           << pProperties->driverVersion[42] << pProperties->driverVersion[43]
-           << pProperties->driverVersion[44] << pProperties->driverVersion[45]
-           << pProperties->driverVersion[46] << pProperties->driverVersion[47]
-           << pProperties->driverVersion[48] << pProperties->driverVersion[49]
-           << pProperties->driverVersion[50] << pProperties->driverVersion[51]
-           << pProperties->driverVersion[52] << pProperties->driverVersion[53]
-           << pProperties->driverVersion[54] << pProperties->driverVersion[55]
-           << pProperties->driverVersion[56] << pProperties->driverVersion[57]
-           << pProperties->driverVersion[58] << pProperties->driverVersion[59]
-           << pProperties->driverVersion[60] << pProperties->driverVersion[61]
-           << pProperties->driverVersion[62] << pProperties->driverVersion[63];
+        ss << ", serialNumber: "
+           << trace_ascii_array(pProperties->serialNumber, sizeof(pProperties->serialNumber)).str();
+        ss << ", boardNumber: "
+           << trace_ascii_array(pProperties->boardNumber, sizeof(pProperties->boardNumber)).str();
+        ss << ", brandName: "
+           << trace_ascii_array(pProperties->brandName, sizeof(pProperties->brandName)).str();
+        ss << ", modelName: "
+           << trace_ascii_array(pProperties->modelName, sizeof(pProperties->modelName)).str();
+        ss << ", vendorName: "
+           << trace_ascii_array(pProperties->vendorName, sizeof(pProperties->vendorName)).str();
+        ss << ", driverVersion: "
+           << trace_ascii_array(pProperties->driverVersion, sizeof(pProperties->driverVersion))
+                  .str();
         ss << "}";
     }
     ss << ")";
@@ -754,14 +357,22 @@ inline std::string _trace_zesDeviceProcessesGetState(zes_device_handle_t hDevice
     if (pProcesses == nullptr) {
         ss << ", pProcesses: nullptr";
     } else {
-        ss << ", pProcesses {";
-        ss << "stype: " << pProcesses->stype;
-        ss << ", pNext: " << pProcesses->pNext;
-        ss << ", processId: " << pProcesses->processId;
-        ss << ", memSize: " << pProcesses->memSize;
-        ss << ", sharedSize: " << pProcesses->sharedSize;
-        ss << ", engines: " << pProcesses->engines;
-        ss << "}";
+        const uint32_t count = (pCount != nullptr) ? *pCount : 0U;
+        ss << ", pProcesses[";
+        if (count > 0) {
+            ss << "{";
+            ss << "stype: " << pProcesses[0].stype;
+            ss << ", pNext: " << pProcesses[0].pNext;
+            ss << ", processId: " << pProcesses[0].processId;
+            ss << ", memSize: " << pProcesses[0].memSize;
+            ss << ", sharedSize: " << pProcesses[0].sharedSize;
+            ss << ", engines: " << pProcesses[0].engines;
+            ss << "}";
+            if (count > 1) {
+                ss << ", ...";
+            }
+        }
+        ss << "]";
     }
     ss << ")";
     return ss.str();
@@ -881,14 +492,22 @@ inline std::string _trace_zesDevicePciGetBars(zes_device_handle_t hDevice,
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
     } else {
-        ss << ", pProperties {";
-        ss << "stype: " << pProperties->stype;
-        ss << ", pNext: " << pProperties->pNext;
-        ss << ", type: " << pProperties->type;
-        ss << ", index: " << pProperties->index;
-        ss << ", base: " << pProperties->base;
-        ss << ", size: " << pProperties->size;
-        ss << "}";
+        const uint32_t count = (pCount != nullptr) ? *pCount : 0U;
+        ss << ", pProperties[";
+        if (count > 0) {
+            ss << "{";
+            ss << "stype: " << pProperties[0].stype;
+            ss << ", pNext: " << pProperties[0].pNext;
+            ss << ", type: " << pProperties[0].type;
+            ss << ", index: " << pProperties[0].index;
+            ss << ", base: " << pProperties[0].base;
+            ss << ", size: " << pProperties[0].size;
+            ss << "}";
+            if (count > 1) {
+                ss << ", ...";
+            }
+        }
+        ss << "]";
     }
     ss << ")";
     return ss.str();
@@ -1595,28 +1214,8 @@ inline std::string _trace_zesDiagnosticsGetProperties(zes_diag_handle_t hDiagnos
         ss << ", pNext: " << pProperties->pNext;
         ss << ", onSubdevice: " << pProperties->onSubdevice;
         ss << ", subdeviceId: " << pProperties->subdeviceId;
-        ss << ", name: " << pProperties->name[0] << pProperties->name[1] << pProperties->name[2]
-           << pProperties->name[3] << pProperties->name[4] << pProperties->name[5]
-           << pProperties->name[6] << pProperties->name[7] << pProperties->name[8]
-           << pProperties->name[9] << pProperties->name[10] << pProperties->name[11]
-           << pProperties->name[12] << pProperties->name[13] << pProperties->name[14]
-           << pProperties->name[15] << pProperties->name[16] << pProperties->name[17]
-           << pProperties->name[18] << pProperties->name[19] << pProperties->name[20]
-           << pProperties->name[21] << pProperties->name[22] << pProperties->name[23]
-           << pProperties->name[24] << pProperties->name[25] << pProperties->name[26]
-           << pProperties->name[27] << pProperties->name[28] << pProperties->name[29]
-           << pProperties->name[30] << pProperties->name[31] << pProperties->name[32]
-           << pProperties->name[33] << pProperties->name[34] << pProperties->name[35]
-           << pProperties->name[36] << pProperties->name[37] << pProperties->name[38]
-           << pProperties->name[39] << pProperties->name[40] << pProperties->name[41]
-           << pProperties->name[42] << pProperties->name[43] << pProperties->name[44]
-           << pProperties->name[45] << pProperties->name[46] << pProperties->name[47]
-           << pProperties->name[48] << pProperties->name[49] << pProperties->name[50]
-           << pProperties->name[51] << pProperties->name[52] << pProperties->name[53]
-           << pProperties->name[54] << pProperties->name[55] << pProperties->name[56]
-           << pProperties->name[57] << pProperties->name[58] << pProperties->name[59]
-           << pProperties->name[60] << pProperties->name[61] << pProperties->name[62]
-           << pProperties->name[63];
+        ss << ", name: ";
+        ss << trace_ascii_array(pProperties->name, sizeof(pProperties->name)).str();
         ss << ", haveTests: " << pProperties->haveTests;
         ss << "}";
     }
@@ -1653,25 +1252,19 @@ inline std::string _trace_zesDiagnosticsGetTests(zes_diag_handle_t hDiagnostics,
     if (pTests == nullptr) {
         ss << ", pTests: nullptr";
     } else {
-        ss << ", pTests {";
-        ss << "index: " << pTests->index;
-        ss << ", name: " << pTests->name[0] << pTests->name[1] << pTests->name[2] << pTests->name[3]
-           << pTests->name[4] << pTests->name[5] << pTests->name[6] << pTests->name[7]
-           << pTests->name[8] << pTests->name[9] << pTests->name[10] << pTests->name[11]
-           << pTests->name[12] << pTests->name[13] << pTests->name[14] << pTests->name[15]
-           << pTests->name[16] << pTests->name[17] << pTests->name[18] << pTests->name[19]
-           << pTests->name[20] << pTests->name[21] << pTests->name[22] << pTests->name[23]
-           << pTests->name[24] << pTests->name[25] << pTests->name[26] << pTests->name[27]
-           << pTests->name[28] << pTests->name[29] << pTests->name[30] << pTests->name[31]
-           << pTests->name[32] << pTests->name[33] << pTests->name[34] << pTests->name[35]
-           << pTests->name[36] << pTests->name[37] << pTests->name[38] << pTests->name[39]
-           << pTests->name[40] << pTests->name[41] << pTests->name[42] << pTests->name[43]
-           << pTests->name[44] << pTests->name[45] << pTests->name[46] << pTests->name[47]
-           << pTests->name[48] << pTests->name[49] << pTests->name[50] << pTests->name[51]
-           << pTests->name[52] << pTests->name[53] << pTests->name[54] << pTests->name[55]
-           << pTests->name[56] << pTests->name[57] << pTests->name[58] << pTests->name[59]
-           << pTests->name[60] << pTests->name[61] << pTests->name[62] << pTests->name[63];
-        ss << "}";
+        const uint32_t count = (pCount != nullptr) ? *pCount : 0U;
+        ss << ", pTests[";
+        if (count > 0) {
+            ss << "{";
+            ss << "index: " << pTests[0].index;
+            ss << ", name: ";
+            ss << trace_ascii_array(pTests[0].name, sizeof(pTests[0].name)).str();
+            ss << "}";
+            if (count > 1) {
+                ss << ", ...";
+            }
+        }
+        ss << "]";
     }
     ss << ")";
     return ss.str();
@@ -2168,92 +1761,8 @@ inline std::string _trace_zesFabricPortGetProperties(zes_fabric_port_handle_t hP
         ss << ", pProperties {";
         ss << "stype: " << pProperties->stype;
         ss << ", pNext: " << pProperties->pNext;
-        ss << ", model: " << pProperties->model[0] << pProperties->model[1] << pProperties->model[2]
-           << pProperties->model[3] << pProperties->model[4] << pProperties->model[5]
-           << pProperties->model[6] << pProperties->model[7] << pProperties->model[8]
-           << pProperties->model[9] << pProperties->model[10] << pProperties->model[11]
-           << pProperties->model[12] << pProperties->model[13] << pProperties->model[14]
-           << pProperties->model[15] << pProperties->model[16] << pProperties->model[17]
-           << pProperties->model[18] << pProperties->model[19] << pProperties->model[20]
-           << pProperties->model[21] << pProperties->model[22] << pProperties->model[23]
-           << pProperties->model[24] << pProperties->model[25] << pProperties->model[26]
-           << pProperties->model[27] << pProperties->model[28] << pProperties->model[29]
-           << pProperties->model[30] << pProperties->model[31] << pProperties->model[32]
-           << pProperties->model[33] << pProperties->model[34] << pProperties->model[35]
-           << pProperties->model[36] << pProperties->model[37] << pProperties->model[38]
-           << pProperties->model[39] << pProperties->model[40] << pProperties->model[41]
-           << pProperties->model[42] << pProperties->model[43] << pProperties->model[44]
-           << pProperties->model[45] << pProperties->model[46] << pProperties->model[47]
-           << pProperties->model[48] << pProperties->model[49] << pProperties->model[50]
-           << pProperties->model[51] << pProperties->model[52] << pProperties->model[53]
-           << pProperties->model[54] << pProperties->model[55] << pProperties->model[56]
-           << pProperties->model[57] << pProperties->model[58] << pProperties->model[59]
-           << pProperties->model[60] << pProperties->model[61] << pProperties->model[62]
-           << pProperties->model[63] << pProperties->model[64] << pProperties->model[65]
-           << pProperties->model[66] << pProperties->model[67] << pProperties->model[68]
-           << pProperties->model[69] << pProperties->model[70] << pProperties->model[71]
-           << pProperties->model[72] << pProperties->model[73] << pProperties->model[74]
-           << pProperties->model[75] << pProperties->model[76] << pProperties->model[77]
-           << pProperties->model[78] << pProperties->model[79] << pProperties->model[80]
-           << pProperties->model[81] << pProperties->model[82] << pProperties->model[83]
-           << pProperties->model[84] << pProperties->model[85] << pProperties->model[86]
-           << pProperties->model[87] << pProperties->model[88] << pProperties->model[89]
-           << pProperties->model[90] << pProperties->model[91] << pProperties->model[92]
-           << pProperties->model[93] << pProperties->model[94] << pProperties->model[95]
-           << pProperties->model[96] << pProperties->model[97] << pProperties->model[98]
-           << pProperties->model[99] << pProperties->model[100] << pProperties->model[101]
-           << pProperties->model[102] << pProperties->model[103] << pProperties->model[104]
-           << pProperties->model[105] << pProperties->model[106] << pProperties->model[107]
-           << pProperties->model[108] << pProperties->model[109] << pProperties->model[110]
-           << pProperties->model[111] << pProperties->model[112] << pProperties->model[113]
-           << pProperties->model[114] << pProperties->model[115] << pProperties->model[116]
-           << pProperties->model[117] << pProperties->model[118] << pProperties->model[119]
-           << pProperties->model[120] << pProperties->model[121] << pProperties->model[122]
-           << pProperties->model[123] << pProperties->model[124] << pProperties->model[125]
-           << pProperties->model[126] << pProperties->model[127] << pProperties->model[128]
-           << pProperties->model[129] << pProperties->model[130] << pProperties->model[131]
-           << pProperties->model[132] << pProperties->model[133] << pProperties->model[134]
-           << pProperties->model[135] << pProperties->model[136] << pProperties->model[137]
-           << pProperties->model[138] << pProperties->model[139] << pProperties->model[140]
-           << pProperties->model[141] << pProperties->model[142] << pProperties->model[143]
-           << pProperties->model[144] << pProperties->model[145] << pProperties->model[146]
-           << pProperties->model[147] << pProperties->model[148] << pProperties->model[149]
-           << pProperties->model[150] << pProperties->model[151] << pProperties->model[152]
-           << pProperties->model[153] << pProperties->model[154] << pProperties->model[155]
-           << pProperties->model[156] << pProperties->model[157] << pProperties->model[158]
-           << pProperties->model[159] << pProperties->model[160] << pProperties->model[161]
-           << pProperties->model[162] << pProperties->model[163] << pProperties->model[164]
-           << pProperties->model[165] << pProperties->model[166] << pProperties->model[167]
-           << pProperties->model[168] << pProperties->model[169] << pProperties->model[170]
-           << pProperties->model[171] << pProperties->model[172] << pProperties->model[173]
-           << pProperties->model[174] << pProperties->model[175] << pProperties->model[176]
-           << pProperties->model[177] << pProperties->model[178] << pProperties->model[179]
-           << pProperties->model[180] << pProperties->model[181] << pProperties->model[182]
-           << pProperties->model[183] << pProperties->model[184] << pProperties->model[185]
-           << pProperties->model[186] << pProperties->model[187] << pProperties->model[188]
-           << pProperties->model[189] << pProperties->model[190] << pProperties->model[191]
-           << pProperties->model[192] << pProperties->model[193] << pProperties->model[194]
-           << pProperties->model[195] << pProperties->model[196] << pProperties->model[197]
-           << pProperties->model[198] << pProperties->model[199] << pProperties->model[200]
-           << pProperties->model[201] << pProperties->model[202] << pProperties->model[203]
-           << pProperties->model[204] << pProperties->model[205] << pProperties->model[206]
-           << pProperties->model[207] << pProperties->model[208] << pProperties->model[209]
-           << pProperties->model[210] << pProperties->model[211] << pProperties->model[212]
-           << pProperties->model[213] << pProperties->model[214] << pProperties->model[215]
-           << pProperties->model[216] << pProperties->model[217] << pProperties->model[218]
-           << pProperties->model[219] << pProperties->model[220] << pProperties->model[221]
-           << pProperties->model[222] << pProperties->model[223] << pProperties->model[224]
-           << pProperties->model[225] << pProperties->model[226] << pProperties->model[227]
-           << pProperties->model[228] << pProperties->model[229] << pProperties->model[230]
-           << pProperties->model[231] << pProperties->model[232] << pProperties->model[233]
-           << pProperties->model[234] << pProperties->model[235] << pProperties->model[236]
-           << pProperties->model[237] << pProperties->model[238] << pProperties->model[239]
-           << pProperties->model[240] << pProperties->model[241] << pProperties->model[242]
-           << pProperties->model[243] << pProperties->model[244] << pProperties->model[245]
-           << pProperties->model[246] << pProperties->model[247] << pProperties->model[248]
-           << pProperties->model[249] << pProperties->model[250] << pProperties->model[251]
-           << pProperties->model[252] << pProperties->model[253] << pProperties->model[254]
-           << pProperties->model[255];
+        ss << ", model: ";
+        ss << trace_ascii_array(pProperties->model, sizeof(pProperties->model)).str();
         ss << ", onSubdevice: " << pProperties->onSubdevice;
         ss << ", subdeviceId: " << pProperties->subdeviceId;
         ss << ", portId {";
@@ -2298,91 +1807,7 @@ inline std::string _trace_zesFabricPortGetLinkType(zes_fabric_port_handle_t hPor
         ss << ", pLinkType: nullptr";
     } else {
         ss << ", pLinkType {";
-        ss << "desc: " << pLinkType->desc[0] << pLinkType->desc[1] << pLinkType->desc[2]
-           << pLinkType->desc[3] << pLinkType->desc[4] << pLinkType->desc[5] << pLinkType->desc[6]
-           << pLinkType->desc[7] << pLinkType->desc[8] << pLinkType->desc[9] << pLinkType->desc[10]
-           << pLinkType->desc[11] << pLinkType->desc[12] << pLinkType->desc[13]
-           << pLinkType->desc[14] << pLinkType->desc[15] << pLinkType->desc[16]
-           << pLinkType->desc[17] << pLinkType->desc[18] << pLinkType->desc[19]
-           << pLinkType->desc[20] << pLinkType->desc[21] << pLinkType->desc[22]
-           << pLinkType->desc[23] << pLinkType->desc[24] << pLinkType->desc[25]
-           << pLinkType->desc[26] << pLinkType->desc[27] << pLinkType->desc[28]
-           << pLinkType->desc[29] << pLinkType->desc[30] << pLinkType->desc[31]
-           << pLinkType->desc[32] << pLinkType->desc[33] << pLinkType->desc[34]
-           << pLinkType->desc[35] << pLinkType->desc[36] << pLinkType->desc[37]
-           << pLinkType->desc[38] << pLinkType->desc[39] << pLinkType->desc[40]
-           << pLinkType->desc[41] << pLinkType->desc[42] << pLinkType->desc[43]
-           << pLinkType->desc[44] << pLinkType->desc[45] << pLinkType->desc[46]
-           << pLinkType->desc[47] << pLinkType->desc[48] << pLinkType->desc[49]
-           << pLinkType->desc[50] << pLinkType->desc[51] << pLinkType->desc[52]
-           << pLinkType->desc[53] << pLinkType->desc[54] << pLinkType->desc[55]
-           << pLinkType->desc[56] << pLinkType->desc[57] << pLinkType->desc[58]
-           << pLinkType->desc[59] << pLinkType->desc[60] << pLinkType->desc[61]
-           << pLinkType->desc[62] << pLinkType->desc[63] << pLinkType->desc[64]
-           << pLinkType->desc[65] << pLinkType->desc[66] << pLinkType->desc[67]
-           << pLinkType->desc[68] << pLinkType->desc[69] << pLinkType->desc[70]
-           << pLinkType->desc[71] << pLinkType->desc[72] << pLinkType->desc[73]
-           << pLinkType->desc[74] << pLinkType->desc[75] << pLinkType->desc[76]
-           << pLinkType->desc[77] << pLinkType->desc[78] << pLinkType->desc[79]
-           << pLinkType->desc[80] << pLinkType->desc[81] << pLinkType->desc[82]
-           << pLinkType->desc[83] << pLinkType->desc[84] << pLinkType->desc[85]
-           << pLinkType->desc[86] << pLinkType->desc[87] << pLinkType->desc[88]
-           << pLinkType->desc[89] << pLinkType->desc[90] << pLinkType->desc[91]
-           << pLinkType->desc[92] << pLinkType->desc[93] << pLinkType->desc[94]
-           << pLinkType->desc[95] << pLinkType->desc[96] << pLinkType->desc[97]
-           << pLinkType->desc[98] << pLinkType->desc[99] << pLinkType->desc[100]
-           << pLinkType->desc[101] << pLinkType->desc[102] << pLinkType->desc[103]
-           << pLinkType->desc[104] << pLinkType->desc[105] << pLinkType->desc[106]
-           << pLinkType->desc[107] << pLinkType->desc[108] << pLinkType->desc[109]
-           << pLinkType->desc[110] << pLinkType->desc[111] << pLinkType->desc[112]
-           << pLinkType->desc[113] << pLinkType->desc[114] << pLinkType->desc[115]
-           << pLinkType->desc[116] << pLinkType->desc[117] << pLinkType->desc[118]
-           << pLinkType->desc[119] << pLinkType->desc[120] << pLinkType->desc[121]
-           << pLinkType->desc[122] << pLinkType->desc[123] << pLinkType->desc[124]
-           << pLinkType->desc[125] << pLinkType->desc[126] << pLinkType->desc[127]
-           << pLinkType->desc[128] << pLinkType->desc[129] << pLinkType->desc[130]
-           << pLinkType->desc[131] << pLinkType->desc[132] << pLinkType->desc[133]
-           << pLinkType->desc[134] << pLinkType->desc[135] << pLinkType->desc[136]
-           << pLinkType->desc[137] << pLinkType->desc[138] << pLinkType->desc[139]
-           << pLinkType->desc[140] << pLinkType->desc[141] << pLinkType->desc[142]
-           << pLinkType->desc[143] << pLinkType->desc[144] << pLinkType->desc[145]
-           << pLinkType->desc[146] << pLinkType->desc[147] << pLinkType->desc[148]
-           << pLinkType->desc[149] << pLinkType->desc[150] << pLinkType->desc[151]
-           << pLinkType->desc[152] << pLinkType->desc[153] << pLinkType->desc[154]
-           << pLinkType->desc[155] << pLinkType->desc[156] << pLinkType->desc[157]
-           << pLinkType->desc[158] << pLinkType->desc[159] << pLinkType->desc[160]
-           << pLinkType->desc[161] << pLinkType->desc[162] << pLinkType->desc[163]
-           << pLinkType->desc[164] << pLinkType->desc[165] << pLinkType->desc[166]
-           << pLinkType->desc[167] << pLinkType->desc[168] << pLinkType->desc[169]
-           << pLinkType->desc[170] << pLinkType->desc[171] << pLinkType->desc[172]
-           << pLinkType->desc[173] << pLinkType->desc[174] << pLinkType->desc[175]
-           << pLinkType->desc[176] << pLinkType->desc[177] << pLinkType->desc[178]
-           << pLinkType->desc[179] << pLinkType->desc[180] << pLinkType->desc[181]
-           << pLinkType->desc[182] << pLinkType->desc[183] << pLinkType->desc[184]
-           << pLinkType->desc[185] << pLinkType->desc[186] << pLinkType->desc[187]
-           << pLinkType->desc[188] << pLinkType->desc[189] << pLinkType->desc[190]
-           << pLinkType->desc[191] << pLinkType->desc[192] << pLinkType->desc[193]
-           << pLinkType->desc[194] << pLinkType->desc[195] << pLinkType->desc[196]
-           << pLinkType->desc[197] << pLinkType->desc[198] << pLinkType->desc[199]
-           << pLinkType->desc[200] << pLinkType->desc[201] << pLinkType->desc[202]
-           << pLinkType->desc[203] << pLinkType->desc[204] << pLinkType->desc[205]
-           << pLinkType->desc[206] << pLinkType->desc[207] << pLinkType->desc[208]
-           << pLinkType->desc[209] << pLinkType->desc[210] << pLinkType->desc[211]
-           << pLinkType->desc[212] << pLinkType->desc[213] << pLinkType->desc[214]
-           << pLinkType->desc[215] << pLinkType->desc[216] << pLinkType->desc[217]
-           << pLinkType->desc[218] << pLinkType->desc[219] << pLinkType->desc[220]
-           << pLinkType->desc[221] << pLinkType->desc[222] << pLinkType->desc[223]
-           << pLinkType->desc[224] << pLinkType->desc[225] << pLinkType->desc[226]
-           << pLinkType->desc[227] << pLinkType->desc[228] << pLinkType->desc[229]
-           << pLinkType->desc[230] << pLinkType->desc[231] << pLinkType->desc[232]
-           << pLinkType->desc[233] << pLinkType->desc[234] << pLinkType->desc[235]
-           << pLinkType->desc[236] << pLinkType->desc[237] << pLinkType->desc[238]
-           << pLinkType->desc[239] << pLinkType->desc[240] << pLinkType->desc[241]
-           << pLinkType->desc[242] << pLinkType->desc[243] << pLinkType->desc[244]
-           << pLinkType->desc[245] << pLinkType->desc[246] << pLinkType->desc[247]
-           << pLinkType->desc[248] << pLinkType->desc[249] << pLinkType->desc[250]
-           << pLinkType->desc[251] << pLinkType->desc[252] << pLinkType->desc[253]
-           << pLinkType->desc[254] << pLinkType->desc[255];
+        ss << "desc: " << trace_ascii_array(pLinkType->desc, sizeof(pLinkType->desc)).str();
         ss << "}";
     }
     ss << ")";
@@ -2897,50 +2322,9 @@ inline std::string _trace_zesFirmwareGetProperties(zes_firmware_handle_t hFirmwa
         ss << ", onSubdevice: " << pProperties->onSubdevice;
         ss << ", subdeviceId: " << pProperties->subdeviceId;
         ss << ", canControl: " << pProperties->canControl;
-        ss << ", name: " << pProperties->name[0] << pProperties->name[1] << pProperties->name[2]
-           << pProperties->name[3] << pProperties->name[4] << pProperties->name[5]
-           << pProperties->name[6] << pProperties->name[7] << pProperties->name[8]
-           << pProperties->name[9] << pProperties->name[10] << pProperties->name[11]
-           << pProperties->name[12] << pProperties->name[13] << pProperties->name[14]
-           << pProperties->name[15] << pProperties->name[16] << pProperties->name[17]
-           << pProperties->name[18] << pProperties->name[19] << pProperties->name[20]
-           << pProperties->name[21] << pProperties->name[22] << pProperties->name[23]
-           << pProperties->name[24] << pProperties->name[25] << pProperties->name[26]
-           << pProperties->name[27] << pProperties->name[28] << pProperties->name[29]
-           << pProperties->name[30] << pProperties->name[31] << pProperties->name[32]
-           << pProperties->name[33] << pProperties->name[34] << pProperties->name[35]
-           << pProperties->name[36] << pProperties->name[37] << pProperties->name[38]
-           << pProperties->name[39] << pProperties->name[40] << pProperties->name[41]
-           << pProperties->name[42] << pProperties->name[43] << pProperties->name[44]
-           << pProperties->name[45] << pProperties->name[46] << pProperties->name[47]
-           << pProperties->name[48] << pProperties->name[49] << pProperties->name[50]
-           << pProperties->name[51] << pProperties->name[52] << pProperties->name[53]
-           << pProperties->name[54] << pProperties->name[55] << pProperties->name[56]
-           << pProperties->name[57] << pProperties->name[58] << pProperties->name[59]
-           << pProperties->name[60] << pProperties->name[61] << pProperties->name[62]
-           << pProperties->name[63];
-        ss << ", version: " << pProperties->version[0] << pProperties->version[1]
-           << pProperties->version[2] << pProperties->version[3] << pProperties->version[4]
-           << pProperties->version[5] << pProperties->version[6] << pProperties->version[7]
-           << pProperties->version[8] << pProperties->version[9] << pProperties->version[10]
-           << pProperties->version[11] << pProperties->version[12] << pProperties->version[13]
-           << pProperties->version[14] << pProperties->version[15] << pProperties->version[16]
-           << pProperties->version[17] << pProperties->version[18] << pProperties->version[19]
-           << pProperties->version[20] << pProperties->version[21] << pProperties->version[22]
-           << pProperties->version[23] << pProperties->version[24] << pProperties->version[25]
-           << pProperties->version[26] << pProperties->version[27] << pProperties->version[28]
-           << pProperties->version[29] << pProperties->version[30] << pProperties->version[31]
-           << pProperties->version[32] << pProperties->version[33] << pProperties->version[34]
-           << pProperties->version[35] << pProperties->version[36] << pProperties->version[37]
-           << pProperties->version[38] << pProperties->version[39] << pProperties->version[40]
-           << pProperties->version[41] << pProperties->version[42] << pProperties->version[43]
-           << pProperties->version[44] << pProperties->version[45] << pProperties->version[46]
-           << pProperties->version[47] << pProperties->version[48] << pProperties->version[49]
-           << pProperties->version[50] << pProperties->version[51] << pProperties->version[52]
-           << pProperties->version[53] << pProperties->version[54] << pProperties->version[55]
-           << pProperties->version[56] << pProperties->version[57] << pProperties->version[58]
-           << pProperties->version[59] << pProperties->version[60] << pProperties->version[61]
-           << pProperties->version[62] << pProperties->version[63];
+        ss << ", name: " << trace_ascii_array(pProperties->name, sizeof(pProperties->name)).str();
+        ss << ", version: "
+           << trace_ascii_array(pProperties->version, sizeof(pProperties->version)).str();
         ss << "}";
     }
     ss << ")";
@@ -5255,19 +4639,27 @@ inline std::string _trace_zesPowerGetLimitsExt(zes_pwr_handle_t hPower,
     if (pSustained == nullptr) {
         ss << ", pSustained: nullptr";
     } else {
-        ss << ", pSustained {";
-        ss << "stype: " << pSustained->stype;
-        ss << ", pNext: " << pSustained->pNext;
-        ss << ", level: " << pSustained->level;
-        ss << ", source: " << pSustained->source;
-        ss << ", limitUnit: " << pSustained->limitUnit;
-        ss << ", enabledStateLocked: " << pSustained->enabledStateLocked;
-        ss << ", enabled: " << pSustained->enabled;
-        ss << ", intervalValueLocked: " << pSustained->intervalValueLocked;
-        ss << ", interval: " << pSustained->interval;
-        ss << ", limitValueLocked: " << pSustained->limitValueLocked;
-        ss << ", limit: " << pSustained->limit;
-        ss << "}";
+        const uint32_t count = (pCount != nullptr) ? *pCount : 0U;
+        ss << ", pSustained[";
+        if (count > 0) {
+            ss << "{";
+            ss << "stype: " << pSustained[0].stype;
+            ss << ", pNext: " << pSustained[0].pNext;
+            ss << ", level: " << pSustained[0].level;
+            ss << ", source: " << pSustained[0].source;
+            ss << ", limitUnit: " << pSustained[0].limitUnit;
+            ss << ", enabledStateLocked: " << pSustained[0].enabledStateLocked;
+            ss << ", enabled: " << pSustained[0].enabled;
+            ss << ", intervalValueLocked: " << pSustained[0].intervalValueLocked;
+            ss << ", interval: " << pSustained[0].interval;
+            ss << ", limitValueLocked: " << pSustained[0].limitValueLocked;
+            ss << ", limit: " << pSustained[0].limit;
+            ss << "}";
+            if (count > 1) {
+                ss << ", ...";
+            }
+        }
+        ss << "]";
     }
     ss << ")";
     return ss.str();
@@ -5304,19 +4696,27 @@ inline std::string _trace_zesPowerSetLimitsExt(zes_pwr_handle_t hPower,
     if (pSustained == nullptr) {
         ss << ", pSustained: nullptr";
     } else {
-        ss << ", pSustained {";
-        ss << "stype: " << pSustained->stype;
-        ss << ", pNext: " << pSustained->pNext;
-        ss << ", level: " << pSustained->level;
-        ss << ", source: " << pSustained->source;
-        ss << ", limitUnit: " << pSustained->limitUnit;
-        ss << ", enabledStateLocked: " << pSustained->enabledStateLocked;
-        ss << ", enabled: " << pSustained->enabled;
-        ss << ", intervalValueLocked: " << pSustained->intervalValueLocked;
-        ss << ", interval: " << pSustained->interval;
-        ss << ", limitValueLocked: " << pSustained->limitValueLocked;
-        ss << ", limit: " << pSustained->limit;
-        ss << "}";
+        const uint32_t count = (pCount != nullptr) ? *pCount : 0U;
+        ss << ", pSustained[";
+        if (count > 0) {
+            ss << "{";
+            ss << "stype: " << pSustained[0].stype;
+            ss << ", pNext: " << pSustained[0].pNext;
+            ss << ", level: " << pSustained[0].level;
+            ss << ", source: " << pSustained[0].source;
+            ss << ", limitUnit: " << pSustained[0].limitUnit;
+            ss << ", enabledStateLocked: " << pSustained[0].enabledStateLocked;
+            ss << ", enabled: " << pSustained[0].enabled;
+            ss << ", intervalValueLocked: " << pSustained[0].intervalValueLocked;
+            ss << ", interval: " << pSustained[0].interval;
+            ss << ", limitValueLocked: " << pSustained[0].limitValueLocked;
+            ss << ", limit: " << pSustained[0].limit;
+            ss << "}";
+            if (count > 1) {
+                ss << ", ...";
+            }
+        }
+        ss << "]";
     }
     ss << ")";
     return ss.str();
@@ -5353,10 +4753,18 @@ inline std::string _trace_zesEngineGetActivityExt(zes_engine_handle_t hEngine,
     if (pStats == nullptr) {
         ss << ", pStats: nullptr";
     } else {
-        ss << ", pStats {";
-        ss << "activeTime: " << pStats->activeTime;
-        ss << ", timestamp: " << pStats->timestamp;
-        ss << "}";
+        const uint32_t count = (pCount != nullptr) ? *pCount : 0U;
+        ss << ", pStats[";
+        if (count > 0) {
+            ss << "{";
+            ss << "activeTime: " << pStats[0].activeTime;
+            ss << ", timestamp: " << pStats[0].timestamp;
+            ss << "}";
+            if (count > 1) {
+                ss << ", ...";
+            }
+        }
+        ss << "]";
     }
     ss << ")";
     return ss.str();
@@ -5392,10 +4800,18 @@ _trace_zesRasGetStateExp(zes_ras_handle_t hRas, uint32_t *pCount, zes_ras_state_
     if (pState == nullptr) {
         ss << ", pState: nullptr";
     } else {
-        ss << ", pState {";
-        ss << "category: " << pState->category;
-        ss << ", errorCounter: " << pState->errorCounter;
-        ss << "}";
+        const uint32_t count = (pCount != nullptr) ? *pCount : 0U;
+        ss << ", pState[";
+        if (count > 0) {
+            ss << "{";
+            ss << "category: " << pState[0].category;
+            ss << ", errorCounter: " << pState[0].errorCounter;
+            ss << "}";
+            if (count > 1) {
+                ss << ", ...";
+            }
+        }
+        ss << "]";
     }
     ss << ")";
     return ss.str();
@@ -5504,29 +4920,23 @@ _trace_zesDeviceGetSubDevicePropertiesExp(zes_device_handle_t hDevice,
     if (pSubdeviceProps == nullptr) {
         ss << ", pSubdeviceProps: nullptr";
     } else {
-        ss << ", pSubdeviceProps {";
-        ss << "stype: " << pSubdeviceProps->stype;
-        ss << ", pNext: " << pSubdeviceProps->pNext;
-        ss << ", subdeviceId: " << pSubdeviceProps->subdeviceId;
-        ss << ", uuid {";
-        ss << "id: " << static_cast<int>(pSubdeviceProps->uuid.id[0]) << " "
-           << static_cast<int>(pSubdeviceProps->uuid.id[1]) << " "
-           << static_cast<int>(pSubdeviceProps->uuid.id[2]) << " "
-           << static_cast<int>(pSubdeviceProps->uuid.id[3]) << " "
-           << static_cast<int>(pSubdeviceProps->uuid.id[4]) << " "
-           << static_cast<int>(pSubdeviceProps->uuid.id[5]) << " "
-           << static_cast<int>(pSubdeviceProps->uuid.id[6]) << " "
-           << static_cast<int>(pSubdeviceProps->uuid.id[7]) << " "
-           << static_cast<int>(pSubdeviceProps->uuid.id[8]) << " "
-           << static_cast<int>(pSubdeviceProps->uuid.id[9]) << " "
-           << static_cast<int>(pSubdeviceProps->uuid.id[10]) << " "
-           << static_cast<int>(pSubdeviceProps->uuid.id[11]) << " "
-           << static_cast<int>(pSubdeviceProps->uuid.id[12]) << " "
-           << static_cast<int>(pSubdeviceProps->uuid.id[13]) << " "
-           << static_cast<int>(pSubdeviceProps->uuid.id[14]) << " "
-           << static_cast<int>(pSubdeviceProps->uuid.id[15]);
-        ss << "}";
-        ss << "}";
+        const uint32_t count = (pCount != nullptr) ? *pCount : 0U;
+        ss << ", pSubdeviceProps[";
+        if (count > 0) {
+            ss << "{";
+            ss << "stype: " << pSubdeviceProps[0].stype;
+            ss << ", pNext: " << pSubdeviceProps[0].pNext;
+            ss << ", subdeviceId: " << pSubdeviceProps[0].subdeviceId;
+            ss << ", uuid {";
+            ss << "id: ";
+            ss << trace_u8_array_hex(pSubdeviceProps[0].uuid.id, sizeof(pSubdeviceProps[0].uuid.id))
+                      .str();
+            ss << "}}";
+            if (count > 1) {
+                ss << ", ...";
+            }
+        }
+        ss << "]";
     }
     ss << ")";
     return ss.str();
@@ -5561,14 +4971,8 @@ inline std::string _trace_zesDriverGetDeviceByUuidExp(zes_driver_handle_t hDrive
     ss << "NPU_LOG: [API] zesDriverGetDeviceByUuidExp(";
     ss << "hDriver: " << hDriver;
     ss << ", uuid {";
-    ss << "id: " << static_cast<int>(uuid.id[0]) << " " << static_cast<int>(uuid.id[1]) << " "
-       << static_cast<int>(uuid.id[2]) << " " << static_cast<int>(uuid.id[3]) << " "
-       << static_cast<int>(uuid.id[4]) << " " << static_cast<int>(uuid.id[5]) << " "
-       << static_cast<int>(uuid.id[6]) << " " << static_cast<int>(uuid.id[7]) << " "
-       << static_cast<int>(uuid.id[8]) << " " << static_cast<int>(uuid.id[9]) << " "
-       << static_cast<int>(uuid.id[10]) << " " << static_cast<int>(uuid.id[11]) << " "
-       << static_cast<int>(uuid.id[12]) << " " << static_cast<int>(uuid.id[13]) << " "
-       << static_cast<int>(uuid.id[14]) << " " << static_cast<int>(uuid.id[15]);
+    ss << "id: ";
+    ss << trace_u8_array_hex(uuid.id, sizeof(uuid.id)).str();
     ss << "}";
     if (phDevice == nullptr) {
         ss << ", phDevice: nullptr";
@@ -5674,22 +5078,8 @@ inline std::string _trace_zesVFManagementGetVFPropertiesExp(zes_vf_handle_t hVFh
         ss << ", function: " << pProperties->address.function;
         ss << "}";
         ss << ", uuid {";
-        ss << "id: " << static_cast<int>(pProperties->uuid.id[0]) << " "
-           << static_cast<int>(pProperties->uuid.id[1]) << " "
-           << static_cast<int>(pProperties->uuid.id[2]) << " "
-           << static_cast<int>(pProperties->uuid.id[3]) << " "
-           << static_cast<int>(pProperties->uuid.id[4]) << " "
-           << static_cast<int>(pProperties->uuid.id[5]) << " "
-           << static_cast<int>(pProperties->uuid.id[6]) << " "
-           << static_cast<int>(pProperties->uuid.id[7]) << " "
-           << static_cast<int>(pProperties->uuid.id[8]) << " "
-           << static_cast<int>(pProperties->uuid.id[9]) << " "
-           << static_cast<int>(pProperties->uuid.id[10]) << " "
-           << static_cast<int>(pProperties->uuid.id[11]) << " "
-           << static_cast<int>(pProperties->uuid.id[12]) << " "
-           << static_cast<int>(pProperties->uuid.id[13]) << " "
-           << static_cast<int>(pProperties->uuid.id[14]) << " "
-           << static_cast<int>(pProperties->uuid.id[15]);
+        ss << "id: ";
+        ss << trace_u8_array_hex(pProperties->uuid.id, sizeof(pProperties->uuid.id)).str();
         ss << "}";
         ss << ", flags: " << pProperties->flags;
         ss << "}";
@@ -5728,14 +5118,22 @@ _trace_zesVFManagementGetVFMemoryUtilizationExp(zes_vf_handle_t hVFhandle,
     if (pMemUtil == nullptr) {
         ss << ", pMemUtil: nullptr";
     } else {
-        ss << ", pMemUtil {";
-        ss << "stype: " << pMemUtil->stype;
-        ss << ", pNext: " << pMemUtil->pNext;
-        ss << ", memTypeFlags: " << pMemUtil->memTypeFlags;
-        ss << ", free: " << pMemUtil->free;
-        ss << ", size: " << pMemUtil->size;
-        ss << ", timestamp: " << pMemUtil->timestamp;
-        ss << "}";
+        const uint32_t count = (pCount != nullptr) ? *pCount : 0U;
+        ss << ", pMemUtil[";
+        if (count > 0) {
+            ss << "{";
+            ss << "stype: " << pMemUtil[0].stype;
+            ss << ", pNext: " << pMemUtil[0].pNext;
+            ss << ", memTypeFlags: " << pMemUtil[0].memTypeFlags;
+            ss << ", free: " << pMemUtil[0].free;
+            ss << ", size: " << pMemUtil[0].size;
+            ss << ", timestamp: " << pMemUtil[0].timestamp;
+            ss << "}";
+            if (count > 1) {
+                ss << ", ...";
+            }
+        }
+        ss << "]";
     }
     ss << ")";
     return ss.str();
@@ -5774,14 +5172,22 @@ _trace_zesVFManagementGetVFEngineUtilizationExp(zes_vf_handle_t hVFhandle,
     if (pEngineUtil == nullptr) {
         ss << ", pEngineUtil: nullptr";
     } else {
-        ss << ", pEngineUtil {";
-        ss << "stype: " << pEngineUtil->stype;
-        ss << ", pNext: " << pEngineUtil->pNext;
-        ss << ", type: " << pEngineUtil->type;
-        ss << ", activeCounterValue: " << pEngineUtil->activeCounterValue;
-        ss << ", samplingCounterValue: " << pEngineUtil->samplingCounterValue;
-        ss << ", timestamp: " << pEngineUtil->timestamp;
-        ss << "}";
+        const uint32_t count = (pCount != nullptr) ? *pCount : 0U;
+        ss << ", pEngineUtil[";
+        if (count > 0) {
+            ss << "{";
+            ss << "stype: " << pEngineUtil[0].stype;
+            ss << ", pNext: " << pEngineUtil[0].pNext;
+            ss << ", type: " << pEngineUtil[0].type;
+            ss << ", activeCounterValue: " << pEngineUtil[0].activeCounterValue;
+            ss << ", samplingCounterValue: " << pEngineUtil[0].samplingCounterValue;
+            ss << ", timestamp: " << pEngineUtil[0].timestamp;
+            ss << "}";
+            if (count > 1) {
+                ss << ", ...";
+            }
+        }
+        ss << "]";
     }
     ss << ")";
     return ss.str();
@@ -5968,12 +5374,20 @@ _trace_zesVFManagementGetVFMemoryUtilizationExp2(zes_vf_handle_t hVFhandle,
     if (pMemUtil == nullptr) {
         ss << ", pMemUtil: nullptr";
     } else {
-        ss << ", pMemUtil {";
-        ss << "stype: " << pMemUtil->stype;
-        ss << ", pNext: " << pMemUtil->pNext;
-        ss << ", vfMemLocation: " << pMemUtil->vfMemLocation;
-        ss << ", vfMemUtilized: " << pMemUtil->vfMemUtilized;
-        ss << "}";
+        const uint32_t count = (pCount != nullptr) ? *pCount : 0U;
+        ss << ", pMemUtil[";
+        if (count > 0) {
+            ss << "{";
+            ss << "stype: " << pMemUtil[0].stype;
+            ss << ", pNext: " << pMemUtil[0].pNext;
+            ss << ", vfMemLocation: " << pMemUtil[0].vfMemLocation;
+            ss << ", vfMemUtilized: " << pMemUtil[0].vfMemUtilized;
+            ss << "}";
+            if (count > 1) {
+                ss << ", ...";
+            }
+        }
+        ss << "]";
     }
     ss << ")";
     return ss.str();
@@ -6012,13 +5426,21 @@ _trace_zesVFManagementGetVFEngineUtilizationExp2(zes_vf_handle_t hVFhandle,
     if (pEngineUtil == nullptr) {
         ss << ", pEngineUtil: nullptr";
     } else {
-        ss << ", pEngineUtil {";
-        ss << "stype: " << pEngineUtil->stype;
-        ss << ", pNext: " << pEngineUtil->pNext;
-        ss << ", vfEngineType: " << pEngineUtil->vfEngineType;
-        ss << ", activeCounterValue: " << pEngineUtil->activeCounterValue;
-        ss << ", samplingCounterValue: " << pEngineUtil->samplingCounterValue;
-        ss << "}";
+        const uint32_t count = (pCount != nullptr) ? *pCount : 0U;
+        ss << ", pEngineUtil[";
+        if (count > 0) {
+            ss << "{";
+            ss << "stype: " << pEngineUtil[0].stype;
+            ss << ", pNext: " << pEngineUtil[0].pNext;
+            ss << ", vfEngineType: " << pEngineUtil[0].vfEngineType;
+            ss << ", activeCounterValue: " << pEngineUtil[0].activeCounterValue;
+            ss << ", samplingCounterValue: " << pEngineUtil[0].samplingCounterValue;
+            ss << "}";
+            if (count > 1) {
+                ss << ", ...";
+            }
+        }
+        ss << "]";
     }
     ss << ")";
     return ss.str();

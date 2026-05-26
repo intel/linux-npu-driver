@@ -24,6 +24,34 @@
 #include <zet_ddi.h>
 
 namespace L0 {
+ze_result_t zetDeviceEnableMetricsExp(zet_device_handle_t hDevice) {
+    trace_zetDeviceEnableMetricsExp(hDevice);
+    ze_result_t ret;
+
+    if (hDevice == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(ret, L0::Device::fromHandle(hDevice)->enableMetrics());
+exit:
+    trace_zetDeviceEnableMetricsExp(ret, hDevice);
+    return ret;
+}
+
+ze_result_t zetDeviceDisableMetricsExp(zet_device_handle_t hDevice) {
+    trace_zetDeviceDisableMetricsExp(hDevice);
+    ze_result_t ret;
+
+    if (hDevice == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(ret, L0::Device::fromHandle(hDevice)->disableMetrics());
+exit:
+    trace_zetDeviceDisableMetricsExp(ret, hDevice);
+    return ret;
+}
+
 ze_result_t zetMetricGroupGet(zet_device_handle_t hDevice,
                               uint32_t *pCount,
                               zet_metric_group_handle_t *phMetricGroups) {
@@ -388,6 +416,43 @@ exit:
     trace_zetMetricQueryGetData(ret, hMetricQuery, pRawDataSize, pRawData);
     return ret;
 }
+
+zet_context_dditable_t zetContextDdiTable = {.pfnActivateMetricGroups =
+                                                 zetContextActivateMetricGroups};
+
+zet_command_list_dditable_t zetCommandListDdiTable = {
+    .pfnAppendMetricStreamerMarker = zetCommandListAppendMetricStreamerMarker,
+    .pfnAppendMetricQueryBegin = zetCommandListAppendMetricQueryBegin,
+    .pfnAppendMetricQueryEnd = zetCommandListAppendMetricQueryEnd,
+    .pfnAppendMetricMemoryBarrier = zetCommandListAppendMetricMemoryBarrier};
+
+zet_metric_dditable_t zetMetricDdiTable = {.pfnGet = zetMetricGet,
+                                           .pfnGetProperties = zetMetricGetProperties};
+
+zet_metric_group_dditable_t zetMetricGroupDdiTable = {
+    .pfnGet = zetMetricGroupGet,
+    .pfnGetProperties = zetMetricGroupGetProperties,
+    .pfnCalculateMetricValues = zetMetricGroupCalculateMetricValues};
+
+zet_metric_streamer_dditable_t zetMetricStreamerDdiTable = {.pfnOpen = zetMetricStreamerOpen,
+                                                            .pfnClose = zetMetricStreamerClose,
+                                                            .pfnReadData =
+                                                                zetMetricStreamerReadData};
+
+zet_metric_query_pool_dditable_t zetMetricQueryPoolDdiTable = {
+    .pfnCreate = zetMetricQueryPoolCreate,
+    .pfnDestroy = zetMetricQueryPoolDestroy};
+
+zet_metric_query_dditable_t zetMetricQueryDdiTable = {.pfnCreate = zetMetricQueryCreate,
+                                                      .pfnDestroy = zetMetricQueryDestroy,
+                                                      .pfnReset = zetMetricQueryReset,
+                                                      .pfnGetData = zetMetricQueryGetData};
+
+zet_device_exp_dditable_t zetDeviceExpDdiTable = {.pfnGetConcurrentMetricGroupsExp = nullptr,
+                                                  .pfnCreateMetricGroupsFromMetricsExp = nullptr,
+                                                  .pfnEnableMetricsExp = zetDeviceEnableMetricsExp,
+                                                  .pfnDisableMetricsExp =
+                                                      zetDeviceDisableMetricsExp};
 } // namespace L0
 
 extern "C" {
@@ -530,6 +595,44 @@ exit:
     return ret;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// @brief Exported function for filling application's DeviceExp table
+///        with current process' addresses
+///
+/// @returns
+///     - ::ZE_RESULT_SUCCESS
+///     - ::ZE_RESULT_ERROR_UNINITIALIZED
+///     - ::ZE_RESULT_ERROR_INVALID_NULL_POINTER
+///     - ::ZE_RESULT_ERROR_UNSUPPORTED_VERSION
+ZE_DLLEXPORT ze_result_t ZE_APICALL zetGetDeviceExpProcAddrTable(
+    ze_api_version_t version,            ///< [in] API version requested
+    zet_device_exp_dditable_t *pDdiTable ///< [in,out] pointer to table of DDI function pointers
+) {
+    trace_zetGetDeviceExpProcAddrTable(version, pDdiTable);
+    ze_result_t ret;
+    if (nullptr == pDdiTable) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
+
+    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
+        goto exit;
+    }
+
+    ret = ZE_RESULT_SUCCESS;
+
+    if (version >= ZE_API_VERSION_1_13) {
+        pDdiTable->pfnEnableMetricsExp = L0::zetDeviceEnableMetricsExp;
+        pDdiTable->pfnDisableMetricsExp = L0::zetDeviceDisableMetricsExp;
+        pDdiTable->pfnGetConcurrentMetricGroupsExp = nullptr;
+        pDdiTable->pfnCreateMetricGroupsFromMetricsExp = nullptr;
+    }
+
+exit:
+    trace_zetGetDeviceExpProcAddrTable(ret, version, pDdiTable);
+    return ret;
+}
 ///////////////////////////////////////////////////////////////////////////////
 /// @brief Exported function for filling application's MetricGroup table
 ///        with current process' addresses

@@ -23,7 +23,7 @@ MockVPUDevice::MockVPUDevice(std::string devnode, MockOsInterfaceImp &mockOSInf)
 std::unique_ptr<MockVPUDevice>
 MockVPUDevice::createWithDefaultHardwareInfo(MockOsInterfaceImp &mockOSInf) {
     auto device = std::make_unique<MockVPUDevice>(FAKE_TEST_DEV_NODE, mockOSInf);
-    if (!device->init(true))
+    if (!device->init())
         throw std::runtime_error("Failed to initialize MockVPUDevice");
     return device;
 };

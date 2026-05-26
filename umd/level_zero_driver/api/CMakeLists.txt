@@ -23,6 +23,9 @@ target_sources(${TARGET_NAME_L0} PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/zes_misc.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/zet_metric.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/zet_misc.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/ze_ddi_tables.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/zet_ddi_tables.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/zes_ddi_tables.cpp
 )
 target_link_libraries(${TARGET_NAME_L0} level_zero_driver)
 target_link_options(${TARGET_NAME_L0} PRIVATE -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/ze.exports)

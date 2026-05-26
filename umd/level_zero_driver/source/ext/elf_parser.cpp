@@ -93,7 +93,8 @@ class DriverBufferManager : public elf::BufferManager {
             return elf::DeviceBuffer(nullptr, bo->getVPUAddr(), buffSpecs.size);
         }
 
-        // If buffer is sharable, return empty DeviceBuffer. The buffer will be added on submission
+        // If buffer is sharable, return empty DeviceBuffer. We only keep track of the shared
+        // scratch size for this inference here. The buffer will be added on submission.
         if (buffSpecs.isSharable() && range == VPU::VPUBufferObject::Type::WriteCombineDma) {
             LOG(GRAPH, "Shared scratch buffer size: %lu", buffSpecs.size);
             sharedScratchSize = buffSpecs.size;
@@ -375,6 +376,9 @@ createHostParsedInference(elf::BufferManager *buffer,
         LOG_E("Failed to create elf::HostParsedInference, type: std::exception, reason: %s",
               err.what());
         errorMsg += std::string(err.what()) + "\n";
+    } catch (...) {
+        LOG_E("Failed to create elf::HostParsedInference, reason: unknown");
+        errorMsg += "Unknown error\n";
     }
     return nullptr;
 }
@@ -401,8 +405,10 @@ copyHostParsedInference(std::shared_ptr<elf::HostParsedInference> &hpi) {
     } catch (const std::exception &err) {
         LOG_E("Failed to create elf::HostParsedInference, type: std::exception, reason: %s",
               err.what());
+    } catch (...) {
+        LOG_E("Failed to copy elf::HostParsedInference, reason: unknown");
     }
-    return nullptr;
+    throw DriverError(ZE_RESULT_ERROR_UNKNOWN);
 }
 
 static void loadHostParsedInference(const std::shared_ptr<elf::HostParsedInference> &hpi) {
@@ -427,6 +433,8 @@ static void loadHostParsedInference(const std::shared_ptr<elf::HostParsedInferen
     } catch (const std::exception &err) {
         LOG_E("Failed to load elf::HostParsedInference, type: std::exception, reason: %s",
               err.what());
+    } catch (...) {
+        LOG_E("Failed to load elf::HostParsedInference, reason: unknown");
     }
     throw DriverError(ZE_RESULT_ERROR_UNKNOWN);
 }
@@ -674,6 +682,10 @@ bool ElfParser::getArgumentProperties(std::vector<GraphArgumentProperties> &prop
     TRACE_EVENT_BEGIN("NPU_ELF", "elf::HostParsedInference::getMetadata");
     auto metadata = hpiManager->head()->getMetadata();
     TRACE_EVENT_END("NPU_ELF");
+    if (!metadata) {
+        LOG_E("Failed to get metadata");
+        return false;
+    }
     props.reserve(metadata->mInTensorDescriptors.size() + metadata->mOutTensorDescriptors.size());
 
     for (size_t i = 0; i < metadata->mInTensorDescriptors.size(); i++) {
@@ -744,6 +756,10 @@ bool ElfParser::getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &a
     TRACE_EVENT_BEGIN("NPU_ELF", "elf::HostParsedInference::getMetadata");
     auto metadata = hpiManager->head()->getMetadata();
     TRACE_EVENT_END("NPU_ELF");
+    if (!metadata) {
+        LOG_E("Failed to get metadata");
+        return false;
+    }
     args.reserve(metadata->mNetInputs.size() + metadata->mNetOutputs.size());
 
     auto convert = [](const elf::OVNode &node,
@@ -845,6 +861,9 @@ size_t ElfParser::getSharedScratchSize() const {
 
 void ElfParser::updateSharedScratchBuffers(std::shared_ptr<elf::HostParsedInference> &cmdHpi,
                                            std::shared_ptr<VPU::VPUBufferObject> &bo) {
+    /* Scratch buffers are not tracked by the buffer manager, we set their size to 0
+     * and the zero size buffers are skipped in checks against tracked buffers
+     */
     std::vector<elf::DeviceBuffer> buffers{
         elf::DeviceBuffer(bo->getBasePointer(), bo->getVPUAddr(), 0)};
 
@@ -854,9 +873,20 @@ void ElfParser::updateSharedScratchBuffers(std::shared_ptr<elf::HostParsedInfere
         buffers.at(0).cpu_addr(),
         buffers.at(0).vpu_addr(),
         buffers.at(0).size());
-
-    TRACE_EVENT("NPU_ELF", "elf::HostParsedInference::updateSharedScratchBuffers");
-    cmdHpi->updateSharedScratchBuffers(buffers);
+    try {
+        TRACE_EVENT("NPU_ELF", "elf::HostParsedInference::updateSharedScratchBuffers");
+        cmdHpi->updateSharedScratchBuffers(buffers);
+        return;
+    } catch (const elf::AllocError &err) {
+        LOG_E("Failed to update shared scratch buffers, type: elf::AllocError, reason: %s",
+              err.what());
+    } catch (const std::exception &err) {
+        LOG_E("Failed to update shared scratch buffers, type: std::exception, reason: %s",
+              err.what());
+    } catch (...) {
+        LOG_E("Failed to update shared scratch buffers, reason: unknown");
+    }
+    throw DriverError(ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY);
 }
 
 bool ElfParser::applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &cmdHpi,
@@ -925,10 +955,10 @@ bool ElfParser::applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &cmd
         if (!profilingMemPtr || !profilingBo)
             return false;
 
-        bos.push_back(profilingBo);
         profilingDeviceBuffers.emplace_back(profilingMemPtr,
                                             profilingBo->getVPUAddr(profilingMemPtr),
                                             profilingQuery->getSize());
+        bos.push_back(std::move(profilingBo));
     }
 
     try {
@@ -941,17 +971,23 @@ bool ElfParser::applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &cmd
             outputDeviceBuffers.size(),
             profilingDeviceBuffers.size());
         cmdHpi->applyInputOutput(inputDeviceBuffers, outputDeviceBuffers, profilingDeviceBuffers);
+        return true;
     } catch (const elf::RelocError &err) {
-        LOG_E("Caught reloc exception in hostParsedInference.applyInputOutput()");
-        return false;
+        LOG_E("Caught reloc exception in hostParsedInference.applyInputOutput(), type: "
+              "elf::RelocError, reason: %s",
+              err.what());
     } catch (const elf::LogicError &err) {
-        LOG_E("Caught logic exception in hostParsedInference.applyInputOutput()");
-        return false;
+        LOG_E("Caught logic exception in hostParsedInference.applyInputOutput(), type: "
+              "elf::LogicError, reason: %s",
+              err.what());
     } catch (const std::exception &err) {
-        LOG_E("Unhandled exception in hostParsedInference.applyInputOutput()");
-        return false;
+        LOG_E("Unhandled exception in hostParsedInference.applyInputOutput(), type: "
+              "std::exception, reason: %s",
+              err.what());
+    } catch (...) {
+        LOG_E("Unhandled exception in hostParsedInference.applyInputOutput(), reason: unknown");
     }
-    return true;
+    return false;
 }
 
 std::shared_ptr<VPU::VPUInferenceExecute>
@@ -964,7 +1000,14 @@ ElfParser::createInferenceExecuteCommand(const std::vector<const void *> &inputP
     if (!ctx->getUniqueInferenceId(inferenceId))
         return nullptr;
 
-    std::shared_ptr<elf::HostParsedInference> cmdHpi = hpiManager->acquire();
+    std::shared_ptr<elf::HostParsedInference> cmdHpi;
+    try {
+        cmdHpi = hpiManager->acquire();
+    } catch (const DriverError &e) {
+        LOG_E("Failed to acquire HostParsedInference, error: %d", static_cast<int>(e.result()));
+        return nullptr;
+    }
+
     std::vector<std::shared_ptr<VPU::VPUBufferObject>> bos;
     auto hpiBuffer = cmdHpi->getParsedInference();
     auto bo = findBuffer(hpiBuffer.cpu_addr());
@@ -975,13 +1018,8 @@ ElfParser::createInferenceExecuteCommand(const std::vector<const void *> &inputP
     bos.push_back(std::move(bo));
 
     for (const auto &buffer : cmdHpi->getAllocatedBuffers()) {
-        // Skip not allocated buffers
+        // Skip not allocated and scratch buffers. Scratch will be assigned at submit time
         if (buffer.size() == 0) {
-            continue;
-        }
-
-        // SharedScratchBuffer does not set the cpu address
-        if (buffer.cpu_addr() == nullptr && buffer.size() == getSharedScratchSize()) {
             continue;
         }
 
@@ -1036,15 +1074,6 @@ ze_result_t ElfParser::initialize() {
         return e.result();
     }
     return ZE_RESULT_ERROR_UNKNOWN;
-}
-
-std::shared_ptr<VPU::VPUBufferObject> ElfParser::allocateInternal(size_t size) {
-    if (!size)
-        return nullptr;
-    elf::BufferSpecs spec = {};
-    spec.size = size;
-    elf::DeviceBuffer buffer = bufferManager->allocate(spec);
-    return findBuffer(buffer.cpu_addr());
 }
 
 std::shared_ptr<VPU::VPUCommand> ElfParser::allocateInitCommand(VPU::VPUDeviceContext *ctx) {

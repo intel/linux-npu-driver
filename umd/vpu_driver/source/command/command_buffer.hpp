@@ -14,7 +14,6 @@
 #include "vpu_driver/source/command/event_command.hpp"
 
 #include <memory>
-#include <optional>
 #include <uapi/drm/ivpu_accel.h>
 #include <vector>
 
@@ -88,7 +87,7 @@ class VPUCommandBuffer {
     bool addSelfSignalAtTail();
 
     void addPreemptionBuffer(std::shared_ptr<VPUBufferObject> bo);
-    uint32_t getPreemptionBufferIndex() const { return preemptionBufferIndex.value_or(0); }
+    uint32_t getPreemptionBufferIndex() const;
     void useBusyWait();
 
   private:
@@ -149,7 +148,6 @@ class VPUCommandBuffer {
     std::shared_ptr<VPUBufferObject> inferenceScratchBuffer;
 
     std::shared_ptr<VPUBufferObject> preemptionBuffer;
-    std::optional<uint32_t> preemptionBufferIndex = std::nullopt;
     bool useBusyWaitFlag = false;
 };
 

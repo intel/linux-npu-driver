@@ -304,33 +304,6 @@ exit:
 }
 
 ZE_APIEXPORT ze_result_t ZE_APICALL
-zetGetDeviceExpProcAddrTable(ze_api_version_t version, zet_device_exp_dditable_t *pDdiTable) {
-    trace_zetGetDeviceExpProcAddrTable(version, pDdiTable);
-    ze_result_t ret;
-
-    if (nullptr == pDdiTable) {
-        ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
-        goto exit;
-    }
-
-    if (ZE_MAJOR_VERSION(ZE_API_VERSION_CURRENT) != ZE_MAJOR_VERSION(version)) {
-        ret = ZE_RESULT_ERROR_UNSUPPORTED_VERSION;
-        goto exit;
-    }
-
-    if (version >= ZE_API_VERSION_1_11) {
-        pDdiTable->pfnGetConcurrentMetricGroupsExp = nullptr;
-        pDdiTable->pfnCreateMetricGroupsFromMetricsExp = nullptr;
-    }
-
-    ret = ZE_RESULT_SUCCESS;
-
-exit:
-    trace_zetGetDeviceExpProcAddrTable(ret, version, pDdiTable);
-    return ret;
-}
-
-ZE_APIEXPORT ze_result_t ZE_APICALL
 zetGetMetricExpProcAddrTable(ze_api_version_t version, zet_metric_exp_dditable_t *pDdiTable) {
     trace_zetGetMetricExpProcAddrTable(version, pDdiTable);
     ze_result_t ret;

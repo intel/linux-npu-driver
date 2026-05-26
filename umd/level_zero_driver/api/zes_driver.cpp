@@ -44,6 +44,13 @@ exit:
     return ret;
 }
 
+zes_global_dditable_t zesGlobalDdiTable = {.pfnInit = zesInit};
+
+zes_driver_dditable_t zesDriverDdiTable = {.pfnEventListen = nullptr,
+                                           .pfnEventListenEx = nullptr,
+                                           .pfnGet = zesDriverGet,
+                                           .pfnGetExtensionProperties = nullptr,
+                                           .pfnGetExtensionFunctionAddress = nullptr};
 } // namespace L0
 
 extern "C" {

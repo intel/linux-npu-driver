@@ -10,12 +10,13 @@
 #include <stdint.h>
 
 #include "device.hpp"
+#include "level_zero_driver/api/zet_misc.hpp"
 
 #include <memory>
 #include <vector>
 #include <ze_api.h>
 
-struct _ze_driver_handle_t {};
+struct _ze_driver_handle_t : public L0::_ze_generic_handle_t {};
 
 namespace VPU {
 class VPUDevice;

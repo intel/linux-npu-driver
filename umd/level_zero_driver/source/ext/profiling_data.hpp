@@ -16,6 +16,7 @@
 #include <ze_graph_profiling_ext.h>
 
 namespace VPU {
+class VPUDeviceContext;
 class VPUBufferObject;
 } // namespace VPU
 
@@ -28,7 +29,8 @@ class BlobContainer;
 
 struct GraphProfilingQuery : _ze_graph_profiling_query_handle_t {
   public:
-    GraphProfilingQuery(const BlobContainer *blob,
+    GraphProfilingQuery(VPU::VPUDeviceContext *ctx,
+                        const BlobContainer *blob,
                         const uint32_t size,
                         void *queryPtrInput,
                         std::shared_ptr<VPU::VPUBufferObject> profilingMemoryBo,
@@ -48,6 +50,7 @@ struct GraphProfilingQuery : _ze_graph_profiling_query_handle_t {
     inline uint32_t getSize() { return size; }
 
   private:
+    VPU::VPUDeviceContext *ctx = nullptr;
     uint32_t size = 0u;
     void *data = nullptr;
     const BlobContainer *blob;
@@ -57,7 +60,8 @@ struct GraphProfilingQuery : _ze_graph_profiling_query_handle_t {
 
 struct GraphProfilingPool : _ze_graph_profiling_pool_handle_t {
   public:
-    GraphProfilingPool(const uint32_t size,
+    GraphProfilingPool(VPU::VPUDeviceContext *ctx,
+                       const uint32_t size,
                        const uint32_t count,
                        const BlobContainer *blob,
                        std::shared_ptr<VPU::VPUBufferObject> profilingMemory,
@@ -73,6 +77,7 @@ struct GraphProfilingPool : _ze_graph_profiling_pool_handle_t {
     }
 
   private:
+    VPU::VPUDeviceContext *ctx = nullptr;
     uint32_t querySize = 0u;
     std::shared_ptr<VPU::VPUBufferObject> poolBuffer = nullptr;
     const BlobContainer *blob;

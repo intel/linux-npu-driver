@@ -207,6 +207,28 @@ ze_result_t zeContextEvictImage(ze_context_handle_t hContext,
     return ret;
 }
 
+ze_context_dditable_t zeContextDdiTable = {.pfnCreate = zeContextCreate,
+                                           .pfnDestroy = zeContextDestroy,
+                                           .pfnGetStatus = zeContextGetStatus,
+                                           .pfnSystemBarrier = zeContextSystemBarrier,
+                                           .pfnMakeMemoryResident = zeContextMakeMemoryResident,
+                                           .pfnEvictMemory = zeContextEvictMemory,
+                                           .pfnMakeImageResident = zeContextMakeImageResident,
+                                           .pfnEvictImage = zeContextEvictImage,
+                                           .pfnCreateEx = nullptr};
+
+ze_physical_mem_dditable_t zePhysicalMemDdiTable = {.pfnCreate = zePhysicalMemCreate,
+                                                    .pfnDestroy = zePhysicalMemDestroy,
+                                                    .pfnGetProperties = nullptr};
+
+ze_virtual_mem_dditable_t zeVirtualMemDdiTable = {
+    .pfnReserve = zeVirtualMemReserve,
+    .pfnFree = zeVirtualMemFree,
+    .pfnQueryPageSize = zeVirtualMemQueryPageSize,
+    .pfnMap = zeVirtualMemMap,
+    .pfnUnmap = zeVirtualMemUnmap,
+    .pfnSetAccessAttribute = zeVirtualMemSetAccessAttribute,
+    .pfnGetAccessAttribute = zeVirtualMemGetAccessAttribute};
 } // namespace L0
 
 extern "C" {
@@ -261,6 +283,9 @@ zeGetPhysicalMemProcAddrTable(ze_api_version_t version, ze_physical_mem_dditable
     if (version >= ZE_API_VERSION_1_0) {
         pDdiTable->pfnCreate = L0::zePhysicalMemCreate;
         pDdiTable->pfnDestroy = L0::zePhysicalMemDestroy;
+    }
+    if (version >= ZE_API_VERSION_1_15) {
+        pDdiTable->pfnGetProperties = nullptr;
     }
 
     ret = ZE_RESULT_SUCCESS;

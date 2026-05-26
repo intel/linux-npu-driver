@@ -282,6 +282,32 @@ exit:
     return ret;
 }
 
+ze_device_dditable_t zeDeviceDdiTable = {
+    .pfnGet = zeDeviceGet,
+    .pfnGetSubDevices = zeDeviceGetSubDevices,
+    .pfnGetProperties = zeDeviceGetProperties,
+    .pfnGetComputeProperties = zeDeviceGetComputeProperties,
+    .pfnGetModuleProperties = zeDeviceGetModuleProperties,
+    .pfnGetCommandQueueGroupProperties = zeDeviceGetCommandQueueGroupProperties,
+    .pfnGetMemoryProperties = zeDeviceGetMemoryProperties,
+    .pfnGetMemoryAccessProperties = zeDeviceGetMemoryAccessProperties,
+    .pfnGetCacheProperties = zeDeviceGetCacheProperties,
+    .pfnGetImageProperties = zeDeviceGetImageProperties,
+    .pfnGetExternalMemoryProperties = zeDeviceGetExternalMemoryProperties,
+    .pfnGetP2PProperties = zeDeviceGetP2PProperties,
+    .pfnCanAccessPeer = zeDeviceCanAccessPeer,
+    .pfnGetStatus = zeDeviceGetStatus,
+    .pfnGetGlobalTimestamps = zeDeviceGetGlobalTimestamps,
+    .pfnReserveCacheExt = nullptr,
+    .pfnSetCacheAdviceExt = nullptr,
+    .pfnPciGetPropertiesExt = zeDevicePciGetPropertiesExt,
+    .pfnGetRootDevice = nullptr,
+    .pfnImportExternalSemaphoreExt = nullptr,
+    .pfnReleaseExternalSemaphoreExt = nullptr,
+    .pfnGetVectorWidthPropertiesExt = nullptr,
+    .pfnSynchronize = nullptr,
+    .pfnGetAggregatedCopyOffloadIncrementValue = nullptr};
+
 } // namespace L0
 
 extern "C" {

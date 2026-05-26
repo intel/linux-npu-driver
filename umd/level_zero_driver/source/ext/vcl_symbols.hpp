@@ -10,10 +10,11 @@
 #include "npu_driver_compiler.h"
 #include "vpu_driver/source/utilities/log.hpp"
 
-#include <array>
 #include <dlfcn.h>
+#include <filesystem>
 #include <memory>
 #include <string>
+#include <vector>
 
 class Vcl {
   public:
@@ -23,6 +24,17 @@ class Vcl {
     }
 
     bool ok() { return handle != nullptr; }
+
+    std::string getLibPath() const {
+        if (!handle)
+            return {};
+
+        Dl_info info = {};
+        int ret = dladdr(reinterpret_cast<void *>(getVersion), &info);
+        if (ret == 0)
+            return {};
+        return info.dli_fname;
+    }
 
   private:
     template <typename... Arg>
@@ -51,10 +63,29 @@ class Vcl {
         return reinterpret_cast<T>(sym);
     }
 
+    static std::filesystem::path getDriverLibDir() {
+#ifdef NPU_ALT_DEPENDENCY_PATH_OVERRIDE
+        if (getenv("NPU_ALT_DEPENDENCY_PATH"))
+            return std::filesystem::path(getenv("NPU_ALT_DEPENDENCY_PATH"));
+#endif
+
+        Dl_info info = {};
+        int ret = dladdr(reinterpret_cast<void *>(getDriverLibDir), &info);
+        if (ret == 0) {
+            LOG_E("Failed to get driver library path");
+            return {};
+        }
+        return std::filesystem::path(info.dli_fname).parent_path();
+    }
+
     Vcl() {
+        // First try to load library placed in same directory as driver
+        std::vector<std::string> libToLoads = {getDriverLibDir() /
+                                                   "libopenvino_intel_npu_compiler_loader.so",
+                                               "libnpu_driver_compiler.so"};
         std::string errorMsg;
-        for (auto name : compilerNames) {
-            handle = VclHandle(dlopen(name, RTLD_LAZY | RTLD_LOCAL), &closeHandle);
+        for (auto name : libToLoads) {
+            handle = VclHandle(dlopen(name.c_str(), RTLD_LAZY | RTLD_LOCAL), &closeHandle);
             if (handle)
                 break;
 
@@ -120,6 +151,4 @@ class Vcl {
   private:
     using VclHandle = std::unique_ptr<void, decltype(&closeHandle)>;
     VclHandle handle = VclHandle(nullptr, nullptr);
-
-    std::array<const char *, 1> compilerNames = {"libnpu_driver_compiler.so"};
 };

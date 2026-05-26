@@ -9,6 +9,7 @@
 
 #include "context.hpp"
 #include "device.hpp"
+#include "level_zero_driver/include/nested_structs_handler.hpp"
 #include "umd_common.hpp"
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_device.hpp"
@@ -16,11 +17,13 @@
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <cstring>
+#include <optional>
 #include <utility>
 #include <vector>
 #include <ze_api.h>
 #include <ze_command_queue_npu_ext.h>
 #include <ze_context_npu_ext.h>
+#include <ze_driver_npu_ext.h>
 #include <ze_graph_ext.h>
 #include <ze_graph_profiling_ext.h>
 #include <ze_intel_npu_uuid.h>
@@ -71,8 +74,21 @@ ze_result_t DriverHandle::getProperties(ze_driver_properties_t *properties) {
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
+    auto processDriverPropertiesExt = [](void *pNext) -> std::optional<void *> {
+        ze_base_properties_t *extProp = reinterpret_cast<ze_base_properties_t *>(pNext);
+        if (extProp->stype == ZE_STRUCTURE_TYPE_DRIVER_DDI_HANDLES_EXT_PROPERTIES) {
+            ze_driver_ddi_handles_ext_properties_t *pDdiHandlesExtProperties =
+                reinterpret_cast<ze_driver_ddi_handles_ext_properties_t *>(pNext);
+            pDdiHandlesExtProperties->flags = ze_driver_ddi_handle_ext_flag_t::
+                ZE_DRIVER_DDI_HANDLE_EXT_FLAG_DDI_HANDLE_EXT_SUPPORTED;
+            return const_cast<void *>(pDdiHandlesExtProperties->pNext);
+        }
+        return const_cast<void *>(extProp->pNext);
+    };
+
     properties->uuid = ze_intel_npu_driver_uuid;
     properties->driverVersion = DRIVER_VERSION;
+    handleNestedStructs(properties->pNext, processDriverPropertiesExt);
 
     LOG(DRIVER, "Driver properties returned successfully");
     return ZE_RESULT_SUCCESS;
@@ -138,6 +154,7 @@ std::vector<ze_driver_extension_properties_t> DriverHandle::getSupportedExtensio
     appendExtension(ZE_MUTABLE_COMMAND_LIST_EXP_NAME, ZE_MUTABLE_COMMAND_LIST_EXP_VERSION_1_1);
     appendExtension(ZE_COMMAND_QUEUE_NPU_EXT_NAME, getSupportedCmdQueueExtVersion(devices));
     appendExtension(ZE_CONTEXT_NPU_EXT_NAME, ZE_CONTEXT_NPU_EXT_VERSION_CURRENT);
+    appendExtension(ZE_DRIVER_DDI_HANDLES_EXT_NAME, ZE_DRIVER_DDI_HANDLES_EXT_VERSION_1_1);
 
     if (isUserPtrSupported(devices))
         appendExtension(ZE_EXTERNAL_MEMORY_MAPPING_EXT_NAME,
@@ -151,6 +168,7 @@ std::vector<ze_driver_extension_properties_t> DriverHandle::getSupportedExtensio
     appendExtension("ZE_extension_graph_1_7", ZE_GRAPH_EXT_VERSION_1_7);
     appendExtension("ZE_extension_graph_1_8", ZE_GRAPH_EXT_VERSION_1_8);
 
+    appendExtension(ZE_DRIVER_NPU_EXT_NAME, ZE_DRIVER_NPU_EXT_VERSION_1_0);
     return extensions;
 }
 

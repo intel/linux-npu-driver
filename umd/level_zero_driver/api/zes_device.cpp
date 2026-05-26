@@ -83,6 +83,45 @@ exit:
     return ret;
 }
 
+zes_device_dditable_t zesDeviceDdiTable = {.pfnGetProperties = zesDeviceGetProperties,
+                                           .pfnGetState = nullptr,
+                                           .pfnReset = nullptr,
+                                           .pfnProcessesGetState = nullptr,
+                                           .pfnPciGetProperties = nullptr,
+                                           .pfnPciGetState = nullptr,
+                                           .pfnPciGetBars = nullptr,
+                                           .pfnPciGetStats = nullptr,
+                                           .pfnEnumDiagnosticTestSuites = nullptr,
+                                           .pfnEnumEngineGroups = zesDeviceEnumEngineGroups,
+                                           .pfnEventRegister = nullptr,
+                                           .pfnEnumFabricPorts = nullptr,
+                                           .pfnEnumFans = nullptr,
+                                           .pfnEnumFirmwares = nullptr,
+                                           .pfnEnumFrequencyDomains = nullptr,
+                                           .pfnEnumLeds = nullptr,
+                                           .pfnEnumMemoryModules = nullptr,
+                                           .pfnEnumPerformanceFactorDomains = nullptr,
+                                           .pfnEnumPowerDomains = nullptr,
+                                           .pfnGetCardPowerDomain = nullptr,
+                                           .pfnEnumPsus = nullptr,
+                                           .pfnEnumRasErrorSets = nullptr,
+                                           .pfnEnumSchedulers = nullptr,
+                                           .pfnEnumStandbyDomains = nullptr,
+                                           .pfnEnumTemperatureSensors = nullptr,
+                                           .pfnEccAvailable = nullptr,
+                                           .pfnEccConfigurable = nullptr,
+                                           .pfnGetEccState = nullptr,
+                                           .pfnSetEccState = nullptr,
+                                           .pfnGet = zesDeviceGet,
+                                           .pfnSetOverclockWaiver = nullptr,
+                                           .pfnGetOverclockDomains = nullptr,
+                                           .pfnGetOverclockControls = nullptr,
+                                           .pfnResetOverclockSettings = nullptr,
+                                           .pfnReadOverclockState = nullptr,
+                                           .pfnEnumOverclockDomains = nullptr,
+                                           .pfnResetExt = nullptr,
+                                           .pfnPciLinkSpeedUpdateExt = nullptr};
+
 } // namespace L0
 
 extern "C" {

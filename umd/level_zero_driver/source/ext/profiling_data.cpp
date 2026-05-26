@@ -10,6 +10,7 @@
 #include "compiler.hpp"
 #include "level_zero_driver/include/l0_exception.hpp"
 #include "umd_common.hpp"
+#include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
@@ -32,12 +33,14 @@ static std::string &getLastErrorMsg() {
     return lastErrorMsgs[std::this_thread::get_id()];
 }
 
-GraphProfilingPool::GraphProfilingPool(const uint32_t size,
+GraphProfilingPool::GraphProfilingPool(VPU::VPUDeviceContext *ctx,
+                                       const uint32_t size,
                                        const uint32_t count,
                                        const BlobContainer *blob,
                                        std::shared_ptr<VPU::VPUBufferObject> profilingMemory,
                                        std::function<void(GraphProfilingPool *)> destroyCb)
-    : querySize(size)
+    : ctx(ctx)
+    , querySize(size)
     , poolBuffer(std::move(profilingMemory))
     , blob(blob)
     , queries(count)
@@ -51,12 +54,14 @@ GraphProfilingPool::GraphProfilingPool(const uint32_t size,
     memset(poolBuffer->getBasePointer(), 0, poolBuffer->getAllocSize());
 }
 
-GraphProfilingQuery::GraphProfilingQuery(const BlobContainer *blob,
+GraphProfilingQuery::GraphProfilingQuery(VPU::VPUDeviceContext *ctx,
+                                         const BlobContainer *blob,
                                          const uint32_t size,
                                          void *pData,
                                          std::shared_ptr<VPU::VPUBufferObject> profilingMemoryBo,
                                          std::function<void()> &&destroyCb)
-    : size(size)
+    : ctx(ctx)
+    , size(size)
     , data(pData)
     , blob(blob)
     , profilingBo(std::move(profilingMemoryBo))
@@ -82,7 +87,8 @@ GraphProfilingPool::createProfilingQuery(const uint32_t index,
 
     auto *dataPtr = poolBuffer->getBasePointer() + (index * getFwDataCacheAlign(querySize));
     queries[index] =
-        std::make_unique<GraphProfilingQuery>(blob,
+        std::make_unique<GraphProfilingQuery>(ctx,
+                                              blob,
                                               querySize,
                                               dataPtr,
                                               poolBuffer,
@@ -103,7 +109,13 @@ ze_result_t GraphProfilingQuery::getData(ze_graph_profiling_type_t profilingType
     std::string &lastErrorMsg = getLastErrorMsg();
     if (profilingType == ZE_GRAPH_PROFILING_LAYER_LEVEL ||
         profilingType == ZE_GRAPH_PROFILING_TASK_LEVEL) {
-        return Compiler::getDecodedProfilingBuffer(profilingType,
+        if (ctx == nullptr || blob == nullptr) {
+            LOG_E("Invalid context or blob for decoding profiling data");
+            return ZE_RESULT_ERROR_UNKNOWN;
+        }
+
+        return Compiler::getDecodedProfilingBuffer(ctx->getDeviceCapabilities(),
+                                                   profilingType,
                                                    *blob,
                                                    static_cast<uint8_t *>(data),
                                                    size,

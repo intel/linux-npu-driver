@@ -12,6 +12,7 @@
 #include "level_zero_driver/include/nested_structs_handler.hpp"
 #include "trace_ze_api.hpp"
 
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 #include <ze_api.h>
@@ -84,7 +85,7 @@ inline std::string _trace_zeGraphCreate(ze_context_handle_t hContext,
         if (desc->pBuildFlags == nullptr) {
             ss << ", pBuildFlags: nullptr";
         } else {
-            ss << ", pBuildFlags: " << desc->pBuildFlags;
+            ss << ", pBuildFlags: " << trace_ascii_array(desc->pBuildFlags, 256).str();
         }
         ss << "}";
     }
@@ -149,7 +150,10 @@ inline std::string _trace_zeGraphGetNativeBinary(ze_graph_handle_t hGraph,
     if (pGraphNativeBinary == nullptr) {
         ss << ", pGraphNativeBinary: nullptr";
     } else {
-        ss << ", pGraphNativeBinary: " << *pGraphNativeBinary;
+        const size_t size = (pSize != nullptr) ? *pSize : 0;
+        ss << ", pGraphNativeBinary: ["
+           << trace_u8_array_hex(pGraphNativeBinary, std::min(size, size_t{256})).str();
+        ss << "]";
     }
     ss << ")";
     return ss.str();
@@ -217,7 +221,10 @@ _trace_zeGraphGetArgumentProperties(ze_graph_handle_t hGraph,
         ss << ", pGraphArgumentProperties {";
         ss << "stype: " << pGraphArgumentProperties->stype;
         ss << ", pNext: " << pGraphArgumentProperties->pNext;
-        ss << ", name: " << pGraphArgumentProperties->name;
+        ss << ", name: "
+           << trace_ascii_array(pGraphArgumentProperties->name,
+                                sizeof(pGraphArgumentProperties->name))
+                  .str();
         ss << ", type: " << pGraphArgumentProperties->type;
         ss << ", dims: " << pGraphArgumentProperties->dims[0] << " "
            << pGraphArgumentProperties->dims[1] << " " << pGraphArgumentProperties->dims[2] << " "
@@ -464,7 +471,10 @@ _trace_zeGraphGetArgumentProperties2(ze_graph_handle_t hGraph,
         ss << ", pGraphArgumentProperties {";
         ss << "stype: " << pGraphArgumentProperties->stype;
         ss << ", pNext: " << pGraphArgumentProperties->pNext;
-        ss << ", name: " << pGraphArgumentProperties->name;
+        ss << ", name: "
+           << trace_ascii_array(pGraphArgumentProperties->name,
+                                sizeof(pGraphArgumentProperties->name))
+                  .str();
         ss << ", type: " << pGraphArgumentProperties->type;
         ss << ", dims: " << pGraphArgumentProperties->dims[0] << " "
            << pGraphArgumentProperties->dims[1] << " " << pGraphArgumentProperties->dims[2] << " "
@@ -521,7 +531,10 @@ _trace_zeGraphGetArgumentMetadata(ze_graph_handle_t hGraph,
         ss << "stype: " << pGraphArgumentMetadata->stype;
         ss << ", pNext: " << pGraphArgumentMetadata->pNext;
         ss << ", type: " << pGraphArgumentMetadata->type;
-        ss << ", friendly_name: " << pGraphArgumentMetadata->friendly_name;
+        ss << ", friendly_name: "
+           << trace_ascii_array(pGraphArgumentMetadata->friendly_name,
+                                sizeof(pGraphArgumentMetadata->friendly_name))
+                  .str();
         ss << ", data_type: " << pGraphArgumentMetadata->data_type;
         ss << ", shape: " << pGraphArgumentMetadata->shape[0] << " "
            << pGraphArgumentMetadata->shape[1] << " " << pGraphArgumentMetadata->shape[2] << " "
@@ -530,7 +543,10 @@ _trace_zeGraphGetArgumentMetadata(ze_graph_handle_t hGraph,
            << pGraphArgumentMetadata->shape[7];
         ss << ", shape_size: " << pGraphArgumentMetadata->shape_size;
         ss << ", tensor_names_count: " << pGraphArgumentMetadata->tensor_names_count;
-        ss << ", input_name: " << pGraphArgumentMetadata->input_name;
+        ss << ", input_name: "
+           << trace_ascii_array(pGraphArgumentMetadata->input_name,
+                                sizeof(pGraphArgumentMetadata->input_name))
+                  .str();
         ss << "}";
     }
     ss << ")";
@@ -569,7 +585,10 @@ _trace_zeGraphGetArgumentProperties3(ze_graph_handle_t hGraph,
         ss << ", pGraphArgumentProperties {";
         ss << "stype: " << pGraphArgumentProperties->stype;
         ss << ", pNext: " << pGraphArgumentProperties->pNext;
-        ss << ", name: " << pGraphArgumentProperties->name;
+        ss << ", name: "
+           << trace_ascii_array(pGraphArgumentProperties->name,
+                                sizeof(pGraphArgumentProperties->name))
+                  .str();
         ss << ", type: " << pGraphArgumentProperties->type;
         ss << ", dims: " << pGraphArgumentProperties->dims[0] << " "
            << pGraphArgumentProperties->dims[1] << " " << pGraphArgumentProperties->dims[2] << " "
@@ -582,7 +601,10 @@ _trace_zeGraphGetArgumentProperties3(ze_graph_handle_t hGraph,
         ss << ", quantZeroPoint: "
            << static_cast<unsigned>(pGraphArgumentProperties->quantZeroPoint);
         ss << ", dims_count: " << pGraphArgumentProperties->dims_count;
-        ss << ", debug_friendly_name: " << pGraphArgumentProperties->debug_friendly_name;
+        ss << ", debug_friendly_name: "
+           << trace_ascii_array(pGraphArgumentProperties->debug_friendly_name,
+                                sizeof(pGraphArgumentProperties->debug_friendly_name))
+                  .str();
         ss << ", associated_tensor_names_count: "
            << pGraphArgumentProperties->associated_tensor_names_count;
         ss << "}";
@@ -640,7 +662,7 @@ _trace_zeGraphQueryNetworkCreate(ze_context_handle_t hContext,
         if (desc->pBuildFlags == nullptr) {
             ss << ", pBuildFlags: nullptr";
         } else {
-            ss << ", pBuildFlags: " << desc->pBuildFlags;
+            ss << ", pBuildFlags: " << trace_ascii_array(desc->pBuildFlags, 256).str();
         }
         ss << "}";
     }
@@ -708,14 +730,16 @@ _trace_zeGraphQueryNetworkGetSupportedLayers(ze_graph_query_network_handle_t hGr
     ss << "NPU_LOG: [API_EXT] zeGraphQueryNetworkGetSupportedLayers(";
     ss << "hGraphQueryNetwork: " << hGraphQueryNetwork;
     if (pSize == nullptr) {
-        ss << ", *pSize: nullptr";
+        ss << ", pSize: nullptr";
     } else {
-        ss << ", *pSize: " << *pSize;
+        ss << ", pSize: " << *pSize;
     }
     if (pSupportedLayers == nullptr) {
-        ss << ", *pSupportedLayers: nullptr";
+        ss << ", pSupportedLayers: nullptr";
     } else {
-        ss << ", *pSupportedLayers: " << *pSupportedLayers;
+        const size_t size = (pSize != nullptr) ? *pSize : 0;
+        ss << ", pSupportedLayers: "
+           << trace_ascii_array(pSupportedLayers, std::min(size, size_t{256})).str();
     }
     ss << ")";
     return ss.str();
@@ -758,7 +782,8 @@ _trace_zeGraphBuildLogGetString(ze_graph_handle_t hGraph, uint32_t *pSize, char 
     if (pBuildLog == nullptr) {
         ss << ", pBuildLog: nullptr";
     } else {
-        ss << ", pBuildLog: " << pBuildLog;
+        const size_t size = (pSize != nullptr) ? *pSize : 0;
+        ss << ", pBuildLog: " << trace_ascii_array(pBuildLog, std::min(size, size_t{256})).str();
     }
     ss << ")";
     return ss.str();
@@ -804,7 +829,7 @@ inline std::string _trace_zeGraphCreate2(ze_context_handle_t hContext,
         if (desc->pBuildFlags == nullptr) {
             ss << ", pBuildFlags: nullptr";
         } else {
-            ss << ", pBuildFlags: " << desc->pBuildFlags;
+            ss << ", pBuildFlags: " << trace_ascii_array(desc->pBuildFlags, 256).str();
         }
         ss << ", flags: " << desc->flags;
         ss << "}";
@@ -862,7 +887,7 @@ _trace_zeGraphQueryNetworkCreate2(ze_context_handle_t hContext,
         if (desc->pBuildFlags == nullptr) {
             ss << ", pBuildFlags: nullptr";
         } else {
-            ss << ", pBuildFlags: " << desc->pBuildFlags;
+            ss << ", pBuildFlags: " << trace_ascii_array(desc->pBuildFlags, 256).str();
         }
         ss << ", flags: " << desc->flags;
         ss << "}";
@@ -945,9 +970,9 @@ _trace_zeDeviceGetGraphProperties2(ze_device_handle_t hDevice,
     ss << "NPU_LOG: [API_EXT] zeDeviceGetGraphProperties2(";
     ss << "hDevice: " << hDevice;
     if (pDeviceGraphProperties == nullptr) {
-        ss << ", *pDeviceGraphProperties: nullptr";
+        ss << ", pDeviceGraphProperties: nullptr";
     } else {
-        ss << ", *pDeviceGraphProperties {";
+        ss << ", pDeviceGraphProperties {";
         ss << "stype: " << pDeviceGraphProperties->stype;
         ss << ", pNext: " << pDeviceGraphProperties->pNext;
         ss << ", graphExtensionVersion: " << pDeviceGraphProperties->graphExtensionVersion;
@@ -1002,7 +1027,14 @@ inline std::string _trace_zeGraphGetNativeBinary2(ze_graph_handle_t hGraph,
     } else {
         ss << ", pSize: " << *pSize;
     }
-    ss << ", pGraphNativeBinary: " << pGraphNativeBinary;
+    if (pGraphNativeBinary == nullptr || *pGraphNativeBinary == nullptr) {
+        ss << ", pGraphNativeBinary: nullptr";
+    } else {
+        const size_t size = (pSize != nullptr) ? *pSize : 0;
+        ss << ", pGraphNativeBinary: ["
+           << trace_u8_array_hex(*pGraphNativeBinary, std::min(size, size_t{256})).str();
+        ss << "]";
+    }
     ss << ")";
     return ss.str();
 }
@@ -1091,7 +1123,9 @@ inline std::string _trace_zeGraphCompilerGetSupportedOptions(ze_npu_options_type
     if (pSupportedOptions == nullptr) {
         ss << ", pSupportedOptions: nullptr";
     } else {
-        ss << ", pSupportedOptions: " << pSupportedOptions;
+        const size_t size = (pSize != nullptr) ? *pSize : 0;
+        ss << ", pSupportedOptions: "
+           << trace_ascii_array(pSupportedOptions, std::min(size, size_t{256})).str();
     }
     ss << ")";
     return ss.str();
@@ -1125,12 +1159,12 @@ inline std::string _trace_zeGraphCompilerIsOptionSupported(ze_npu_options_type_t
     if (pOption == nullptr) {
         ss << ", pOption: nullptr";
     } else {
-        ss << ", pOption: " << pOption;
+        ss << ", pOption: " << trace_ascii_array(pOption, size_t{256}).str();
     }
     if (pValue == nullptr) {
         ss << ", pValue: nullptr";
     } else {
-        ss << ", pValue: " << pValue;
+        ss << ", pValue: " << trace_ascii_array(pValue, size_t{256}).str();
     }
     ss << ")";
     return ss.str();
@@ -1179,7 +1213,7 @@ inline std::string _trace_zeGraphCreate3(ze_context_handle_t hContext,
         if (desc->pBuildFlags == nullptr) {
             ss << ", pBuildFlags: nullptr";
         } else {
-            ss << ", pBuildFlags: " << desc->pBuildFlags;
+            ss << ", pBuildFlags: " << trace_ascii_array(desc->pBuildFlags, 256).str();
         }
         ss << ", flags: " << desc->flags;
         ss << "}";
@@ -1234,7 +1268,8 @@ inline std::string _trace_zeGraphBuildLogGetString2(ze_graph_build_log_handle_t 
     if (pBuildLog == nullptr) {
         ss << ", pBuildLog: nullptr";
     } else {
-        ss << ", pBuildLog: " << pBuildLog;
+        const size_t size = (pSize != nullptr) ? *pSize : 0;
+        ss << ", pBuildLog: " << trace_ascii_array(pBuildLog, std::min(size, size_t{256})).str();
     }
     ss << ")";
     return ss.str();

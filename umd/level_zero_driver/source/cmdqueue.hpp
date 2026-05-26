@@ -12,6 +12,7 @@
 #include <stdint.h>
 
 #include "fence.hpp" // IWYU pragma: keep
+#include "level_zero_driver/api/zet_misc.hpp"
 #include "level_zero_driver/include/l0_handler.hpp"
 
 #include <chrono> // IWYU pragma: keep
@@ -23,7 +24,7 @@
 #include <ze_api.h>
 #include <ze_command_queue_npu_ext.h>
 
-struct _ze_command_queue_handle_t {};
+struct _ze_command_queue_handle_t : public L0::_ze_generic_handle_t {};
 namespace VPU {
 class VPUJob;
 class VPUBufferObject;

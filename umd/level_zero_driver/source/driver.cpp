@@ -20,7 +20,6 @@
 
 #include <memory>
 #include <stdlib.h>
-#include <string>
 #include <utility>
 #include <vector>
 #include <ze_api.h>
@@ -83,7 +82,6 @@ ze_result_t Driver::getInitStatus() {
 
 void Driver::displayComponentVersions() {
     LOG(MISC, "Driver version: %s", vpu_drv_version_str);
-    LOG(MISC, "Compiler version: %s", Compiler::getCompilerVersionString().c_str());
     if (pGlobalDriverHandle) {
         for (auto &device : pGlobalDriverHandle->devices) {
             LOG(MISC,
@@ -111,7 +109,7 @@ void Driver::driverInit(ze_init_flags_t flags) {
         }
 
         diskCache = std::make_unique<DiskCache>(*osInfc);
-        auto vpuDevices = VPU::DeviceFactory::createDevices(osInfc, envVariables.metrics);
+        auto vpuDevices = VPU::DeviceFactory::createDevices(osInfc);
         LOG(DRIVER, "%zu VPU device(s) found.", vpuDevices.size());
         if (!vpuDevices.empty()) {
             pGlobalDriverHandle = DriverHandle::create(std::move(vpuDevices));

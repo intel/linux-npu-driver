@@ -18,8 +18,7 @@
 namespace VPU {
 class OsInterface;
 
-std::vector<std::unique_ptr<VPUDevice>> DeviceFactory::createDevices(OsInterface *osi,
-                                                                     bool enableMetrics) {
+std::vector<std::unique_ptr<VPUDevice>> DeviceFactory::createDevices(OsInterface *osi) {
     std::vector<std::unique_ptr<VPUDevice>> devices;
     std::string devPath;
 
@@ -34,7 +33,7 @@ std::vector<std::unique_ptr<VPUDevice>> DeviceFactory::createDevices(OsInterface
     for (int minor = minMinor; minor <= maxMinor; minor++) {
         devPath = std::string(devPrefix) + std::to_string(minor);
         auto device = std::make_unique<VPUDevice>(devPath, *osi);
-        if (!device->init(enableMetrics)) {
+        if (!device->init()) {
             continue;
         }
         devices.push_back(std::move(device));

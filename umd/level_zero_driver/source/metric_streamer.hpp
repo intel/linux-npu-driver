@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "level_zero_driver/api/zet_misc.hpp"
 #include "level_zero_driver/include/l0_handler.hpp"
 
 #include <ze_api.h>
@@ -20,7 +21,7 @@ class VPUDeviceContext;
 class VPUDriverApi;
 } // namespace VPU
 
-struct _zet_metric_streamer_handle_t {};
+struct _zet_metric_streamer_handle_t : public L0::_ze_generic_handle_t {};
 
 namespace L0 {
 

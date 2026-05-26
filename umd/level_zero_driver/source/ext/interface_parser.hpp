@@ -26,7 +26,6 @@ class IParser {
                               uint32_t &size) = 0;
     virtual ze_result_t initialize() = 0;
     virtual std::shared_ptr<VPU::VPUCommand> allocateInitCommand(VPU::VPUDeviceContext *ctx) = 0;
-    virtual std::shared_ptr<VPU::VPUBufferObject> allocateInternal(size_t size) = 0;
     virtual std::shared_ptr<VPU::VPUCommand>
     allocateExecuteCommand(const std::vector<const void *> &inputArgs,
                            const std::vector<const void *> &outputArgs,

@@ -9,6 +9,7 @@
 
 #include <cstdint>
 
+#include "level_zero_driver/api/zet_misc.hpp"
 #include "vpu_driver/source/command/job.hpp"
 #include "vpu_driver/source/device/vpu_device.hpp"
 
@@ -21,7 +22,7 @@
 #include <zes_api.h>
 #include <zet_api.h>
 
-struct _ze_device_handle_t {};
+struct _ze_device_handle_t : public L0::_ze_generic_handle_t {};
 
 namespace VPU {
 struct GroupInfo;
@@ -67,6 +68,8 @@ struct Device : _ze_device_handle_t {
     const char *getDeviceMemoryName() const;
     VPU::VPUDevice *getVPUDevice();
 
+    ze_result_t enableMetrics();
+    ze_result_t disableMetrics();
     ze_result_t metricGroupGet(uint32_t *pCount, zet_metric_group_handle_t *phMetricGroups);
     ze_result_t
     activateMetricGroups(int vpuFd, uint32_t count, zet_metric_group_handle_t *phMetricGroups);

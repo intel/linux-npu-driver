@@ -15,7 +15,6 @@
 
 #include <memory>
 #include <string.h>
-#include <string>
 #include <vector>
 
 using namespace VPU;

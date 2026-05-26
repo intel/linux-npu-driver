@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "level_zero_driver/api/zet_misc.hpp"
 #include "vpu_driver/source/device/metric_info.hpp"
 
 #include <memory>
@@ -18,8 +19,8 @@
 #include <ze_api.h>
 #include <zet_api.h>
 
-struct _zet_metric_group_handle_t {};
-struct _zet_metric_handle_t {};
+struct _zet_metric_group_handle_t : public L0::_ze_generic_handle_t {};
+struct _zet_metric_handle_t : public L0::_ze_generic_handle_t {};
 
 namespace L0 {
 

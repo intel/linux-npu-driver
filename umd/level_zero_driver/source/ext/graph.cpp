@@ -75,12 +75,15 @@ ze_result_t GraphBuildLog::destroy() {
     return ZE_RESULT_SUCCESS;
 }
 
-Graph::Graph(Context *pCtx, const ze_graph_desc_2_t *pDesc, std::string &log)
+Graph::Graph(Context *pCtx,
+             const VPU::VPUDevice *vpuDevice,
+             const ze_graph_desc_2_t *pDesc,
+             std::string &log)
     : pContext(pCtx)
     , ctx(pCtx->getDeviceContext())
     , desc(*pDesc)
     , buildFlags(desc.pBuildFlags != nullptr ? desc.pBuildFlags : "") {
-    initialize(log);
+    initialize(*vpuDevice, log);
 }
 
 ze_result_t Graph::create(const ze_context_handle_t hContext,
@@ -112,7 +115,10 @@ ze_result_t Graph::create(const ze_context_handle_t hContext,
         Context::fromHandle(hContext)->appendObject(std::move(logObject));
     }
     try {
-        auto pGraph = std::make_unique<Graph>(Context::fromHandle(hContext), pDesc, logBuffer);
+        Device *dev = Device::fromHandle(hDevice);
+        VPU::VPUDevice *vdev = dev->getVPUDevice();
+        auto pGraph =
+            std::make_unique<Graph>(Context::fromHandle(hContext), vdev, pDesc, logBuffer);
         *phGraph = pGraph.get();
         Context::fromHandle(hContext)->appendObject(std::move(pGraph));
 
@@ -409,11 +415,18 @@ ze_result_t Graph::createProfilingPool(uint32_t count,
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
+    auto profilingMemory =
+        ctx->createUntrackedBufferObject(getFwDataCacheAlign(profilingOutputSize) * count,
+                                         VPU::VPUBufferObject::Type::CachedDma);
+    if (profilingMemory == nullptr) {
+        LOG_E("Failed to create buffer object for profiling pool");
+        return ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY;
+    }
+
     try {
-        auto profilingMemory =
-            parser->allocateInternal(getFwDataCacheAlign(profilingOutputSize) * count);
         auto profilingPool =
-            std::make_unique<GraphProfilingPool>(profilingOutputSize,
+            std::make_unique<GraphProfilingPool>(ctx,
+                                                 profilingOutputSize,
                                                  count,
                                                  blob.get(),
                                                  std::move(profilingMemory),
@@ -453,8 +466,11 @@ ze_result_t Graph::getDeviceGraphProperties(ze_device_handle_t hDevice,
     pDeviceGraphProperties->graphExtensionVersion = ZE_GRAPH_EXT_VERSION_CURRENT;
     pDeviceGraphProperties->graphFormatsSupported = ZE_GRAPH_FORMAT_NATIVE;
 
+    Device *dev = Device::fromHandle(hDevice);
+    VPU::VPUDevice *vdev = dev->getVPUDevice();
+
     vcl_compiler_properties_t vclProp = {};
-    if (Compiler::getCompilerProperties(&vclProp) == ZE_RESULT_SUCCESS) {
+    if (Compiler::getCompilerProperties(*vdev, &vclProp) == ZE_RESULT_SUCCESS) {
         pDeviceGraphProperties->compilerVersion.major = vclProp.version.major;
         pDeviceGraphProperties->compilerVersion.minor = vclProp.version.minor;
         pDeviceGraphProperties->graphFormatsSupported = ZE_GRAPH_FORMAT_NGRAPH_LITE;
@@ -642,11 +658,13 @@ static void addImportedBufferFromBlob(VPU::VPUDeviceContext *ctx, BlobContainer 
     }
 }
 
-std::unique_ptr<BlobContainer> Graph::getBlobContainerNGraphLite(std::string &log) {
+std::unique_ptr<BlobContainer> Graph::getBlobContainerNGraphLite(const VPU::VPUDevice &vpuDevice,
+                                                                 std::string &log) {
     std::unique_ptr<BlobContainer> blob;
     DiskCache &cache = Driver::getInstance()->getDiskCache();
     DiskCache::Key key;
-    bool cacheDisabled = desc.flags & ZE_GRAPH_FLAG_DISABLE_CACHING;
+    bool cacheDisabled =
+        (desc.flags & (ZE_GRAPH_FLAG_DISABLE_CACHING | ZE_GRAPH_FLAG_SECURE_COMPILE)) != 0;
 
     addDeviceConfigToBuildFlags();
     desc.pBuildFlags = buildFlags.c_str();
@@ -654,7 +672,9 @@ std::unique_ptr<BlobContainer> Graph::getBlobContainerNGraphLite(std::string &lo
     std::string &lastFailLog = getLastFailLog();
 
     if (!cacheDisabled) {
-        key = cache.computeKey(desc);
+        vcl_compiler_properties_t vclProp = {};
+        ze_result_t ret = Compiler::getCompilerProperties(vpuDevice, &vclProp);
+        key = cache.computeKey(desc, ret == ZE_RESULT_SUCCESS ? &vclProp : nullptr);
         blob = cache.getBlob(key);
         if (blob) {
             log += "ZE DynamicCaching cache_status_t: cache_status_t::found\n";
@@ -685,7 +705,7 @@ std::unique_ptr<BlobContainer> Graph::getBlobContainerNGraphLite(std::string &lo
     return blob;
 }
 
-void Graph::initialize(std::string &log) {
+void Graph::initialize(const VPU::VPUDevice &vpuDevice, std::string &log) {
     L0_THROW_WHEN(desc.pInput == nullptr,
                   "Invalid input pointer",
                   ZE_RESULT_ERROR_INVALID_NULL_POINTER);
@@ -704,7 +724,7 @@ void Graph::initialize(std::string &log) {
         blob = getBlobContainerNative();
         break;
     case ZE_GRAPH_FORMAT_NGRAPH_LITE:
-        blob = getBlobContainerNGraphLite(log);
+        blob = getBlobContainerNGraphLite(vpuDevice, log);
         break;
     default:
         LOG_E("Graph desc (ze_graph_desc_2_t) format invalid.");

@@ -26,7 +26,7 @@ namespace ult {
 TEST(DeviceCap, capabilitiesShouldBeInitializedWithDeviceInitialization) {
     VPU::MockOsInterfaceImp mockOSInfc;
     VPU::MockVPUDevice vpuDevice(FAKE_TEST_DEV_NODE, mockOSInfc);
-    EXPECT_TRUE(vpuDevice.init(true));
+    EXPECT_TRUE(vpuDevice.init());
 }
 
 using SingleDeviceTest = Test<DeviceFixture>;

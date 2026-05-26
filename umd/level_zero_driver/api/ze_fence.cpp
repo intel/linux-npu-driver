@@ -93,9 +93,16 @@ exit:
     trace_zeFenceReset(ret, hFence);
     return ret;
 }
+
+ze_fence_dditable_t zeFenceDdiTable = {.pfnCreate = zeFenceCreate,
+                                       .pfnDestroy = zeFenceDestroy,
+                                       .pfnHostSynchronize = zeFenceHostSynchronize,
+                                       .pfnQueryStatus = zeFenceQueryStatus,
+                                       .pfnReset = zeFenceReset};
 } // namespace L0
 
 extern "C" {
+
 ZE_APIEXPORT ze_result_t ZE_APICALL zeGetFenceProcAddrTable(ze_api_version_t version,
                                                             ze_fence_dditable_t *pDdiTable) {
     trace_zeGetFenceProcAddrTable(version, pDdiTable);

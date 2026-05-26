@@ -21,8 +21,10 @@
 
 #include <algorithm>
 #include <chrono> // IWYU pragma: keep
+#include <compare>
 #include <errno.h>
 #include <immintrin.h>
+#include <iterator>
 #include <limits>
 #include <ratio>
 #include <string.h>
@@ -286,9 +288,10 @@ bool VPUCommandBuffer::waitForCompletion(int64_t timeout_abs_ns) {
     useBusyWaitFlag = false;
     inferenceScratchBuffer.reset();
 
-    if (preemptionBuffer && preemptionBufferIndex.has_value()) {
-        bufferHandles.erase(bufferHandles.begin() + preemptionBufferIndex.value());
-        preemptionBufferIndex.reset();
+    if (preemptionBuffer) {
+        bufferHandles.erase(
+            std::remove(bufferHandles.begin(), bufferHandles.end(), preemptionBuffer->getHandle()),
+            bufferHandles.end());
         preemptionBuffer.reset();
     }
     return true;
@@ -520,7 +523,7 @@ bool VPUCommandBuffer::updateCommands() {
 
 void VPUCommandBuffer::addPreemptionBuffer(std::shared_ptr<VPUBufferObject> bo) {
     if (preemptionBuffer) {
-        LOG_E("Preemption buffer is already set, cannot add another one");
+        LOG_W("Preemption buffer is already set, cannot add another one");
         return;
     }
     if (bo == nullptr) {
@@ -529,8 +532,19 @@ void VPUCommandBuffer::addPreemptionBuffer(std::shared_ptr<VPUBufferObject> bo) 
     }
 
     preemptionBuffer = std::move(bo);
-    preemptionBufferIndex = static_cast<uint32_t>(bufferHandles.size());
     bufferHandles.emplace_back(preemptionBuffer->getHandle());
+}
+
+uint32_t VPUCommandBuffer::getPreemptionBufferIndex() const {
+    if (!preemptionBuffer) {
+        return 0;
+    }
+    auto it = std::find(bufferHandles.begin(), bufferHandles.end(), preemptionBuffer->getHandle());
+    if (it == bufferHandles.end()) {
+        return 0;
+    }
+    auto dist = std::distance(bufferHandles.begin(), it);
+    return dist > 0 ? static_cast<uint32_t>(dist) : 0;
 }
 
 } // namespace VPU

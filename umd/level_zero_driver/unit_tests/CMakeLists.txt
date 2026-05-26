@@ -18,6 +18,7 @@ if(NOT ENABLE_COMPILATION_FLAGS_OVERRIDE)
     target_compile_definitions(${TARGET_NAME} PRIVATE NO_COMPILER_FLAGS_OVERRIDE)
 endif()
 
+target_compile_definitions(${TARGET_NAME} PRIVATE NPU_ALT_DEPENDENCY_PATH_OVERRIDE)
 target_link_libraries(
   ${TARGET_NAME}
   level_zero_driver
