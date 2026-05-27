@@ -22,18 +22,18 @@
 #include "vpu_media_hw.h"
 #include "vpu_nnrt_wlm.h"
 #include "vpu_nnrt_common.h"
-#include "vpu_nnrt_api.h" // To be removed. Temporary w/a for loader build.
+#include "vpu_nnrt_api.h" /* To be removed. Temporary w/a for loader build. */
 
 namespace nn_public {
 
-// base resources
+/* base resources */
 constexpr uint32_t VPU_MAX_TILES = 6;
 constexpr uint32_t VPU_BARRIERS_PER_GROUP = 16;
 constexpr uint32_t VPU_DPU_PER_TILE = 1;
 constexpr uint32_t VPU_SNN_PER_TILE = VPU_DPU_PER_TILE;
 constexpr uint32_t VPU_SNN_TOTAL = VPU_SNN_PER_TILE * VPU_MAX_TILES;
 constexpr uint32_t VPU_AS_PER_TILE = 2;
-// On NPU4-5, there is only one physical DMA engine, but it is logically split into two interfaces.
+/* On NPU4-5, there is only one physical DMA engine, but it is logically split into two interfaces. */
 constexpr uint32_t VPU_MAX_DMA_ENGINES = 2;
 constexpr uint32_t VPU_AS_TOTAL = VPU_AS_PER_TILE * VPU_MAX_TILES;
 
@@ -81,7 +81,7 @@ struct VPU_ALIGNED_STRUCT(8) VpuTaskBarrierDependency {
     uint64_t wait_mask_lo_;
     uint64_t post_mask_hi_;
     uint64_t post_mask_lo_;
-    uint8_t deprecated_[2]; // Deprecated member, do not reuse until next API major version update
+    uint8_t deprecated_[2]; /* deprecated member, do not reuse until next API major version update */
     uint8_t pad_[6];
 };
 
@@ -101,10 +101,10 @@ struct VPU_ALIGNED_STRUCT(32) VpuDPUInvariant {
     VpuDPUInvariantRegisters registers_;
     VpuTaskBarrierDependency barriers_;
     VpuTaskSchedulingBarrierConfig barriers_sched_;
-    uint8_t deprecated0_[8]; // Deprecated member, do not reuse until next API major version update
+    uint8_t deprecated0_[8]; /* deprecated member, do not reuse until next API major version update */
     uint16_t variant_count_;
     uint8_t cluster_;
-    uint8_t deprecated1_[2]; // Deprecated member, do not reuse until next API major version update
+    uint8_t deprecated1_[2]; /* deprecated member, do not reuse until next API major version update */
     uint8_t pad_[3];
 };
 
@@ -117,7 +117,7 @@ struct VPU_ALIGNED_STRUCT(32) VpuDPUVariant {
     VpuDPUVariantRegisters registers_;
     VpuPtr<VpuDPUInvariant> invariant_;
     uint32_t invariant_index_;
-    uint8_t deprecated_[13]; // Deprecated member, do not reuse until next API major version update
+    uint8_t deprecated_[13]; /* deprecated member, do not reuse until next API major version update */
     uint8_t pad_[7];
 };
 
@@ -134,7 +134,7 @@ struct VPU_ALIGNED_STRUCT(32) VpuDMATask {
 static_assert(sizeof(VpuDMATask) == 224, "VpuDMATask size != 224");
 static_assert(offsetof(VpuDMATask, barriers_sched_) % 4 == 0, "Alignment error");
 
-// ActKernel structs
+/* ActKernel structs */
 struct VPU_ALIGNED_STRUCT(8) VpuActKernelRange {
     VpuActWLType type;
     uint8_t use_ram_barriers;
@@ -142,7 +142,7 @@ struct VPU_ALIGNED_STRUCT(8) VpuActKernelRange {
     VpuPtr<actKernelEntryFunction> kernel_entry;
     VpuPtr<void> text_window_base;
     uint32_t code_size;
-    uint8_t deprecated_[4]; // Deprecated member, do not reuse until next API major version update
+    uint8_t deprecated_[4]; /* deprecated member, do not reuse until next API major version update */
     uint32_t kernel_invo_count;
     uint8_t pad1_[4];
 };
@@ -242,7 +242,7 @@ static_assert(offsetof(VpuMappedInference, managed_inference) % 8 == 0, "Alignme
 
 #pragma pack(pop)
 
-} // namespace nn_public
+} /* namespace nn_public */
 
 /**
  * close the "addtogroup NNRT" block

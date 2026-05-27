@@ -23,7 +23,7 @@
 /*
  * Minor version changes when API backward compatibility is preserved.
  */
-#define VPU_JSM_API_VER_MINOR 35
+#define VPU_JSM_API_VER_MINOR 40
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
@@ -165,12 +165,18 @@ enum {
 #define VPU_TRACE_ENTITY_NAME_MAX_LEN 32
 
 /*
- * Max length (including trailing NULL char) of a dyndbg command.
+ * Max length of a command payload.
  *
- * NOTE: 96 is used so that the size of 'struct vpu_ipc_msg' in the JSM API is
- * 128 bytes (multiple of 64 bytes, the cache line size).
+ * Note: The payload size is limited to 96 bytes to ensure that the entire IPC
+ * message including the 32 byte header (struct vpu_ipc_msg) fits into two cache
+ * lines (128 bytes).
  */
-#define VPU_DYNDBG_CMD_MAX_LEN 96
+#define VPU_IPC_MSG_MAX_PAYLOAD_SIZE 96
+
+/*
+ * Max length (including trailing NULL char) of a dyndbg command.
+ */
+#define VPU_DYNDBG_CMD_MAX_LEN VPU_IPC_MSG_MAX_PAYLOAD_SIZE
 
 /*
  * For HWS command queue scheduling, we can prioritise command queues inside the
@@ -618,6 +624,10 @@ enum vpu_ipc_msg_type {
      */
     VPU_IPC_MSG_FREQ_CONFIG = 0x111f,
     /**
+     * Reserved command for future extensions.
+     */
+    VPU_IPC_MSG_EXT_0 = 0x1120,
+    /**
      * Dump VPU state. To be used for debug purposes only.
      * This command has no payload.
      * NOTE: Please introduce new ASYNC commands before this one.
@@ -784,6 +794,10 @@ enum vpu_ipc_msg_type {
      * @see vpu_ipc_msg_payload_freq_config
      */
     VPU_IPC_MSG_FREQ_CONFIG_RSP = 0x221f,
+    /**
+     * Reserved response for future extensions.
+     */
+    VPU_IPC_MSG_EXT_0_RSP = 0x2220,
     /**
      * Response to state dump control command.
      * This command has no payload.
@@ -1754,6 +1768,7 @@ union vpu_ipc_msg_payload {
     struct vpu_ipc_msg_payload_pwr_d0i3_enter pwr_d0i3_enter;
     struct vpu_ipc_msg_payload_pwr_dct_control pwr_dct_control;
     struct vpu_ipc_msg_payload_freq_config freq_config;
+    uint8_t data[VPU_IPC_MSG_MAX_PAYLOAD_SIZE];
 };
 typedef union vpu_ipc_msg_payload vpu_ipc_msg_payload_t;
 

@@ -119,187 +119,6 @@ static_assert(sizeof(VpuWorkItem) == 64, "VpuWorkItem size != 64");
 static_assert(offsetof(VpuWorkItem, next_workitem_idx) % 4 == 0, "Alignment error");
 
 /**
- * @brief Contains additional information about the work items which
- * is useful when statically parsing the VpuManagedMappedInference.
- *
- * This info is not used by the firmware during normal execution.
- */
-struct VPU_ALIGNED_STRUCT(8) VpuTaskInfo {
-    /**
-     * A duplicate of VpuWorkItem members needed to account for tasks that are not in the
-     * `VpuManagedMappedInference::work_items` array.
-     */
-    uint64_t wi_desc_ptr;
-
-    /**
-     * Specifies the type of the task to be enqueued, DPU, DMA, SHV etc.
-     */
-    VpuWorkItem::VpuTaskType type;
-
-    /**
-     * The hardware unit to which the task is to be enqueued.
-     *
-     * @see VpuWorkItem::type for the meaning of unit for each task type.
-     */
-    uint8_t unit;
-
-    /**
-     * The hardware sub-unit to which the task is to be enqueued.
-     *
-     * @see VpuWorkItem::type for the meaning of sub_unit for each task type.
-     */
-    uint8_t sub_unit;
-
-    uint8_t pad_0[1];
-
-    /**
-     * If this VpuTaskInfo represents the head of a descriptor linked list, then
-     * linked_list_nodes counts the length of that linked list, 0 otherwise.
-     *
-     * These values are to be iterated into the `VpuManagedMappedInferenceInfo::tasks_ref_info`
-     * array starting at this VpuTaskInfo's offset.
-     */
-    uint32_t linked_list_nodes;
-
-    /**
-     * Since most VpuWorkItem::wi_desc_ptr are temporary CMX addresses populated by
-     * the schedule, descr_ref_offset serves as a 32b offset into the DDR
-     * backing store that contains the descriptors for that work item type.
-     *
-     * e.g., if VpuWorkItem type == DPU, then descr_ref_offset is added to
-     * the variant base address VpuManagedMappedInference::ref_info_base_vars.
-     */
-    uint32_t descr_ref_offset;
-
-    /**
-     * For a given DPU ref offset into `ref_info_base_vars`, this array maps that variant ref to its
-     * associated invariant ref in `ref_info_base_invars`. Similarly for SHAVE invocations and ranges.
-     */
-    uint32_t parent_descr_ref_offset;
-
-    /**
-     * This index offset traces this VpuTaskInfo back to the runtime
-     * VpuManagedMappedInference::task_configs task that enqueued it.
-     */
-    uint32_t enqueueing_task_config;
-
-    /**
-     * This index offset into VpuManagedMappedInference::work_items links this VpuTaskInfo to the runtime
-     * VpuWorkItem that enqueued it. This is useful in case this VpuTaskInfo is an element on a linked list.
-     */
-    uint32_t work_item_ref;
-};
-
-static_assert(sizeof(VpuTaskInfo) == 32, "VpuTaskInfo size != 32");
-
-/**
- * @brief Describes a virtual barrier's physical mapping and configuration
- * as well as all edges of its node in the execution DAG.
- *
- * This info is not used by the firmware during normal execution.
- */
-struct VPU_ALIGNED_STRUCT(4) BarrierReferenceMap {
-    /**
-     * The physical barrier mapped to this virtual barrier.
-     */
-    uint16_t physical_barrier;
-
-    /**
-     * Producer count programmed to `physical_barrier`.
-     */
-    uint16_t producer_count;
-
-    /**
-     * Consumer count programmed to `physical_barrier`.
-     */
-    uint16_t consumer_count;
-
-    uint8_t pad_0[2];
-
-    /**
-     * Used to reference into `VpuManagedMappedInferenceInfo::barrier_producer_ref_offsets`.
-     *
-     * The index starting at `producers_ref_offset` to `producers_ref_offset + producer_count`
-     * indexes all the `VpuTaskInfo`s that produce this virtual barrier.
-     */
-    uint32_t producers_ref_offset;
-
-    /**
-     * Used to reference into `VpuManagedMappedInferenceInfo::barrier_consumer_ref_offsets`.
-     *
-     * The index starting at `consumers_ref_offset` to `consumers_ref_offset + consumer_count`
-     * indexes all the `VpuTaskInfo`s that consume this virtual barrier.
-     */
-    uint32_t consumers_ref_offset;
-};
-
-static_assert(sizeof(BarrierReferenceMap) == 16, "BarrierReferenceMap size != 16");
-
-/**
- * @brief Contains additional information about the VpuManagedMappedInference.
- *
- * This info is not used by the firmware during normal execution.
- */
-struct VPU_ALIGNED_STRUCT(8) VpuManagedMappedInferenceInfo {
-    /**
-     * This is the contiguous metadata memory block for all tasks within VpuManagedMappedInference.
-     */
-    VpuTaskReference<VpuTaskInfo> tasks_ref_info;
-
-    /**
-     * Mapping data for all virtual barriers of the VpuManagedMappedInference indexed by virtual barrier id.
-     */
-    VpuTaskReference<BarrierReferenceMap> vb_mapping;
-
-    /**
-     * A backing store where the elements are indexes into `tasks_ref_info`.
-     *
-     * Used by `BarrierReferenceMap::producers_ref_offset` and `BarrierReferenceMap::producer_count`
-     * to get the list of tasks that produce a specific virtual barrier.
-     *
-     * Example:
-     * @code
-     * // Print all tasks that produce into a VB, then use that ref info
-     * auto& bm = mmii.vb_mapping[currVB];
-     * for(auto i = bm.producers_ref_offset; i < bm.producers_ref_offset + bm.producer_count; i++){
-     *     auto refInfoIndex = mmii.barrier_producer_ref_offsets[i];
-     *     printf("Virtual barrier %u is produced by tasks_ref_info at %u", currVB, refInfoIndex);
-     *     auto& wiRefInfo = mmii.tasks_ref_info[refInfoIndex];
-     *     ...
-     * }
-     * @endcode
-     */
-    VpuTaskReference<uint32_t> barrier_producer_ref_offsets;
-
-    /**
-     * A backing store where the elements are indexes into `tasks_ref_info`.
-     *
-     * Used by `BarrierReferenceMap::consumers_ref_offset` and `BarrierReferenceMap::consumer_count`
-     * to get the list of tasks that consume a specific virtual barrier.
-     */
-    VpuTaskReference<uint32_t> barrier_consumer_ref_offsets;
-
-    /**
-     * UNUSED. Convenience members used for statically parsing the VpuManagedMappedInference.
-     *
-     * These are not used by the firmware during normal execution.
-     *
-     * The base addresses of the task lists in DDR. work_item_reference in
-     * VpuTaskInfo is used to offset from these base addresses.
-     */
-    uint64_t ref_info_base_vars[6];
-    uint64_t ref_info_base_invars[6];
-    uint64_t ref_info_base_akr[6];
-    uint64_t ref_info_base_aki[6];
-    uint64_t ref_info_base_dma_from_ddr[2];
-    uint64_t ref_info_base_dma_from_cmx[2];
-    uint64_t ref_info_base_media;
-};
-
-static_assert(sizeof(VpuManagedMappedInferenceInfo) == 392, "VpuManagedMappedInferenceInfo size != 392");
-static_assert(offsetof(VpuManagedMappedInferenceInfo, ref_info_base_vars) % 8 == 0, "Alignment error");
-
-/**
  * @brief Contains barrier programming information.
  *
  * Barrier programming information includes real id, producer and consumer count.
@@ -395,6 +214,27 @@ union VPU_ALIGNED_STRUCT(4) VpuBarrierConfiguration {
 static_assert(sizeof(VpuBarrierConfiguration) == 4, "VpuBarrierConfiguration size != 4");
 
 /**
+ * @brief Contains per-inference values needed for dynamic PVP.
+ *
+ * These values are divided to create a throttled operation percentage which will
+ * be passed to Power through TileManager
+ */
+struct VPU_ALIGNED_STRUCT(8) VpuDpuPVP {
+    /**
+     * @brief The number of floating point operations performed by the DPU variant.
+     */
+    uint64_t opFPCount;
+
+    /**
+     * @brief The total number of operations performed by the DPU variant.
+     */
+    uint64_t totalOpCount;
+
+    uint8_t reserved[16];
+};
+static_assert(sizeof(VpuDpuPVP) == 32, "VpuDpuPVP size != 32");
+
+/**
  * @brief Contains the information needed to run a fully or partially managed inference.
  */
 struct VPU_ALIGNED_STRUCT(32) VpuManagedMappedInference {
@@ -427,7 +267,12 @@ struct VPU_ALIGNED_STRUCT(32) VpuManagedMappedInference {
     /**
      * @brief VpuTaskReferences reserved for future use.
      */
-    VpuTaskReference<uint32_t> reserved0[4];
+    VpuTaskReference<uint32_t> reserved0[3];
+
+    /**
+     * @brief The DPU floating point operation values for this inference, used for dynamic PVP.
+     */
+    VpuTaskReference<VpuDpuPVP> dpu_pvp;
 
     /**
      * @brief barriers_configuration contains the information for barrier programming that can
@@ -526,12 +371,7 @@ struct VPU_ALIGNED_STRUCT(32) VpuManagedMappedInference {
      */
     VpuBarrierProgrammingMode barrier_programming_mode;
 
-    /**
-     * @brief The descriptor required to make the VpuManagedMappedInference parsable.
-     *
-     * This is not used by the firmware during normal execution.
-     */
-    VpuTaskReference<VpuManagedMappedInferenceInfo> inference_info;
+    uint8_t deprecated[40]; /* deprecated member, do not reuse until next API major version update */
 
     /**
      * @brief Stride in barrier configuration array between consecutive physical barriers.
@@ -576,9 +416,9 @@ struct VPU_ALIGNED_STRUCT(32) VpuManagedMappedInference {
 static_assert(sizeof(VpuManagedMappedInference) == 704, "VpuManagedMappedInference size != 704");
 static_assert(offsetof(VpuManagedMappedInference, work_items) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuManagedMappedInference, task_configs) % 8 == 0, "Alignment error");
+static_assert(offsetof(VpuManagedMappedInference, dpu_pvp) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuManagedMappedInference, initial_barriers) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuManagedMappedInference, nnrt_config) % 8 == 0, "Alignment error");
-static_assert(offsetof(VpuManagedMappedInference, inference_info) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuManagedMappedInference, barriers_configuration) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuManagedMappedInference, num_of_barrier_reprogrammings) % 8 == 0, "Alignment error");
 static_assert(offsetof(VpuManagedMappedInference, barrier_configuration_stride) % 4 == 0, "Alignment error");
@@ -588,7 +428,7 @@ static_assert(offsetof(VpuManagedMappedInference, bootstrap_workitems_count) % 4
 
 #pragma pack(pop)
 
-} // namespace nn_public
+} /* namespace nn_public */
 
 /**
  * close the "addtogroup NNRT" block
