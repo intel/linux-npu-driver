@@ -17,7 +17,8 @@ endif()
 message(STATUS "NPU_COMPILER_PACKAGE_DIR: ${NPU_COMPILER_PACKAGE_DIR}")
 target_include_directories(npu_compiler INTERFACE ${NPU_COMPILER_PACKAGE_DIR})
 
-set(NPU_COMPILER_LIBS ${NPU_COMPILER_PACKAGE_DIR}/lib/libnpu_driver_compiler.so)
+set(NPU_COMPILER_LIBS ${NPU_COMPILER_PACKAGE_DIR}/lib/libopenvino_intel_npu_compiler_loader.so
+                      ${NPU_COMPILER_PACKAGE_DIR}/lib/libopenvino_intel_npu_compiler.so)
 
 if(NOT ANDROID)
   # Set the RPATH for the npu_compiler to find the shared library at runtime

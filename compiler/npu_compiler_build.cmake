@@ -39,6 +39,8 @@ list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_INTEL_GPU=OFF")
 list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_JS=OFF")
 list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_MULTI=OFF")
 list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_INTEL_NPU=ON")
+# Disable downloading prebuilt NPU compiler by OpenVINO
+list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_INTEL_NPU_COMPILER=OFF")
 list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_INTEL_NPU_INTERNAL=OFF")
 list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_INTEL_NPU_PROTOPIPE=OFF")
 list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_OV_IR_FRONTEND=ON")
@@ -107,7 +109,7 @@ ExternalProject_Add(
   BUILD_COMMAND
     ${CMAKE_COMMAND}
       --build ${NPU_COMPILER_BINARY_DIR}
-      --target compilerTest profilingTest vpuxCompilerL0Test loaderTest
+      --target compilerTest profilingTest vpuxCompilerL0Test loaderTest openvino_intel_npu_compiler
       --parallel ${PARALLEL_PROCESSES}
   INSTALL_COMMAND
     ${CMAKE_COMMAND}
@@ -116,7 +118,8 @@ ExternalProject_Add(
       --strip
       --component CiD
   BYPRODUCTS
-    ${NPU_COMPILER_PACKAGE_DIR}/lib/libnpu_driver_compiler.so
+    ${NPU_COMPILER_PACKAGE_DIR}/lib/libopenvino_intel_npu_compiler_loader.so
+    ${NPU_COMPILER_PACKAGE_DIR}/lib/libopenvino_intel_npu_compiler.so
     ${NPU_COMPILER_PACKAGE_DIR}/vpux_elf/lib/Release/libnpu_elf.a
 )
 
