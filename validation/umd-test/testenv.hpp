@@ -11,15 +11,17 @@
 #include "umd_extensions.h"
 #include "umd_test.h"
 
+#include <algorithm>
+#include <array>
 #include <filesystem>
 #include <gtest/gtest.h>
 #include <yaml-cpp/yaml.h>
 #include <zes_api.h>
 
-#ifdef L0_VALIDATION_DISABLE
-#define L0_VALIDATION_ENABLE "0"
-#else
+#ifdef VALIDATION_LAYER_ENABLE
 #define L0_VALIDATION_ENABLE "1"
+#else
+#define L0_VALIDATION_ENABLE "0"
 #endif
 
 namespace test_vars {
@@ -50,6 +52,11 @@ class Environment : public ::testing::Environment {
           .metricsEnable = 0,
       };
 
+    /* Default path prefixes to search for configuration files when relative path is provided */
+    constexpr static std::array<const char *, 2> defaultPathPrefixes = {
+        "./",
+        "/usr/share/vpu/validation/umd-test/configs/"};
+
     const char *zeDevTypeStr(ze_device_type_t devType) {
         const char *devStrings[] = {"Unknown", "GPU", "CPU", "FPGA", "MCA", "NPU"};
         // Unknown device type.
@@ -63,13 +70,12 @@ class Environment : public ::testing::Environment {
         if (test_vars::forceGpu) {
             config = configWithGpu;
             PRINTF("Testing with GPU L0.\n");
-            PRINTF("Disabling metrics (ZET_ENABLE_METRICS=%d).\n", config.metricsEnable);
+            PRINTF("Disabling metrics.\n");
         }
 
         if (test_vars::disable_metrics) {
             config = configWithoutMetrics;
-            PRINTF("Disabling metrics (ZET_ENABLE_METRICS=%d). No metric test will be run.\n",
-                   config.metricsEnable);
+            PRINTF("Disabling metrics. No metric test will be run.\n");
         }
 
         if (test_vars::forceZeInitTests) {
@@ -86,7 +92,6 @@ class Environment : public ::testing::Environment {
             PRINTF("On failure, inference data is dumped to directory: %s\n",
                    dumpOnFailDir.c_str());
         }
-        EXPECT_EQ(setenv("ZET_ENABLE_METRICS", config.metricsEnable ? "1" : "0", 0), 0);
         EXPECT_EQ(setenv("ZE_ENABLE_VALIDATION_LAYER", L0_VALIDATION_ENABLE, 0), 0);
         EXPECT_EQ(setenv("ZE_ENABLE_PARAMETER_VALIDATION", L0_VALIDATION_ENABLE, 0), 0);
 
@@ -202,7 +207,7 @@ class Environment : public ::testing::Environment {
         }
         return false;
     }
-
+    bool areMetricsRequested() { return config.metricsEnable; }
     uint64_t getMaxMemAllocSize() { return maxMemAllocSize; }
     uint16_t getPciDevId() { return pciDevId; }
     uint16_t getPlatformType() { return platformType; }
@@ -259,20 +264,69 @@ class Environment : public ::testing::Environment {
         return resultNodes;
     }
 
-    static bool loadConfiguration(const char *configFilePath) {
-        if (!configFilePath)
-            return true;
+    static void printConfigurationInfo(const std::string &missedConfigFilePath) {
+        if (!missedConfigFilePath.empty()) {
+            PRINTF("Configuration file %s not found.\n", missedConfigFilePath.c_str());
+        } else {
+            PRINTF("No configuration file provided.\n");
+        }
+        PRINTF("Please make sure that command line syntax is correct: npu-umd-test --config "
+               "<config_file>\n");
 
-        std::vector<std::filesystem::path> searchPathPrefixes = {""};
+        /* Try detect available configurations */
+        std::vector<std::filesystem::path> configFiles;
+        for (auto &path : defaultPathPrefixes) {
+            std::filesystem::path pathPrefix(path);
+            if (!std::filesystem::exists(pathPrefix) ||
+                !std::filesystem::is_directory(pathPrefix)) {
+                continue;
+            }
+            std::ranges::for_each(std::filesystem::directory_iterator(
+                                      {pathPrefix},
+                                      std::filesystem::directory_options::skip_permission_denied),
+                                  [&configFiles](const auto &dir_entry) {
+                                      if (dir_entry.is_regular_file() &&
+                                          (dir_entry.path().extension() == ".yaml" ||
+                                           dir_entry.path().extension() == ".yml")) {
+                                          configFiles.push_back(dir_entry.path());
+                                      }
+                                  });
+        }
+        PRINTF("Use valid configuration file or explicitly specify --config none to run reduced "
+               "generic test scope\n\n");
+        if (!configFiles.empty()) {
+            PRINTF("There are files in yaml format found in default paths:\n");
+            for (const auto &configFile : configFiles) {
+                PRINTF("%s\n", configFile.c_str());
+            }
+        }
+        return;
+    }
 
-        /* For not absolute paths add search directories*/
-        if (configFilePath[0] != '/') {
-            searchPathPrefixes.push_back("./");
-            searchPathPrefixes.push_back("/usr/share/vpu/");
-            searchPathPrefixes.push_back("/usr/share/vpu/validation/umd-test/configs/");
+    static bool loadConfiguration(const std::string &configFilePath) {
+        if (configFilePath.empty()) {
+            return false;
         }
 
-        for (auto &pathPrefix : searchPathPrefixes) {
+        if (configFilePath == "none") {
+            return true;
+        }
+
+        std::vector<std::filesystem::path> pathPrefixes = {""};
+
+        /* For not absolute paths add default path prefixes */
+        if (configFilePath[0] != '/') {
+            for (auto &path : defaultPathPrefixes) {
+                std::filesystem::path pathPrefix(path);
+                if (!std::filesystem::exists(pathPrefix) ||
+                    !std::filesystem::is_directory(pathPrefix)) {
+                    continue;
+                }
+                pathPrefixes.push_back(pathPrefix);
+            }
+        }
+
+        for (auto &pathPrefix : pathPrefixes) {
             std::string configFile = pathPrefix;
 
             configFile.append(configFilePath);
@@ -281,19 +335,18 @@ class Environment : public ::testing::Environment {
                 try {
                     config = YAML::LoadFile(configFile);
                 } catch (YAML::Exception &e) {
-                    PRINTF("Parsing configuration file failed:\n");
-                    PRINTF("%s\n", e.what());
+                    PRINTF("Parsing configuration file %s failed\n", configFile.c_str());
+                    PRINTF("Reason: %s\n", e.what());
                     return false;
                 }
                 return true;
             }
         }
 
-        PRINTF("Configuration file not found!\n");
         return false;
     }
 
-    static bool setupGlobalConfig(const char *configFilePath) {
+    static bool setupGlobalConfig(const std::string &configFilePath) {
         if (!Environment::loadConfiguration(configFilePath))
             return false;
 

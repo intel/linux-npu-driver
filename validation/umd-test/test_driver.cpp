@@ -8,6 +8,7 @@
 #include "umd_test.h"
 
 #include <time.h>
+#include <ze_driver_npu_ext.h>
 
 class Driver : public UmdTest {};
 
@@ -71,4 +72,59 @@ TEST_F(Driver, GetExtensionProperties) {
     EXPECT_TRUE(has_mutable_cmdlist_extension);
     EXPECT_TRUE(has_cmd_queue_extension);
     EXPECT_TRUE(has_context_npu_extension);
+}
+
+TEST_F(Driver, TestDriverNpuExtension) {
+    ze_driver_npu_dditable_ext_t *driverExtDdi = nullptr;
+    ASSERT_EQ(zeDriverGetExtensionFunctionAddress(zeDriver,
+                                                  ZE_DRIVER_NPU_EXT_NAME,
+                                                  reinterpret_cast<void **>(&driverExtDdi)),
+              ZE_RESULT_SUCCESS);
+    ASSERT_NE(driverExtDdi, nullptr);
+    /*Extensions with DDI tables - expected pass*/
+    std::vector<std::pair<std::string, uint32_t>> extensionsWithDdi = {
+        {ZE_COMMAND_QUEUE_NPU_EXT_NAME, ZE_COMMAND_QUEUE_NPU_EXT_VERSION_CURRENT},
+        {ZE_COMMAND_QUEUE_NPU_EXT_NAME, ZE_COMMAND_QUEUE_NPU_EXT_VERSION_1_0},
+        {ZE_CONTEXT_NPU_EXT_NAME, ZE_CONTEXT_NPU_EXT_VERSION_CURRENT},
+        {ZE_GRAPH_EXT_NAME, ZE_GRAPH_EXT_VERSION_CURRENT},
+        {ZE_GRAPH_EXT_NAME, ZE_GRAPH_EXT_VERSION_1_0},
+        {ZE_PROFILING_DATA_EXT_NAME, ZE_PROFILING_DATA_EXT_VERSION_CURRENT},
+        {ZE_PROFILING_DATA_EXT_NAME, ZE_PROFILING_DATA_EXT_VERSION_1_0},
+        {ZE_DRIVER_NPU_EXT_NAME, ZE_DRIVER_NPU_EXT_VERSION_CURRENT}};
+
+    /* Positive cases with DDI tables */
+    for (const auto &extName : extensionsWithDdi) {
+        void *funcPtr = nullptr;
+        ze_driver_extension_npu_ext_t ext = {};
+        ext.stype = ZE_STRUCTURE_TYPE_DRIVER_EXTENSION_NPU_EXT;
+        ext.name = extName.first.c_str();
+        ext.version = extName.second;
+        ext.ppFunctionAddress = &funcPtr;
+        ASSERT_EQ(driverExtDdi->pfnGetExtension(zeDriver, &ext), ZE_RESULT_SUCCESS);
+        ASSERT_NE(funcPtr, nullptr);
+    }
+
+    /* Negative case: unsupported extension */
+    {
+        void *funcPtr = nullptr;
+        ze_driver_extension_npu_ext_t ext = {};
+        ext.stype = ZE_STRUCTURE_TYPE_DRIVER_EXTENSION_NPU_EXT;
+        ext.name = "UnsupportedExtension";
+        ext.version = 1;
+        ext.ppFunctionAddress = &funcPtr;
+        ASSERT_EQ(driverExtDdi->pfnGetExtension(zeDriver, &ext), ZE_RESULT_ERROR_INVALID_ARGUMENT);
+        ASSERT_EQ(funcPtr, nullptr);
+    }
+
+    /* Negative case: unsupported version */
+    for (const auto &extName : extensionsWithDdi) {
+        void *funcPtr = nullptr;
+        ze_driver_extension_npu_ext_t ext = {};
+        ext.stype = ZE_STRUCTURE_TYPE_DRIVER_EXTENSION_NPU_EXT;
+        ext.name = extName.first.c_str();
+        ext.version = static_cast<uint32_t>(-1); // Unsupported version
+        ext.ppFunctionAddress = &funcPtr;
+        ASSERT_EQ(driverExtDdi->pfnGetExtension(zeDriver, &ext), ZE_RESULT_ERROR_INVALID_ARGUMENT);
+        ASSERT_EQ(funcPtr, nullptr);
+    }
 }

@@ -316,6 +316,74 @@ TEST_F(DriverCache, CheckIfCorruptedCachedIsOverriden) {
     }
 }
 
+TEST_F(DriverCache, CheckIfFileWithSizeLessThanChecksumIsDropped) {
+    constexpr size_t checksumLength = sizeof(uint64_t) * 8 + sizeof(uint64_t) * 2;
+    /* When there are many models to test start from truncating file exactly to checksum
+       The other files truncate to random generated size less or equal than checksum length
+       It is expected that driver will drop all files less or equal than checksum size and
+       regenerate it by recompiling the model
+     */
+    size_t truncateSize = modelDataNodes.size() > 1
+                              ? checksumLength
+                              : DataHandle::getRandomNumber<size_t>(0, checksumLength);
+
+    for (auto &modelNode : modelDataNodes) {
+        clearCacheDirectory();
+
+        /* generate cached file */
+        graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, modelNode);
+        ASSERT_NE(graph, nullptr);
+
+        auto cachedBlobs = getListOfCachedFiles();
+        ASSERT_EQ(cachedBlobs.size(), 1);
+
+        /* modify cached file */
+        std::vector<char> cachedData;
+        auto cachedFilePath = std::filesystem::path(driverCacheDirectory) / cachedBlobs[0];
+        ASSERT_EQ(DataHandle::loadFile(cachedFilePath, cachedData), 0);
+
+        /* cached files have only read permission */
+        std::filesystem::permissions(cachedFilePath,
+                                     std::filesystem::perms::owner_write,
+                                     std::filesystem::perm_options::add);
+
+        ASSERT_EQ(DataHandle::writeFile(cachedFilePath, cachedData.data(), truncateSize), 0);
+        std::filesystem::permissions(cachedFilePath,
+                                     std::filesystem::perms::owner_write,
+                                     std::filesystem::perm_options::remove);
+        /* regenerate cached file by recompiling the model */
+        graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, modelNode);
+        ASSERT_NE(graph, nullptr) << "Failed for truncated size: " << truncateSize;
+
+        ze_graph_properties_3_t graphProperties = {};
+        graphProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES_3;
+        ASSERT_EQ(graph->getGraphProperties(&graphProperties), ZE_RESULT_SUCCESS)
+            << "Failed for truncated size: " << truncateSize;
+        ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
+                  ZE_GRAPH_PROPERTIES_FLAG_COMPILED)
+            << "Failed for truncated size: " << truncateSize;
+        /* check if cached file has previous not truncated content */
+        std::vector<char> cachedDataAfter;
+        ASSERT_EQ(DataHandle::loadFile(cachedFilePath, cachedDataAfter), 0)
+            << "Failed for truncated size: " << truncateSize;
+        ASSERT_EQ(cachedData.size(), cachedDataAfter.size())
+            << "Failed for truncated size: " << truncateSize;
+        ASSERT_EQ(memcmp(cachedData.data(), cachedDataAfter.data(), cachedDataAfter.size()), 0)
+            << "Failed for truncated size: " << truncateSize;
+
+        /* Calculate truncate size value for next iteration */
+        truncateSize = DataHandle::getRandomNumber<size_t>(0, checksumLength);
+
+        /* check if driver load the blob from cache */
+        graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, modelNode);
+        ASSERT_NE(graph, nullptr);
+
+        ASSERT_EQ(graph->getGraphProperties(&graphProperties), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
+                  ZE_GRAPH_PROPERTIES_FLAG_LOADED_FROM_CACHE);
+    }
+}
+
 TEST_F(DriverCache, CheckCacheUsingMultipleThreads) {
     /* Compile at least one model in two threads simultaneously */
     const size_t numThreads = std::max(8lu, modelDataNodes.size() + 2);
@@ -553,6 +621,28 @@ static void graphCreate3WithInputHash(ze_context_handle_t context,
 
 TEST_F(DriverCache, GraphInputHashWithGraphCreate3) {
     graphInputHashTestCase(graphCreate3WithInputHash);
+}
+
+TEST_F(DriverCache, SecureCompile) {
+    clearCacheDirectory();
+    ASSERT_EQ(getUsedCacheSpace(), 0);
+
+    graph = Graph::create(zeContext,
+                          zeDevice,
+                          zeGraphDDITableExt,
+                          globalConfig,
+                          modelDataNodes[0],
+                          ZE_GRAPH_FLAG_SECURE_COMPILE);
+    ASSERT_NE(graph, nullptr);
+
+    ze_graph_properties_3_t graphProperties = {};
+    graphProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES_3;
+    EXPECT_EQ(graph->getGraphProperties(&graphProperties), ZE_RESULT_SUCCESS);
+    EXPECT_EQ(graphProperties.flags & ZE_GRAPH_PROPERTIES_FLAG_LOADED_FROM_CACHE, 0);
+    EXPECT_NE(graphProperties.flags & ZE_GRAPH_PROPERTIES_FLAG_COMPILED, 0);
+
+    EXPECT_EQ(getUsedCacheSpace(), 0);
+    EXPECT_EQ(getListOfCachedFiles().size(), 0);
 }
 
 class CompilationLog : public DriverCache {

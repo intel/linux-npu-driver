@@ -20,18 +20,27 @@ class MetricGroup : public UmdTest {
   public:
     void SetUp() override {
         UmdTest::SetUp();
-
-        ret = zetMetricGroupGet(zeDevice, &metricGroupsCount, nullptr);
+        ret = setupMetrics();
         if (ret == ZE_RESULT_ERROR_UNSUPPORTED_FEATURE) {
             SKIP_("Metrics are not supported");
         }
         ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+        ASSERT_EQ(zetMetricGroupGet(zeDevice, &metricGroupsCount, nullptr), ZE_RESULT_SUCCESS);
         ASSERT_GT(metricGroupsCount, 0u);
 
         metricGroups.resize(metricGroupsCount);
         ASSERT_EQ(zetMetricGroupGet(zeDevice, &metricGroupsCount, metricGroups.data()),
                   ZE_RESULT_SUCCESS);
         EXPECT_NE(*metricGroups.data(), nullptr);
+    }
+    void TearDown() override {
+        EXPECT_EQ(zetContextActivateMetricGroups(zeContext, zeDevice, 0u, nullptr),
+                  ZE_RESULT_SUCCESS);
+
+        ret = tearDownMetrics();
+        EXPECT_TRUE(ret == ZE_RESULT_SUCCESS || ret == ZE_RESULT_ERROR_UNSUPPORTED_FEATURE);
+
+        UmdTest::TearDown();
     }
 
   protected:
@@ -75,6 +84,7 @@ class Metric : public MetricGroup {
             metricsPropertiesAll.push_back(std::move(metricsProperties));
         }
     }
+    void TearDown() override { MetricGroup::TearDown(); }
 
   protected:
     std::vector<zet_metric_group_properties_t> groupProperties;
@@ -116,6 +126,7 @@ TEST_F(Metric, GetProperties) {
 class MetricQueryPool : public MetricGroup {
   public:
     void SetUp() override { MetricGroup::SetUp(); }
+    void TearDown() override { MetricGroup::TearDown(); }
 
   protected:
     zet_metric_query_pool_handle_t hMetricQueryPool = nullptr;
@@ -134,8 +145,6 @@ TEST_F(MetricQueryPool, ActivateAndCreateMetricQueryPool) {
         ZE_RESULT_SUCCESS);
 
     EXPECT_EQ(zetMetricQueryPoolDestroy(hMetricQueryPool), ZE_RESULT_SUCCESS);
-
-    EXPECT_EQ(zetContextActivateMetricGroups(zeContext, zeDevice, 0u, nullptr), ZE_RESULT_SUCCESS);
 }
 
 TEST_F(MetricQueryPool, ActivateAndCreateMetricQuery) {
@@ -157,8 +166,6 @@ TEST_F(MetricQueryPool, ActivateAndCreateMetricQuery) {
     EXPECT_EQ(zetMetricQueryDestroy(hMetricQuery), ZE_RESULT_SUCCESS);
 
     ASSERT_EQ(zetMetricQueryPoolDestroy(hMetricQueryPool), ZE_RESULT_SUCCESS);
-
-    ASSERT_EQ(zetContextActivateMetricGroups(zeContext, zeDevice, 0u, nullptr), ZE_RESULT_SUCCESS);
 }
 
 class MetricQuery : public Metric, public ::testing::WithParamInterface<metricTestCase_t> {
@@ -185,9 +192,6 @@ class MetricQuery : public Metric, public ::testing::WithParamInterface<metricTe
         if (pool) {
             ASSERT_EQ(zetMetricQueryPoolDestroy(pool), ZE_RESULT_SUCCESS);
         }
-
-        ASSERT_EQ(zetContextActivateMetricGroups(zeContext, zeDevice, 0u, nullptr),
-                  ZE_RESULT_SUCCESS);
 
         Metric::TearDown();
     }

@@ -270,3 +270,81 @@ TEST_P(MultiContextGraph, RunGraphInferenceSimultaneously) {
         t.get()->join();
     }
 }
+
+class ContextMultiGraph : public Context {
+  public:
+    void SetUp() override {
+        Context::SetUp();
+        if (!isSilicon()) {
+            GTEST_SKIP() << "Test is intended to be run on silicon, skipping";
+        }
+        auto models = Environment::getConfiguration("graph_execution");
+        if (models.empty()) {
+            GTEST_SKIP() << "No graph_execution models provided in configuration";
+        }
+
+        size_t maxModelsToTest = 4;
+        for (size_t i = 0; i < models.size(); i++) {
+            auto &node = models[i];
+            // Take only models with "LATENCY" hint defined,
+            // those models use shared scratch buffer which we want to test here
+            if (!node["flags"].IsDefined())
+                continue; // Skip models without flags,
+            if (node["flags"].as<std::string>().find("LATENCY") == std::string::npos)
+                continue;
+
+            std::shared_ptr<Graph> graph =
+                Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
+            ASSERT_NE(graph, nullptr);
+            graph->allocateArguments(MemType::SHARED_MEMORY);
+            graph->copyInputData();
+
+            graphs.push_back(std::move(graph));
+            /* Limit models to test, too many models doesn't increase coverage but increase time */
+            if (--maxModelsToTest == 0) {
+                break;
+            }
+        }
+        if (graphs.empty()) {
+            GTEST_SKIP()
+                << "No models meet test requirements (with LATENCY hint provided), skipping";
+        }
+    }
+
+    std::vector<std::shared_ptr<Graph>> graphs;
+};
+
+TEST_F(ContextMultiGraph, ExecuteInferencesOnSingleCmdList) {
+    auto runInference = [&](std::vector<std::shared_ptr<Graph>> &graphs) {
+        ze_result_t ret;
+        auto scopedQueue = zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDesc, ret);
+        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+
+        auto scopedList = zeScope::commandListCreate(zeContext, zeDevice, cmdListDesc, ret);
+        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+
+        auto queue = scopedQueue.get();
+        auto list = scopedList.get();
+        /* All inferences are executed on single command list, the point is to test scratch buffer
+         * allocation there should be allocated single scratch buffer with size matching all
+         * inference requirements
+         */
+        for (auto &graph : graphs) {
+            graph->clearOutput();
+            ASSERT_EQ(
+                zeGraphDDITableExt
+                    ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),
+                ZE_RESULT_SUCCESS);
+        }
+        ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+        for (auto &graph : graphs)
+            EXPECT_TRUE(graph->checkResults());
+    };
+
+    runInference(graphs);
+    /* Rerun inferences, there will be taken cached host parsed inferences released from previous
+     * run */
+    runInference(graphs);
+}

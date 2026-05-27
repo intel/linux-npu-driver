@@ -454,14 +454,7 @@ TEST_P(CommandGraphLong, AppendGraphInitAndExecuteWithSingleMemoryAllocation) {
     ASSERT_TRUE(graph->checkResults());
 }
 
-TEST_P(CommandGraphLong, GraphInitAndExecWith200msDelay) {
-    ASSERT_EQ(
-        zeGraphDDITableExt->pfnAppendGraphInitialize(list, graph->handle, nullptr, 0, nullptr),
-        ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
-
+TEST_P(CommandGraphLong, GraphExecAfterSuspendLoop) {
     ASSERT_EQ(zeCommandListReset(list), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeGraphDDITableExt
                   ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),
@@ -471,10 +464,18 @@ TEST_P(CommandGraphLong, GraphInitAndExecWith200msDelay) {
     ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    PerfCounter counter;
+    counter.start();
+    do {
+        waitForPwrState(Suspended, 1000);
 
-    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+
+        counter.countFrame();
+        TRACE("Iteration: %u\n", counter.getCount());
+    } while (!counter.isTimedOut());
+    counter.stop();
 
     ASSERT_TRUE(graph->checkResults());
 }
@@ -741,6 +742,80 @@ TEST_P(CommandGraphLongThreaded, RunInferenceUseFenceSynchronize) {
             ASSERT_TRUE(graph->checkResults());
         }));
     }
+    for (const auto &t : tasks) {
+        t.get()->join();
+    }
+}
+
+TEST_P(CommandGraphLongThreaded, GraphExecInferenceAndDestroySomeCmdQueues) {
+    auto param = GetParam();
+    const YAML::Node node(std::get<0>(param));
+    uint32_t threadParam = std::get<1>(param);
+
+    std::shared_ptr<Graph> graph =
+        Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node);
+    ASSERT_NE(graph, nullptr);
+    graph->allocateArguments(MemType::SHARED_MEMORY);
+    graph->copyInputData();
+
+    std::mutex syncMutex;
+    syncMutex.lock();
+    std::vector<std::unique_ptr<std::thread>> tasks;
+    for (size_t i = 0; i < threadParam; i++) {
+        tasks.push_back(std::make_unique<std::thread>([this, &graph, &syncMutex, i, threadParam]() {
+            ze_result_t ret = ZE_RESULT_SUCCESS;
+            const ze_event_pool_desc_t eventPoolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC,
+                                                        nullptr,
+                                                        ZE_EVENT_POOL_FLAG_HOST_VISIBLE,
+                                                        1};
+            ze_event_desc_t eventDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC,
+                                         nullptr,
+                                         0,
+                                         ZE_EVENT_SCOPE_FLAG_HOST,
+                                         ZE_EVENT_SCOPE_FLAG_HOST};
+
+            auto scopedEventPool =
+                zeScope::eventPoolCreate(zeContext, eventPoolDesc, 1, zeDevice, ret);
+            ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+            auto scopedEvent = zeScope::eventCreate(scopedEventPool.get(), eventDesc, ret);
+            ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+            auto event = scopedEvent.get();
+            ASSERT_EQ(zeEventHostReset(event), ZE_RESULT_SUCCESS);
+            auto scopedList = zeScope::commandListCreate(zeContext, zeDevice, cmdListDesc, ret);
+            ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+            auto list = scopedList.get();
+
+            auto scopedQueuePrv =
+                zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDesc, ret);
+            ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+            auto queuePrv = scopedQueuePrv.get();
+
+            ASSERT_EQ(zeCommandListAppendWaitOnEvents(list, 1, &event), ZE_RESULT_SUCCESS);
+            ASSERT_EQ(
+                zeGraphDDITableExt
+                    ->pfnAppendGraphExecute(list, graph->handle, nullptr, nullptr, 0, nullptr),
+                ZE_RESULT_SUCCESS);
+
+            ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+
+            {
+                // Synchronize here to make sure all threads submit command list execution more
+                // or less at the same time
+                std::lock_guard<std::mutex> lock(syncMutex);
+            }
+            EXPECT_EQ(zeCommandQueueExecuteCommandLists(queuePrv, 1, &list, nullptr),
+                      ZE_RESULT_SUCCESS);
+            EXPECT_EQ(zeCommandQueueSynchronize(queuePrv, 0), ZE_RESULT_NOT_READY);
+            /*One thread will continue, others will delete queue */
+            if (i == threadParam - 1) {
+                EXPECT_EQ(zeEventHostSignal(event), ZE_RESULT_SUCCESS);
+                EXPECT_EQ(zeCommandQueueSynchronize(queuePrv, graphSyncTimeout), ZE_RESULT_SUCCESS);
+                EXPECT_TRUE(graph->checkResults());
+            }
+            // The command queue will be destroyed when going out of scope
+        }));
+    }
+    syncMutex.unlock();
     for (const auto &t : tasks) {
         t.get()->join();
     }

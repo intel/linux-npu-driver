@@ -24,10 +24,15 @@ class MetricStreamer : public UmdTest, public ::testing::WithParamInterface<metr
   public:
     void SetUp() override {
         UmdTest::SetUp();
-
-        uint32_t count = 0;
-        if (zetMetricGroupGet(zeDevice, &count, nullptr) == ZE_RESULT_ERROR_UNSUPPORTED_FEATURE)
+        ret = setupMetrics();
+        if (ret == ZE_RESULT_ERROR_UNSUPPORTED_FEATURE) {
             SKIP_("Metrics are not supported");
+        }
+
+        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+        uint32_t count = 0;
+        ASSERT_EQ(zetMetricGroupGet(zeDevice, &count, nullptr), ZE_RESULT_SUCCESS);
+        ASSERT_NE(count, 0);
 
         ASSERT_EQ(createCommandQueue(&queue), ZE_RESULT_SUCCESS);
         ASSERT_EQ(createCommandList(&list), ZE_RESULT_SUCCESS);
@@ -60,7 +65,7 @@ class MetricStreamer : public UmdTest, public ::testing::WithParamInterface<metr
 
         EXPECT_EQ(zetContextActivateMetricGroups(zeContext, zeDevice, 0u, nullptr),
                   ZE_RESULT_SUCCESS);
-
+        EXPECT_EQ(tearDownMetrics(), ZE_RESULT_SUCCESS);
         UmdTest::TearDown();
     }
 

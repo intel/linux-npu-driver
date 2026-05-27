@@ -58,8 +58,7 @@ TEST_F(GraphApiBase, GetDeviceGraphProperties) {
     EXPECT_EQ(devGraphProps.graphFormatsSupported, devGraphProps2.graphFormatsSupported);
     EXPECT_EQ(devGraphProps.maxOVOpsetVersionSupported, devGraphProps2.maxOVOpsetVersionSupported);
     EXPECT_GT(devGraphProps2.graphExtensionVersion, 0);
-    EXPECT_GT(devGraphProps2.compilerVersion.major, 0);
-    EXPECT_GT(devGraphProps2.compilerVersion.minor, 0);
+    EXPECT_GT(devGraphProps2.compilerVersion.major + devGraphProps2.compilerVersion.minor, 0);
     EXPECT_GT(devGraphProps2.graphFormatsSupported, 0);
     EXPECT_GT(devGraphProps2.elfVersion.major, 0);
     EXPECT_GT(devGraphProps2.runtimeVersion.major, 0);

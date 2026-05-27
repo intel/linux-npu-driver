@@ -20,13 +20,6 @@ int userRequestedTimeoutMs;
 std::string dumpOnFailDir;
 } // namespace test_vars
 
-static void setConfig(const char *optarg) {
-    if (!Environment::setupGlobalConfig(optarg)) {
-        fprintf(stderr, "Failed to set up config from path: %s\n", optarg);
-        exit(1);
-    }
-}
-
 static void disableMetrics(const char *) {
     test_vars::disable_metrics = true;
     test_app::append_negative_filter("Metric*:ImmediateCmdList.MetricQuerryTest");
@@ -90,11 +83,13 @@ int main(int argc, char **argv) {
 
     // The config has to be set before InitGoogleTest to fill out parametrized tests
     struct option options[] = {{"config", required_argument, NULL, 'c'}, {NULL, 0, NULL, '0'}};
-    char opt = 0;
-    while (opt >= 0) {
-        opt = getopt_long(argc, argv, "-:c:", options, NULL);
+    int opt = 0;
+    bool configLoaded = false;
+    std::string configFilePath;
+    while ((opt = getopt_long(argc, argv, "-:c:", options, NULL)) >= 0) {
         if (opt == 'c') {
-            setConfig(optarg);
+            configFilePath = optarg;
+            configLoaded = Environment::loadConfiguration(configFilePath);
             break;
         }
     };
@@ -113,5 +108,10 @@ int main(int argc, char **argv) {
     };
 
     test_app::parse_args(args, helpMsg, argc, argv);
-    return test_app::run();
+
+    /* Config is required to run tests */
+    return configLoaded ? test_app::run() : [&]() {
+        Environment::printConfigurationInfo(configFilePath);
+        return 1;
+    }();
 }

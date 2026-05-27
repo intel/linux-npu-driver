@@ -8,11 +8,14 @@
 #include "graph_utilities.hpp"
 #include "umd_test.h"
 
-
 class MutableCmdList : public UmdTest {
   public:
     void SetUp() override {
         UmdTest::SetUp();
+
+        if (globalConfig.modelDir.empty()) {
+            SKIP_("The test is skipped because config file was not provided. Use --config option");
+        }
 
         ze_mutable_command_list_exp_properties_t mutableCmdListProps{
             .stype = ZE_STRUCTURE_TYPE_MUTABLE_COMMAND_LIST_EXP_PROPERTIES,
@@ -25,8 +28,10 @@ class MutableCmdList : public UmdTest {
         devProp.pNext = &mutableCmdListProps;
         ze_result_t result = zeDeviceGetProperties(zeDevice, &devProp);
         ASSERT_EQ(ZE_RESULT_SUCCESS, result);
-        ASSERT_EQ(ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT_DEPRECATED |
-                      ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS,
+        ASSERT_EQ(static_cast<ze_mutable_command_exp_flag_t>(
+                      ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT_DEPRECATED) |
+                      static_cast<ze_mutable_command_exp_flag_t>(
+                          ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS),
                   mutableCmdListProps.mutableCommandFlags);
 
         ze_command_queue_desc_t cmdQueueDesc{.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,

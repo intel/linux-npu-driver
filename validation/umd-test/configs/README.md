@@ -4,20 +4,18 @@
 # NPU UMD test configuration overview
 
 The configuration uses the YAML format.
+Without explicitly providing configuration file tests are not executed.
 The main purpose of a configuration file is to ensure proper configuration
 for a specific platform and allows the user to add own models.
 Some test cases are configuration dependent and may or may not exist
 depending on the contents of the configuration file.
-It is possible to run npu-umd-test without a configuration file, but
-only basic generic test cases will be executed and the Umd.ConfigurationCheck
-test will fail. Umd.ConfigurationCheck prevents the user from accidentally running
-tests without configuration.
+Is permitted to use "--config none" option to run reduced platform
+independent test scope.
 
 ---
 
 # Configuration file structure
 Each section is optional. The configuration file should consist of at least one valid section.
-An empty configuration causes the Umd.ConfigurationCheck test to fail.
 
 The order in which the network is defined is important, API tests only take the first node
 from the section.

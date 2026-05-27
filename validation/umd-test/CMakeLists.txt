@@ -6,7 +6,7 @@
 
 project(npu-umd-test)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_subdirectory(utilities)
@@ -60,10 +60,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/umd/leve
 if (TARGET openvino::runtime)
     target_sources(${PROJECT_NAME} PRIVATE test_ov_inference.cpp)
     target_link_libraries(${PROJECT_NAME} openvino::runtime)
-    # TODO: Temporarily disable L0 validation for OpenVINO till Driver CI switch to OpenVINO that
-    # includes Graph Extension "stype" adjustments.:
-    # https://github.com/openvinotoolkit/openvino/commit/e496aed4d243702a8087c4981de0b15aaf34e9b9
-    target_compile_definitions(${PROJECT_NAME} PUBLIC L0_VALIDATION_DISABLE)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC VALIDATION_LAYER_ENABLE)
 endif()
 
 if (TARGET opencv_core AND TARGET opencv_imgcodecs)

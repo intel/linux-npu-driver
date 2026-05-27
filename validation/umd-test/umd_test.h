@@ -238,6 +238,8 @@ class UmdTest : public ::testing::Test {
     void CommandQueueGroupSetUpNpu(ze_device_handle_t dev);
     void
     CommandQueueGroupSetUpGpu(ze_device_handle_t dev, uint32_t &compOrdinal, uint32_t &copyOrdinal);
+    ze_result_t setupMetrics();
+    ze_result_t tearDownMetrics();
     void printMemoryUsage(const char *prefix);
 
     uint16_t pciDevId = 0u;

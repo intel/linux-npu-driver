@@ -94,6 +94,47 @@ TEST_F(Command, CreateMultipleCommandQueuesUsingSameOrdinal) {
     }
 }
 
+TEST_F(Command, DestroyBusyCommandQueue) {
+    const ze_event_pool_desc_t eventPoolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC,
+                                                nullptr,
+                                                ZE_EVENT_POOL_FLAG_HOST_VISIBLE,
+                                                1};
+    ze_event_desc_t eventDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC,
+                                 nullptr,
+                                 0,
+                                 ZE_EVENT_SCOPE_FLAG_HOST,
+                                 ZE_EVENT_SCOPE_FLAG_HOST};
+    auto scopedEventPool = zeScope::eventPoolCreate(zeContext, eventPoolDesc, 1, zeDevice, ret);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+    auto scopedEvent = zeScope::eventCreate(scopedEventPool.get(), eventDesc, ret);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+    ze_command_queue_handle_t queuePrv = nullptr;
+    ASSERT_EQ(zeCommandQueueCreate(zeContext, zeDevice, &cmdQueueDesc, &queuePrv),
+              ZE_RESULT_SUCCESS);
+    ASSERT_NE(queuePrv, nullptr);
+    auto event = scopedEvent.get();
+    /*Create endless waiting command list*/
+    EXPECT_EQ(zeEventHostReset(event), ZE_RESULT_SUCCESS);
+    EXPECT_EQ(zeCommandListAppendWaitOnEvents(list, 1, &event), ZE_RESULT_SUCCESS);
+    EXPECT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+
+    EXPECT_EQ(zeCommandQueueExecuteCommandLists(queuePrv, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+    /*Verify that HW is in endless waiting state*/
+    EXPECT_EQ(zeCommandQueueSynchronize(queuePrv, 0), ZE_RESULT_NOT_READY);
+    EXPECT_EQ(zeCommandQueueDestroy(queuePrv), ZE_RESULT_SUCCESS);
+
+    /*Create another command queue and append the same command list*/
+    auto scopedQueuePrv = zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDesc, ret);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+    queuePrv = scopedQueuePrv.get();
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queuePrv, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+    /*Verify that HW is in endless waiting state*/
+    ASSERT_EQ(zeCommandQueueSynchronize(queuePrv, 0), ZE_RESULT_NOT_READY);
+    /*Release event*/
+    ASSERT_EQ(zeEventHostSignal(event), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(queuePrv, graphSyncTimeout), ZE_RESULT_SUCCESS);
+}
+
 TEST_F(Command, CreateTwoCommandListUsingSameOrdinal) {
     ze_result_t ret;
     scopedListVec.push_back(zeScope::commandListCreate(zeContext, zeDevice, cmdListDesc, ret));

@@ -172,7 +172,8 @@ TEST_P(OpenVinoBasic, CompileModelWithGraphInitAndExecute) {
     const YAML::Node node = GetParam();
 
     std::string modelPath(globalConfig.modelDir + node["path"].as<std::string>());
-    auto mainModel = core.read_model(modelPath.c_str());
+    auto mainModel = core.read_model(modelPath);
+    ASSERT_NE(mainModel, nullptr);
 
     ASSERT_EQ(mainModel->inputs().size(), 1);
 

@@ -8,7 +8,7 @@
 #include "graph_utilities.hpp"
 
 #include <future>
-
+#include <gtest/gtest.h>
 class ImmediateCmdList : public UmdTest {
   public:
     void SetUp() override {
@@ -24,6 +24,12 @@ class ImmediateCmdList : public UmdTest {
         ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
         syncList = syncScopedList.get();
         ASSERT_NE(syncList, nullptr);
+    }
+
+    void TearDown() override {
+        auto ret = tearDownMetrics();
+        EXPECT_TRUE(ret == ZE_RESULT_SUCCESS || ret == ZE_RESULT_ERROR_UNSUPPORTED_FEATURE);
+        UmdTest::TearDown();
     }
 
     ze_command_queue_desc_t cmdQueueDesc{.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
@@ -204,11 +210,12 @@ TEST_F(ImmediateCmdList, MetricQuerryTest) {
     uint32_t metricGroupsCount = 0;
     zet_metric_query_pool_handle_t pool = nullptr;
     zet_metric_query_handle_t query = nullptr;
-    ret = zetMetricGroupGet(zeDevice, &metricGroupsCount, nullptr);
+
+    ret = setupMetrics();
     if (ret == ZE_RESULT_ERROR_UNSUPPORTED_FEATURE) {
         SKIP_("Metrics are not supported");
     }
-    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zetMetricGroupGet(zeDevice, &metricGroupsCount, nullptr), ZE_RESULT_SUCCESS);
     ASSERT_GT(metricGroupsCount, 0u);
 
     metricGroups.resize(metricGroupsCount);

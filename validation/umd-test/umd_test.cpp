@@ -117,6 +117,16 @@ void UmdTest::CommandQueueGroupSetUpGpu(ze_device_handle_t dev,
     ASSERT_NE(copyOrdinal, std::numeric_limits<uint32_t>::max());
 }
 
+ze_result_t UmdTest::setupMetrics() {
+    return Environment::getInstance()->areMetricsRequested() ? zetDeviceEnableMetricsExp(zeDevice)
+                                                             : ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+}
+
+ze_result_t UmdTest::tearDownMetrics() {
+    return Environment::getInstance()->areMetricsRequested() ? zetDeviceDisableMetricsExp(zeDevice)
+                                                             : ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+}
+
 void UmdTest::SetUp() {
     Environment *testEnv = Environment::getInstance();
 
@@ -352,12 +362,4 @@ TEST(Umd, File) {
     EXPECT_EQ(inputFileData.size(), sizeof(writeData));
     EXPECT_EQ(memcmp(writeData, inputFileData.data(), inputFileData.size()), 0);
     std::filesystem::remove(testFileName);
-}
-
-TEST(Umd, ConfigurationCheck) {
-    YAML::Node &config = Environment::getConfiguration();
-    EXPECT_GT(config.size(), 0) << "Missed configuration file." << std::endl
-                                << "Test scope is reduced." << std::endl
-                                << "Provide valid configurtion file, use:" << std::endl
-                                << "npu-umd-test -c/--config [CONFIGURATION_PATH]";
 }

@@ -19,6 +19,10 @@ class TensorStridesBase : public UmdTest {
             SKIP_("Tensor strides feature is not available on NPU37xx");
         }
 
+        if (globalConfig.modelDir.empty()) {
+            SKIP_("The test is skipped because config file was not provided. Use --config option");
+        }
+
         modelPath = globalConfig.modelDir + "mul_add/mul_add.xml";
 
         ze_result_t result;
