@@ -2,13 +2,18 @@
 #
 # SPDX-License-Identifier: MIT
 
+option(ENABLE_LEVEL_ZERO_FROM_SUBMODULE "Force building Level Zero from submodule" OFF)
+
 include(FetchContent)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 set(LEVEL_ZERO_VERSION "1.27.0")
 
-find_package(LevelZero ${LEVEL_ZERO_VERSION})
-if(NOT LevelZero_FOUND
+if(NOT ENABLE_LEVEL_ZERO_FROM_SUBMODULE)
+  find_package(LevelZero ${LEVEL_ZERO_VERSION})
+endif()
+if(NOT ENABLE_LEVEL_ZERO_FROM_SUBMODULE
+   AND NOT LevelZero_FOUND
    AND LINUX_SYSTEM_NAME STREQUAL "ubuntu"
    AND LINUX_SYSTEM_VERSION_ID STREQUAL "24.04")
 

@@ -4,11 +4,15 @@
 # SPDX-License-Identifier: MIT
 #
 
+option(ENABLE_GOOGLETEST_FROM_SUBMODULE "Force building GoogleTest from submodule" OFF)
+
 # Try to find system-installed GoogleTest package
 # Package names vary by distribution:
 # - Fedora/RHEL/openSUSE Tumbleweed: gtest-devel (provides gmock-devel as well)
 # - Ubuntu/Debian: libgtest-dev
-find_package(GTest QUIET)
+if(NOT ENABLE_GOOGLETEST_FROM_SUBMODULE)
+  find_package(GTest QUIET)
+endif()
 
 if(NOT GTest_FOUND)
   message(STATUS "System GoogleTest not found, building from submodule")
