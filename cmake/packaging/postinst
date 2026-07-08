@@ -7,6 +7,13 @@
 set -e -o pipefail
 
 if lsmod | grep intel_vpu > /dev/null && [ -e "$(modinfo -n intel_vpu 2> /dev/null)" ]; then
-    rmmod intel_vpu
-    modprobe intel_vpu
+    if rmmod intel_vpu 2>/dev/null; then
+        modprobe intel_vpu || {
+            echo "WARNING: Failed to reload intel_vpu module. A system reboot is required to use the updated driver." >&2
+            exit 0
+        }
+    else
+        echo "WARNING: intel_vpu module is in use and cannot be unloaded. A system reboot is required to use the updated driver." >&2
+        exit 0
+    fi
 fi
