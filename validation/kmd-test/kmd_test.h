@@ -61,6 +61,10 @@
     if (is_vpu50xx())     \
     SKIP_(msg)
 
+#define SKIP_ANDROID(msg) \
+    if (is_android())     \
+    SKIP_(msg)
+
 #define SKIP_NO_DEBUGFS(fname)                            \
     if (!debugfs_is_available())                          \
         SKIP_("Debugfs not supported or mounted");        \
@@ -287,6 +291,13 @@ class KmdTest : public ::testing::Test {
     bool is_silicon();
     bool is_simics();
     bool is_fpga();
+    bool is_android() {
+#ifdef ANDROID
+        return true;
+#else
+        return false;
+#endif
+    }
 
     int get_param(uint32_t param, uint64_t *value, uint32_t index = 0);
 

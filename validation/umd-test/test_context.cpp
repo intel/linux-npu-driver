@@ -314,6 +314,47 @@ class ContextMultiGraph : public Context {
     std::vector<std::shared_ptr<Graph>> graphs;
 };
 
+class ContextDestroy : public Context {
+  public:
+    ze_fence_desc_t fenceDesc = {ZE_STRUCTURE_TYPE_FENCE_DESC, nullptr, 0};
+
+    ze_event_pool_desc_t eventPoolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC,
+                                          nullptr,
+                                          ZE_EVENT_POOL_FLAG_HOST_VISIBLE,
+                                          1};
+
+    ze_event_desc_t eventDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC,
+                                 nullptr,
+                                 0,
+                                 ZE_EVENT_SCOPE_FLAG_HOST,
+                                 ZE_EVENT_SCOPE_FLAG_HOST};
+};
+
+TEST_F(ContextDestroy, DestroyContextWithActiveObjects) {
+    ze_context_handle_t ctx = nullptr;
+    ASSERT_EQ(zeContextCreate(zeDriver, &contextDesc, &ctx), ZE_RESULT_SUCCESS);
+    ASSERT_NE(ctx, nullptr);
+
+    ze_command_queue_handle_t queue = nullptr;
+    ASSERT_EQ(zeCommandQueueCreate(ctx, zeDevice, &cmdQueueDesc, &queue), ZE_RESULT_SUCCESS);
+
+    ze_command_list_handle_t list = nullptr;
+    ASSERT_EQ(zeCommandListCreate(ctx, zeDevice, &cmdListDesc, &list), ZE_RESULT_SUCCESS);
+
+    ze_fence_handle_t fence = nullptr;
+    ASSERT_EQ(zeFenceCreate(queue, &fenceDesc, &fence), ZE_RESULT_SUCCESS);
+
+    ze_event_pool_handle_t eventPool = nullptr;
+    ASSERT_EQ(zeEventPoolCreate(ctx, &eventPoolDesc, 1, &zeDevice, &eventPool), ZE_RESULT_SUCCESS);
+
+    ze_event_handle_t event = nullptr;
+    ASSERT_EQ(zeEventCreate(eventPool, &eventDesc, &event), ZE_RESULT_SUCCESS);
+
+    /* Destroy context without explicitly destroying child objects first.
+     * This verifies zeContextDestroy does not crash the application. */
+    ASSERT_EQ(zeContextDestroy(ctx), ZE_RESULT_SUCCESS);
+}
+
 TEST_F(ContextMultiGraph, ExecuteInferencesOnSingleCmdList) {
     auto runInference = [&](std::vector<std::shared_ptr<Graph>> &graphs) {
         ze_result_t ret;

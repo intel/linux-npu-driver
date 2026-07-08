@@ -39,6 +39,7 @@ add_executable(${PROJECT_NAME}
     test_graph_cid.cpp
     test_graph_commands.cpp
     test_graph_inference.cpp
+    test_graph_profiling.cpp
     test_graph_query.cpp
     test_immediate_cmdlist.cpp
     test_idle_optimizations.cpp

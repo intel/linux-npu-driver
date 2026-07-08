@@ -1002,7 +1002,9 @@ int MemoryBuffer::close() {
     EXPECT_NE(_handle, 0);
 
     int ret = _context.bo_close(_handle);
-    EXPECT_TRUE(ret == 0 || ret == ENODEV) << "Incorrect error when closing buffer object: " << ret;
+    EXPECT_TRUE(ret == 0 || ret == ENODEV)
+        << "Unexpected error when closing buffer object handle: " << _handle << ", ret: " << ret
+        << " (" << strerror(ret) << ")";
 
     _vpu_addr = 0;
     _handle = 0;
@@ -1011,7 +1013,7 @@ int MemoryBuffer::close() {
     if (!_user_ptr) {
         _mmap_offset = 0;
     }
-    return 0;
+    return ret;
 }
 
 int MemoryBuffer::mmap() {

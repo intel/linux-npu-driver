@@ -5,6 +5,7 @@
  *
  */
 
+#include "testenv.hpp"
 #include "umd_test.h"
 
 #include <filesystem>
@@ -107,6 +108,8 @@ int main(int argc, char **argv) {
         {'F', {"dump-on-fail", required_argument, &setDumpOnFailDir}},
     };
 
+    if (!Environment::setGlobalConfig())
+        return 1;
     test_app::parse_args(args, helpMsg, argc, argv);
 
     /* Config is required to run tests */

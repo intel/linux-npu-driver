@@ -89,7 +89,7 @@ class TensorStridesBase : public UmdTest {
                                               "Result_7"};
 };
 
-static std::vector<StridesMap> getParams() {
+static std::vector<StridesMap> getStridesMaps() {
     return {
         // strides in second input
         {
@@ -118,7 +118,7 @@ static std::vector<StridesMap> getParams() {
 class TensorStrides : public TensorStridesBase, public testing::WithParamInterface<StridesMap> {};
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(TensorStrides);
-INSTANTIATE_TEST_SUITE_P(, TensorStrides, testing::ValuesIn(getParams()));
+INSTANTIATE_TEST_SUITE_P(, TensorStrides, testing::ValuesIn(getStridesMaps()));
 
 static void initializeBuffer(float16 *input, size_t size, size_t start) {
     for (size_t i = 0; i < size; i++) {
@@ -262,7 +262,9 @@ TEST_F(TensorStridesNegative, SetStridesOnArgumentWithStridesDisabled) {
     ASSERT_NE(ZE_RESULT_SUCCESS, graph->setArgumentValue2(1, input, strides));
 }
 
-class TensorStridesMutableCmdList : public TensorStrides {
+class TensorStridesMutableCmdList
+    : public TensorStridesBase,
+      public testing::WithParamInterface<std::tuple<StridesMap, ze_graph_flags_t>> {
   public:
     zeScope::SharedPtr<ze_command_list_handle_t> createMutableCmdList() {
         ze_mutable_command_list_exp_desc_t mutableCmdListDesc{
@@ -282,10 +284,15 @@ class TensorStridesMutableCmdList : public TensorStrides {
 };
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(TensorStridesMutableCmdList);
-INSTANTIATE_TEST_SUITE_P(, TensorStridesMutableCmdList, testing::ValuesIn(getParams()));
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    TensorStridesMutableCmdList,
+    testing::Combine(testing::ValuesIn(getStridesMaps()),
+                     testing::ValuesIn({ZE_GRAPH_FLAG_NONE,
+                                        ZE_GRAPH_FLAG_OPTIMIZE_FOR_DYNAMIC_SHAPES})));
 
 TEST_P(TensorStridesMutableCmdList, AddStridesThenUpdateStridesAndTensor) {
-    auto stridesMap = GetParam();
+    auto [stridesMap, graphFlags] = GetParam();
     std::vector<uint32_t> shape = {8, 12, 20};
     std::vector<uint32_t> slice = {2, 3, 4};
 
@@ -293,7 +300,9 @@ TEST_P(TensorStridesMutableCmdList, AddStridesThenUpdateStridesAndTensor) {
                           zeDevice,
                           zeGraphDDITableExt,
                           modelPath,
-                          getBuildOptions(stridesMap));
+                          getBuildOptions(stridesMap),
+                          nullptr,
+                          graphFlags);
     ASSERT_NE(graph, nullptr);
 
     size_t fullSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<uint32_t>());
@@ -427,7 +436,7 @@ TEST_P(TensorStridesMutableCmdList, AddStridesThenUpdateStridesAndTensor) {
 
     verifyOutputs(inputs, outputs, slice, stridesMap);
 
-    // restart the inference without strides
+    // update just inputs
     argumentDesc = graphArgumentDescs.begin();
     pNext = nullptr;
     for (size_t i = 0; i < numInputs + numOutputs; i++) {
@@ -452,7 +461,11 @@ TEST_P(TensorStridesMutableCmdList, AddStridesThenUpdateStridesAndTensor) {
               zeCommandQueueExecuteCommandLists(queue.get(), 1, &cmdList, nullptr));
     ASSERT_EQ(ZE_RESULT_SUCCESS, zeCommandQueueSynchronize(queue.get(), graphSyncTimeout));
 
-    verifyOutputs(inputs, outputs, slice);
+    if (graphFlags == ZE_GRAPH_FLAG_OPTIMIZE_FOR_DYNAMIC_SHAPES) {
+        verifyOutputs(inputs, outputs, slice, stridesMap);
+    } else {
+        verifyOutputs(inputs, outputs, slice);
+    }
 }
 
 class StridesProperty : public TensorStridesBase,

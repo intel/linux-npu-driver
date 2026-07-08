@@ -13,6 +13,7 @@
 #include "utilities/data_handle.h"
 #include "utilities/graph_to_str.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <random>
@@ -142,9 +143,10 @@ class GraphBuffer {
     static std::shared_ptr<GraphBuffer> get(ze_device_handle_t hDevice,
                                             graph_dditable_ext_t *graphDdi,
                                             UmdTest::GlobalConfig &globalConfig,
-                                            const YAML::Node &node) {
+                                            const YAML::Node &node,
+                                            ze_graph_flags_t graphFlag = ZE_GRAPH_FLAG_NONE) {
         auto graphBuffer = std::make_shared<GraphBuffer>();
-        if (!graphBuffer->loadFromNode(hDevice, graphDdi, globalConfig, node)) {
+        if (!graphBuffer->loadFromNode(hDevice, graphDdi, globalConfig, node, graphFlag)) {
             return nullptr;
         }
 
@@ -154,9 +156,10 @@ class GraphBuffer {
     static std::shared_ptr<GraphBuffer> get(ze_device_handle_t hDevice,
                                             graph_dditable_ext_t *graphDdi,
                                             const std::filesystem::path &path,
-                                            const std::string &buildFlags) {
+                                            const std::string &buildFlags,
+                                            ze_graph_flags_t graphFlag = ZE_GRAPH_FLAG_NONE) {
         auto graphBuffer = std::make_shared<GraphBuffer>();
-        if (!graphBuffer->loadFromPath(hDevice, graphDdi, path, buildFlags)) {
+        if (!graphBuffer->loadFromPath(hDevice, graphDdi, path, buildFlags, graphFlag)) {
             return nullptr;
         }
 
@@ -189,7 +192,8 @@ class GraphBuffer {
     bool loadFromNode(ze_device_handle_t hDevice,
                       graph_dditable_ext_t *graphDdi,
                       UmdTest::GlobalConfig &globalconfig,
-                      const YAML::Node &node) {
+                      const YAML::Node &node,
+                      ze_graph_flags_t graphFlag) {
         std::filesystem::path path = node["path"].as<std::string>();
         std::string buildFlags = "";
         if (node["flags"].IsDefined()) {
@@ -202,13 +206,14 @@ class GraphBuffer {
             path = globalconfig.blobDir / path;
         }
 
-        return loadFromPath(hDevice, graphDdi, path, buildFlags);
+        return loadFromPath(hDevice, graphDdi, path, buildFlags, graphFlag);
     }
 
     bool loadFromPath(ze_device_handle_t hDevice,
                       graph_dditable_ext_t *graphDdi,
                       const std::filesystem::path &path_,
-                      const std::string &buildFlags_) {
+                      const std::string &buildFlags_,
+                      ze_graph_flags_t graphFlag) {
         path = path_;
         buildFlags = buildFlags_;
 
@@ -223,7 +228,7 @@ class GraphBuffer {
         }
 
         desc.stype = ZE_STRUCTURE_TYPE_GRAPH_DESC_2;
-        desc.flags = ZE_GRAPH_FLAG_NONE;
+        desc.flags = graphFlag;
         desc.inputSize = buffer.size();
         desc.pInput = reinterpret_cast<uint8_t *>(buffer.data());
         return true;
@@ -320,6 +325,127 @@ class GraphBuffer {
     size_t xmlOffset = 0;
 };
 
+class GraphProfiling {
+  public:
+    static std::unique_ptr<GraphProfiling> create(ze_graph_profiling_dditable_ext_t *profDdi,
+                                                  ze_graph_handle_t hGraph,
+                                                  uint32_t poolSize) {
+        ze_result_t ret = ZE_RESULT_SUCCESS;
+        auto poolHandle = zeScope::profilingPoolCreate(profDdi, hGraph, poolSize, ret);
+        if (ret != ZE_RESULT_SUCCESS) {
+            return nullptr;
+        }
+
+        std::vector<zeScope::SharedPtr<ze_graph_profiling_query_handle_t>> queryHandles(poolSize);
+        for (uint32_t i = 0; i < poolSize; i++) {
+            auto queryHandle = zeScope::profilingQueryCreate(profDdi, poolHandle.get(), i, ret);
+            if (ret != ZE_RESULT_SUCCESS) {
+                return nullptr;
+            }
+            queryHandles[i] = std::move(queryHandle);
+        }
+
+        return std::make_unique<GraphProfiling>(profDdi,
+                                                std::move(poolHandle),
+                                                std::move(queryHandles));
+    }
+
+    GraphProfiling(ze_graph_profiling_dditable_ext_t *profDdi,
+                   zeScope::SharedPtr<ze_graph_profiling_pool_handle_t> poolHandle,
+                   std::vector<zeScope::SharedPtr<ze_graph_profiling_query_handle_t>> queryHandles)
+        : profDdi(profDdi)
+        , scopedPoolHandle(std::move(poolHandle))
+        , scopedQueryHandles(std::move(queryHandles)) {}
+
+    template <class ProfilingData>
+    std::vector<ProfilingData> queryProfilingData(ze_graph_profiling_query_handle_t hProfilingQuery,
+                                                  ze_graph_profiling_type_t profilingType) {
+        uint32_t dataSize = 0u;
+        EXPECT_EQ(
+            profDdi->pfnProfilingQueryGetData(hProfilingQuery, profilingType, &dataSize, nullptr),
+            ZE_RESULT_SUCCESS)
+            << "Failed to get profiling data size for type "
+            << getGraphProfilingTypeStr(profilingType);
+        EXPECT_GT(dataSize, 0u) << "Profiling data size is zero for type "
+                                << getGraphProfilingTypeStr(profilingType);
+
+        std::vector<ProfilingData> data(dataSize / sizeof(ProfilingData));
+        EXPECT_EQ(profDdi->pfnProfilingQueryGetData(hProfilingQuery,
+                                                    profilingType,
+                                                    &dataSize,
+                                                    reinterpret_cast<uint8_t *>(data.data())),
+                  ZE_RESULT_SUCCESS)
+            << "Failed to get profiling data for type " << getGraphProfilingTypeStr(profilingType);
+
+        return data;
+    }
+
+    void printProfilingData(std::vector<ze_profiling_task_info> &info, size_t max = 3) {
+        TRACE("\nGraph profiling tasks, size: %lu, print limit: %lu\n", info.size(), max);
+        TRACE("-----------------------------------------------\n");
+        for (size_t i = 0; i < std::min(info.size(), max); i++) {
+            TRACE("#%lu\n", i);
+            TRACE("name:             %s\n", info[i].name);
+            TRACE("layer_type:       %s\n", info[i].layer_type);
+            TRACE("exec_type:        %s\n", getExecTypeStr(info[i].exec_type));
+            TRACE("start_time_ns:    %lu\n", info[i].start_time_ns);
+            TRACE("duration_ns:      %lu\n", info[i].duration_ns);
+            TRACE("active_cycles:    %u\n", info[i].active_cycles);
+            TRACE("stall_cycles:     %u\n", info[i].stall_cycles);
+            TRACE("task_id:          %u\n", info[i].task_id);
+            TRACE("parent_layer_id:  %u\n", info[i].parent_layer_id);
+            TRACE("-----------------------------------------------\n");
+        }
+    }
+
+    void printProfilingData(std::vector<ze_profiling_layer_info> &info, size_t max = 3) {
+        TRACE("\nGraph profiling layers, size: %lu, print limit: %lu\n", info.size(), max);
+        TRACE("-----------------------------------------------\n");
+        for (size_t i = 0; i < std::min(info.size(), max); i++) {
+            TRACE("#%lu\n", i);
+            TRACE("name:            %s\n", info[i].name);
+            TRACE("layer_type:      %s\n", info[i].layer_type);
+            TRACE("status:          %s\n", getStatusStr(info[i].status));
+            TRACE("start_time_ns:   %lu\n", info[i].start_time_ns);
+            TRACE("duration_ns:     %lu\n", info[i].duration_ns);
+            TRACE("layer_id:        %u\n", info[i].layer_id);
+            TRACE("fused_layer_id:  %lu\n", info[i].fused_layer_id);
+            TRACE("dpu_ns:          %lu\n", info[i].dpu_ns);
+            TRACE("sw_ns:           %lu\n", info[i].sw_ns);
+            TRACE("dma_ns:          %lu\n", info[i].dma_ns);
+            TRACE("-----------------------------------------------\n");
+        }
+    }
+
+    void printProfilingLog(ze_graph_profiling_query_handle_t hProfilingQuery,
+                           ze_graph_profiling_type_t profilingType) {
+        uint32_t logSize = 0;
+        ASSERT_EQ(profDdi->pfnProfilingLogGetString(hProfilingQuery, &logSize, nullptr),
+                  ZE_RESULT_SUCCESS)
+            << "Failed to get the size of error message for "
+            << getGraphProfilingTypeStr(profilingType) << " data type";
+
+        std::vector<char> logBuffer(logSize, 0);
+        ASSERT_EQ(profDdi->pfnProfilingLogGetString(hProfilingQuery, &logSize, logBuffer.data()),
+                  ZE_RESULT_SUCCESS)
+            << "Failed to get the error message for " << getGraphProfilingTypeStr(profilingType)
+            << " data type";
+
+        if (logSize > 0 && logBuffer[0] != '\0') {
+            PRINTF("Graph profiling logs: \n%s\n", logBuffer.data());
+        }
+    }
+
+    ze_graph_profiling_query_handle_t getQueryHandle(uint32_t i) const {
+        return scopedQueryHandles.at(i).get();
+    }
+
+  private:
+    ze_graph_profiling_dditable_ext_t *profDdi;
+    zeScope::SharedPtr<ze_graph_profiling_pool_handle_t> scopedPoolHandle;
+    std::vector<zeScope::SharedPtr<ze_graph_profiling_query_handle_t>> scopedQueryHandles;
+};
+
 class Graph {
     friend bool validateInferenceOutput(const std::vector<void *> &output, const Graph &reference);
 
@@ -362,8 +488,9 @@ class Graph {
            graph_dditable_ext_t *graphDDI,
            const std::filesystem::path &path,
            const std::string &buildFlags = "",
-           ze_graph_build_log_handle_t *pGraphBuildLogHandle = nullptr) {
-        auto buffer = GraphBuffer::get(hDevice, graphDDI, path, buildFlags);
+           ze_graph_build_log_handle_t *pGraphBuildLogHandle = nullptr,
+           ze_graph_flags_t graphFlags = ZE_GRAPH_FLAG_NONE) {
+        auto buffer = GraphBuffer::get(hDevice, graphDDI, path, buildFlags, graphFlags);
         if (buffer == nullptr)
             return nullptr;
 
@@ -734,7 +861,7 @@ class Graph {
         return 0;
     }
 
-    ze_result_t getGraphProperties(ze_graph_properties_3_t *pGraphProperties) {
+    ze_result_t getGraphProperties(ze_graph_properties_3_t *pGraphProperties) const {
         return graphDDI->pfnGetProperties3(handle, pGraphProperties);
     }
 
@@ -760,6 +887,24 @@ class Graph {
     const std::variant<void *, BinaryInferenceBuffer, ClassIndexBuffer> &
     getReferenceOutput() const {
         return outputRef;
+    }
+
+    bool isProfilingEnabled() const {
+        ze_graph_properties_3_t prop = {};
+        prop.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES_3;
+        auto ret = getGraphProperties(&prop);
+        EXPECT_EQ(ret, ZE_RESULT_SUCCESS);
+        return (prop.flags & ZE_GRAPH_PROPERTIES_FLAG_PROFILING_ENABLED) != 0;
+    }
+
+    std::unique_ptr<GraphProfiling> createGraphProfiling(ze_graph_profiling_dditable_ext_t *profDdi,
+                                                         uint32_t poolSize = 1) {
+        if (!isProfilingEnabled()) {
+            TRACE("Graph profiling is not enabled for Graph %p\n", this);
+            return nullptr;
+        }
+
+        return GraphProfiling::create(profDdi, handle, poolSize);
     }
 
   private:
@@ -889,6 +1034,6 @@ class Graph {
 
   private:
     std::shared_ptr<GraphBuffer> buffer;
-    std::vector<std::shared_ptr<void>> mem;
     zeScope::SharedPtr<ze_graph_handle_t> scopedGraphHandle = nullptr;
+    std::vector<std::shared_ptr<void>> mem;
 };

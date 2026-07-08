@@ -30,10 +30,6 @@ using ExternalMemoryOpenCL = UmdTest;
 // +------------+                +--------------------------+            +------------+
 //
 TEST_F(ExternalMemoryOpenCL, NpuToGpu) {
-    if (!isVPU37xx()) {
-        SKIP_("Skipped due to a GPU-related issue");
-    }
-
     if (!isVPU37xx() && !isVPU40xx() && !isVPU50xx()) {
         SKIP_("BuffersImport test is supported on MTL, LNL and PTL platforms only");
     }

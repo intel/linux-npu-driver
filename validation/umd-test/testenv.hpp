@@ -322,7 +322,7 @@ class Environment : public ::testing::Environment {
                     !std::filesystem::is_directory(pathPrefix)) {
                     continue;
                 }
-                pathPrefixes.push_back(pathPrefix);
+                pathPrefixes.push_back(std::move(pathPrefix));
             }
         }
 
@@ -346,10 +346,7 @@ class Environment : public ::testing::Environment {
         return false;
     }
 
-    static bool setupGlobalConfig(const std::string &configFilePath) {
-        if (!Environment::loadConfiguration(configFilePath))
-            return false;
-
+    static bool setGlobalConfig() {
         YAML::Node &config = getConfiguration();
         try {
             if (config["log_level"].IsDefined()) {

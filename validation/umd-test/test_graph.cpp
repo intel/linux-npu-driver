@@ -96,15 +96,15 @@ TEST_F(GraphApiBase, GetDriverProperties) {
                                                                  nullptr),
               ZE_RESULT_SUCCESS);
 
-    std::string options;
-    options.resize(size, '\0');
+    std::vector<char> options(size);
 
     EXPECT_EQ(zeGraphDDITableExt->pfnCompilerGetSupportedOptions(zeDevice,
                                                                  ZE_NPU_DRIVER_OPTIONS,
                                                                  &size,
                                                                  options.data()),
               ZE_RESULT_SUCCESS);
-    TRACE("Driver supported options: %s\n", options.c_str());
+    ASSERT_STREQ(options.data(), "OPTIMIZED_DYNAMIC_STRIDES");
+    TRACE("Driver supported options: %s\n", options.data());
 }
 
 TEST_F(GraphApiBase, GetCompilerProperties) {
@@ -156,6 +156,13 @@ TEST_F(GraphApiBase, IsCompilerOptionSupported) {
                                                                option,
                                                                nullptr),
               ZE_RESULT_ERROR_UNSUPPORTED_FEATURE);
+
+    option = "OPTIMIZED_DYNAMIC_STRIDES";
+    EXPECT_EQ(zeGraphDDITableExt->pfnCompilerIsOptionSupported(zeDevice,
+                                                               ZE_NPU_DRIVER_OPTIONS,
+                                                               option,
+                                                               nullptr),
+              ZE_RESULT_SUCCESS);
 }
 
 class GraphApi : public GraphApiBase {

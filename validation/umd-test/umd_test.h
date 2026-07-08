@@ -14,10 +14,12 @@
 #include "umd_extensions.h"
 #include "ze_memory.hpp"
 #include "ze_scope.hpp"
+#include "ze_stringify.hpp"
 
 #include <filesystem>
 #include <linux/kernel.h>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <thread>
 #include <unistd.h>
@@ -252,3 +254,8 @@ class UmdTest : public ::testing::Test {
     zeScope::SharedPtr<ze_context_handle_t> scopedContext;
     zeScope::SharedPtr<ze_context_handle_t> scopedContextGpu;
 };
+
+inline void PrintTo(const ze_result_t &result, std::ostream *os) {
+    *os << ze_result_to_str(result) << " (0x" << std::hex << static_cast<uint32_t>(result)
+        << std::dec << ")";
+}

@@ -11,8 +11,8 @@
 
 #include <chrono>
 #include <future>
-#include <linux/limits.h>
 #include <stdexcept>
+#include <stdlib.h>
 #include <ze_api.h>
 
 class DriverCache : public UmdTest {
@@ -28,14 +28,6 @@ class DriverCache : public UmdTest {
                                                       "zexDiskCacheGetSize",
                                                       reinterpret_cast<void **>(&diskCacheGetSize)),
                   ZE_RESULT_SUCCESS);
-        ASSERT_EQ(
-            zeDriverGetExtensionFunctionAddress(zeDriver,
-                                                "zexDiskCacheGetDirectory",
-                                                reinterpret_cast<void **>(&diskCacheGetDirectory)),
-            ZE_RESULT_SUCCESS);
-
-        size_t driverCacheDirLength = sizeof(driverCacheDirectory);
-        ASSERT_EQ(diskCacheGetDirectory(driverCacheDirectory, &driverCacheDirLength), 0);
 
         ASSERT_EQ(diskCacheGetSize(&defaultCacheSize), 0);
 
@@ -121,7 +113,17 @@ class DriverCache : public UmdTest {
                                                     ze_graph_handle_t *graph));
 
     std::shared_ptr<Graph> graph;
-    char driverCacheDirectory[PATH_MAX];
+    std::filesystem::path driverCacheDirectory = []() {
+#ifdef ANDROID
+        return std::filesystem::path("/data/data") / getprogname() / "ze_intel_npu_cache";
+#else
+        const char *env = getenv("HOME");
+        if (env)
+            return std::filesystem::path(env) / ".cache/ze_intel_npu_cache";
+        return std::filesystem::current_path() / ".cache/ze_intel_npu_cache";
+#endif
+    }();
+
     std::vector<YAML::Node> modelDataNodes;
     size_t defaultCacheSize = 0;
     ze_graph_properties_flags_t graphPropsFlagCompileMask =
@@ -130,7 +132,6 @@ class DriverCache : public UmdTest {
 
     decltype(zexDiskCacheSetSize) *diskCacheSetSize;
     decltype(zexDiskCacheGetSize) *diskCacheGetSize;
-    decltype(zexDiskCacheGetDirectory) *diskCacheGetDirectory;
 };
 
 TEST_F(DriverCache, CheckIfCacheSetSizeChangeTotalSize) {
