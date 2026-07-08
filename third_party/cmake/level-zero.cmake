@@ -7,7 +7,7 @@ option(ENABLE_LEVEL_ZERO_FROM_SUBMODULE "Force building Level Zero from submodul
 include(FetchContent)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-set(LEVEL_ZERO_VERSION "1.27.0")
+set(LEVEL_ZERO_VERSION "1.28.2")
 
 if(NOT ENABLE_LEVEL_ZERO_FROM_SUBMODULE)
   find_package(LevelZero ${LEVEL_ZERO_VERSION})
@@ -15,14 +15,26 @@ endif()
 if(NOT ENABLE_LEVEL_ZERO_FROM_SUBMODULE
    AND NOT LevelZero_FOUND
    AND LINUX_SYSTEM_NAME STREQUAL "ubuntu"
-   AND LINUX_SYSTEM_VERSION_ID STREQUAL "24.04")
+   AND (LINUX_SYSTEM_VERSION_ID STREQUAL "24.04"
+        OR LINUX_SYSTEM_VERSION_ID STREQUAL "26.04"))
 
+  # libze package source:
+  # https://launchpad.net/~kobuk-team/+archive/ubuntu/intel-graphics/+files/libze1*
+  # https://launchpad.net/~kobuk-team/+archive/ubuntu/intel-graphics/+files/libze-dev*
   set(PKG_NAMES libze1;libze-dev)
-  set(PKG_MD5S 51d16a079cc08a624deb3a89a5542b0f;55f8e903d470dbf13cdeaaaddc2e3787)
-  set(PPA_URL https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260324T100000Z/pool/main/l/level-zero-loader)
+  set(PPA_URL https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260606T100000Z/pool/main/l/level-zero-loader)
+
+  if(LINUX_SYSTEM_VERSION_ID STREQUAL "24.04")
+    set(UBUNTU_PPA_SUFFIX "24.04")
+    set(PKG_MD5S 5c751167369d9c4a44572f4d81a27d0c;fa2be4c30e45b5ebe4b1e1b5c82d2890)
+  elseif(LINUX_SYSTEM_VERSION_ID STREQUAL "26.04")
+    set(UBUNTU_PPA_SUFFIX "26.04")
+     set(PKG_MD5S 236b888efa6c67471a320eec257a9b03;300b9c967385a1aa6d4e05209f0e7df9)
+  endif()
+
   foreach(PKG_NAME PKG_MD5 IN ZIP_LISTS PKG_NAMES PKG_MD5S)
     set(PKG_URL
-	${PPA_URL}/${PKG_NAME}_${LEVEL_ZERO_VERSION}-1~24.04~ppa2_amd64.deb
+	  ${PPA_URL}/${PKG_NAME}_${LEVEL_ZERO_VERSION}-1~${UBUNTU_PPA_SUFFIX}~ppa1_amd64.deb
     )
 
     message(STATUS "Downloading LevelZero package: ${PKG_NAME} from ${PKG_URL}")
@@ -36,7 +48,7 @@ if(NOT ENABLE_LEVEL_ZERO_FROM_SUBMODULE
     execute_process(
       COMMAND
         dpkg -x
-        ${${PKG_NAME}_SOURCE_DIR}/${PKG_NAME}_${LEVEL_ZERO_VERSION}-1~24.04~ppa2_amd64.deb
+        ${${PKG_NAME}_SOURCE_DIR}/${PKG_NAME}_${LEVEL_ZERO_VERSION}-1~${UBUNTU_PPA_SUFFIX}~ppa1_amd64.deb
         ${CMAKE_CURRENT_BINARY_DIR}/level-zero/ COMMAND_ERROR_IS_FATAL ANY)
   endforeach()
 
