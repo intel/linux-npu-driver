@@ -75,6 +75,15 @@ bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
     return true;
 }
 
+static inline void assignDescriptorString(std::string &dst, const uint8_t *src, uint32_t size) {
+    dst.assign(reinterpret_cast<const char *>(src), size);
+
+    const auto pos = dst.find('\0');
+    if (pos != std::string::npos) {
+        dst.resize(pos);
+    }
+}
+
 const std::vector<GroupInfo> &VPUDevice::getMetricGroupsInfo() {
     uint64_t metricGroupMask = -1llu;
     drm_ivpu_metric_streamer_get_data get_info_params = {};
@@ -140,15 +149,51 @@ const std::vector<GroupInfo> &VPUDevice::getMetricGroupsInfo() {
         uint32_t groupNameStringSize = group_desc->name_string_size;
         uint32_t groupDescriptionStringSize = group_desc->description_string_size;
 
+        counter_desc = reinterpret_cast<vpu_jsm_metric_counter_descriptor *>(
+            reinterpret_cast<uint64_t>(group_desc) + firstMetricOffset);
+
+        uint8_t *metricGroupsBufferEnd = metricGroupsInfo.data() + metricGroupsInfo.size();
+
+        auto *counterDescPtr = reinterpret_cast<uint8_t *>(counter_desc);
+
+        if (counterDescPtr + sizeof(vpu_jsm_metric_counter_descriptor) > metricGroupsBufferEnd) {
+            LOG_E("Counter descriptor is out of buffer bounds");
+            return groupsInfo;
+        }
+
+        size_t max_possible_counters =
+            static_cast<size_t>(metricGroupsBufferEnd - reinterpret_cast<uint8_t *>(counter_desc)) /
+            sizeof(*counter_desc);
+
+        if (groupInfo.metricCount > max_possible_counters) {
+            LOG_E("num_counters value %u exceeds maximum counters that can fit in buffer (%zu)",
+                  groupInfo.metricCount,
+                  max_possible_counters);
+            return groupsInfo;
+        }
+
+        const auto *groupBase = reinterpret_cast<const uint8_t *>(group_desc);
+        const auto *groupNamePtr = groupBase + sizeof(vpu_jsm_metric_group_descriptor);
+        const auto *groupDescriptionPtr = groupNamePtr + groupNameStringSize;
+
         if (groupNameStringSize != 0) {
-            groupInfo.metricGroupName = reinterpret_cast<char *>(
-                reinterpret_cast<uint64_t>(group_desc) + sizeof(vpu_jsm_metric_group_descriptor));
+            if (groupNamePtr + groupNameStringSize > metricGroupsBufferEnd) {
+                LOG_E("Metric group name is out of buffer bounds");
+                return groupsInfo;
+            }
+
+            assignDescriptorString(groupInfo.metricGroupName, groupNamePtr, groupNameStringSize);
         }
 
         if (groupDescriptionStringSize != 0) {
-            groupInfo.metricGroupDescription = reinterpret_cast<char *>(
-                reinterpret_cast<uint64_t>(group_desc) + sizeof(vpu_jsm_metric_group_descriptor) +
-                groupNameStringSize);
+            if (groupDescriptionPtr + groupDescriptionStringSize > metricGroupsBufferEnd) {
+                LOG_E("Metric group description is out of buffer bounds");
+                return groupsInfo;
+            }
+
+            assignDescriptorString(groupInfo.metricGroupDescription,
+                                   groupDescriptionPtr,
+                                   groupDescriptionStringSize);
         }
 
         LOG(METRIC, "========================================");
@@ -166,24 +211,6 @@ const std::vector<GroupInfo> &VPUDevice::getMetricGroupsInfo() {
         LOG(METRIC, "metric_group_name: %s", groupInfo.metricGroupName.c_str());
         LOG(METRIC, "metric_group_description: %s", groupInfo.metricGroupDescription.c_str());
 
-        counter_desc = reinterpret_cast<vpu_jsm_metric_counter_descriptor *>(
-            reinterpret_cast<uint64_t>(group_desc) + firstMetricOffset);
-
-        uint8_t *info_end = metricGroupsInfo.data() + metricGroupsInfo.size();
-        if (reinterpret_cast<uint8_t *>(counter_desc) >= info_end) {
-            LOG_E("Counter descriptor pointer is out of buffer bounds");
-            return groupsInfo;
-        }
-        size_t max_possible_counters =
-            static_cast<size_t>(info_end - reinterpret_cast<uint8_t *>(counter_desc)) /
-            sizeof(*counter_desc);
-        if (groupInfo.metricCount > max_possible_counters) {
-            LOG_E("num_counters value %u exceeds maximum counters that can fit in buffer (%zu)",
-                  groupInfo.metricCount,
-                  max_possible_counters);
-            return groupsInfo;
-        }
-
         for (uint i = 0; i < groupInfo.metricCount; i++) {
             CounterInfo counterInfo = {};
 
@@ -197,30 +224,48 @@ const std::vector<GroupInfo> &VPUDevice::getMetricGroupsInfo() {
             uint32_t componentStringSize = counter_desc->component_string_size;
             uint32_t unitsStringSize = counter_desc->units_string_size;
 
+            const auto *counterBase = reinterpret_cast<const uint8_t *>(counter_desc);
+            const auto *namePtr = counterBase + sizeof(vpu_jsm_metric_counter_descriptor);
+            const auto *descriptionPtr = namePtr + nameStringSize;
+            const auto *componentPtr = descriptionPtr + descriptionStringSize;
+            const auto *unitsPtr = componentPtr + componentStringSize;
+
             if (nameStringSize != 0) {
-                counterInfo.metricName =
-                    reinterpret_cast<char *>(reinterpret_cast<uint64_t>(counter_desc) +
-                                             sizeof(vpu_jsm_metric_counter_descriptor));
+                if (namePtr + nameStringSize > metricGroupsBufferEnd) {
+                    LOG_E("Metric counter name is out of buffer bounds");
+                    return groupsInfo;
+                }
+
+                assignDescriptorString(counterInfo.metricName, namePtr, nameStringSize);
             }
 
             if (descriptionStringSize != 0) {
-                counterInfo.metricDescription = reinterpret_cast<char *>(
-                    reinterpret_cast<uint64_t>(counter_desc) +
-                    sizeof(vpu_jsm_metric_counter_descriptor) + nameStringSize);
+                if (descriptionPtr + descriptionStringSize > metricGroupsBufferEnd) {
+                    LOG_E("Metric counter description is out of buffer bounds");
+                    return groupsInfo;
+                }
+
+                assignDescriptorString(counterInfo.metricDescription,
+                                       descriptionPtr,
+                                       descriptionStringSize);
             }
 
             if (componentStringSize != 0) {
-                counterInfo.component =
-                    reinterpret_cast<char *>(reinterpret_cast<uint64_t>(counter_desc) +
-                                             sizeof(vpu_jsm_metric_counter_descriptor) +
-                                             nameStringSize + descriptionStringSize);
+                if (componentPtr + componentStringSize > metricGroupsBufferEnd) {
+                    LOG_E("Metric counter component is out of buffer bounds");
+                    return groupsInfo;
+                }
+
+                assignDescriptorString(counterInfo.component, componentPtr, componentStringSize);
             }
 
             if (unitsStringSize != 0) {
-                counterInfo.units = reinterpret_cast<char *>(
-                    reinterpret_cast<uint64_t>(counter_desc) +
-                    sizeof(vpu_jsm_metric_counter_descriptor) + nameStringSize +
-                    descriptionStringSize + componentStringSize);
+                if (unitsPtr + unitsStringSize > metricGroupsBufferEnd) {
+                    LOG_E("Metric counter units are out of buffer bounds");
+                    return groupsInfo;
+                }
+
+                assignDescriptorString(counterInfo.units, unitsPtr, unitsStringSize);
             }
 
             LOG(METRIC, "----------------------------------------");
@@ -243,16 +288,33 @@ const std::vector<GroupInfo> &VPUDevice::getMetricGroupsInfo() {
 
             groupInfo.counterInfo.push_back(std::move(counterInfo));
 
-            counter_desc = reinterpret_cast<vpu_jsm_metric_counter_descriptor *>(
-                reinterpret_cast<uint64_t>(counter_desc) +
-                counter_desc->next_metric_counter_info_offset);
+            if (i + 1 < groupInfo.metricCount) {
+                auto *nextCounterDesc = reinterpret_cast<uint8_t *>(counter_desc) +
+                                        counter_desc->next_metric_counter_info_offset;
+
+                if (nextCounterDesc + sizeof(vpu_jsm_metric_counter_descriptor) >
+                    metricGroupsBufferEnd) {
+                    LOG_E("Next counter descriptor pointer is out of buffer bounds");
+                    return groupsInfo;
+                }
+
+                counter_desc =
+                    reinterpret_cast<vpu_jsm_metric_counter_descriptor *>(nextCounterDesc);
+            }
         }
 
         groupsInfo.push_back(std::move(groupInfo));
 
         if (group_desc->next_metric_group_info_offset) {
-            group_desc = reinterpret_cast<vpu_jsm_metric_group_descriptor *>(
-                reinterpret_cast<uint64_t>(group_desc) + group_desc->next_metric_group_info_offset);
+            auto *nextGroupDesc =
+                reinterpret_cast<uint8_t *>(group_desc) + group_desc->next_metric_group_info_offset;
+
+            if (nextGroupDesc + sizeof(vpu_jsm_metric_group_descriptor) > metricGroupsBufferEnd) {
+                LOG_E("Next metric group descriptor pointer is out of buffer bounds");
+                return groupsInfo;
+            }
+
+            group_desc = reinterpret_cast<vpu_jsm_metric_group_descriptor *>(nextGroupDesc);
         } else {
             break;
         }

@@ -84,7 +84,7 @@ class Vcl {
                                                    "libopenvino_intel_npu_compiler_loader.so",
                                                "libnpu_driver_compiler.so"};
         std::string errorMsg;
-        for (auto name : libToLoads) {
+        for (const auto &name : libToLoads) {
             handle = VclHandle(dlopen(name.c_str(), RTLD_LAZY | RTLD_LOCAL), &closeHandle);
             if (handle)
                 break;

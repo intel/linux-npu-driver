@@ -23,8 +23,8 @@ inline std::string
 _trace_zeDeviceGetGraphProperties(ze_device_handle_t hDevice,
                                   ze_device_graph_properties_t *pDeviceGraphProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeDeviceGetGraphProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeDeviceGetGraphProperties(";
     ss << "hDevice: " << hDevice;
     if (pDeviceGraphProperties == nullptr) {
         ss << ", *pDeviceGraphProperties: nullptr";
@@ -65,8 +65,8 @@ inline std::string _trace_zeGraphCreate(ze_context_handle_t hContext,
                                         const ze_graph_desc_t *desc,
                                         ze_graph_handle_t *phGraph) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphCreate(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphCreate(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     if (desc == nullptr) {
@@ -118,8 +118,8 @@ inline void trace_zeGraphCreate(ze_result_t ret,
 
 inline std::string _trace_zeGraphDestroy(ze_graph_handle_t hGraph) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphDestroy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphDestroy(";
     ss << "hGraph: " << hGraph;
     ss << ")";
     return ss.str();
@@ -139,8 +139,8 @@ inline std::string _trace_zeGraphGetNativeBinary(ze_graph_handle_t hGraph,
                                                  size_t *pSize,
                                                  uint8_t *pGraphNativeBinary) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphGetNativeBinary(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphGetNativeBinary(";
     ss << "hGraph: " << hGraph;
     if (pSize == nullptr) {
         ss << ", pSize: nullptr";
@@ -177,8 +177,8 @@ inline void trace_zeGraphGetNativeBinary(ze_result_t ret,
 inline std::string _trace_zeGraphGetProperties(ze_graph_handle_t hGraph,
                                                ze_graph_properties_t *pGraphProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphGetProperties(";
     ss << "hGraph: " << hGraph;
     if (pGraphProperties == nullptr) {
         ss << ", pGraphProperties: nullptr";
@@ -211,8 +211,8 @@ _trace_zeGraphGetArgumentProperties(ze_graph_handle_t hGraph,
                                     uint32_t argIndex,
                                     ze_graph_argument_properties_t *pGraphArgumentProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphGetArgumentProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphGetArgumentProperties(";
     ss << "hGraph: " << hGraph;
     ss << ", argIndex: " << argIndex;
     if (pGraphArgumentProperties == nullptr) {
@@ -265,8 +265,8 @@ trace_zeGraphGetArgumentProperties(ze_result_t ret,
 inline std::string
 _trace_zeGraphSetArgumentValue(ze_graph_handle_t hGraph, uint32_t argIndex, const void *pArgValue) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphSetArgumentValue(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphSetArgumentValue(";
     ss << "hGraph: " << hGraph;
     ss << ", argIndex: " << argIndex;
     ss << ", pArgValue: " << pArgValue;
@@ -325,8 +325,8 @@ inline std::string _trace_zeGraphSetArgumentValue2(ze_graph_handle_t hGraph,
                                                    uint32_t argIndex,
                                                    const void *pArgValue) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphSetArgumentValue2(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphSetArgumentValue2(";
     ss << "hGraph: " << hGraph;
     ss << ", argIndex: " << argIndex;
     ss << ", pArgValue: " << pArgValue;
@@ -356,8 +356,8 @@ inline std::string _trace_zeAppendGraphInitialize(ze_command_list_handle_t hComm
                                                   uint32_t numWaitEvents,
                                                   ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeAppendGraphInitialize(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeAppendGraphInitialize(";
     ss << "hCommandList: " << hCommandList;
     ss << ", hGraph: " << hGraph;
     ss << ", hSignalEvent: " << hSignalEvent;
@@ -407,8 +407,8 @@ inline std::string _trace_zeAppendGraphExecute(ze_command_list_handle_t hCommand
                                                uint32_t numWaitEvents,
                                                ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeAppendGraphExecute(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeAppendGraphExecute(";
     ss << "hCommandList: " << hCommandList;
     ss << ", hGraph: " << hGraph;
     ss << ", hProfilingQuery: " << hProfilingQuery;
@@ -461,8 +461,8 @@ _trace_zeGraphGetArgumentProperties2(ze_graph_handle_t hGraph,
                                      uint32_t argIndex,
                                      ze_graph_argument_properties_2_t *pGraphArgumentProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphGetArgumentProperties2(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphGetArgumentProperties2(";
     ss << "hGraph: " << hGraph;
     ss << ", argIndex: " << argIndex;
     if (pGraphArgumentProperties == nullptr) {
@@ -520,8 +520,8 @@ _trace_zeGraphGetArgumentMetadata(ze_graph_handle_t hGraph,
                                   uint32_t argIndex,
                                   ze_graph_argument_metadata_t *pGraphArgumentMetadata) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphGetArgumentMetadata(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphGetArgumentMetadata(";
     ss << "hGraph: " << hGraph;
     ss << ", argIndex: " << argIndex;
     if (pGraphArgumentMetadata == nullptr) {
@@ -575,8 +575,8 @@ _trace_zeGraphGetArgumentProperties3(ze_graph_handle_t hGraph,
                                      uint32_t argIndex,
                                      ze_graph_argument_properties_3_t *pGraphArgumentProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphGetArgumentProperties3(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphGetArgumentProperties3(";
     ss << "hGraph: " << hGraph;
     ss << ", argIndex: " << argIndex;
     if (pGraphArgumentProperties == nullptr) {
@@ -642,8 +642,8 @@ _trace_zeGraphQueryNetworkCreate(ze_context_handle_t hContext,
                                  const ze_graph_desc_t *desc,
                                  ze_graph_query_network_handle_t *phGraphQueryNetwork) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphQueryNetworkCreate(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphQueryNetworkCreate(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     if (desc == nullptr) {
@@ -703,8 +703,8 @@ inline void trace_zeGraphQueryNetworkCreate(ze_result_t ret,
 inline std::string
 _trace_zeGraphQueryNetworkDestroy(ze_graph_query_network_handle_t hGraphQueryNetwork) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphQueryNetworkDestroy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphQueryNetworkDestroy(";
     ss << "hGraphQueryNetwork: " << hGraphQueryNetwork;
     ss << ")";
     return ss.str();
@@ -726,8 +726,8 @@ _trace_zeGraphQueryNetworkGetSupportedLayers(ze_graph_query_network_handle_t hGr
                                              size_t *pSize,
                                              char *pSupportedLayers) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphQueryNetworkGetSupportedLayers(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphQueryNetworkGetSupportedLayers(";
     ss << "hGraphQueryNetwork: " << hGraphQueryNetwork;
     if (pSize == nullptr) {
         ss << ", pSize: nullptr";
@@ -771,8 +771,8 @@ trace_zeGraphQueryNetworkGetSupportedLayers(ze_result_t ret,
 inline std::string
 _trace_zeGraphBuildLogGetString(ze_graph_handle_t hGraph, uint32_t *pSize, char *pBuildLog) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphBuildLogGetString(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphBuildLogGetString(";
     ss << "hGraph: " << hGraph;
     if (pSize == nullptr) {
         ss << ", pSize: nullptr";
@@ -809,8 +809,8 @@ inline std::string _trace_zeGraphCreate2(ze_context_handle_t hContext,
                                          const ze_graph_desc_2_t *desc,
                                          ze_graph_handle_t *phGraph) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphCreate2(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphCreate2(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     if (desc == nullptr) {
@@ -867,8 +867,8 @@ _trace_zeGraphQueryNetworkCreate2(ze_context_handle_t hContext,
                                   const ze_graph_desc_2_t *desc,
                                   ze_graph_query_network_handle_t *phGraphQueryNetwork) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphQueryNetworkCreate2(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphQueryNetworkCreate2(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     if (desc == nullptr) {
@@ -930,8 +930,8 @@ inline std::string _trace_zeGraphQueryContextMemory(ze_context_handle_t hContext
                                                     ze_graph_memory_query_type_t type,
                                                     ze_graph_memory_query_t *query) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphQueryContextMemory(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphQueryContextMemory(";
     ss << "hContext: " << hContext;
     ss << ", type: " << type;
     if (query == nullptr) {
@@ -966,8 +966,8 @@ inline std::string
 _trace_zeDeviceGetGraphProperties2(ze_device_handle_t hDevice,
                                    ze_device_graph_properties_2_t *pDeviceGraphProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeDeviceGetGraphProperties2(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeDeviceGetGraphProperties2(";
     ss << "hDevice: " << hDevice;
     if (pDeviceGraphProperties == nullptr) {
         ss << ", pDeviceGraphProperties: nullptr";
@@ -1019,8 +1019,8 @@ inline std::string _trace_zeGraphGetNativeBinary2(ze_graph_handle_t hGraph,
                                                   size_t *pSize,
                                                   const uint8_t **pGraphNativeBinary) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphGetNativeBinary2(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphGetNativeBinary2(";
     ss << "hGraph: " << hGraph;
     if (pSize == nullptr) {
         ss << ", pSize: nullptr";
@@ -1058,8 +1058,8 @@ inline void trace_zeGraphGetNativeBinary2(ze_result_t ret,
 inline std::string _trace_zeGraphGetProperties2(ze_graph_handle_t hGraph,
                                                 ze_graph_properties_2_t *pGraphProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphGetProperties2(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphGetProperties2(";
     ss << "hGraph: " << hGraph;
     if (pGraphProperties == nullptr) {
         ss << ", pGraphProperties: nullptr";
@@ -1091,8 +1091,8 @@ inline void trace_zeGraphGetProperties2(ze_result_t ret,
 
 inline std::string _trace_zeGraphInitialize(ze_graph_handle_t hGraph) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphInitialize(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphInitialize(";
     ss << "hGraph: " << hGraph;
     ss << ")";
     return ss.str();
@@ -1112,8 +1112,8 @@ inline std::string _trace_zeGraphCompilerGetSupportedOptions(ze_npu_options_type
                                                              size_t *pSize,
                                                              char *pSupportedOptions) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphCompilerGetSupportedOptions(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphCompilerGetSupportedOptions(";
     ss << "type: " << type;
     if (pSize == nullptr) {
         ss << ", pSize: nullptr";
@@ -1153,8 +1153,8 @@ inline std::string _trace_zeGraphCompilerIsOptionSupported(ze_npu_options_type_t
                                                            const char *pOption,
                                                            const char *pValue) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphCompilerIsOptionSupported(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphCompilerIsOptionSupported(";
     ss << "type: " << type;
     if (pOption == nullptr) {
         ss << ", pOption: nullptr";
@@ -1193,8 +1193,8 @@ inline std::string _trace_zeGraphCreate3(ze_context_handle_t hContext,
                                          ze_graph_handle_t *phGraph,
                                          ze_graph_build_log_handle_t *phGraphBuildLog) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphCreate3(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphCreate3(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     if (desc == nullptr) {
@@ -1257,8 +1257,8 @@ inline std::string _trace_zeGraphBuildLogGetString2(ze_graph_build_log_handle_t 
                                                     uint32_t *pSize,
                                                     char *pBuildLog) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphBuildLogGetString2(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphBuildLogGetString2(";
     ss << "hGraphBuildLog: " << hGraphBuildLog;
     if (pSize == nullptr) {
         ss << ", pSize: nullptr";
@@ -1293,8 +1293,8 @@ inline void trace_zeGraphBuildLogGetString2(ze_result_t ret,
 
 inline std::string _trace_zeGraphBuildLogDestroy(ze_graph_build_log_handle_t hGraphBuildLog) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphBuildLogDestroy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphBuildLogDestroy(";
     ss << "hGraphBuildLog: " << hGraphBuildLog;
     ss << ")";
     return ss.str();
@@ -1314,8 +1314,8 @@ inline void trace_zeGraphBuildLogDestroy(ze_result_t ret,
 inline std::string _trace_zeGraphGetProperties3(ze_graph_handle_t hGraph,
                                                 ze_graph_properties_3_t *pGraphProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphGetProperties3(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphGetProperties3(";
     ss << "hGraph: " << hGraph;
     if (pGraphProperties == nullptr) {
         ss << ", pGraphProperties: nullptr";
@@ -1348,8 +1348,8 @@ inline void trace_zeGraphGetProperties3(ze_result_t ret,
 
 inline std::string _trace_zeGraphEvict(ze_graph_handle_t hGraph) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphEvict(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphEvict(";
     ss << "hGraph: " << hGraph;
     ss << ")";
     return ss.str();

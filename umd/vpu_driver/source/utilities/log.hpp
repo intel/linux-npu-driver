@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string_view>
+#include <unistd.h>
 
 enum LogLevel { QUIET = 0, ERROR, WARNING, INFO };
 
@@ -53,28 +54,30 @@ enum LogMask : uint64_t {
 
 #ifdef ENABLE_NPU_LOGGING
 #define __FNAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
-#define _LOG(LEVEL, MASK, fmt, ...)                           \
-    do {                                                      \
-        if (LEVEL > VPU::getLogLevel())                       \
-            break;                                            \
-                                                              \
-        if ((LEVEL > WARNING) && !(MASK & VPU::getLogMask())) \
-            break;                                            \
-                                                              \
-        if (LEVEL > WARNING)                                  \
-            fprintf(stderr,                                   \
-                    "NPU_LOG: [%s][%s:%d] " fmt "\n",         \
-                    VPU::getLogMaskStr(MASK),                 \
-                    __FNAME__,                                \
-                    __LINE__,                                 \
-                    ##__VA_ARGS__);                           \
-        else                                                  \
-            fprintf(stderr,                                   \
-                    "NPU_LOG: *%s* [%s:%d] " fmt "\n",        \
-                    VPU::getLogLevelStr(LEVEL),               \
-                    __FNAME__,                                \
-                    __LINE__,                                 \
-                    ##__VA_ARGS__);                           \
+#define _LOG(LEVEL, MASK, fmt, ...)                            \
+    do {                                                       \
+        if (LEVEL > VPU::getLogLevel())                        \
+            break;                                             \
+                                                               \
+        if ((LEVEL > WARNING) && !(MASK & VPU::getLogMask()))  \
+            break;                                             \
+                                                               \
+        if (LEVEL > WARNING)                                   \
+            fprintf(stderr,                                    \
+                    "NPU_LOG: [%s][tid:%d][%s:%d] " fmt "\n",  \
+                    VPU::getLogMaskStr(MASK),                  \
+                    gettid(),                                  \
+                    __FNAME__,                                 \
+                    __LINE__,                                  \
+                    ##__VA_ARGS__);                            \
+        else                                                   \
+            fprintf(stderr,                                    \
+                    "NPU_LOG: *%s* [tid:%d][%s:%d] " fmt "\n", \
+                    VPU::getLogLevelStr(LEVEL),                \
+                    gettid(),                                  \
+                    __FNAME__,                                 \
+                    __LINE__,                                  \
+                    ##__VA_ARGS__);                            \
     } while (0)
 #else
 #define _LOG(LEVEL, MASK, fmt, ...) \

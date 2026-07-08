@@ -249,7 +249,8 @@ int VPUDriverApi::createBuffer(size_t size,
     return ret;
 }
 
-int VPUDriverApi::getBufferInfo(uint32_t handle, uint64_t &mmap_offset) const {
+// Returns GEM object size aligned to PAGE_SIZE for the given handle.
+int VPUDriverApi::getBufferInfo(uint32_t handle, uint64_t &mmap_offset, uint64_t &size) const {
     drm_ivpu_bo_info args = {};
     args.handle = handle;
 
@@ -260,6 +261,8 @@ int VPUDriverApi::getBufferInfo(uint32_t handle, uint64_t &mmap_offset) const {
     }
 
     mmap_offset = args.mmap_offset;
+    size = args.size;
+
     return ret;
 }
 

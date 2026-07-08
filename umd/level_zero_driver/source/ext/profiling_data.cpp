@@ -14,24 +14,11 @@
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
-#include <algorithm>
-#include <mutex>
 #include <string.h>
-#include <string>
-#include <thread>
-#include <unordered_map>
 #include <utility>
 #include <ze_api.h>
 
 namespace L0 {
-
-static std::mutex msgMutex;
-static std::unordered_map<std::thread::id, std::string> lastErrorMsgs;
-
-static std::string &getLastErrorMsg() {
-    std::unique_lock<std::mutex> lock(msgMutex);
-    return lastErrorMsgs[std::this_thread::get_id()];
-}
 
 GraphProfilingPool::GraphProfilingPool(VPU::VPUDeviceContext *ctx,
                                        const uint32_t size,
@@ -106,7 +93,6 @@ ze_result_t GraphProfilingQuery::getData(ze_graph_profiling_type_t profilingType
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    std::string &lastErrorMsg = getLastErrorMsg();
     if (profilingType == ZE_GRAPH_PROFILING_LAYER_LEVEL ||
         profilingType == ZE_GRAPH_PROFILING_TASK_LEVEL) {
         if (ctx == nullptr || blob == nullptr) {
@@ -121,7 +107,7 @@ ze_result_t GraphProfilingQuery::getData(ze_graph_profiling_type_t profilingType
                                                    size,
                                                    pSize,
                                                    pData,
-                                                   lastErrorMsg);
+                                                   logBuffer);
     }
 
     if (profilingType != ZE_GRAPH_PROFILING_RAW) {
@@ -150,9 +136,10 @@ ze_result_t GraphProfilingQuery::getLogString(uint32_t *pSize, char *pProfilingL
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    std::string &lastErrorMsg = getLastErrorMsg();
+    const uint32_t requiredSize = static_cast<uint32_t>(logBuffer.size() + 1);
+
     if (*pSize == 0) {
-        *pSize = static_cast<uint32_t>(lastErrorMsg.size() + 1);
+        *pSize = requiredSize;
         return ZE_RESULT_SUCCESS;
     }
 
@@ -161,8 +148,22 @@ ze_result_t GraphProfilingQuery::getLogString(uint32_t *pSize, char *pProfilingL
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
 
-    *pSize = std::min(*pSize, static_cast<uint32_t>(lastErrorMsg.size() + 1));
-    memcpy(pProfilingLog, lastErrorMsg.c_str(), *pSize);
+    const uint32_t requestedSize = *pSize;
+
+    if (requestedSize < requiredSize) {
+        memcpy(pProfilingLog, logBuffer.c_str(), requestedSize - 1);
+        pProfilingLog[requestedSize - 1] = '\0';
+        *pSize = requestedSize;
+
+        return ZE_RESULT_SUCCESS;
+    }
+
+    memcpy(pProfilingLog, logBuffer.c_str(), requiredSize);
+    *pSize = requiredSize;
+
+    // Clear the log after successful full retrieval.
+    logBuffer.clear();
+
     return ZE_RESULT_SUCCESS;
 }
 

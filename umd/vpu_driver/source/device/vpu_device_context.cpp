@@ -14,6 +14,7 @@
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
+#include "vpu_driver/source/utilities/trace_perfetto.hpp"
 
 #include <chrono> // IWYU pragma: keep
 #include <exception>
@@ -137,7 +138,6 @@ bool VPUDeviceContext::freeMemAlloc(std::shared_ptr<VPUBufferObject> bo) {
         return false;
     }
 
-    MemoryStatistics::get().snapshot();
     return true;
 }
 
@@ -184,7 +184,6 @@ VPUDeviceContext::createUntrackedBufferObject(size_t size, VPUBufferObject::Type
     const std::lock_guard<std::mutex> lock(mtx);
     untrackedBuffers.emplace_back(bo);
 
-    MemoryStatistics::get().snapshot();
     return bo;
 }
 
@@ -243,7 +242,6 @@ VPUDeviceContext::createTrackedBufferObjectFromUserPtr(void *userPtr, size_t siz
         return nullptr;
     }
 
-    MemoryStatistics::get().snapshot();
     return it->second;
 }
 
@@ -269,7 +267,6 @@ VPUDeviceContext::createUntrackedBufferObjectFromUserPtr(void *userPtr,
     const std::lock_guard<std::mutex> lock(mtx);
     untrackedBuffers.emplace_back(bo);
 
-    MemoryStatistics::get().snapshot();
     return bo;
 }
 
@@ -353,11 +350,16 @@ std::shared_ptr<VPUBufferObject> ScratchCacheFactory::acquire(VPUDeviceContext *
     }
 
     scratchBuffers.emplace_back(bo);
+
+    scratchCacheBufferCounter.add(1);
+    scratchCacheByteCounter.add(bo->getAllocSize());
+
     LOG(CONTEXT,
         "Allocated scratch buffer: handle %u, size: %lu, requested size: %lu",
         bo->getHandle(),
         bo->getAllocSize(),
         size);
+
     return bo;
 }
 
@@ -366,13 +368,23 @@ void ScratchCacheFactory::prune(size_t size) {
         return;
 
     const std::lock_guard<std::mutex> lock(scratchMutex);
-    scratchBuffers.erase(std::remove_if(scratchBuffers.begin(),
-                                        scratchBuffers.end(),
-                                        [size](const std::shared_ptr<VPUBufferObject> &bo) {
-                                            return bo.use_count() == 1 &&
-                                                   bo->getAllocSize() <= size;
-                                        }),
-                         scratchBuffers.end());
+
+    auto it = std::remove_if(scratchBuffers.begin(),
+                             scratchBuffers.end(),
+                             [size](const std::shared_ptr<VPUBufferObject> &bo) {
+                                 const bool remove =
+                                     bo.use_count() == 1 && bo->getAllocSize() <= size;
+
+                                 if (!remove)
+                                     return false;
+
+                                 scratchCacheBufferCounter.sub(1);
+                                 scratchCacheByteCounter.sub(bo->getAllocSize());
+
+                                 return true;
+                             });
+
+    scratchBuffers.erase(it, scratchBuffers.end());
 }
 
 std::shared_ptr<VPUBufferObject> PreemptionCacheFactory::acquire(VPUDeviceContext *ctx) {
@@ -401,6 +413,10 @@ std::shared_ptr<VPUBufferObject> PreemptionCacheFactory::acquire(VPUDeviceContex
     }
 
     preemptionBuffers.push_back(bo);
+
+    preemptionCacheBufferCounter.add(1);
+    preemptionCacheByteCounter.add(bo->getAllocSize());
+
     LOG(CONTEXT,
         "Returning new preemption buffer: handle %u, size: %lu",
         bo->getHandle(),
@@ -410,23 +426,32 @@ std::shared_ptr<VPUBufferObject> PreemptionCacheFactory::acquire(VPUDeviceContex
 
 void PreemptionCacheFactory::prune() {
     const std::lock_guard<std::mutex> lock(preemptionMutex);
+
     if (numQueues > 0)
         numQueues--;
 
     size_t numQueuesToRemove = preemptionBuffers.size() > numQueues
                                    ? preemptionBuffers.size() - numQueues
                                    : preemptionBuffers.size();
-    preemptionBuffers.erase(
-        std::remove_if(preemptionBuffers.begin(),
-                       preemptionBuffers.end(),
-                       [&numQueuesToRemove](const std::shared_ptr<VPUBufferObject> &bo) {
-                           if (numQueuesToRemove > 0 && bo.use_count() == 1) {
-                               numQueuesToRemove--;
-                               return true;
-                           }
-                           return false;
-                       }),
-        preemptionBuffers.end());
+
+    auto it = std::remove_if(preemptionBuffers.begin(),
+                             preemptionBuffers.end(),
+                             [&numQueuesToRemove](const std::shared_ptr<VPUBufferObject> &bo) {
+                                 const bool remove = numQueuesToRemove > 0 && bo.use_count() == 1;
+
+                                 if (!remove)
+                                     return false;
+
+                                 numQueuesToRemove--;
+
+                                 preemptionCacheBufferCounter.sub(1);
+                                 preemptionCacheByteCounter.sub(bo->getAllocSize());
+
+                                 return true;
+                             });
+
+    preemptionBuffers.erase(it, preemptionBuffers.end());
+
     LOG(CONTEXT, "Pruned preemption buffers, remaining count: %zu", preemptionBuffers.size());
 }
 

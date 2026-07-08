@@ -66,6 +66,7 @@ class VPUBufferObject {
                     Type range,
                     void *basePtr,
                     size_t allocSize,
+                    uint64_t alignedSize,
                     uint32_t handle,
                     uint64_t vpuAddr);
     ~VPUBufferObject();
@@ -152,6 +153,10 @@ class VPUBufferObject {
      */
     bool copyToBuffer(const void *data, size_t size, size_t offset);
 
+    // Checks whether the given memory range [ptr, ptr + size)
+    // is fully contained within the buffer allocation.
+    bool isInRange(const void *ptr, size_t size) const;
+
     /**
        Fill allocated buffer with pattern.
        @param pattern[in]: Pattern byte stream.
@@ -182,13 +187,15 @@ class VPUBufferObject {
         return static_cast<VPUBufferObject::Type>(static_cast<int>(type) & ~DRM_IVPU_BO_MAPPABLE);
     }
 
+    bool isExternalMemory() const;
+
   private:
     const VPUDriverApi &drvApi;
     Location location;
     Type type;
     uint8_t *basePtr;
     size_t allocSize;
-
+    uint64_t alignedSize;
     uint64_t vpuAddr;
     uint32_t handle;
     uint64_t id;

@@ -43,7 +43,8 @@ class VPUInferenceExecute : public VPUCommand {
                         L0::GraphProfilingQuery *profilingQuery,
                         uint64_t inferenceId,
                         std::vector<std::shared_ptr<VPUBufferObject>> &bos,
-                        std::vector<std::shared_ptr<VPUBufferObject>> &userBos);
+                        std::vector<std::shared_ptr<VPUBufferObject>> &userBos,
+                        bool optimizeForDynamicShapes);
     ~VPUInferenceExecute() = default;
 
     VPUInferenceExecute(VPUInferenceExecute const &) = delete;
@@ -58,7 +59,8 @@ class VPUInferenceExecute : public VPUCommand {
            const ArgumentStridesMap &outputStrides,
            L0::GraphProfilingQuery *profilingQuery,
            uint64_t inferenceId,
-           std::vector<std::shared_ptr<VPUBufferObject>> &bos);
+           std::vector<std::shared_ptr<VPUBufferObject>> &bos,
+           bool optimizeForDynamicShapes);
 
     const vpu_cmd_header_t *getHeader() const override {
         return reinterpret_cast<const vpu_cmd_header_t *>(
@@ -86,6 +88,7 @@ class VPUInferenceExecute : public VPUCommand {
 
     /* shared scratch buffer, on command create the value is invalid */
     uint32_t lastScratchBoHandle = UINT32_MAX;
+    bool optimizeForDynamicShapes = false;
 };
 
 } // namespace VPU

@@ -11,6 +11,7 @@
 
 #include <functional>
 #include <memory>
+#include <string>
 #include <vector>
 #include <ze_api.h>
 #include <ze_graph_profiling_ext.h>
@@ -56,6 +57,7 @@ struct GraphProfilingQuery : _ze_graph_profiling_query_handle_t {
     const BlobContainer *blob;
     std::shared_ptr<VPU::VPUBufferObject> profilingBo;
     std::function<void()> destroyCb;
+    std::string logBuffer;
 };
 
 struct GraphProfilingPool : _ze_graph_profiling_pool_handle_t {

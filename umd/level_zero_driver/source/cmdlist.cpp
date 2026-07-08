@@ -153,9 +153,20 @@ ze_result_t CommandList::appendMemoryCopy(void *dstptr,
         LOG_E("Pointer to destination/source memory passed as nullptr");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
-    // Append a memory copy command.
+
+    if (size == 0) {
+        LOG_E("Invalid memory copy size");
+        return ZE_RESULT_ERROR_INVALID_SIZE;
+    }
+
     auto srcBo = ctx->findBufferObject(srcptr);
     auto dstBo = ctx->findBufferObject(dstptr);
+
+    if (!srcBo->isInRange(srcptr, size) || !dstBo->isInRange(dstptr, size)) {
+        LOG_E("Memory copy range exceeds source or destination allocation");
+        return ZE_RESULT_ERROR_INVALID_SIZE;
+    }
+
     return appendCommandWithEvents<VPU::VPUCopyCommand>(hSignalEvent,
                                                         numWaitEvents,
                                                         phWaitEvents,

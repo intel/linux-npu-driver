@@ -130,11 +130,11 @@ struct Context : _ze_context_handle_t {
   private:
     DriverHandle *driverHandle = nullptr;
     std::unique_ptr<VPU::VPUDeviceContext> ctx;
-    std::unordered_map<void *, std::unique_ptr<IContextObject>> objects;
     std::mutex mutex;
     std::mutex cleanerMutex;
     std::unique_ptr<ResourceCleaner> resourceCleaner;
     std::chrono::milliseconds idleTimeout = 30s;
+    std::unordered_map<void *, std::unique_ptr<IContextObject>> objects;
 };
 
 } // namespace L0

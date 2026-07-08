@@ -24,6 +24,7 @@
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
+#include "vpu_driver/source/utilities/timer.hpp"
 
 #include <bitset>
 #include <chrono> // IWYU pragma: keep
@@ -478,15 +479,24 @@ ze_result_t Device::getGlobalTimestamps(uint64_t *hostTimestamp, uint64_t *devic
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
 
+    if (hostTimestamp == nullptr || deviceTimestamp == nullptr) {
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
     ze_result_t ret;
     UniquePtrT<Context> tsContext = nullptr;
     CommandQueue *tsCommandQueue = nullptr;
     CommandList *tsCommandList = nullptr;
 
     ret = createInternalJob(tsContext, &tsCommandQueue, &tsCommandList);
-    if (ret != ZE_RESULT_SUCCESS || !tsCommandQueue || !tsCommandList) {
+    if (ret != ZE_RESULT_SUCCESS) {
         LOG_E("Internal job creation failed");
         return ret;
+    }
+
+    if (!tsCommandQueue || !tsCommandList || !tsContext) {
+        LOG_E("Failed to create internal context for timestamp retrieval");
+        return ZE_RESULT_ERROR_UNKNOWN;
     }
 
     auto alignedBo = tsContext->getDeviceContext()->createUntrackedBufferObject(
@@ -495,7 +505,7 @@ ze_result_t Device::getGlobalTimestamps(uint64_t *hostTimestamp, uint64_t *devic
 
     if (alignedBo == nullptr) {
         LOG_E("Failed to allocate internal buffer");
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        return ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY;
     }
 
     uint64_t *ts = reinterpret_cast<uint64_t *>(alignedBo->getBasePointer());
@@ -517,9 +527,11 @@ ze_result_t Device::getGlobalTimestamps(uint64_t *hostTimestamp, uint64_t *devic
         return ret;
 
     *deviceTimestamp = *ts;
-    auto timestampNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::steady_clock::now().time_since_epoch());
-    *hostTimestamp = static_cast<uint64_t>(timestampNs.count());
+
+    if (!VPU::getHostTimestamp(hostTimestamp)) {
+        LOG_E("Failed to get host timestamp");
+        return ZE_RESULT_ERROR_NOT_AVAILABLE;
+    }
 
     return ZE_RESULT_SUCCESS;
 }

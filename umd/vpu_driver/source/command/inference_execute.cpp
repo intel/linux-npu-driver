@@ -30,7 +30,8 @@ VPUInferenceExecute::VPUInferenceExecute(std::shared_ptr<L0::ElfParser> &parser,
                                          L0::GraphProfilingQuery *profilingQuery,
                                          uint64_t inferenceId,
                                          std::vector<std::shared_ptr<VPUBufferObject>> &bos,
-                                         std::vector<std::shared_ptr<VPUBufferObject>> &userBos)
+                                         std::vector<std::shared_ptr<VPUBufferObject>> &userBos,
+                                         bool optimizeForDynamicShapes)
     : parser(parser)
     , hpi(hpi)
     , inputs(inputs)
@@ -38,7 +39,8 @@ VPUInferenceExecute::VPUInferenceExecute(std::shared_ptr<L0::ElfParser> &parser,
     , inputStrides(inputStrides)
     , outputStrides(outputStrides)
     , profilingQuery(profilingQuery)
-    , userArgIndex(bos.size()) {
+    , userArgIndex(bos.size())
+    , optimizeForDynamicShapes(optimizeForDynamicShapes) {
     vpu_cmd_inference_execute_t cmd = {};
     cmd.header.type = VPU_CMD_INFERENCE_EXECUTE;
     cmd.header.size = sizeof(vpu_cmd_inference_execute_t);
@@ -72,7 +74,8 @@ VPUInferenceExecute::create(std::shared_ptr<L0::ElfParser> parser,
                             const ArgumentStridesMap &outputStrides,
                             L0::GraphProfilingQuery *profilingQuery,
                             uint64_t inferenceId,
-                            std::vector<std::shared_ptr<VPUBufferObject>> &bos) {
+                            std::vector<std::shared_ptr<VPUBufferObject>> &bos,
+                            bool optimizeForDynamicShapes) {
     std::vector<std::shared_ptr<VPUBufferObject>> userBos;
     userBos.reserve(inputPtrs.size() + outputPtrs.size());
     if (!parser->applyInputOutputs(cmdHpi,
@@ -95,7 +98,8 @@ VPUInferenceExecute::create(std::shared_ptr<L0::ElfParser> parser,
                                                  profilingQuery,
                                                  inferenceId,
                                                  bos,
-                                                 userBos);
+                                                 userBos,
+                                                 optimizeForDynamicShapes);
 }
 
 bool VPUInferenceExecute::setUpdates(const ArgumentUpdatesMap &updatesMap) {
@@ -117,7 +121,7 @@ bool VPUInferenceExecute::setUpdates(const ArgumentUpdatesMap &updatesMap) {
             }
             if (argUpdate.strides) {
                 inputStrides[argIndex] = *argUpdate.strides;
-            } else {
+            } else if (!optimizeForDynamicShapes) {
                 inputStrides.erase(argIndex);
             }
         } else {
@@ -127,7 +131,7 @@ bool VPUInferenceExecute::setUpdates(const ArgumentUpdatesMap &updatesMap) {
             }
             if (argUpdate.strides) {
                 outputStrides[outputIndex] = *argUpdate.strides;
-            } else {
+            } else if (!optimizeForDynamicShapes) {
                 outputStrides.erase(outputIndex);
             }
         }

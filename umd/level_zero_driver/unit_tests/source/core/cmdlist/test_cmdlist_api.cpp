@@ -329,6 +329,82 @@ TEST_F(CommandListApiTest, whenCalledAppendMemoryCopyWithCorrectProgramSequenceS
     EXPECT_TRUE(ctx->freeMemAlloc(srcPtr));
 }
 
+TEST_F(CommandListApiTest, whenCalledAppendMemoryCopyWithOutOfBoundsRangeInvalidSizeIsReturned) {
+    void *srcPtr = ctx->createMemAlloc(testAllocSize,
+                                       VPU::VPUBufferObject::Type::CachedShave,
+                                       VPU::VPUBufferObject::Location::Host);
+
+    ASSERT_NE(nullptr, srcPtr);
+
+    auto *dstPtr = reinterpret_cast<uint8_t *>(ptrAlloc);
+
+    // Pointer is inside allocation, but copy size exceeds remaining allocation size.
+    void *invalidDstPtr = dstPtr + testAllocSize - 1;
+
+    ze_result_t result =
+        commandList->appendMemoryCopy(invalidDstPtr, srcPtr, testAllocSize, nullptr, 0, nullptr);
+
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_SIZE, result);
+
+    EXPECT_TRUE(ctx->freeMemAlloc(srcPtr));
+}
+
+TEST_F(CommandListApiTest,
+       whenCalledAppendMemoryCopyWithOutOfBoundsSourceRangeInvalidSizeIsReturned) {
+    void *srcPtr = ctx->createMemAlloc(testAllocSize,
+                                       VPU::VPUBufferObject::Type::CachedShave,
+                                       VPU::VPUBufferObject::Location::Host);
+
+    ASSERT_NE(nullptr, srcPtr);
+
+    auto *srcPtrBytes = reinterpret_cast<uint8_t *>(srcPtr);
+
+    // Pointer is inside allocation, but copy size exceeds remaining allocation size.
+    const void *invalidSrcPtr = srcPtrBytes + testAllocSize - 1;
+
+    ze_result_t result = commandList->appendMemoryCopy((void *)ptrAlloc,
+                                                       invalidSrcPtr,
+                                                       testAllocSize,
+                                                       nullptr,
+                                                       0,
+                                                       nullptr);
+
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_SIZE, result);
+
+    EXPECT_TRUE(ctx->freeMemAlloc(srcPtr));
+}
+
+TEST_F(CommandListApiTest, whenCalledAppendMemoryCopyWithZeroSizeInvalidSizeIsReturned) {
+    void *srcPtr = ctx->createMemAlloc(testAllocSize,
+                                       VPU::VPUBufferObject::Type::CachedShave,
+                                       VPU::VPUBufferObject::Location::Host);
+
+    ASSERT_NE(nullptr, srcPtr);
+
+    ze_result_t result =
+        commandList->appendMemoryCopy((void *)ptrAlloc, srcPtr, 0, nullptr, 0, nullptr);
+
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_SIZE, result);
+
+    EXPECT_TRUE(ctx->freeMemAlloc(srcPtr));
+}
+
+TEST_F(CommandListApiTest,
+       whenCalledAppendMemoryCopyWithRangeExactlyMatchingAllocationSuccessIsReturned) {
+    void *srcPtr = ctx->createMemAlloc(testAllocSize,
+                                       VPU::VPUBufferObject::Type::CachedShave,
+                                       VPU::VPUBufferObject::Location::Host);
+
+    ASSERT_NE(nullptr, srcPtr);
+
+    ze_result_t result =
+        commandList->appendMemoryCopy((void *)ptrAlloc, srcPtr, testAllocSize, nullptr, 0, nullptr);
+
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+
+    EXPECT_TRUE(ctx->freeMemAlloc(srcPtr));
+}
+
 TEST_F(CommandListApiTest, eventSyncObjectsAttachedWithMemoryCopyCommand) {
     // Append copy command with sync objects.
     ze_event_handle_t waitOnEvents[] = {event1, event2, event3};

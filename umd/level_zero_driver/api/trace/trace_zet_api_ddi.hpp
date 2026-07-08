@@ -19,8 +19,8 @@ inline std::string
 _trace_zetGetMetricProgrammableExpProcAddrTable(ze_api_version_t version,
                                                 zet_metric_programmable_exp_dditable_t *pDdiTable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_DDI][tid:" << gettid() << "] zetGetMetricProgrammableExpProcAddrTable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_DDI] zetGetMetricProgrammableExpProcAddrTable(";
     ss << "version: " << version;
     if (pDdiTable == nullptr) {
         ss << ", pDdiTable: nullptr";
@@ -59,8 +59,8 @@ inline std::string
 _trace_zetGetMetricTracerExpProcAddrTable(ze_api_version_t version,
                                           zet_metric_tracer_exp_dditable_t *pDdiTable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_DDI][tid:" << gettid() << "] zetGetMetricTracerExpProcAddrTable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_DDI] zetGetMetricTracerExpProcAddrTable(";
     ss << "version: " << version;
     if (pDdiTable == nullptr) {
         ss << ", pDdiTable: nullptr";
@@ -96,8 +96,8 @@ inline std::string
 _trace_zetGetMetricDecoderExpProcAddrTable(ze_api_version_t version,
                                            zet_metric_decoder_exp_dditable_t *pDdiTable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_DDI][tid:" << gettid() << "] zetGetMetricDecoderExpProcAddrTable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_DDI] zetGetMetricDecoderExpProcAddrTable(";
     ss << "version: " << version;
     if (pDdiTable == nullptr) {
         ss << ", pDdiTable: nullptr";
@@ -132,8 +132,8 @@ trace_zetGetMetricDecoderExpProcAddrTable(ze_result_t ret,
 inline std::string _trace_zetGetDeviceProcAddrTable(ze_api_version_t version,
                                                     zet_device_dditable_t *pDdiTable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_DDI][tid:" << gettid() << "] zetGetDeviceProcAddrTable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_DDI] zetGetDeviceProcAddrTable(";
     ss << "version: " << version;
     if (pDdiTable == nullptr) {
         ss << ", pDdiTable: nullptr";
@@ -163,8 +163,8 @@ inline void trace_zetGetDeviceProcAddrTable(ze_result_t ret,
 inline std::string _trace_zetGetDeviceExpProcAddrTable(ze_api_version_t version,
                                                        zet_device_exp_dditable_t *pDdiTable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_DDI][tid:" << gettid() << "] zetGetDeviceExpProcAddrTable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_DDI] zetGetDeviceExpProcAddrTable(";
     ss << "version: " << version;
     if (pDdiTable == nullptr) {
         ss << ", pDdiTable: nullptr";
@@ -197,8 +197,8 @@ inline void trace_zetGetDeviceExpProcAddrTable(ze_result_t ret,
 inline std::string _trace_zetGetContextProcAddrTable(ze_api_version_t version,
                                                      zet_context_dditable_t *pDdiTable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_DDI][tid:" << gettid() << "] zetGetContextProcAddrTable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_DDI] zetGetContextProcAddrTable(";
     ss << "version: " << version;
     if (pDdiTable == nullptr) {
         ss << ", pDdiTable: nullptr";
@@ -229,8 +229,8 @@ inline std::string
 _trace_zetGetCommandListExpProcAddrTable(ze_api_version_t version,
                                          zet_command_list_exp_dditable_t *pDdiTable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_DDI][tid:" << gettid() << "] zetGetCommandListExpProcAddrTable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_DDI] zetGetCommandListExpProcAddrTable(";
     ss << "version: " << version;
     if (pDdiTable == nullptr) {
         ss << ", pDdiTable: nullptr";
@@ -260,8 +260,8 @@ inline void trace_zetGetCommandListExpProcAddrTable(ze_result_t ret,
 inline std::string _trace_zetGetCommandListProcAddrTable(ze_api_version_t version,
                                                          zet_command_list_dditable_t *pDdiTable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_DDI][tid:" << gettid() << "] zetGetCommandListProcAddrTable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_DDI] zetGetCommandListProcAddrTable(";
     ss << "version: " << version;
     if (pDdiTable == nullptr) {
         ss << ", pDdiTable: nullptr";
@@ -298,8 +298,8 @@ inline void trace_zetGetCommandListProcAddrTable(ze_result_t ret,
 inline std::string _trace_zetGetModuleProcAddrTable(ze_api_version_t version,
                                                     zet_module_dditable_t *pDdiTable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_DDI][tid:" << gettid() << "] zetGetModuleProcAddrTable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_DDI] zetGetModuleProcAddrTable(";
     ss << "version: " << version;
     if (pDdiTable == nullptr) {
         ss << ", pDdiTable: nullptr";
@@ -328,8 +328,8 @@ inline void trace_zetGetModuleProcAddrTable(ze_result_t ret,
 inline std::string _trace_zetGetKernelProcAddrTable(ze_api_version_t version,
                                                     zet_kernel_dditable_t *pDdiTable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_DDI][tid:" << gettid() << "] zetGetKernelProcAddrTable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_DDI] zetGetKernelProcAddrTable(";
     ss << "version: " << version;
     if (pDdiTable == nullptr) {
         ss << ", pDdiTable: nullptr";
@@ -358,8 +358,8 @@ inline void trace_zetGetKernelProcAddrTable(ze_result_t ret,
 inline std::string _trace_zetGetMetricProcAddrTable(ze_api_version_t version,
                                                     zet_metric_dditable_t *pDdiTable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_DDI][tid:" << gettid() << "] zetGetMetricProcAddrTable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_DDI] zetGetMetricProcAddrTable(";
     ss << "version: " << version;
     if (pDdiTable == nullptr) {
         ss << ", pDdiTable: nullptr";
@@ -389,8 +389,8 @@ inline void trace_zetGetMetricProcAddrTable(ze_result_t ret,
 inline std::string _trace_zetGetMetricExpProcAddrTable(ze_api_version_t version,
                                                        zet_metric_exp_dditable_t *pDdiTable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_DDI][tid:" << gettid() << "] zetGetMetricExpProcAddrTable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_DDI] zetGetMetricExpProcAddrTable(";
     ss << "version: " << version;
     if (pDdiTable == nullptr) {
         ss << ", pDdiTable: nullptr";
@@ -424,8 +424,8 @@ inline void trace_zetGetMetricExpProcAddrTable(ze_result_t ret,
 inline std::string _trace_zetGetMetricGroupProcAddrTable(ze_api_version_t version,
                                                          zet_metric_group_dditable_t *pDdiTable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_DDI][tid:" << gettid() << "] zetGetMetricGroupProcAddrTable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_DDI] zetGetMetricGroupProcAddrTable(";
     ss << "version: " << version;
     if (pDdiTable == nullptr) {
         ss << ", pDdiTable: nullptr";
@@ -459,8 +459,8 @@ inline std::string
 _trace_zetGetMetricGroupExpProcAddrTable(ze_api_version_t version,
                                          zet_metric_group_exp_dditable_t *pDdiTable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_DDI][tid:" << gettid() << "] zetGetMetricGroupExpProcAddrTable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_DDI] zetGetMetricGroupExpProcAddrTable(";
     ss << "version: " << version;
     if (pDdiTable == nullptr) {
         ss << ", pDdiTable: nullptr";
@@ -504,8 +504,8 @@ inline std::string
 _trace_zetGetMetricStreamerProcAddrTable(ze_api_version_t version,
                                          zet_metric_streamer_dditable_t *pDdiTable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_DDI][tid:" << gettid() << "] zetGetMetricStreamerProcAddrTable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_DDI] zetGetMetricStreamerProcAddrTable(";
     ss << "version: " << version;
     if (pDdiTable == nullptr) {
         ss << ", pDdiTable: nullptr";
@@ -538,8 +538,8 @@ inline std::string
 _trace_zetGetMetricQueryPoolProcAddrTable(ze_api_version_t version,
                                           zet_metric_query_pool_dditable_t *pDdiTable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_DDI][tid:" << gettid() << "] zetGetMetricQueryPoolProcAddrTable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_DDI] zetGetMetricQueryPoolProcAddrTable(";
     ss << "version: " << version;
     if (pDdiTable == nullptr) {
         ss << ", pDdiTable: nullptr";
@@ -570,8 +570,8 @@ inline void trace_zetGetMetricQueryPoolProcAddrTable(ze_result_t ret,
 inline std::string _trace_zetGetMetricQueryProcAddrTable(ze_api_version_t version,
                                                          zet_metric_query_dditable_t *pDdiTable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_DDI][tid:" << gettid() << "] zetGetMetricQueryProcAddrTable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_DDI] zetGetMetricQueryProcAddrTable(";
     ss << "version: " << version;
     if (pDdiTable == nullptr) {
         ss << ", pDdiTable: nullptr";
@@ -604,8 +604,8 @@ inline void trace_zetGetMetricQueryProcAddrTable(ze_result_t ret,
 inline std::string _trace_zetGetTracerExpProcAddrTable(ze_api_version_t version,
                                                        zet_tracer_exp_dditable_t *pDdiTable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_DDI][tid:" << gettid() << "] zetGetTracerExpProcAddrTable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_DDI] zetGetTracerExpProcAddrTable(";
     ss << "version: " << version;
     if (pDdiTable == nullptr) {
         ss << ", pDdiTable: nullptr";
@@ -639,8 +639,8 @@ inline void trace_zetGetTracerExpProcAddrTable(ze_result_t ret,
 inline std::string _trace_zetGetDebugProcAddrTable(ze_api_version_t version,
                                                    zet_debug_dditable_t *pDdiTable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_DDI][tid:" << gettid() << "] zetGetDebugProcAddrTable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_DDI] zetGetDebugProcAddrTable(";
     ss << "version: " << version;
     if (pDdiTable == nullptr) {
         ss << ", pDdiTable: nullptr";

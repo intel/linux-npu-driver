@@ -14,7 +14,6 @@
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
-#include "vpu_driver/source/utilities/stats.hpp"
 
 #include <algorithm>
 #include <bitset>
@@ -71,7 +70,6 @@ class VPUDeviceContext {
         auto bo = createBufferObject(size, type, loc);
         if (bo == nullptr)
             return nullptr;
-        MemoryStatistics::get().snapshot();
         return bo->getBasePointer();
     }
 

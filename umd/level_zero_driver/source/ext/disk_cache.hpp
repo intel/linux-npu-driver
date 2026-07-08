@@ -36,7 +36,6 @@ class DiskCache {
 
     void setMaxSize(size_t size) { maxSize = size; }
     size_t getMaxSize() { return maxSize; }
-    std::filesystem::path getCacheDirPath() { return cachePath; }
     size_t getCacheSize();
 
   private:

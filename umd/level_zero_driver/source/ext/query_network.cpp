@@ -14,7 +14,9 @@
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
+#include <memory>
 #include <string.h>
+#include <utility>
 #include <ze_api.h>
 #include <ze_graph_ext.h>
 
@@ -59,20 +61,27 @@ ze_result_t QueryNetwork::create(ze_context_handle_t hContext,
         return ret;
     }
 
-    auto *queryNetwork = new QueryNetwork(compiler, query);
+    auto queryNetwork =
+        std::make_unique<QueryNetwork>(compiler, query, Context::fromHandle(hContext));
     if (queryNetwork == nullptr) {
         LOG_E("Failed to allocate query network");
         return ZE_RESULT_ERROR_UNKNOWN;
     }
 
     *phGraphQueryNetwork = queryNetwork->toHandle();
+
+    Context::fromHandle(hContext)->appendObject(std::move(queryNetwork));
+
     return ZE_RESULT_SUCCESS;
 }
 
-ze_result_t QueryNetwork::destroy() {
+QueryNetwork::~QueryNetwork() {
     Compiler::queryNetworkDestroy(query);
     Compiler::compilerDestroy(compiler);
-    delete this;
+}
+
+ze_result_t QueryNetwork::destroy() {
+    context->removeObject(this);
 
     return ZE_RESULT_SUCCESS;
 }

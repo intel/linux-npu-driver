@@ -7,6 +7,12 @@
 
 #include "vpu_driver/source/utilities/timer.hpp"
 
+#include <time.h>
+
+#ifndef CLOCK_MONOTONIC_RAW
+#define CLOCK_MONOTONIC_RAW CLOCK_MONOTONIC
+#endif
+
 namespace VPU {
 
 std::chrono::steady_clock::time_point getAbsoluteTimePoint(uint64_t userTimeout) {
@@ -32,6 +38,22 @@ int64_t getAbsoluteTimeoutNanoseconds(uint64_t userTimeout) {
     }
 
     return timeout_abs_ns;
+}
+
+bool getHostTimestamp(uint64_t *hostTimestamp) {
+    struct timespec rawHostTs;
+
+    if (!hostTimestamp) {
+        return false;
+    }
+
+    if (clock_gettime(CLOCK_MONOTONIC_RAW, &rawHostTs) != 0) {
+        return false;
+    }
+    constexpr uint64_t NSEC_PER_SEC = 1'000'000'000;
+    *hostTimestamp = (static_cast<uint64_t>(rawHostTs.tv_sec) * NSEC_PER_SEC) +
+                     static_cast<uint64_t>(rawHostTs.tv_nsec);
+    return true;
 }
 
 } // namespace VPU

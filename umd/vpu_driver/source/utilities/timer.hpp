@@ -19,4 +19,6 @@ std::chrono::steady_clock::time_point getAbsoluteTimePoint(uint64_t userTimeout)
 
 int64_t getAbsoluteTimeoutNanoseconds(uint64_t userTimeout);
 
+bool getHostTimestamp(uint64_t *hostTimestamp);
+
 } // namespace VPU

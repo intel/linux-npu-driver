@@ -772,11 +772,13 @@ std::shared_ptr<VPU::VPUCommand> Graph::allocateGraphInitCommand(VPU::VPUDeviceC
 
 std::shared_ptr<VPU::VPUCommand>
 Graph::allocateGraphExecuteCommand(GraphProfilingQuery *profilingQuery) {
-    return parser->allocateExecuteCommand(inputArgs,
-                                          outputArgs,
-                                          inputStrides,
-                                          outputStrides,
-                                          profilingQuery);
+    return parser->allocateExecuteCommand(
+        inputArgs,
+        outputArgs,
+        inputStrides,
+        outputStrides,
+        profilingQuery,
+        (desc.flags & ZE_GRAPH_FLAG_OPTIMIZE_FOR_DYNAMIC_SHAPES) != 0);
 }
 
 ze_result_t Graph::getLogString(uint32_t *pSize, char *pBuildLog) {
@@ -797,12 +799,23 @@ ze_result_t Graph::getLogString(uint32_t *pSize, char *pBuildLog) {
     return ZE_RESULT_SUCCESS;
 }
 
+static const char *driverOptions = "OPTIMIZED_DYNAMIC_STRIDES";
+
 ze_result_t Graph::getSupportedOptions(ze_device_handle_t hDevice,
                                        ze_npu_options_type_t type,
                                        size_t *pSize,
                                        char *pSupportedOptions) {
     if (type == ZE_NPU_DRIVER_OPTIONS) {
-        *pSize = 0;
+        if (pSize == nullptr) {
+            LOG_E("Input size is NULL");
+            return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        }
+        if (pSupportedOptions == nullptr) {
+            *pSize = strlen(driverOptions) + 1;
+            return ZE_RESULT_SUCCESS;
+        }
+        *pSize = std::min(*pSize, strlen(driverOptions) + 1);
+        memcpy(pSupportedOptions, driverOptions, *pSize);
         return ZE_RESULT_SUCCESS;
     }
 
@@ -821,7 +834,10 @@ ze_result_t Graph::isOptionSupported(ze_device_handle_t hDevice,
                                      const char *pOption,
                                      const char *pValue) {
     if (type == ZE_NPU_DRIVER_OPTIONS) {
-        return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+        if (strstr(driverOptions, pOption)) {
+            return ZE_RESULT_SUCCESS;
+        }
+        return ZE_RESULT_ERROR_INVALID_ENUMERATION;
     }
 
     if (type == ZE_NPU_COMPILER_OPTIONS) {

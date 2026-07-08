@@ -53,6 +53,14 @@
 #include <ze_api.h>
 #include <ze_graph_ext.h>
 
+namespace {
+// Finalized scratch memory slice within the shared scratch allocation.
+struct ScratchSlice {
+    uint64_t offset;
+    uint64_t size;
+};
+} // namespace
+
 namespace L0 {
 
 class DriverBufferManager : public elf::BufferManager {
@@ -96,12 +104,32 @@ class DriverBufferManager : public elf::BufferManager {
         // If buffer is sharable, return empty DeviceBuffer. We only keep track of the shared
         // scratch size for this inference here. The buffer will be added on submission.
         if (buffSpecs.isSharable() && range == VPU::VPUBufferObject::Type::WriteCombineDma) {
-            LOG(GRAPH, "Shared scratch buffer size: %lu", buffSpecs.size);
-            sharedScratchSize = buffSpecs.size;
-            ctx->scratchCachePreload(buffSpecs.size);
+            if (scratchCollected) {
+                LOG(GRAPH,
+                    "Scratch skip (not collecting): size=%lu align=%lu",
+                    buffSpecs.size,
+                    buffSpecs.alignment);
+
+                return elf::DeviceBuffer();
+            }
+
+            uint64_t align = buffSpecs.alignment ? buffSpecs.alignment : 1;
+            sharedScratchSize = ALIGN(sharedScratchSize, align);
+            uint64_t offset = sharedScratchSize;
+            sharedScratchSize += buffSpecs.size;
+            scratchSlices.push_back({offset, buffSpecs.size});
+
+            LOG(GRAPH,
+                "Scratch collect: size=%lu align=%lu offset=%lu total=%lu",
+                buffSpecs.size,
+                align,
+                offset,
+                sharedScratchSize);
+
+            ctx->scratchCachePreload(sharedScratchSize);
+
             return elf::DeviceBuffer();
         }
-
         auto bo = ctx->createUntrackedBufferObject(buffSpecs.size, range);
         VPUX_ELF_THROW_WHEN(bo == nullptr, elf::AllocError, "Failed to allocate device buffer");
 
@@ -210,6 +238,8 @@ class DriverBufferManager : public elf::BufferManager {
 
   public:
     size_t sharedScratchSize = 0;
+    std::vector<ScratchSlice> scratchSlices;
+    bool scratchCollected = false;
 
   private:
     mutable std::mutex mtx;
@@ -300,7 +330,8 @@ ElfParser::ElfParser(VPU::VPUDeviceContext *ctx,
     : ctx(ctx)
     , bufferManager(std::move(buffer))
     , accessManager(std::move(access))
-    , hpiManager(std::make_unique<HostParsedInferenceManager>(std::move(hpi))) {}
+    , hpiManager(
+          std::make_unique<HostParsedInferenceManager>(std::move(hpi), bufferManager.get())) {}
 
 ElfParser::~ElfParser() {
     ctx->scratchCachePrune(getSharedScratchSize());
@@ -444,6 +475,11 @@ std::shared_ptr<elf::HostParsedInference> HostParsedInferenceManager::acquire() 
     if (!loaded) {
         loadHostParsedInference(headHpi);
         loaded = true;
+
+        auto bm = dynamic_cast<DriverBufferManager *>(bufferManager);
+        if (bm) {
+            bm->scratchCollected = true;
+        }
     }
 
     if (headHpi.use_count() == 1)
@@ -859,20 +895,50 @@ size_t ElfParser::getSharedScratchSize() const {
     return dynamic_cast<DriverBufferManager &>(*bufferManager).sharedScratchSize;
 }
 
+// Builds and applies the final scratch memory mapping for the inference.
+//
+// Scratch slice offsets are precomputed during the allocation/collection
+// phase and stored in `scratchSlices`. This function maps those slices onto
+// a single shared VPU scratch buffer base address.
+//
+// Each scratch slice is converted into a DeviceBuffer pointing to the
+// corresponding region of the shared VPU allocation.
 void ElfParser::updateSharedScratchBuffers(std::shared_ptr<elf::HostParsedInference> &cmdHpi,
                                            std::shared_ptr<VPU::VPUBufferObject> &bo) {
-    /* Scratch buffers are not tracked by the buffer manager, we set their size to 0
-     * and the zero size buffers are skipped in checks against tracked buffers
-     */
-    std::vector<elf::DeviceBuffer> buffers{
-        elf::DeviceBuffer(bo->getBasePointer(), bo->getVPUAddr(), 0)};
+    std::vector<elf::DeviceBuffer> buffers{};
+
+    uint64_t baseVpu = bo->getVPUAddr();
+
+    auto *bm = static_cast<DriverBufferManager *>(bufferManager.get());
+
+    if (bm == nullptr) {
+        LOG_E("Invalid bufferManager type "
+              "(expected DriverBufferManager)");
+        return;
+    }
+
+    buffers.reserve(bm->scratchSlices.size());
+
+    for (const auto &s : bm->scratchSlices) {
+        // Scratch buffers are not tracked by the DriverBufferManager.
+        // They are VPU-only allocations (no CPU mapping), so the CPU pointer is null
+        // and the size is set to 0 to exclude from tracked-buffer validation logic.
+        buffers.emplace_back(nullptr, baseVpu + s.offset, 0);
+
+        LOG(GRAPH,
+            "HPI %p -> scratch slice: vpu=%#lx offset=%lu",
+            cmdHpi.get(),
+            baseVpu + s.offset,
+            s.offset);
+    }
 
     LOG(GRAPH,
-        "HostParsedInference[%p]->updateSharedScratchBuffers: cpu: %p, vpu: %#lx, size: %lu",
+        "HPI %p -> updateSharedScratchBuffers "
+        "buffers=%lu totalSize=%lu",
         cmdHpi.get(),
-        buffers.at(0).cpu_addr(),
-        buffers.at(0).vpu_addr(),
-        buffers.at(0).size());
+        buffers.size(),
+        bm->sharedScratchSize);
+
     try {
         TRACE_EVENT("NPU_ELF", "elf::HostParsedInference::updateSharedScratchBuffers");
         cmdHpi->updateSharedScratchBuffers(buffers);
@@ -995,7 +1061,8 @@ ElfParser::createInferenceExecuteCommand(const std::vector<const void *> &inputP
                                          const std::vector<const void *> &outputPtrs,
                                          const ArgumentStridesMap &inputStrides,
                                          const ArgumentStridesMap &outputStrides,
-                                         GraphProfilingQuery *profilingQuery) {
+                                         GraphProfilingQuery *profilingQuery,
+                                         bool optimizeForDynamicShapes) {
     uint64_t inferenceId = 0;
     if (!ctx->getUniqueInferenceId(inferenceId))
         return nullptr;
@@ -1018,7 +1085,8 @@ ElfParser::createInferenceExecuteCommand(const std::vector<const void *> &inputP
     bos.push_back(std::move(bo));
 
     for (const auto &buffer : cmdHpi->getAllocatedBuffers()) {
-        // Skip not allocated and scratch buffers. Scratch will be assigned at submit time
+        // Skip buffers that are not yet allocated, including shared scratch buffers.
+        // Shared scratch regions are assigned later during submission.
         if (buffer.size() == 0) {
             continue;
         }
@@ -1040,7 +1108,8 @@ ElfParser::createInferenceExecuteCommand(const std::vector<const void *> &inputP
                                                 outputStrides,
                                                 profilingQuery,
                                                 inferenceId,
-                                                bos);
+                                                bos,
+                                                optimizeForDynamicShapes);
     if (cmd == nullptr)
         return nullptr;
 
@@ -1073,6 +1142,7 @@ ze_result_t ElfParser::initialize() {
     } catch (const DriverError &e) {
         return e.result();
     }
+
     return ZE_RESULT_ERROR_UNKNOWN;
 }
 
@@ -1089,12 +1159,14 @@ ElfParser::allocateExecuteCommand(const std::vector<const void *> &inputArgs,
                                   const std::vector<const void *> &outputArgs,
                                   const ArgumentStridesMap &inputStrides,
                                   const ArgumentStridesMap &outputStrides,
-                                  GraphProfilingQuery *profilingQuery) {
+                                  GraphProfilingQuery *profilingQuery,
+                                  bool optimizeForDynamicShapes) {
     return createInferenceExecuteCommand(inputArgs,
                                          outputArgs,
                                          inputStrides,
                                          outputStrides,
-                                         profilingQuery);
+                                         profilingQuery,
+                                         optimizeForDynamicShapes);
 }
 
 } // namespace L0

@@ -56,7 +56,7 @@ class VPUDriverApi final {
     int closeBuffer(uint32_t handle) const;
 
     int createBuffer(size_t size, uint32_t flags, uint32_t &handle, uint64_t &vpuAddr) const;
-    int getBufferInfo(uint32_t handle, uint64_t &mmap_offset) const;
+    int getBufferInfo(uint32_t handle, uint64_t &mmap_offset, uint64_t &size) const;
     int getExtBufferInfo(uint32_t handle,
                          uint32_t &flags,
                          uint64_t &vpu_address,

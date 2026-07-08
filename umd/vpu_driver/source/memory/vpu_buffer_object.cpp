@@ -10,7 +10,7 @@
 #include "umd_common.hpp"
 #include "vpu_driver/source/os_interface/vpu_driver_api.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
-#include "vpu_driver/source/utilities/stats.hpp"
+#include "vpu_driver/source/utilities/trace_perfetto.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -26,6 +26,7 @@ VPUBufferObject::VPUBufferObject(const VPUDriverApi &drvApi,
                                  Type type,
                                  void *basePtr,
                                  size_t allocSize,
+                                 uint64_t alignedSize,
                                  uint32_t handle,
                                  uint64_t vpuAddr)
     : drvApi(drvApi)
@@ -33,10 +34,17 @@ VPUBufferObject::VPUBufferObject(const VPUDriverApi &drvApi,
     , type(type)
     , basePtr(static_cast<uint8_t *>(basePtr))
     , allocSize(allocSize)
+    , alignedSize(alignedSize)
     , vpuAddr(vpuAddr)
     , handle(handle) {
     static std::atomic<uint64_t> counter = 0;
     id = ++counter;
+
+    // Track only non-external memory
+    if (!isExternalMemory()) {
+        npuMemoryBufferCounter.add(1);
+        npuMemoryAllocatedByteCounter.add(alignedSize);
+    }
 }
 
 VPUBufferObject::~VPUBufferObject() {
@@ -45,20 +53,18 @@ VPUBufferObject::~VPUBufferObject() {
         LOG_E("Failed to unmap handle %d", handle);
     }
 
-    /* The exportable buffers are managed by user space, driver never closes
-     * handle without direct api call from user space.
-     */
-    if (static_cast<uint32_t>(location) & externalMemMask)
-        return;
+    if (!isExternalMemory()) {
+        npuMemoryBufferCounter.sub(1);
+        npuMemoryAllocatedByteCounter.sub(alignedSize);
 
-    if (MemoryStatistics::get().isEnabled()) {
-        size_t pageSize = drvApi.getPageSize();
-        MemoryStatistics::get().dec(location, ALIGN(allocSize, pageSize));
+        if (drvApi.closeBuffer(handle) != 0) {
+            LOG_E("Failed to close handle %d", handle);
+        }
     }
+}
 
-    if (drvApi.closeBuffer(handle) != 0) {
-        LOG_E("Failed to close handle %d", handle);
-    }
+bool VPUBufferObject::isExternalMemory() const {
+    return (static_cast<uint32_t>(location) & externalMemMask) != 0;
 }
 
 std::shared_ptr<VPUBufferObject>
@@ -72,7 +78,9 @@ VPUBufferObject::create(const VPUDriverApi &drvApi, Location type, Type range, s
 
     void *ptr = nullptr;
     uint64_t offset = 0;
-    if (drvApi.getBufferInfo(handle, offset)) {
+    uint64_t alignedSize = 0;
+
+    if (drvApi.getBufferInfo(handle, offset, alignedSize)) {
         LOG_E("Failed to get info about buffer");
         drvApi.closeBuffer(handle);
         return nullptr;
@@ -87,16 +95,12 @@ VPUBufferObject::create(const VPUDriverApi &drvApi, Location type, Type range, s
         }
     }
 
-    if (MemoryStatistics::get().isEnabled()) {
-        size_t pageSize = drvApi.getPageSize();
-        MemoryStatistics::get().inc(type, ALIGN(size, pageSize));
-    }
-
     return std::make_shared<VPUBufferObject>(drvApi,
                                              type,
                                              range,
                                              std::move(ptr),
                                              size,
+                                             alignedSize,
                                              handle,
                                              vpuAddr);
 }
@@ -139,6 +143,7 @@ VPUBufferObject::importFromFd(const VPUDriverApi &drvApi, Location type, int32_t
                                              range,
                                              std::move(ptr),
                                              size,
+                                             size,
                                              handle,
                                              vpuAddr);
 }
@@ -168,6 +173,7 @@ std::shared_ptr<VPUBufferObject> VPUBufferObject::createFromUserPtr(const VPUDri
                                              type,
                                              userPtr,
                                              size,
+                                             size,
                                              args.handle,
                                              args.vpu_addr);
 }
@@ -191,6 +197,22 @@ bool VPUBufferObject::copyToBuffer(const void *data, size_t size, size_t offset)
     uint8_t *dstPtr = basePtr + offset;
     memcpy(dstPtr, data, size);
     return true;
+}
+
+bool VPUBufferObject::isInRange(const void *ptr, size_t size) const {
+    if (ptr == nullptr || size == 0) {
+        return false;
+    }
+
+    const auto *addr = static_cast<const uint8_t *>(ptr);
+
+    if (addr < basePtr) {
+        return false;
+    }
+
+    const size_t offset = static_cast<size_t>(addr - basePtr);
+
+    return offset <= allocSize && size <= allocSize - offset;
 }
 
 bool VPUBufferObject::fillBuffer(const void *pattern, size_t patternSize) {

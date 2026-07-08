@@ -44,8 +44,10 @@ struct GraphArgumentProperties;
 
 class HostParsedInferenceManager {
   public:
-    HostParsedInferenceManager(std::shared_ptr<elf::HostParsedInference> hpi)
-        : headHpi(std::move(hpi)) {}
+    HostParsedInferenceManager(std::shared_ptr<elf::HostParsedInference> hpi,
+                               elf::BufferManager *bufferManager)
+        : headHpi(std::move(hpi))
+        , bufferManager(bufferManager) {}
 
     std::shared_ptr<elf::HostParsedInference> &head() { return headHpi; }
     std::shared_ptr<elf::HostParsedInference> acquire();
@@ -54,6 +56,7 @@ class HostParsedInferenceManager {
     std::mutex mtx;
     std::shared_ptr<elf::HostParsedInference> headHpi;
     std::vector<std::shared_ptr<elf::HostParsedInference>> hpis;
+    elf::BufferManager *bufferManager = nullptr;
     bool loaded = false;
 };
 
@@ -86,7 +89,8 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
                                   const std::vector<const void *> &outputPtrs,
                                   const ArgumentStridesMap &inputStrides,
                                   const ArgumentStridesMap &outputStrides,
-                                  GraphProfilingQuery *profilingQuery);
+                                  GraphProfilingQuery *profilingQuery,
+                                  bool optimizeForDynamicShapes);
 
     ze_result_t parse(std::vector<GraphArgumentProperties> &argumentProperties,
                       std::vector<ze_graph_argument_metadata_t> &argumentMetadata,
@@ -101,7 +105,8 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
                            const std::vector<const void *> &outputArgs,
                            const ArgumentStridesMap &inputStrides,
                            const ArgumentStridesMap &outputStrides,
-                           GraphProfilingQuery *profilingQuery) override;
+                           GraphProfilingQuery *profilingQuery,
+                           bool optimizeForDynamicShapes) override;
 
     void updateSharedScratchBuffers(std::shared_ptr<elf::HostParsedInference> &hpi,
                                     std::shared_ptr<VPU::VPUBufferObject> &bo);

@@ -218,11 +218,17 @@ ze_result_t CommandQueue::executeCommandLists(uint32_t nCommandLists,
         }
     }
 
+    std::shared_ptr<VPU::VPUBufferObject> submissionPreemptionBuffer = nullptr;
     if (pContext->getDeviceContext()->isPreemptionBufferSupported()) {
-        std::lock_guard<std::mutex> lock(preemptionMutex);
+        std::lock_guard<std::mutex> preemptionBufferLock(preemptionMutex);
         if (preemptionBuffer == nullptr) {
             preemptionBuffer = pContext->getDeviceContext()->preemptionCacheAcquire();
         }
+        /*
+         * Add a reference to the preemption buffer for this submission. This prevents the
+         * host synchronize path from releasing the buffer while submissions are in flight.
+         */
+        submissionPreemptionBuffer = preemptionBuffer;
     }
 
     std::vector<std::shared_ptr<VPU::VPUJob>> jobs;
@@ -251,8 +257,8 @@ ze_result_t CommandQueue::executeCommandLists(uint32_t nCommandLists,
             return ZE_RESULT_ERROR_UNKNOWN;
         }
 
-        if (preemptionBuffer) {
-            job->addPreemptionBuffer(preemptionBuffer);
+        if (submissionPreemptionBuffer) {
+            job->addPreemptionBuffer(submissionPreemptionBuffer);
         }
 
         if (!vpuQueue->submit(job.get())) {
@@ -265,6 +271,8 @@ ze_result_t CommandQueue::executeCommandLists(uint32_t nCommandLists,
         LOG(CMDQUEUE, "VPUJob %p submitted from phCommandList[%u]: %p", job.get(), i, cmdList);
         jobs.emplace_back(std::move(job));
     }
+
+    submissionPreemptionBuffer.reset();
 
     if (hFence != nullptr) {
         auto fence = Fence::fromHandle(hFence);

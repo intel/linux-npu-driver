@@ -20,8 +20,8 @@ inline std::string
 _trace_zeCommandQueueSetWorkloadType(ze_command_queue_handle_t hCommandQueue,
                                      ze_command_queue_workload_type_t workloadType) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeCommandQueueSetWorkloadType(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeCommandQueueSetWorkloadType(";
     ss << "hCommandQueue: " << hCommandQueue;
     ss << ", workloadType: " << workloadType;
     ss << ")";

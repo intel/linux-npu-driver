@@ -17,8 +17,8 @@
 
 inline std::string _trace_zesInit(zes_init_flags_t flags) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesInit(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesInit(";
     ss << "flags: " << flags;
     ss << ")";
     return ss.str();
@@ -36,8 +36,8 @@ inline void trace_zesInit(ze_result_t ret, zes_init_flags_t flags) {
 
 inline std::string _trace_zesDriverGet(uint32_t *pCount, zes_driver_handle_t *phDrivers) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDriverGet(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDriverGet(";
     if (pCount == nullptr) {
         ss << "pCount: nullptr";
     } else {
@@ -67,8 +67,8 @@ _trace_zesDriverGetExtensionProperties(zes_driver_handle_t hDriver,
                                        uint32_t *pCount,
                                        zes_driver_extension_properties_t *pExtensionProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDriverGetExtensionProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDriverGetExtensionProperties(";
     ss << "hDriver: " << hDriver;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -121,8 +121,8 @@ inline std::string _trace_zesDriverGetExtensionFunctionAddress(zes_driver_handle
                                                                const char *name,
                                                                void **ppFunctionAddress) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDriverGetExtensionFunctionAddress(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDriverGetExtensionFunctionAddress(";
     ss << "hDriver: " << hDriver;
     if (name == nullptr) {
         ss << ", name: nullptr";
@@ -154,8 +154,8 @@ inline void trace_zesDriverGetExtensionFunctionAddress(ze_result_t ret,
 inline std::string
 _trace_zesDeviceGet(zes_driver_handle_t hDriver, uint32_t *pCount, zes_device_handle_t *phDevices) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceGet(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceGet(";
     ss << "hDriver: " << hDriver;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -188,8 +188,8 @@ inline void trace_zesDeviceGet(ze_result_t ret,
 inline std::string _trace_zesDeviceGetProperties(zes_device_handle_t hDevice,
                                                  zes_device_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceGetProperties(";
     ss << "hDevice: " << hDevice;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -261,8 +261,8 @@ inline void trace_zesDeviceGetProperties(ze_result_t ret,
 inline std::string _trace_zesDeviceGetState(zes_device_handle_t hDevice,
                                             zes_device_state_t *pState) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceGetState(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceGetState(";
     ss << "hDevice: " << hDevice;
     if (pState == nullptr) {
         ss << ", pState: nullptr";
@@ -291,8 +291,8 @@ trace_zesDeviceGetState(ze_result_t ret, zes_device_handle_t hDevice, zes_device
 
 inline std::string _trace_zesDeviceReset(zes_device_handle_t hDevice, ze_bool_t force) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceReset(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceReset(";
     ss << "hDevice: " << hDevice;
     ss << ", force: " << force;
     ss << ")";
@@ -312,8 +312,8 @@ inline void trace_zesDeviceReset(ze_result_t ret, zes_device_handle_t hDevice, z
 inline std::string _trace_zesDeviceResetExt(zes_device_handle_t hDevice,
                                             zes_reset_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceResetExt(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceResetExt(";
     ss << "hDevice: " << hDevice;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -346,8 +346,8 @@ inline std::string _trace_zesDeviceProcessesGetState(zes_device_handle_t hDevice
                                                      uint32_t *pCount,
                                                      zes_process_state_t *pProcesses) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceProcessesGetState(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceProcessesGetState(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -397,8 +397,8 @@ inline void trace_zesDeviceProcessesGetState(ze_result_t ret,
 inline std::string _trace_zesDevicePciGetProperties(zes_device_handle_t hDevice,
                                                     zes_pci_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDevicePciGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDevicePciGetProperties(";
     ss << "hDevice: " << hDevice;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -443,8 +443,8 @@ inline void trace_zesDevicePciGetProperties(ze_result_t ret,
 inline std::string _trace_zesDevicePciGetState(zes_device_handle_t hDevice,
                                                zes_pci_state_t *pState) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDevicePciGetState(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDevicePciGetState(";
     ss << "hDevice: " << hDevice;
     if (pState == nullptr) {
         ss << ", pState: nullptr";
@@ -481,8 +481,8 @@ inline std::string _trace_zesDevicePciGetBars(zes_device_handle_t hDevice,
                                               uint32_t *pCount,
                                               zes_pci_bar_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDevicePciGetBars(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDevicePciGetBars(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -532,8 +532,8 @@ inline void trace_zesDevicePciGetBars(ze_result_t ret,
 inline std::string _trace_zesDevicePciGetStats(zes_device_handle_t hDevice,
                                                zes_pci_stats_t *pStats) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDevicePciGetStats(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDevicePciGetStats(";
     ss << "hDevice: " << hDevice;
     if (pStats == nullptr) {
         ss << ", pStats: nullptr";
@@ -568,8 +568,8 @@ trace_zesDevicePciGetStats(ze_result_t ret, zes_device_handle_t hDevice, zes_pci
 
 inline std::string _trace_zesDeviceSetOverclockWaiver(zes_device_handle_t hDevice) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceSetOverclockWaiver(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceSetOverclockWaiver(";
     ss << "hDevice: " << hDevice;
     ss << ")";
     return ss.str();
@@ -588,8 +588,8 @@ inline void trace_zesDeviceSetOverclockWaiver(ze_result_t ret, zes_device_handle
 inline std::string _trace_zesDeviceGetOverclockDomains(zes_device_handle_t hDevice,
                                                        uint32_t *pOverclockDomains) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceGetOverclockDomains(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceGetOverclockDomains(";
     ss << "hDevice: " << hDevice;
     if (pOverclockDomains == nullptr) {
         ss << ", pOverclockDomains: nullptr";
@@ -618,8 +618,8 @@ inline std::string _trace_zesDeviceGetOverclockControls(zes_device_handle_t hDev
                                                         zes_overclock_domain_t domainType,
                                                         uint32_t *pAvailableControls) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceGetOverclockControls(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceGetOverclockControls(";
     ss << "hDevice: " << hDevice;
     ss << ", domainType: " << domainType;
     if (pAvailableControls == nullptr) {
@@ -651,8 +651,8 @@ inline void trace_zesDeviceGetOverclockControls(ze_result_t ret,
 inline std::string _trace_zesDeviceResetOverclockSettings(zes_device_handle_t hDevice,
                                                           ze_bool_t onShippedState) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceResetOverclockSettings(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceResetOverclockSettings(";
     ss << "hDevice: " << hDevice;
     ss << ", onShippedState: " << onShippedState;
     ss << ")";
@@ -680,8 +680,8 @@ inline std::string _trace_zesDeviceReadOverclockState(zes_device_handle_t hDevic
                                                       zes_pending_action_t *pPendingAction,
                                                       ze_bool_t *pPendingReset) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceReadOverclockState(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceReadOverclockState(";
     ss << "hDevice: " << hDevice;
     if (pOverclockMode == nullptr) {
         ss << ", pOverclockMode: nullptr";
@@ -749,8 +749,8 @@ inline std::string _trace_zesDeviceEnumOverclockDomains(zes_device_handle_t hDev
                                                         uint32_t *pCount,
                                                         zes_overclock_handle_t *phDomainHandle) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEnumOverclockDomains(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEnumOverclockDomains(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -786,8 +786,8 @@ inline std::string
 _trace_zesOverclockGetDomainProperties(zes_overclock_handle_t hDomainHandle,
                                        zes_overclock_properties_t *pDomainProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesOverclockGetDomainProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesOverclockGetDomainProperties(";
     ss << "hDomainHandle: " << hDomainHandle;
     if (pDomainProperties == nullptr) {
         ss << ", pDomainProperties: nullptr";
@@ -823,8 +823,8 @@ inline void trace_zesOverclockGetDomainProperties(ze_result_t ret,
 inline std::string _trace_zesOverclockGetDomainVFProperties(zes_overclock_handle_t hDomainHandle,
                                                             zes_vf_property_t *pVFProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesOverclockGetDomainVFProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesOverclockGetDomainVFProperties(";
     ss << "hDomainHandle: " << hDomainHandle;
     if (pVFProperties == nullptr) {
         ss << ", pVFProperties: nullptr";
@@ -862,8 +862,8 @@ _trace_zesOverclockGetDomainControlProperties(zes_overclock_handle_t hDomainHand
                                               zes_overclock_control_t DomainControl,
                                               zes_control_property_t *pControlProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesOverclockGetDomainControlProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesOverclockGetDomainControlProperties(";
     ss << "hDomainHandle: " << hDomainHandle;
     ss << ", DomainControl: " << DomainControl;
     if (pControlProperties == nullptr) {
@@ -908,8 +908,8 @@ inline std::string _trace_zesOverclockGetControlCurrentValue(zes_overclock_handl
                                                              zes_overclock_control_t DomainControl,
                                                              double *pValue) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesOverclockGetControlCurrentValue(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesOverclockGetControlCurrentValue(";
     ss << "hDomainHandle: " << hDomainHandle;
     ss << ", DomainControl: " << DomainControl;
     if (pValue == nullptr) {
@@ -946,8 +946,8 @@ inline std::string _trace_zesOverclockGetControlPendingValue(zes_overclock_handl
                                                              zes_overclock_control_t DomainControl,
                                                              double *pValue) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesOverclockGetControlPendingValue(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesOverclockGetControlPendingValue(";
     ss << "hDomainHandle: " << hDomainHandle;
     ss << ", DomainControl: " << DomainControl;
     if (pValue == nullptr) {
@@ -985,8 +985,8 @@ inline std::string _trace_zesOverclockSetControlUserValue(zes_overclock_handle_t
                                                           double pValue,
                                                           zes_pending_action_t *pPendingAction) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesOverclockSetControlUserValue(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesOverclockSetControlUserValue(";
     ss << "hDomainHandle: " << hDomainHandle;
     ss << ", DomainControl: " << DomainControl;
     ss << ", pValue: " << pValue;
@@ -1029,8 +1029,8 @@ inline std::string _trace_zesOverclockGetControlState(zes_overclock_handle_t hDo
                                                       zes_control_state_t *pControlState,
                                                       zes_pending_action_t *pPendingAction) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesOverclockGetControlState(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesOverclockGetControlState(";
     ss << "hDomainHandle: " << hDomainHandle;
     ss << ", DomainControl: " << DomainControl;
     if (pControlState == nullptr) {
@@ -1078,8 +1078,8 @@ inline std::string _trace_zesOverclockGetVFPointValues(zes_overclock_handle_t hD
                                                        uint32_t PointIndex,
                                                        uint32_t *PointValue) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesOverclockGetVFPointValues(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesOverclockGetVFPointValues(";
     ss << "hDomainHandle: " << hDomainHandle;
     ss << ", VFType: " << VFType;
     ss << ", VFArrayType: " << VFArrayType;
@@ -1127,8 +1127,8 @@ inline std::string _trace_zesOverclockSetVFPointValues(zes_overclock_handle_t hD
                                                        uint32_t PointIndex,
                                                        uint32_t PointValue) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesOverclockSetVFPointValues(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesOverclockSetVFPointValues(";
     ss << "hDomainHandle: " << hDomainHandle;
     ss << ", VFType: " << VFType;
     ss << ", PointIndex: " << PointIndex;
@@ -1166,8 +1166,8 @@ inline std::string _trace_zesDeviceEnumDiagnosticTestSuites(zes_device_handle_t 
                                                             uint32_t *pCount,
                                                             zes_diag_handle_t *phDiagnostics) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEnumDiagnosticTestSuites(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEnumDiagnosticTestSuites(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -1203,8 +1203,8 @@ inline void trace_zesDeviceEnumDiagnosticTestSuites(ze_result_t ret,
 inline std::string _trace_zesDiagnosticsGetProperties(zes_diag_handle_t hDiagnostics,
                                                       zes_diag_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDiagnosticsGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDiagnosticsGetProperties(";
     ss << "hDiagnostics: " << hDiagnostics;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -1241,8 +1241,8 @@ inline std::string _trace_zesDiagnosticsGetTests(zes_diag_handle_t hDiagnostics,
                                                  uint32_t *pCount,
                                                  zes_diag_test_t *pTests) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDiagnosticsGetTests(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDiagnosticsGetTests(";
     ss << "hDiagnostics: " << hDiagnostics;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -1291,8 +1291,8 @@ inline std::string _trace_zesDiagnosticsRunTests(zes_diag_handle_t hDiagnostics,
                                                  uint32_t endIndex,
                                                  zes_diag_result_t *pResult) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDiagnosticsRunTests(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDiagnosticsRunTests(";
     ss << "hDiagnostics: " << hDiagnostics;
     ss << ", startIndex: " << startIndex;
     ss << ", endIndex: " << endIndex;
@@ -1327,8 +1327,8 @@ inline void trace_zesDiagnosticsRunTests(ze_result_t ret,
 inline std::string _trace_zesDeviceEccAvailable(zes_device_handle_t hDevice,
                                                 ze_bool_t *pAvailable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEccAvailable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEccAvailable(";
     ss << "hDevice: " << hDevice;
     if (pAvailable == nullptr) {
         ss << ", pAvailable: nullptr";
@@ -1353,8 +1353,8 @@ trace_zesDeviceEccAvailable(ze_result_t ret, zes_device_handle_t hDevice, ze_boo
 inline std::string _trace_zesDeviceEccConfigurable(zes_device_handle_t hDevice,
                                                    ze_bool_t *pConfigurable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEccConfigurable(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEccConfigurable(";
     ss << "hDevice: " << hDevice;
     if (pConfigurable == nullptr) {
         ss << ", pConfigurable: nullptr";
@@ -1381,8 +1381,8 @@ inline void trace_zesDeviceEccConfigurable(ze_result_t ret,
 inline std::string _trace_zesDeviceGetEccState(zes_device_handle_t hDevice,
                                                zes_device_ecc_properties_t *pState) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceGetEccState(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceGetEccState(";
     ss << "hDevice: " << hDevice;
     if (pState == nullptr) {
         ss << ", pState: nullptr";
@@ -1416,8 +1416,8 @@ inline std::string _trace_zesDeviceSetEccState(zes_device_handle_t hDevice,
                                                const zes_device_ecc_desc_t *newState,
                                                zes_device_ecc_properties_t *pState) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceSetEccState(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceSetEccState(";
     ss << "hDevice: " << hDevice;
     if (newState == nullptr) {
         ss << ", newState: nullptr";
@@ -1463,8 +1463,8 @@ inline std::string _trace_zesDeviceEnumEngineGroups(zes_device_handle_t hDevice,
                                                     uint32_t *pCount,
                                                     zes_engine_handle_t *phEngine) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEnumEngineGroups(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEnumEngineGroups(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -1499,8 +1499,8 @@ inline void trace_zesDeviceEnumEngineGroups(ze_result_t ret,
 inline std::string _trace_zesEngineGetProperties(zes_engine_handle_t hEngine,
                                                  zes_engine_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesEngineGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesEngineGetProperties(";
     ss << "hEngine: " << hEngine;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -1533,8 +1533,8 @@ inline void trace_zesEngineGetProperties(ze_result_t ret,
 inline std::string _trace_zesEngineGetActivity(zes_engine_handle_t hEngine,
                                                zes_engine_stats_t *pStats) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesEngineGetActivity(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesEngineGetActivity(";
     ss << "hEngine: " << hEngine;
     if (pStats == nullptr) {
         ss << ", pStats: nullptr";
@@ -1563,8 +1563,8 @@ inline void trace_zesEngineGetActivity(ze_result_t ret,
 inline std::string _trace_zesDeviceEventRegister(zes_device_handle_t hDevice,
                                                  zes_event_type_flags_t events) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEventRegister(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEventRegister(";
     ss << "hDevice: " << hDevice;
     ss << ", events: " << events;
     ss << ")";
@@ -1591,8 +1591,8 @@ inline std::string _trace_zesDriverEventListen(ze_driver_handle_t hDriver,
                                                uint32_t *pNumDeviceEvents,
                                                zes_event_type_flags_t *pEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDriverEventListen(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDriverEventListen(";
     ss << "hDriver: " << hDriver;
     ss << ", timeout: " << timeout;
     ss << ", count: " << count;
@@ -1655,8 +1655,8 @@ inline std::string _trace_zesDriverEventListenEx(ze_driver_handle_t hDriver,
                                                  uint32_t *pNumDeviceEvents,
                                                  zes_event_type_flags_t *pEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDriverEventListenEx(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDriverEventListenEx(";
     ss << "hDriver: " << hDriver;
     ss << ", timeout: " << timeout;
     ss << ", count: " << count;
@@ -1716,8 +1716,8 @@ inline std::string _trace_zesDeviceEnumFabricPorts(zes_device_handle_t hDevice,
                                                    uint32_t *pCount,
                                                    zes_fabric_port_handle_t *phPort) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEnumFabricPorts(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEnumFabricPorts(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -1752,8 +1752,8 @@ inline void trace_zesDeviceEnumFabricPorts(ze_result_t ret,
 inline std::string _trace_zesFabricPortGetProperties(zes_fabric_port_handle_t hPort,
                                                      zes_fabric_port_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFabricPortGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFabricPortGetProperties(";
     ss << "hPort: " << hPort;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -1800,8 +1800,8 @@ inline void trace_zesFabricPortGetProperties(ze_result_t ret,
 inline std::string _trace_zesFabricPortGetLinkType(zes_fabric_port_handle_t hPort,
                                                    zes_fabric_link_type_t *pLinkType) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFabricPortGetLinkType(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFabricPortGetLinkType(";
     ss << "hPort: " << hPort;
     if (pLinkType == nullptr) {
         ss << ", pLinkType: nullptr";
@@ -1830,8 +1830,8 @@ inline void trace_zesFabricPortGetLinkType(ze_result_t ret,
 inline std::string _trace_zesFabricPortGetConfig(zes_fabric_port_handle_t hPort,
                                                  zes_fabric_port_config_t *pConfig) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFabricPortGetConfig(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFabricPortGetConfig(";
     ss << "hPort: " << hPort;
     if (pConfig == nullptr) {
         ss << ", pConfig: nullptr";
@@ -1863,8 +1863,8 @@ inline void trace_zesFabricPortGetConfig(ze_result_t ret,
 inline std::string _trace_zesFabricPortSetConfig(zes_fabric_port_handle_t hPort,
                                                  const zes_fabric_port_config_t *pConfig) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFabricPortSetConfig(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFabricPortSetConfig(";
     ss << "hPort: " << hPort;
     if (pConfig == nullptr) {
         ss << ", pConfig: nullptr";
@@ -1896,8 +1896,8 @@ inline void trace_zesFabricPortSetConfig(ze_result_t ret,
 inline std::string _trace_zesFabricPortGetState(zes_fabric_port_handle_t hPort,
                                                 zes_fabric_port_state_t *pState) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFabricPortGetState(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFabricPortGetState(";
     ss << "hPort: " << hPort;
     if (pState == nullptr) {
         ss << ", pState: nullptr";
@@ -1943,8 +1943,8 @@ inline void trace_zesFabricPortGetState(ze_result_t ret,
 inline std::string _trace_zesFabricPortGetThroughput(zes_fabric_port_handle_t hPort,
                                                      zes_fabric_port_throughput_t *pThroughput) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFabricPortGetThroughput(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFabricPortGetThroughput(";
     ss << "hPort: " << hPort;
     if (pThroughput == nullptr) {
         ss << ", pThroughput: nullptr";
@@ -1976,8 +1976,8 @@ inline std::string
 _trace_zesFabricPortGetFabricErrorCounters(zes_fabric_port_handle_t hPort,
                                            zes_fabric_port_error_counters_t *pErrors) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFabricPortGetFabricErrorCounters(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFabricPortGetFabricErrorCounters(";
     ss << "hPort: " << hPort;
     if (pErrors == nullptr) {
         ss << ", pErrors: nullptr";
@@ -2015,8 +2015,8 @@ _trace_zesFabricPortGetMultiPortThroughput(zes_device_handle_t hDevice,
                                            zes_fabric_port_handle_t *phPort,
                                            zes_fabric_port_throughput_t **pThroughput) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFabricPortGetMultiPortThroughput(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFabricPortGetMultiPortThroughput(";
     ss << "hDevice: " << hDevice;
     ss << ", numPorts: " << numPorts;
     if (phPort == nullptr) {
@@ -2057,8 +2057,8 @@ inline void trace_zesFabricPortGetMultiPortThroughput(ze_result_t ret,
 inline std::string
 _trace_zesDeviceEnumFans(zes_device_handle_t hDevice, uint32_t *pCount, zes_fan_handle_t *phFan) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEnumFans(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEnumFans(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -2091,8 +2091,8 @@ inline void trace_zesDeviceEnumFans(ze_result_t ret,
 inline std::string _trace_zesFanGetProperties(zes_fan_handle_t hFan,
                                               zes_fan_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFanGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFanGetProperties(";
     ss << "hFan: " << hFan;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -2127,8 +2127,8 @@ inline void trace_zesFanGetProperties(ze_result_t ret,
 
 inline std::string _trace_zesFanGetConfig(zes_fan_handle_t hFan, zes_fan_config_t *pConfig) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFanGetConfig(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFanGetConfig(";
     ss << "hFan: " << hFan;
     if (pConfig == nullptr) {
         ss << ", pConfig: nullptr";
@@ -2163,8 +2163,8 @@ trace_zesFanGetConfig(ze_result_t ret, zes_fan_handle_t hFan, zes_fan_config_t *
 
 inline std::string _trace_zesFanSetDefaultMode(zes_fan_handle_t hFan) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFanSetDefaultMode(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFanSetDefaultMode(";
     ss << "hFan: " << hFan;
     ss << ")";
     return ss.str();
@@ -2183,8 +2183,8 @@ inline void trace_zesFanSetDefaultMode(ze_result_t ret, zes_fan_handle_t hFan) {
 inline std::string _trace_zesFanSetFixedSpeedMode(zes_fan_handle_t hFan,
                                                   const zes_fan_speed_t *speed) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFanSetFixedSpeedMode(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFanSetFixedSpeedMode(";
     ss << "hFan: " << hFan;
     if (speed == nullptr) {
         ss << ", speed: nullptr";
@@ -2213,8 +2213,8 @@ inline void trace_zesFanSetFixedSpeedMode(ze_result_t ret,
 inline std::string _trace_zesFanSetSpeedTableMode(zes_fan_handle_t hFan,
                                                   const zes_fan_speed_table_t *speedTable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFanSetSpeedTableMode(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFanSetSpeedTableMode(";
     ss << "hFan: " << hFan;
     if (speedTable == nullptr) {
         ss << ", speedTable: nullptr";
@@ -2243,8 +2243,8 @@ inline void trace_zesFanSetSpeedTableMode(ze_result_t ret,
 inline std::string
 _trace_zesFanGetState(zes_fan_handle_t hFan, zes_fan_speed_units_t units, int32_t *pSpeed) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFanGetState(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFanGetState(";
     ss << "hFan: " << hFan;
     ss << ", units: " << units;
     if (pSpeed == nullptr) {
@@ -2274,8 +2274,8 @@ inline std::string _trace_zesDeviceEnumFirmwares(zes_device_handle_t hDevice,
                                                  uint32_t *pCount,
                                                  zes_firmware_handle_t *phFirmware) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEnumFirmwares(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEnumFirmwares(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -2310,8 +2310,8 @@ inline void trace_zesDeviceEnumFirmwares(ze_result_t ret,
 inline std::string _trace_zesFirmwareGetProperties(zes_firmware_handle_t hFirmware,
                                                    zes_firmware_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFirmwareGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFirmwareGetProperties(";
     ss << "hFirmware: " << hFirmware;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -2348,8 +2348,8 @@ inline void trace_zesFirmwareGetProperties(ze_result_t ret,
 inline std::string
 _trace_zesFirmwareFlash(zes_firmware_handle_t hFirmware, void *pImage, uint32_t size) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFirmwareFlash(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFirmwareFlash(";
     ss << "hFirmware: " << hFirmware;
     ss << ", pImage: " << pImage;
     ss << ", size: " << size;
@@ -2373,8 +2373,8 @@ inline void trace_zesFirmwareFlash(ze_result_t ret,
 inline std::string _trace_zesFirmwareGetFlashProgress(zes_firmware_handle_t hFirmware,
                                                       uint32_t *pCompletionPercent) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFirmwareGetFlashProgress(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFirmwareGetFlashProgress(";
     ss << "hFirmware: " << hFirmware;
     if (pCompletionPercent == nullptr) {
         ss << ", pCompletionPercent: nullptr";
@@ -2403,8 +2403,8 @@ inline std::string _trace_zesFirmwareGetConsoleLogs(zes_firmware_handle_t hFirmw
                                                     size_t *pSize,
                                                     char *pFirmwareLog) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFirmwareGetConsoleLogs(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFirmwareGetConsoleLogs(";
     ss << "hFirmware: " << hFirmware;
     if (pSize == nullptr) {
         ss << ", pSize: nullptr";
@@ -2440,8 +2440,8 @@ inline std::string _trace_zesDeviceEnumFrequencyDomains(zes_device_handle_t hDev
                                                         uint32_t *pCount,
                                                         zes_freq_handle_t *phFrequency) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEnumFrequencyDomains(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEnumFrequencyDomains(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -2476,8 +2476,8 @@ inline void trace_zesDeviceEnumFrequencyDomains(ze_result_t ret,
 inline std::string _trace_zesFrequencyGetProperties(zes_freq_handle_t hFrequency,
                                                     zes_freq_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFrequencyGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFrequencyGetProperties(";
     ss << "hFrequency: " << hFrequency;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -2516,8 +2516,8 @@ inline std::string _trace_zesFrequencyGetAvailableClocks(zes_freq_handle_t hFreq
                                                          uint32_t *pCount,
                                                          double *phFrequency) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFrequencyGetAvailableClocks(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFrequencyGetAvailableClocks(";
     ss << "hFrequency: " << hFrequency;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -2553,8 +2553,8 @@ inline void trace_zesFrequencyGetAvailableClocks(ze_result_t ret,
 inline std::string _trace_zesFrequencyGetRange(zes_freq_handle_t hFrequency,
                                                zes_freq_range_t *pLimits) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFrequencyGetRange(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFrequencyGetRange(";
     ss << "hFrequency: " << hFrequency;
     if (pLimits == nullptr) {
         ss << ", pLimits: nullptr";
@@ -2583,8 +2583,8 @@ inline void trace_zesFrequencyGetRange(ze_result_t ret,
 inline std::string _trace_zesFrequencySetRange(zes_freq_handle_t hFrequency,
                                                const zes_freq_range_t *pLimits) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFrequencySetRange(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFrequencySetRange(";
     ss << "hFrequency: " << hFrequency;
     if (pLimits == nullptr) {
         ss << ", pLimits: nullptr";
@@ -2614,8 +2614,8 @@ inline void trace_zesFrequencySetRange(ze_result_t ret,
 inline std::string _trace_zesFrequencyGetState(zes_freq_handle_t hFrequency,
                                                zes_freq_state_t *pState) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFrequencyGetState(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFrequencyGetState(";
     ss << "hFrequency: " << hFrequency;
     if (pState == nullptr) {
         ss << ", pState: nullptr";
@@ -2650,8 +2650,8 @@ inline void trace_zesFrequencyGetState(ze_result_t ret,
 inline std::string _trace_zesFrequencyGetThrottleTime(zes_freq_handle_t hFrequency,
                                                       zes_freq_throttle_time_t *pThrottleTime) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFrequencyGetThrottleTime(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFrequencyGetThrottleTime(";
     ss << "hFrequency: " << hFrequency;
     if (pThrottleTime == nullptr) {
         ss << ", pThrottleTime: nullptr";
@@ -2682,8 +2682,8 @@ inline void trace_zesFrequencyGetThrottleTime(ze_result_t ret,
 inline std::string _trace_zesFrequencyOcGetCapabilities(zes_freq_handle_t hFrequency,
                                                         zes_oc_capabilities_t *pOcCapabilities) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFrequencyOcGetCapabilities(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFrequencyOcGetCapabilities(";
     ss << "hFrequency: " << hFrequency;
     if (pOcCapabilities == nullptr) {
         ss << ", pOcCapabilities: nullptr";
@@ -2727,8 +2727,8 @@ inline void trace_zesFrequencyOcGetCapabilities(ze_result_t ret,
 inline std::string _trace_zesFrequencyOcGetFrequencyTarget(zes_freq_handle_t hFrequency,
                                                            double *pCurrentOcFrequency) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFrequencyOcGetFrequencyTarget(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFrequencyOcGetFrequencyTarget(";
     ss << "hFrequency: " << hFrequency;
     if (pCurrentOcFrequency == nullptr) {
         ss << ", pCurrentOcFrequency: nullptr";
@@ -2757,8 +2757,8 @@ inline void trace_zesFrequencyOcGetFrequencyTarget(ze_result_t ret,
 inline std::string _trace_zesFrequencyOcSetFrequencyTarget(zes_freq_handle_t hFrequency,
                                                            double CurrentOcFrequency) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFrequencyOcSetFrequencyTarget(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFrequencyOcSetFrequencyTarget(";
     ss << "hFrequency: " << hFrequency;
     ss << ", CurrentOcFrequency: " << CurrentOcFrequency;
     ss << ")";
@@ -2784,8 +2784,8 @@ inline std::string _trace_zesFrequencyOcGetVoltageTarget(zes_freq_handle_t hFreq
                                                          double *pCurrentVoltageTarget,
                                                          double *pCurrentVoltageOffset) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFrequencyOcGetVoltageTarget(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFrequencyOcGetVoltageTarget(";
     ss << "hFrequency: " << hFrequency;
     if (pCurrentVoltageTarget == nullptr) {
         ss << ", pCurrentVoltageTarget: nullptr";
@@ -2826,8 +2826,8 @@ inline std::string _trace_zesFrequencyOcSetVoltageTarget(zes_freq_handle_t hFreq
                                                          double CurrentVoltageTarget,
                                                          double CurrentVoltageOffset) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFrequencyOcSetVoltageTarget(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFrequencyOcSetVoltageTarget(";
     ss << "hFrequency: " << hFrequency;
     ss << ", CurrentVoltageTarget: " << CurrentVoltageTarget;
     ss << ", CurrentVoltageOffset: " << CurrentVoltageOffset;
@@ -2859,8 +2859,8 @@ inline void trace_zesFrequencyOcSetVoltageTarget(ze_result_t ret,
 inline std::string _trace_zesFrequencyOcSetMode(zes_freq_handle_t hFrequency,
                                                 zes_oc_mode_t CurrentOcMode) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFrequencyOcSetMode(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFrequencyOcSetMode(";
     ss << "hFrequency: " << hFrequency;
     ss << ", CurrentOcMode: " << CurrentOcMode;
     ss << ")";
@@ -2883,8 +2883,8 @@ inline void trace_zesFrequencyOcSetMode(ze_result_t ret,
 inline std::string _trace_zesFrequencyOcGetMode(zes_freq_handle_t hFrequency,
                                                 zes_oc_mode_t *pCurrentOcMode) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFrequencyOcGetMode(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFrequencyOcGetMode(";
     ss << "hFrequency: " << hFrequency;
     if (pCurrentOcMode == nullptr) {
         ss << ", pCurrentOcMode: nullptr";
@@ -2911,8 +2911,8 @@ inline void trace_zesFrequencyOcGetMode(ze_result_t ret,
 
 inline std::string _trace_zesFrequencyOcGetIccMax(zes_freq_handle_t hFrequency, double *pOcIccMax) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFrequencyOcGetIccMax(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFrequencyOcGetIccMax(";
     ss << "hFrequency: " << hFrequency;
     if (pOcIccMax == nullptr) {
         ss << ", pOcIccMax: nullptr";
@@ -2936,8 +2936,8 @@ trace_zesFrequencyOcGetIccMax(ze_result_t ret, zes_freq_handle_t hFrequency, dou
 
 inline std::string _trace_zesFrequencyOcSetIccMax(zes_freq_handle_t hFrequency, double ocIccMax) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFrequencyOcSetIccMax(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFrequencyOcSetIccMax(";
     ss << "hFrequency: " << hFrequency;
     ss << ", ocIccMax: " << ocIccMax;
     ss << ")";
@@ -2957,8 +2957,8 @@ trace_zesFrequencyOcSetIccMax(ze_result_t ret, zes_freq_handle_t hFrequency, dou
 
 inline std::string _trace_zesFrequencyOcGetTjMax(zes_freq_handle_t hFrequency, double *pOcTjMax) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFrequencyOcGetTjMax(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFrequencyOcGetTjMax(";
     ss << "hFrequency: " << hFrequency;
     if (pOcTjMax == nullptr) {
         ss << ", pOcTjMax: nullptr";
@@ -2982,8 +2982,8 @@ trace_zesFrequencyOcGetTjMax(ze_result_t ret, zes_freq_handle_t hFrequency, doub
 
 inline std::string _trace_zesFrequencyOcSetTjMax(zes_freq_handle_t hFrequency, double ocTjMax) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFrequencyOcSetTjMax(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFrequencyOcSetTjMax(";
     ss << "hFrequency: " << hFrequency;
     ss << ", ocTjMax: " << ocTjMax;
     ss << ")";
@@ -3004,8 +3004,8 @@ trace_zesFrequencyOcSetTjMax(ze_result_t ret, zes_freq_handle_t hFrequency, doub
 inline std::string
 _trace_zesDeviceEnumLeds(zes_device_handle_t hDevice, uint32_t *pCount, zes_led_handle_t *phLed) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEnumLeds(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEnumLeds(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -3038,8 +3038,8 @@ inline void trace_zesDeviceEnumLeds(ze_result_t ret,
 inline std::string _trace_zesLedGetProperties(zes_led_handle_t hLed,
                                               zes_led_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesLedGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesLedGetProperties(";
     ss << "hLed: " << hLed;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -3071,8 +3071,8 @@ inline void trace_zesLedGetProperties(ze_result_t ret,
 
 inline std::string _trace_zesLedGetState(zes_led_handle_t hLed, zes_led_state_t *pState) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesLedGetState(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesLedGetState(";
     ss << "hLed: " << hLed;
     if (pState == nullptr) {
         ss << ", pState: nullptr";
@@ -3104,8 +3104,8 @@ inline void trace_zesLedGetState(ze_result_t ret, zes_led_handle_t hLed, zes_led
 
 inline std::string _trace_zesLedSetState(zes_led_handle_t hLed, ze_bool_t enable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesLedSetState(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesLedSetState(";
     ss << "hLed: " << hLed;
     ss << ", enable: " << enable;
     ss << ")";
@@ -3124,8 +3124,8 @@ inline void trace_zesLedSetState(ze_result_t ret, zes_led_handle_t hLed, ze_bool
 
 inline std::string _trace_zesLedSetColor(zes_led_handle_t hLed, const zes_led_color_t *pColor) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesLedSetColor(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesLedSetColor(";
     ss << "hLed: " << hLed;
     if (pColor == nullptr) {
         ss << ", pColor: nullptr";
@@ -3155,8 +3155,8 @@ inline std::string _trace_zesDeviceEnumMemoryModules(zes_device_handle_t hDevice
                                                      uint32_t *pCount,
                                                      zes_mem_handle_t *phMemory) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEnumMemoryModules(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEnumMemoryModules(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -3191,8 +3191,8 @@ inline void trace_zesDeviceEnumMemoryModules(ze_result_t ret,
 inline std::string _trace_zesMemoryGetProperties(zes_mem_handle_t hMemory,
                                                  zes_mem_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesMemoryGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesMemoryGetProperties(";
     ss << "hMemory: " << hMemory;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -3228,8 +3228,8 @@ inline void trace_zesMemoryGetProperties(ze_result_t ret,
 
 inline std::string _trace_zesMemoryGetState(zes_mem_handle_t hMemory, zes_mem_state_t *pState) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesMemoryGetState(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesMemoryGetState(";
     ss << "hMemory: " << hMemory;
     if (pState == nullptr) {
         ss << ", pState: nullptr";
@@ -3260,8 +3260,8 @@ trace_zesMemoryGetState(ze_result_t ret, zes_mem_handle_t hMemory, zes_mem_state
 inline std::string _trace_zesMemoryGetBandwidth(zes_mem_handle_t hMemory,
                                                 zes_mem_bandwidth_t *pBandwidth) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesMemoryGetBandwidth(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesMemoryGetBandwidth(";
     ss << "hMemory: " << hMemory;
     if (pBandwidth == nullptr) {
         ss << ", pBandwidth: nullptr";
@@ -3293,8 +3293,8 @@ inline std::string _trace_zesDeviceEnumPerformanceFactorDomains(zes_device_handl
                                                                 uint32_t *pCount,
                                                                 zes_perf_handle_t *phPerf) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEnumPerformanceFactorDomains(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEnumPerformanceFactorDomains(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -3329,8 +3329,8 @@ inline void trace_zesDeviceEnumPerformanceFactorDomains(ze_result_t ret,
 inline std::string _trace_zesPerformanceFactorGetProperties(zes_perf_handle_t hPerf,
                                                             zes_perf_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesPerformanceFactorGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesPerformanceFactorGetProperties(";
     ss << "hPerf: " << hPerf;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -3363,8 +3363,8 @@ inline void trace_zesPerformanceFactorGetProperties(ze_result_t ret,
 
 inline std::string _trace_zesPerformanceFactorGetConfig(zes_perf_handle_t hPerf, double *pFactor) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesPerformanceFactorGetConfig(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesPerformanceFactorGetConfig(";
     ss << "hPerf: " << hPerf;
     if (pFactor == nullptr) {
         ss << ", pFactor: nullptr";
@@ -3388,8 +3388,8 @@ trace_zesPerformanceFactorGetConfig(ze_result_t ret, zes_perf_handle_t hPerf, do
 
 inline std::string _trace_zesPerformanceFactorSetConfig(zes_perf_handle_t hPerf, double factor) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesPerformanceFactorSetConfig(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesPerformanceFactorSetConfig(";
     ss << "hPerf: " << hPerf;
     ss << ", factor: " << factor;
     ss << ")";
@@ -3411,8 +3411,8 @@ inline std::string _trace_zesDeviceEnumPowerDomains(zes_device_handle_t hDevice,
                                                     uint32_t *pCount,
                                                     zes_pwr_handle_t *phPower) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEnumPowerDomains(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEnumPowerDomains(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -3447,8 +3447,8 @@ inline void trace_zesDeviceEnumPowerDomains(ze_result_t ret,
 inline std::string _trace_zesDeviceGetCardPowerDomain(zes_device_handle_t hDevice,
                                                       zes_pwr_handle_t *phPower) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceGetCardPowerDomain(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceGetCardPowerDomain(";
     ss << "hDevice: " << hDevice;
     if (phPower == nullptr) {
         ss << ", phPower: nullptr";
@@ -3475,8 +3475,8 @@ inline void trace_zesDeviceGetCardPowerDomain(ze_result_t ret,
 inline std::string _trace_zesPowerGetProperties(zes_pwr_handle_t hPower,
                                                 zes_power_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesPowerGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesPowerGetProperties(";
     ss << "hPower: " << hPower;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -3513,8 +3513,8 @@ inline void trace_zesPowerGetProperties(ze_result_t ret,
 inline std::string _trace_zesPowerGetEnergyCounter(zes_pwr_handle_t hPower,
                                                    zes_power_energy_counter_t *pEnergy) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesPowerGetEnergyCounter(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesPowerGetEnergyCounter(";
     ss << "hPower: " << hPower;
     if (pEnergy == nullptr) {
         ss << ", pEnergy: nullptr";
@@ -3546,8 +3546,8 @@ inline std::string _trace_zesPowerGetLimits(zes_pwr_handle_t hPower,
                                             zes_power_burst_limit_t *pBurst,
                                             zes_power_peak_limit_t *pPeak) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesPowerGetLimits(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesPowerGetLimits(";
     ss << "hPower: " << hPower;
     if (pSustained == nullptr) {
         ss << ", pSustained: nullptr";
@@ -3601,8 +3601,8 @@ inline std::string _trace_zesPowerSetLimits(zes_pwr_handle_t hPower,
                                             const zes_power_burst_limit_t *pBurst,
                                             const zes_power_peak_limit_t *pPeak) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesPowerSetLimits(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesPowerSetLimits(";
     ss << "hPower: " << hPower;
     if (pSustained == nullptr) {
         ss << ", pSustained: nullptr";
@@ -3654,8 +3654,8 @@ inline void trace_zesPowerSetLimits(ze_result_t ret,
 inline std::string _trace_zesPowerGetEnergyThreshold(zes_pwr_handle_t hPower,
                                                      zes_energy_threshold_t *pThreshold) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesPowerGetEnergyThreshold(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesPowerGetEnergyThreshold(";
     ss << "hPower: " << hPower;
     if (pThreshold == nullptr) {
         ss << ", pThreshold: nullptr";
@@ -3685,8 +3685,8 @@ inline void trace_zesPowerGetEnergyThreshold(ze_result_t ret,
 
 inline std::string _trace_zesPowerSetEnergyThreshold(zes_pwr_handle_t hPower, double threshold) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesPowerSetEnergyThreshold(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesPowerSetEnergyThreshold(";
     ss << "hPower: " << hPower;
     ss << ", threshold: " << threshold;
     ss << ")";
@@ -3707,8 +3707,8 @@ trace_zesPowerSetEnergyThreshold(ze_result_t ret, zes_pwr_handle_t hPower, doubl
 inline std::string
 _trace_zesDeviceEnumPsus(zes_device_handle_t hDevice, uint32_t *pCount, zes_psu_handle_t *phPsu) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEnumPsus(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEnumPsus(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -3741,8 +3741,8 @@ inline void trace_zesDeviceEnumPsus(ze_result_t ret,
 inline std::string _trace_zesPsuGetProperties(zes_psu_handle_t hPsu,
                                               zes_psu_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesPsuGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesPsuGetProperties(";
     ss << "hPsu: " << hPsu;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -3774,8 +3774,8 @@ inline void trace_zesPsuGetProperties(ze_result_t ret,
 
 inline std::string _trace_zesPsuGetState(zes_psu_handle_t hPsu, zes_psu_state_t *pState) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesPsuGetState(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesPsuGetState(";
     ss << "hPsu: " << hPsu;
     if (pState == nullptr) {
         ss << ", pState: nullptr";
@@ -3807,8 +3807,8 @@ inline std::string _trace_zesDeviceEnumRasErrorSets(zes_device_handle_t hDevice,
                                                     uint32_t *pCount,
                                                     zes_ras_handle_t *phRas) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEnumRasErrorSets(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEnumRasErrorSets(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -3843,8 +3843,8 @@ inline void trace_zesDeviceEnumRasErrorSets(ze_result_t ret,
 inline std::string _trace_zesRasGetProperties(zes_ras_handle_t hRas,
                                               zes_ras_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesRasGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesRasGetProperties(";
     ss << "hRas: " << hRas;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -3875,8 +3875,8 @@ inline void trace_zesRasGetProperties(ze_result_t ret,
 
 inline std::string _trace_zesRasGetConfig(zes_ras_handle_t hRas, zes_ras_config_t *pConfig) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesRasGetConfig(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesRasGetConfig(";
     ss << "hRas: " << hRas;
     if (pConfig == nullptr) {
         ss << ", pConfig: nullptr";
@@ -3912,8 +3912,8 @@ trace_zesRasGetConfig(ze_result_t ret, zes_ras_handle_t hRas, zes_ras_config_t *
 
 inline std::string _trace_zesRasSetConfig(zes_ras_handle_t hRas, const zes_ras_config_t *pConfig) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesRasSetConfig(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesRasSetConfig(";
     ss << "hRas: " << hRas;
     if (pConfig == nullptr) {
         ss << ", pConfig: nullptr";
@@ -3950,8 +3950,8 @@ trace_zesRasSetConfig(ze_result_t ret, zes_ras_handle_t hRas, const zes_ras_conf
 inline std::string
 _trace_zesRasGetState(zes_ras_handle_t hRas, ze_bool_t clear, zes_ras_state_t *pState) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesRasGetState(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesRasGetState(";
     ss << "hRas: " << hRas;
     ss << ", clear: " << clear;
     if (pState == nullptr) {
@@ -3986,8 +3986,8 @@ inline std::string _trace_zesDeviceEnumSchedulers(zes_device_handle_t hDevice,
                                                   uint32_t *pCount,
                                                   zes_sched_handle_t *phScheduler) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEnumSchedulers(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEnumSchedulers(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -4022,8 +4022,8 @@ inline void trace_zesDeviceEnumSchedulers(ze_result_t ret,
 inline std::string _trace_zesSchedulerGetProperties(zes_sched_handle_t hScheduler,
                                                     zes_sched_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesSchedulerGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesSchedulerGetProperties(";
     ss << "hScheduler: " << hScheduler;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -4059,8 +4059,8 @@ inline void trace_zesSchedulerGetProperties(ze_result_t ret,
 inline std::string _trace_zesSchedulerGetCurrentMode(zes_sched_handle_t hScheduler,
                                                      zes_sched_mode_t *pMode) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesSchedulerGetCurrentMode(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesSchedulerGetCurrentMode(";
     ss << "hScheduler: " << hScheduler;
     if (pMode == nullptr) {
         ss << ", pMode: nullptr";
@@ -4089,8 +4089,8 @@ _trace_zesSchedulerGetTimeoutModeProperties(zes_sched_handle_t hScheduler,
                                             ze_bool_t getDefaults,
                                             zes_sched_timeout_properties_t *pConfig) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesSchedulerGetTimeoutModeProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesSchedulerGetTimeoutModeProperties(";
     ss << "hScheduler: " << hScheduler;
     ss << ", getDefaults: " << getDefaults;
     if (pConfig == nullptr) {
@@ -4128,8 +4128,8 @@ _trace_zesSchedulerGetTimesliceModeProperties(zes_sched_handle_t hScheduler,
                                               ze_bool_t getDefaults,
                                               zes_sched_timeslice_properties_t *pConfig) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesSchedulerGetTimesliceModeProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesSchedulerGetTimesliceModeProperties(";
     ss << "hScheduler: " << hScheduler;
     ss << ", getDefaults: " << getDefaults;
     if (pConfig == nullptr) {
@@ -4173,8 +4173,8 @@ inline std::string _trace_zesSchedulerSetTimeoutMode(zes_sched_handle_t hSchedul
                                                      zes_sched_timeout_properties_t *pProperties,
                                                      ze_bool_t *pNeedReload) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesSchedulerSetTimeoutMode(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesSchedulerSetTimeoutMode(";
     ss << "hScheduler: " << hScheduler;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -4216,8 +4216,8 @@ _trace_zesSchedulerSetTimesliceMode(zes_sched_handle_t hScheduler,
                                     zes_sched_timeslice_properties_t *pProperties,
                                     ze_bool_t *pNeedReload) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesSchedulerSetTimesliceMode(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesSchedulerSetTimesliceMode(";
     ss << "hScheduler: " << hScheduler;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -4258,8 +4258,8 @@ inline void trace_zesSchedulerSetTimesliceMode(ze_result_t ret,
 inline std::string _trace_zesSchedulerSetExclusiveMode(zes_sched_handle_t hScheduler,
                                                        ze_bool_t *pNeedReload) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesSchedulerSetExclusiveMode(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesSchedulerSetExclusiveMode(";
     ss << "hScheduler: " << hScheduler;
     if (pNeedReload == nullptr) {
         ss << ", pNeedReload: nullptr";
@@ -4287,8 +4287,8 @@ inline void trace_zesSchedulerSetExclusiveMode(ze_result_t ret,
 inline std::string _trace_zesSchedulerSetComputeUnitDebugMode(zes_sched_handle_t hScheduler,
                                                               ze_bool_t *pNeedReload) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesSchedulerSetComputeUnitDebugMode(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesSchedulerSetComputeUnitDebugMode(";
     ss << "hScheduler: " << hScheduler;
     if (pNeedReload == nullptr) {
         ss << ", pNeedReload: nullptr";
@@ -4317,8 +4317,8 @@ inline std::string _trace_zesDeviceEnumStandbyDomains(zes_device_handle_t hDevic
                                                       uint32_t *pCount,
                                                       zes_standby_handle_t *phStandby) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEnumStandbyDomains(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEnumStandbyDomains(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -4353,8 +4353,8 @@ inline void trace_zesDeviceEnumStandbyDomains(ze_result_t ret,
 inline std::string _trace_zesStandbyGetProperties(zes_standby_handle_t hStandby,
                                                   zes_standby_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesStandbyGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesStandbyGetProperties(";
     ss << "hStandby: " << hStandby;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -4387,8 +4387,8 @@ inline void trace_zesStandbyGetProperties(ze_result_t ret,
 inline std::string _trace_zesStandbyGetMode(zes_standby_handle_t hStandby,
                                             zes_standby_promo_mode_t *pMode) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesStandbyGetMode(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesStandbyGetMode(";
     ss << "hStandby: " << hStandby;
     if (pMode == nullptr) {
         ss << ", pMode: nullptr";
@@ -4415,8 +4415,8 @@ inline void trace_zesStandbyGetMode(ze_result_t ret,
 inline std::string _trace_zesStandbySetMode(zes_standby_handle_t hStandby,
                                             zes_standby_promo_mode_t mode) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesStandbySetMode(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesStandbySetMode(";
     ss << "hStandby: " << hStandby;
     ss << ", mode: " << mode;
     ss << ")";
@@ -4439,8 +4439,8 @@ inline std::string _trace_zesDeviceEnumTemperatureSensors(zes_device_handle_t hD
                                                           uint32_t *pCount,
                                                           zes_temp_handle_t *phTemperature) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEnumTemperatureSensors(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEnumTemperatureSensors(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -4476,8 +4476,8 @@ inline void trace_zesDeviceEnumTemperatureSensors(ze_result_t ret,
 inline std::string _trace_zesTemperatureGetProperties(zes_temp_handle_t hTemperature,
                                                       zes_temp_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesTemperatureGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesTemperatureGetProperties(";
     ss << "hTemperature: " << hTemperature;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -4515,8 +4515,8 @@ inline void trace_zesTemperatureGetProperties(ze_result_t ret,
 inline std::string _trace_zesTemperatureGetConfig(zes_temp_handle_t hTemperature,
                                                   zes_temp_config_t *pConfig) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesTemperatureGetConfig(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesTemperatureGetConfig(";
     ss << "hTemperature: " << hTemperature;
     if (pConfig == nullptr) {
         ss << ", pConfig: nullptr";
@@ -4557,8 +4557,8 @@ inline void trace_zesTemperatureGetConfig(ze_result_t ret,
 inline std::string _trace_zesTemperatureSetConfig(zes_temp_handle_t hTemperature,
                                                   const zes_temp_config_t *pConfig) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesTemperatureSetConfig(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesTemperatureSetConfig(";
     ss << "hTemperature: " << hTemperature;
     if (pConfig == nullptr) {
         ss << ", pConfig: nullptr";
@@ -4599,8 +4599,8 @@ inline void trace_zesTemperatureSetConfig(ze_result_t ret,
 inline std::string _trace_zesTemperatureGetState(zes_temp_handle_t hTemperature,
                                                  double *pTemperature) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesTemperatureGetState(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesTemperatureGetState(";
     ss << "hTemperature: " << hTemperature;
     if (pTemperature == nullptr) {
         ss << ", pTemperature: nullptr";
@@ -4628,8 +4628,8 @@ inline std::string _trace_zesPowerGetLimitsExt(zes_pwr_handle_t hPower,
                                                uint32_t *pCount,
                                                zes_power_limit_ext_desc_t *pSustained) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesPowerGetLimitsExt(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesPowerGetLimitsExt(";
     ss << "hPower: " << hPower;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -4685,8 +4685,8 @@ inline std::string _trace_zesPowerSetLimitsExt(zes_pwr_handle_t hPower,
                                                uint32_t *pCount,
                                                zes_power_limit_ext_desc_t *pSustained) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesPowerSetLimitsExt(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesPowerSetLimitsExt(";
     ss << "hPower: " << hPower;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -4742,8 +4742,8 @@ inline std::string _trace_zesEngineGetActivityExt(zes_engine_handle_t hEngine,
                                                   uint32_t *pCount,
                                                   zes_engine_stats_t *pStats) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesEngineGetActivityExt(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesEngineGetActivityExt(";
     ss << "hEngine: " << hEngine;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -4789,8 +4789,8 @@ inline void trace_zesEngineGetActivityExt(ze_result_t ret,
 inline std::string
 _trace_zesRasGetStateExp(zes_ras_handle_t hRas, uint32_t *pCount, zes_ras_state_exp_t *pState) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesRasGetStateExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesRasGetStateExp(";
     ss << "hRas: " << hRas;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -4834,8 +4834,8 @@ inline void trace_zesRasGetStateExp(ze_result_t ret,
 inline std::string _trace_zesRasClearStateExp(zes_ras_handle_t hRas,
                                               zes_ras_error_category_exp_t category) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesRasClearStateExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesRasClearStateExp(";
     ss << "hRas: " << hRas;
     ss << ", category: " << category;
     ss << ")";
@@ -4858,8 +4858,8 @@ inline void trace_zesRasClearStateExp(ze_result_t ret,
 inline std::string _trace_zesFirmwareGetSecurityVersionExp(zes_firmware_handle_t hFirmware,
                                                            char *pVersion) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFirmwareGetSecurityVersionExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFirmwareGetSecurityVersionExp(";
     ss << "hFirmware: " << hFirmware;
     if (pVersion == nullptr) {
         ss << ", pVersion: nullptr";
@@ -4886,8 +4886,8 @@ inline void trace_zesFirmwareGetSecurityVersionExp(ze_result_t ret,
 
 inline std::string _trace_zesFirmwareSetSecurityVersionExp(zes_firmware_handle_t hFirmware) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesFirmwareSetSecurityVersionExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesFirmwareSetSecurityVersionExp(";
     ss << "hFirmware: " << hFirmware;
     ss << ")";
     return ss.str();
@@ -4909,8 +4909,8 @@ _trace_zesDeviceGetSubDevicePropertiesExp(zes_device_handle_t hDevice,
                                           uint32_t *pCount,
                                           zes_subdevice_exp_properties_t *pSubdeviceProps) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceGetSubDevicePropertiesExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceGetSubDevicePropertiesExp(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -4967,8 +4967,8 @@ inline std::string _trace_zesDriverGetDeviceByUuidExp(zes_driver_handle_t hDrive
                                                       ze_bool_t *onSubdevice,
                                                       uint32_t *subdeviceId) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDriverGetDeviceByUuidExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDriverGetDeviceByUuidExp(";
     ss << "hDriver: " << hDriver;
     ss << ", uuid {";
     ss << "id: ";
@@ -5026,8 +5026,8 @@ inline std::string _trace_zesDeviceEnumActiveVFExp(zes_device_handle_t hDevice,
                                                    uint32_t *pCount,
                                                    zes_vf_handle_t *phVFhandle) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEnumActiveVFExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEnumActiveVFExp(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -5062,8 +5062,8 @@ inline void trace_zesDeviceEnumActiveVFExp(ze_result_t ret,
 inline std::string _trace_zesVFManagementGetVFPropertiesExp(zes_vf_handle_t hVFhandle,
                                                             zes_vf_exp_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesVFManagementGetVFPropertiesExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesVFManagementGetVFPropertiesExp(";
     ss << "hVFhandle: " << hVFhandle;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -5107,8 +5107,8 @@ _trace_zesVFManagementGetVFMemoryUtilizationExp(zes_vf_handle_t hVFhandle,
                                                 uint32_t *pCount,
                                                 zes_vf_util_mem_exp_t *pMemUtil) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesVFManagementGetVFMemoryUtilizationExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesVFManagementGetVFMemoryUtilizationExp(";
     ss << "hVFhandle: " << hVFhandle;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -5161,8 +5161,8 @@ _trace_zesVFManagementGetVFEngineUtilizationExp(zes_vf_handle_t hVFhandle,
                                                 uint32_t *pCount,
                                                 zes_vf_util_engine_exp_t *pEngineUtil) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesVFManagementGetVFEngineUtilizationExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesVFManagementGetVFEngineUtilizationExp(";
     ss << "hVFhandle: " << hVFhandle;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -5218,8 +5218,8 @@ inline std::string _trace_zesVFManagementSetVFTelemetryModeExp(zes_vf_handle_t h
                                                                zes_vf_info_util_exp_flags_t flags,
                                                                ze_bool_t enable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesVFManagementSetVFTelemetryModeExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesVFManagementSetVFTelemetryModeExp(";
     ss << "hVFhandle: " << hVFhandle;
     ss << ", flags: " << flags;
     ss << ", enable: " << enable;
@@ -5248,8 +5248,9 @@ _trace_zesVFManagementSetVFTelemetrySamplingIntervalExp(zes_vf_handle_t hVFhandl
                                                         zes_vf_info_util_exp_flags_t flag,
                                                         uint64_t samplingInterval) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid()
+       << "] zesVFManagementSetVFTelemetrySamplingIntervalExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesVFManagementSetVFTelemetrySamplingIntervalExp(";
     ss << "hVFhandle: " << hVFhandle;
     ss << ", flag: " << flag;
     ss << ", samplingInterval: " << samplingInterval;
@@ -5284,8 +5285,8 @@ inline std::string _trace_zesDeviceEnumEnabledVFExp(zes_device_handle_t hDevice,
                                                     uint32_t *pCount,
                                                     zes_vf_handle_t *phVFhandle) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesDeviceEnumEnabledVFExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesDeviceEnumEnabledVFExp(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -5321,8 +5322,8 @@ inline std::string
 _trace_zesVFManagementGetVFCapabilitiesExp(zes_vf_handle_t hVFhandle,
                                            zes_vf_exp_capabilities_t *pCapability) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesVFManagementGetVFCapabilitiesExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesVFManagementGetVFCapabilitiesExp(";
     ss << "hVFhandle: " << hVFhandle;
     if (pCapability == nullptr) {
         ss << ", pCapability: nullptr";
@@ -5363,8 +5364,8 @@ _trace_zesVFManagementGetVFMemoryUtilizationExp2(zes_vf_handle_t hVFhandle,
                                                  uint32_t *pCount,
                                                  zes_vf_util_mem_exp2_t *pMemUtil) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesVFManagementGetVFMemoryUtilizationExp2(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesVFManagementGetVFMemoryUtilizationExp2(";
     ss << "hVFhandle: " << hVFhandle;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -5415,8 +5416,8 @@ _trace_zesVFManagementGetVFEngineUtilizationExp2(zes_vf_handle_t hVFhandle,
                                                  uint32_t *pCount,
                                                  zes_vf_util_engine_exp2_t *pEngineUtil) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zesVFManagementGetVFEngineUtilizationExp2(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zesVFManagementGetVFEngineUtilizationExp2(";
     ss << "hVFhandle: " << hVFhandle;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";

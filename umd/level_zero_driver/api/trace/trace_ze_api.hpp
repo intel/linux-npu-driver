@@ -16,6 +16,7 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <unistd.h>
 #include <ze_api.h>
 #include <ze_command_queue_npu_ext.h>
 #include <ze_context_npu_ext.h>
@@ -133,8 +134,8 @@ inline std::string trace_ze_result_t(ze_result_t ret) {
 
 inline std::string _trace_zeInit(ze_init_flags_t flags) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeInit(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeInit(";
     ss << "flags: " << flags;
     ss << ")";
     return ss.str();
@@ -152,8 +153,8 @@ inline void trace_zeInit(ze_result_t ret, ze_init_flags_t flags) {
 
 inline std::string _trace_zeDriverGet(uint32_t *pCount, ze_driver_handle_t *phDrivers) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDriverGet(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDriverGet(";
     if (pCount == nullptr) {
         ss << "pCount: nullptr";
     } else {
@@ -182,8 +183,8 @@ inline std::string _trace_zeInitDrivers(uint32_t *pCount,
                                         ze_driver_handle_t *phDrivers,
                                         ze_init_driver_type_desc_t *desc) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeInitDrivers(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeInitDrivers(";
     if (pCount == nullptr) {
         ss << "pCount: nullptr";
     } else {
@@ -225,8 +226,8 @@ inline void trace_zeInitDrivers(ze_result_t ret,
 inline std::string _trace_zeDriverGetApiVersion(ze_driver_handle_t hDriver,
                                                 ze_api_version_t *version) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDriverGetApiVersion(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDriverGetApiVersion(";
     ss << "hDriver: " << hDriver;
     if (version == nullptr) {
         ss << ", version: nullptr";
@@ -252,8 +253,8 @@ inline void trace_zeDriverGetApiVersion(ze_result_t ret,
 inline std::string _trace_zeDriverGetProperties(ze_driver_handle_t hDriver,
                                                 ze_driver_properties_t *pDriverProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDriverGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDriverGetProperties(";
     ss << "hDriver: " << hDriver;
     if (pDriverProperties == nullptr) {
         ss << ", pDriverProperties: nullptr";
@@ -290,8 +291,8 @@ inline void trace_zeDriverGetProperties(ze_result_t ret,
 inline std::string _trace_zeDriverGetIpcProperties(ze_driver_handle_t hDriver,
                                                    ze_driver_ipc_properties_t *pIpcProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDriverGetIpcProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDriverGetIpcProperties(";
     ss << "hDriver: " << hDriver;
     if (pIpcProperties == nullptr) {
         ss << ", pIpcProperties: nullptr";
@@ -325,8 +326,8 @@ _trace_zeDriverGetExtensionProperties(ze_driver_handle_t hDriver,
                                       uint32_t *pCount,
                                       ze_driver_extension_properties_t *pExtensionProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDriverGetExtensionProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDriverGetExtensionProperties(";
     ss << "hDriver: " << hDriver;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -379,8 +380,8 @@ inline std::string _trace_zeDriverGetExtensionFunctionAddress(ze_driver_handle_t
                                                               const char *name,
                                                               void **ppFunctionAddress) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDriverGetExtensionFunctionAddress(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDriverGetExtensionFunctionAddress(";
     ss << "hDriver: " << hDriver;
     if (name == nullptr) {
         ss << ", name: nullptr";
@@ -412,8 +413,8 @@ inline void trace_zeDriverGetExtensionFunctionAddress(ze_result_t ret,
 inline std::string _trace_zeDriverGetLastErrorDescription(ze_driver_handle_t hDriver,
                                                           const char **ppString) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDriverGetLastErrorDescription(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDriverGetLastErrorDescription(";
     ss << "hDriver: " << hDriver;
     ss << ", ppString: " << ppString;
     ss << ")";
@@ -437,8 +438,8 @@ inline void trace_zeDriverGetLastErrorDescription(ze_result_t ret,
 inline std::string
 _trace_zeDeviceGet(ze_driver_handle_t hDriver, uint32_t *pCount, ze_device_handle_t *phDevices) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceGet(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDeviceGet(";
     ss << "hDriver: " << hDriver;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -471,8 +472,8 @@ inline void trace_zeDeviceGet(ze_result_t ret,
 inline std::string _trace_zeDeviceGetRootDevice(ze_device_handle_t hDevice,
                                                 ze_device_handle_t *phRootDevice) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceGetRootDevice(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDeviceGetRootDevice(";
     ss << "hDevice: " << hDevice;
     if (phRootDevice == nullptr) {
         ss << ", phRootDevice: nullptr";
@@ -500,8 +501,8 @@ inline std::string _trace_zeDeviceGetSubDevices(ze_device_handle_t hDevice,
                                                 uint32_t *pCount,
                                                 ze_device_handle_t *phSubdevices) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceGetSubDevices(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDeviceGetSubDevices(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -536,8 +537,8 @@ inline void trace_zeDeviceGetSubDevices(ze_result_t ret,
 inline std::string _trace_zeDeviceGetProperties(ze_device_handle_t hDevice,
                                                 ze_device_properties_t *pDeviceProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDeviceGetProperties(";
     ss << "hDevice: " << hDevice;
     if (pDeviceProperties == nullptr) {
         ss << ", pDeviceProperties: nullptr";
@@ -593,8 +594,8 @@ inline std::string
 _trace_zeDeviceGetComputeProperties(ze_device_handle_t hDevice,
                                     ze_device_compute_properties_t *pComputeProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceGetComputeProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDeviceGetComputeProperties(";
     ss << "hDevice: " << hDevice;
     if (pComputeProperties == nullptr) {
         ss << ", pComputeProperties: nullptr";
@@ -640,8 +641,8 @@ inline std::string
 _trace_zeDeviceGetModuleProperties(ze_device_handle_t hDevice,
                                    ze_device_module_properties_t *pModuleProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceGetModuleProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDeviceGetModuleProperties(";
     ss << "hDevice: " << hDevice;
     if (pModuleProperties == nullptr) {
         ss << ", pModuleProperties: nullptr";
@@ -687,8 +688,8 @@ inline std::string _trace_zeDeviceGetCommandQueueGroupProperties(
     uint32_t *pCount,
     ze_command_queue_group_properties_t *pCommandQueueGroupProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceGetCommandQueueGroupProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDeviceGetCommandQueueGroupProperties(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -747,8 +748,8 @@ _trace_zeDeviceGetMemoryProperties(ze_device_handle_t hDevice,
                                    uint32_t *pCount,
                                    ze_device_memory_properties_t *pMemProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceGetMemoryProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDeviceGetMemoryProperties(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -801,8 +802,8 @@ inline std::string _trace_zeDeviceGetMemoryAccessProperties(
     ze_device_handle_t hDevice,
     ze_device_memory_access_properties_t *pMemAccessProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceGetMemoryAccessProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDeviceGetMemoryAccessProperties(";
     ss << "hDevice: " << hDevice;
     if (pMemAccessProperties == nullptr) {
         ss << ", pMemAccessProperties: nullptr";
@@ -846,8 +847,8 @@ _trace_zeDeviceGetCacheProperties(ze_device_handle_t hDevice,
                                   uint32_t *pCount,
                                   ze_device_cache_properties_t *pCacheProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceGetCacheProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDeviceGetCacheProperties(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -896,8 +897,8 @@ inline std::string
 _trace_zeDeviceGetImageProperties(ze_device_handle_t hDevice,
                                   ze_device_image_properties_t *pImageProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceGetImageProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDeviceGetImageProperties(";
     ss << "hDevice: " << hDevice;
     if (pImageProperties == nullptr) {
         ss << ", pImageProperties: nullptr";
@@ -937,8 +938,8 @@ inline std::string _trace_zeDeviceGetExternalMemoryProperties(
     ze_device_handle_t hDevice,
     ze_device_external_memory_properties_t *pExternalMemoryProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceGetExternalMemoryProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDeviceGetExternalMemoryProperties(";
     ss << "hDevice: " << hDevice;
     if (pExternalMemoryProperties == nullptr) {
         ss << ", pExternalMemoryProperties: nullptr";
@@ -981,8 +982,8 @@ inline std::string _trace_zeDeviceGetP2PProperties(ze_device_handle_t hDevice,
                                                    ze_device_handle_t hPeerDevice,
                                                    ze_device_p2p_properties_t *pP2PProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceGetP2PProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDeviceGetP2PProperties(";
     ss << "hDevice: " << hDevice;
     ss << ", hPeerDevice: " << hPeerDevice;
     if (pP2PProperties == nullptr) {
@@ -1018,8 +1019,8 @@ inline std::string _trace_zeDeviceCanAccessPeer(ze_device_handle_t hDevice,
                                                 ze_device_handle_t hPeerDevice,
                                                 ze_bool_t *value) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceCanAccessPeer(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDeviceCanAccessPeer(";
     ss << "hDevice: " << hDevice;
     ss << ", hPeerDevice: " << hPeerDevice;
     if (value == nullptr) {
@@ -1049,8 +1050,8 @@ inline void trace_zeDeviceCanAccessPeer(ze_result_t ret,
 
 inline std::string _trace_zeDeviceGetStatus(ze_device_handle_t hDevice) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceGetStatus(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDeviceGetStatus(";
     ss << "hDevice: " << hDevice;
     ss << ")";
     return ss.str();
@@ -1070,8 +1071,8 @@ inline std::string _trace_zeDeviceGetGlobalTimestamps(ze_device_handle_t hDevice
                                                       uint64_t *hostTimestamp,
                                                       uint64_t *deviceTimestamp) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceGetGlobalTimestamps(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDeviceGetGlobalTimestamps(";
     ss << "hDevice: " << hDevice;
     if (hostTimestamp == nullptr) {
         ss << ", hostTimestamp: nullptr";
@@ -1108,8 +1109,8 @@ inline std::string _trace_zeContextCreate(ze_driver_handle_t hDriver,
                                           const ze_context_desc_t *desc,
                                           ze_context_handle_t *phContext) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeContextCreate(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeContextCreate(";
     ss << "hDriver: " << hDriver;
     if (desc == nullptr) {
         ss << ", desc: nullptr";
@@ -1150,8 +1151,8 @@ inline std::string _trace_zeContextCreateEx(ze_driver_handle_t hDriver,
                                             ze_device_handle_t *phDevices,
                                             ze_context_handle_t *phContext) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeContextCreateEx(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeContextCreateEx(";
     ss << "hDriver: " << hDriver;
     if (desc == nullptr) {
         ss << ", desc: nullptr";
@@ -1200,8 +1201,8 @@ inline void trace_zeContextCreateEx(ze_result_t ret,
 
 inline std::string _trace_zeContextDestroy(ze_context_handle_t hContext) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeContextDestroy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeContextDestroy(";
     ss << "hContext: " << hContext;
     ss << ")";
     return ss.str();
@@ -1219,8 +1220,8 @@ inline void trace_zeContextDestroy(ze_result_t ret, ze_context_handle_t hContext
 
 inline std::string _trace_zeContextGetStatus(ze_context_handle_t hContext) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeContextGetStatus(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeContextGetStatus(";
     ss << "hContext: " << hContext;
     ss << ")";
     return ss.str();
@@ -1241,8 +1242,8 @@ inline std::string _trace_zeCommandQueueCreate(ze_context_handle_t hContext,
                                                const ze_command_queue_desc_t *desc,
                                                ze_command_queue_handle_t *phCommandQueue) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandQueueCreate(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandQueueCreate(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     if (desc == nullptr) {
@@ -1313,8 +1314,8 @@ inline void trace_zeCommandQueueCreate(ze_result_t ret,
 
 inline std::string _trace_zeCommandQueueDestroy(ze_command_queue_handle_t hCommandQueue) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandQueueDestroy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandQueueDestroy(";
     ss << "hCommandQueue: " << hCommandQueue;
     ss << ")";
     return ss.str();
@@ -1336,8 +1337,8 @@ _trace_zeCommandQueueExecuteCommandLists(ze_command_queue_handle_t hCommandQueue
                                          ze_command_list_handle_t *phCommandLists,
                                          ze_fence_handle_t hFence) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandQueueExecuteCommandLists(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandQueueExecuteCommandLists(";
     ss << "hCommandQueue: " << hCommandQueue;
     ss << ", numCommandLists: " << numCommandLists;
     if (phCommandLists == nullptr) {
@@ -1384,8 +1385,8 @@ inline void trace_zeCommandQueueExecuteCommandLists(ze_result_t ret,
 inline std::string _trace_zeCommandQueueSynchronize(ze_command_queue_handle_t hCommandQueue,
                                                     uint64_t timeout) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandQueueSynchronize(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandQueueSynchronize(";
     ss << "hCommandQueue: " << hCommandQueue;
     ss << ", timeout: " << timeout;
     ss << ")";
@@ -1409,8 +1410,8 @@ inline void trace_zeCommandQueueSynchronize(ze_result_t ret,
 inline std::string _trace_zeCommandQueueGetOrdinal(ze_command_queue_handle_t hCommandQueue,
                                                    uint32_t *pOrdinal) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandQueueGetOrdinal(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandQueueGetOrdinal(";
     ss << "hCommandQueue: " << hCommandQueue;
     if (pOrdinal == nullptr) {
         ss << ", pOrdinal: nullptr";
@@ -1438,8 +1439,8 @@ inline void trace_zeCommandQueueGetOrdinal(ze_result_t ret,
 inline std::string _trace_zeCommandQueueGetIndex(ze_command_queue_handle_t hCommandQueue,
                                                  uint32_t *pIndex) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandQueueGetIndex(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandQueueGetIndex(";
     ss << "hCommandQueue: " << hCommandQueue;
     if (pIndex == nullptr) {
         ss << ", pIndex: nullptr";
@@ -1468,8 +1469,8 @@ inline std::string _trace_zeCommandListCreate(ze_context_handle_t hContext,
                                               const ze_command_list_desc_t *desc,
                                               ze_command_list_handle_t *phCommandList) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListCreate(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListCreate(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     if (desc == nullptr) {
@@ -1517,8 +1518,8 @@ inline std::string _trace_zeCommandListCreateImmediate(ze_context_handle_t hCont
                                                        const ze_command_queue_desc_t *altdesc,
                                                        ze_command_list_handle_t *phCommandList) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListCreateImmediate(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListCreateImmediate(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     if (altdesc == nullptr) {
@@ -1570,8 +1571,8 @@ inline void trace_zeCommandListCreateImmediate(ze_result_t ret,
 
 inline std::string _trace_zeCommandListDestroy(ze_command_list_handle_t hCommandList) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListDestroy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListDestroy(";
     ss << "hCommandList: " << hCommandList;
     ss << ")";
     return ss.str();
@@ -1591,8 +1592,8 @@ inline void trace_zeCommandListDestroy(ze_result_t ret, ze_command_list_handle_t
 
 inline std::string _trace_zeCommandListClose(ze_command_list_handle_t hCommandList) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListClose(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListClose(";
     ss << "hCommandList: " << hCommandList;
     ss << ")";
     return ss.str();
@@ -1612,8 +1613,8 @@ inline void trace_zeCommandListClose(ze_result_t ret, ze_command_list_handle_t h
 
 inline std::string _trace_zeCommandListReset(ze_command_list_handle_t hCommandList) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListReset(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListReset(";
     ss << "hCommandList: " << hCommandList;
     ss << ")";
     return ss.str();
@@ -1638,8 +1639,8 @@ _trace_zeCommandListAppendWriteGlobalTimestamp(ze_command_list_handle_t hCommand
                                                uint32_t numWaitEvents,
                                                ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendWriteGlobalTimestamp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendWriteGlobalTimestamp(";
     ss << "hCommandList: " << hCommandList;
     if (dstptr == nullptr) {
         ss << ", dstptr: nullptr";
@@ -1689,8 +1690,8 @@ inline void trace_zeCommandListAppendWriteGlobalTimestamp(ze_result_t ret,
 inline std::string _trace_zeCommandListHostSynchronize(ze_command_list_handle_t hCommandList,
                                                        uint64_t timeout) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListHostSynchronize(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListHostSynchronize(";
     ss << "hCommandList: " << hCommandList;
     ss << ", timeout: " << timeout;
     ss << ")";
@@ -1714,8 +1715,8 @@ inline void trace_zeCommandListHostSynchronize(ze_result_t ret,
 inline std::string _trace_zeCommandListGetDeviceHandle(ze_command_list_handle_t hCommandList,
                                                        ze_device_handle_t *phDevice) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListGetDeviceHandle(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListGetDeviceHandle(";
     ss << "hCommandList: " << hCommandList;
     if (phDevice == nullptr) {
         ss << ", phDevice: nullptr";
@@ -1743,8 +1744,8 @@ inline void trace_zeCommandListGetDeviceHandle(ze_result_t ret,
 inline std::string _trace_zeCommandListGetContextHandle(ze_command_list_handle_t hCommandList,
                                                         ze_context_handle_t *phContext) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListGetContextHandle(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListGetContextHandle(";
     ss << "hCommandList: " << hCommandList;
     if (phContext == nullptr) {
         ss << ", phContext: nullptr";
@@ -1772,8 +1773,8 @@ inline void trace_zeCommandListGetContextHandle(ze_result_t ret,
 inline std::string _trace_zeCommandListGetOrdinal(ze_command_list_handle_t hCommandList,
                                                   uint32_t *pOrdinal) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListGetOrdinal(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListGetOrdinal(";
     ss << "hCommandList: " << hCommandList;
     if (pOrdinal == nullptr) {
         ss << ", pOrdinal: nullptr";
@@ -1802,8 +1803,8 @@ inline std::string
 _trace_zeCommandListImmediateGetIndex(ze_command_list_handle_t hCommandListImmediate,
                                       uint32_t *pIndex) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListImmediateGetIndex(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListImmediateGetIndex(";
     ss << "hCommandListImmediate: " << hCommandListImmediate;
     if (pIndex == nullptr) {
         ss << ", pIndex: nullptr";
@@ -1831,8 +1832,8 @@ inline void trace_zeCommandListImmediateGetIndex(ze_result_t ret,
 inline std::string _trace_zeCommandListIsImmediate(ze_command_list_handle_t hCommandList,
                                                    ze_bool_t *pIsImmediate) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListIsImmediate(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListIsImmediate(";
     ss << "hCommandList: " << hCommandList;
     if (pIsImmediate == nullptr) {
         ss << ", pIsImmediate: nullptr";
@@ -1862,8 +1863,8 @@ inline std::string _trace_zeCommandListAppendBarrier(ze_command_list_handle_t hC
                                                      uint32_t numWaitEvents,
                                                      ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendBarrier(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendBarrier(";
     ss << "hCommandList: " << hCommandList;
     ss << ", hSignalEvent: " << hSignalEvent;
     ss << ", numWaitEvents: " << numWaitEvents;
@@ -1910,8 +1911,8 @@ _trace_zeCommandListAppendMemoryRangesBarrier(ze_command_list_handle_t hCommandL
                                               uint32_t numWaitEvents,
                                               ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendMemoryRangesBarrier(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendMemoryRangesBarrier(";
     ss << "hCommandList: " << hCommandList;
     ss << ", numRanges: " << numRanges;
     if (pRangeSizes == nullptr) {
@@ -1971,8 +1972,8 @@ inline void trace_zeCommandListAppendMemoryRangesBarrier(ze_result_t ret,
 inline std::string _trace_zeContextSystemBarrier(ze_context_handle_t hContext,
                                                  ze_device_handle_t hDevice) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeContextSystemBarrier(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeContextSystemBarrier(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     ss << ")";
@@ -1999,8 +2000,8 @@ inline std::string _trace_zeCommandListAppendMemoryCopy(ze_command_list_handle_t
                                                         uint32_t numWaitEvents,
                                                         ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendMemoryCopy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendMemoryCopy(";
     ss << "hCommandList: " << hCommandList;
     ss << ", dstptr: " << dstptr;
     ss << ", srcptr: " << srcptr;
@@ -2062,8 +2063,8 @@ inline std::string _trace_zeCommandListAppendMemoryFill(ze_command_list_handle_t
                                                         uint32_t numWaitEvents,
                                                         ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendMemoryFill(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendMemoryFill(";
     ss << "hCommandList: " << hCommandList;
     ss << ", ptr: " << ptr;
     ss << ", pattern: " << pattern;
@@ -2134,8 +2135,8 @@ inline std::string _trace_zeCommandListAppendMemoryCopyRegion(ze_command_list_ha
                                                               uint32_t numWaitEvents,
                                                               ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendMemoryCopyRegion(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendMemoryCopyRegion(";
     ss << "hCommandList: " << hCommandList;
     ss << ", dstptr: " << dstptr;
     if (dstRegion == nullptr) {
@@ -2245,8 +2246,8 @@ _trace_zeCommandListAppendMemoryCopyFromContext(ze_command_list_handle_t hComman
                                                 uint32_t numWaitEvents,
                                                 ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendMemoryCopyFromContext(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendMemoryCopyFromContext(";
     ss << "hCommandList: " << hCommandList;
     ss << ", dstptr: " << dstptr;
     ss << ", hContextSrc: " << hContextSrc;
@@ -2311,8 +2312,8 @@ inline std::string _trace_zeCommandListAppendImageCopy(ze_command_list_handle_t 
                                                        uint32_t numWaitEvents,
                                                        ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendImageCopy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendImageCopy(";
     ss << "hCommandList: " << hCommandList;
     ss << ", hDstImage: " << hDstImage;
     ss << ", hSrcImage: " << hSrcImage;
@@ -2369,8 +2370,8 @@ inline std::string _trace_zeCommandListAppendImageCopyRegion(ze_command_list_han
                                                              uint32_t numWaitEvents,
                                                              ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendImageCopyRegion(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendImageCopyRegion(";
     ss << "hCommandList: " << hCommandList;
     ss << ", hDstImage: " << hDstImage;
     ss << ", hSrcImage: " << hSrcImage;
@@ -2459,8 +2460,8 @@ _trace_zeCommandListAppendImageCopyToMemory(ze_command_list_handle_t hCommandLis
                                             uint32_t numWaitEvents,
                                             ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendImageCopyToMemory(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendImageCopyToMemory(";
     ss << "hCommandList: " << hCommandList;
     ss << ", dstptr: " << dstptr;
     ss << ", hSrcImage: " << hSrcImage;
@@ -2533,8 +2534,8 @@ _trace_zeCommandListAppendImageCopyFromMemory(ze_command_list_handle_t hCommandL
                                               uint32_t numWaitEvents,
                                               ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendImageCopyFromMemory(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendImageCopyFromMemory(";
     ss << "hCommandList: " << hCommandList;
     ss << ", hDstImage: " << hDstImage;
     ss << ", srcptr: " << srcptr;
@@ -2602,8 +2603,8 @@ inline std::string _trace_zeCommandListAppendMemoryPrefetch(ze_command_list_hand
                                                             const void *ptr,
                                                             size_t size) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendMemoryPrefetch(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendMemoryPrefetch(";
     ss << "hCommandList: " << hCommandList;
     ss << ", ptr: " << ptr;
     ss << ", size: " << size;
@@ -2633,8 +2634,8 @@ inline std::string _trace_zeCommandListAppendMemAdvise(ze_command_list_handle_t 
                                                        size_t size,
                                                        ze_memory_advice_t advice) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendMemAdvise(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendMemAdvise(";
     ss << "hCommandList: " << hCommandList;
     ss << ", hDevice: " << hDevice;
     ss << ", ptr: " << ptr;
@@ -2671,8 +2672,8 @@ inline std::string _trace_zeEventPoolCreate(ze_context_handle_t hContext,
                                             ze_device_handle_t *phDevices,
                                             ze_event_pool_handle_t *phEventPool) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventPoolCreate(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeEventPoolCreate(";
     ss << "hContext: " << hContext;
     if (desc == nullptr) {
         ss << ", desc: nullptr";
@@ -2722,8 +2723,8 @@ inline void trace_zeEventPoolCreate(ze_result_t ret,
 
 inline std::string _trace_zeEventPoolDestroy(ze_event_pool_handle_t hEventPool) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventPoolDestroy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeEventPoolDestroy(";
     ss << "hEventPool: " << hEventPool;
     ss << ")";
     return ss.str();
@@ -2743,8 +2744,8 @@ inline std::string _trace_zeEventCreate(ze_event_pool_handle_t hEventPool,
                                         const ze_event_desc_t *desc,
                                         ze_event_handle_t *phEvent) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventCreate(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeEventCreate(";
     ss << "hEventPool: " << hEventPool;
     if (desc == nullptr) {
         ss << ", desc: nullptr";
@@ -2783,8 +2784,8 @@ inline void trace_zeEventCreate(ze_result_t ret,
 
 inline std::string _trace_zeEventDestroy(ze_event_handle_t hEvent) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventDestroy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeEventDestroy(";
     ss << "hEvent: " << hEvent;
     ss << ")";
     return ss.str();
@@ -2803,8 +2804,8 @@ inline void trace_zeEventDestroy(ze_result_t ret, ze_event_handle_t hEvent) {
 inline std::string _trace_zeEventPoolGetIpcHandle(ze_event_pool_handle_t hEventPool,
                                                   ze_ipc_event_pool_handle_t *phIpc) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventPoolGetIpcHandle(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeEventPoolGetIpcHandle(";
     ss << "hEventPool: " << hEventPool;
     if (phIpc == nullptr) {
         ss << ", phIpc: nullptr";
@@ -2834,8 +2835,8 @@ inline void trace_zeEventPoolGetIpcHandle(ze_result_t ret,
 inline std::string _trace_zeEventPoolPutIpcHandle(ze_context_handle_t hContext,
                                                   ze_ipc_event_pool_handle_t hIpc) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventPoolPutIpcHandle(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeEventPoolPutIpcHandle(";
     ss << "hContext: " << hContext;
     ss << ", hIpc {";
     ss << "data: ";
@@ -2862,8 +2863,8 @@ inline std::string _trace_zeEventPoolOpenIpcHandle(ze_context_handle_t hContext,
                                                    ze_ipc_event_pool_handle_t hIpc,
                                                    ze_event_pool_handle_t *phEventPool) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventPoolOpenIpcHandle(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeEventPoolOpenIpcHandle(";
     ss << "hContext: " << hContext;
     ss << ", hIpc {";
     ss << "data: ";
@@ -2896,8 +2897,8 @@ inline void trace_zeEventPoolOpenIpcHandle(ze_result_t ret,
 
 inline std::string _trace_zeEventPoolCloseIpcHandle(ze_event_pool_handle_t hEventPool) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventPoolCloseIpcHandle(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeEventPoolCloseIpcHandle(";
     ss << "hEventPool: " << hEventPool;
     ss << ")";
     return ss.str();
@@ -2916,8 +2917,8 @@ inline void trace_zeEventPoolCloseIpcHandle(ze_result_t ret, ze_event_pool_handl
 inline std::string _trace_zeCommandListAppendSignalEvent(ze_command_list_handle_t hCommandList,
                                                          ze_event_handle_t hEvent) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendSignalEvent(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendSignalEvent(";
     ss << "hCommandList: " << hCommandList;
     ss << ", hEvent: " << hEvent;
     ss << ")";
@@ -2942,8 +2943,8 @@ inline std::string _trace_zeCommandListAppendWaitOnEvents(ze_command_list_handle
                                                           uint32_t numEvents,
                                                           ze_event_handle_t *phEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendWaitOnEvents(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendWaitOnEvents(";
     ss << "hCommandList: " << hCommandList;
     ss << ", numEvents: " << numEvents;
     if (phEvents == nullptr) {
@@ -2974,8 +2975,8 @@ inline void trace_zeCommandListAppendWaitOnEvents(ze_result_t ret,
 
 inline std::string _trace_zeEventHostSignal(ze_event_handle_t hEvent) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventHostSignal(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeEventHostSignal(";
     ss << "hEvent: " << hEvent;
     ss << ")";
     return ss.str();
@@ -2993,8 +2994,8 @@ inline void trace_zeEventHostSignal(ze_result_t ret, ze_event_handle_t hEvent) {
 
 inline std::string _trace_zeEventHostSynchronize(ze_event_handle_t hEvent, uint64_t timeout) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventHostSynchronize(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeEventHostSynchronize(";
     ss << "hEvent: " << hEvent;
     ss << ", timeout: " << timeout;
     ss << ")";
@@ -3014,8 +3015,8 @@ trace_zeEventHostSynchronize(ze_result_t ret, ze_event_handle_t hEvent, uint64_t
 
 inline std::string _trace_zeEventQueryStatus(ze_event_handle_t hEvent) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventQueryStatus(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeEventQueryStatus(";
     ss << "hEvent: " << hEvent;
     ss << ")";
     return ss.str();
@@ -3034,8 +3035,8 @@ inline void trace_zeEventQueryStatus(ze_result_t ret, ze_event_handle_t hEvent) 
 inline std::string _trace_zeCommandListAppendEventReset(ze_command_list_handle_t hCommandList,
                                                         ze_event_handle_t hEvent) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendEventReset(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendEventReset(";
     ss << "hCommandList: " << hCommandList;
     ss << ", hEvent: " << hEvent;
     ss << ")";
@@ -3058,8 +3059,8 @@ inline void trace_zeCommandListAppendEventReset(ze_result_t ret,
 
 inline std::string _trace_zeEventHostReset(ze_event_handle_t hEvent) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventHostReset(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeEventHostReset(";
     ss << "hEvent: " << hEvent;
     ss << ")";
     return ss.str();
@@ -3078,8 +3079,8 @@ inline void trace_zeEventHostReset(ze_result_t ret, ze_event_handle_t hEvent) {
 inline std::string _trace_zeEventQueryKernelTimestamp(ze_event_handle_t hEvent,
                                                       ze_kernel_timestamp_result_t *dstptr) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventQueryKernelTimestamp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeEventQueryKernelTimestamp(";
     ss << "hEvent: " << hEvent;
     if (dstptr == nullptr) {
         ss << ", dstptr: nullptr";
@@ -3122,8 +3123,8 @@ _trace_zeCommandListAppendQueryKernelTimestamps(ze_command_list_handle_t hComman
                                                 uint32_t numWaitEvents,
                                                 ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendQueryKernelTimestamps(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendQueryKernelTimestamps(";
     ss << "hCommandList: " << hCommandList;
     ss << ", numEvents: " << numEvents;
     if (phEvents == nullptr) {
@@ -3192,8 +3193,8 @@ inline void trace_zeCommandListAppendQueryKernelTimestamps(ze_result_t ret,
 inline std::string _trace_zeEventGetEventPool(ze_event_handle_t hEvent,
                                               ze_event_pool_handle_t *phEventPool) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventGetEventPool(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeEventGetEventPool(";
     ss << "hEvent: " << hEvent;
     if (phEventPool == nullptr) {
         ss << ", phEventPool: nullptr";
@@ -3220,8 +3221,8 @@ inline void trace_zeEventGetEventPool(ze_result_t ret,
 inline std::string _trace_zeEventGetSignalScope(ze_event_handle_t hEvent,
                                                 ze_event_scope_flags_t *pSignalScope) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventGetSignalScope(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeEventGetSignalScope(";
     ss << "hEvent: " << hEvent;
     if (pSignalScope == nullptr) {
         ss << ", pSignalScope: nullptr";
@@ -3248,8 +3249,8 @@ inline void trace_zeEventGetSignalScope(ze_result_t ret,
 inline std::string _trace_zeEventGetWaitScope(ze_event_handle_t hEvent,
                                               ze_event_scope_flags_t *pWaitScope) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventGetWaitScope(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeEventGetWaitScope(";
     ss << "hEvent: " << hEvent;
     if (pWaitScope == nullptr) {
         ss << ", pWaitScope: nullptr";
@@ -3276,8 +3277,8 @@ inline void trace_zeEventGetWaitScope(ze_result_t ret,
 inline std::string _trace_zeEventPoolGetContextHandle(ze_event_pool_handle_t hEventPool,
                                                       ze_context_handle_t *phContext) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventPoolGetContextHandle(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeEventPoolGetContextHandle(";
     ss << "hEventPool: " << hEventPool;
     if (phContext == nullptr) {
         ss << ", phContext: nullptr";
@@ -3305,8 +3306,8 @@ inline void trace_zeEventPoolGetContextHandle(ze_result_t ret,
 inline std::string _trace_zeEventPoolGetFlags(ze_event_pool_handle_t hEventPool,
                                               ze_event_pool_flags_t *pFlags) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventPoolGetFlags(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeEventPoolGetFlags(";
     ss << "hEventPool: " << hEventPool;
     if (pFlags == nullptr) {
         ss << ", pFlags: nullptr";
@@ -3334,8 +3335,8 @@ inline std::string _trace_zeFenceCreate(ze_command_queue_handle_t hCommandQueue,
                                         const ze_fence_desc_t *desc,
                                         ze_fence_handle_t *phFence) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeFenceCreate(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeFenceCreate(";
     ss << "hCommandQueue: " << hCommandQueue;
     if (desc == nullptr) {
         ss << ", desc: nullptr";
@@ -3376,8 +3377,8 @@ inline void trace_zeFenceCreate(ze_result_t ret,
 
 inline std::string _trace_zeFenceDestroy(ze_fence_handle_t hFence) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeFenceDestroy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeFenceDestroy(";
     ss << "hFence: " << hFence;
     ss << ")";
     return ss.str();
@@ -3397,8 +3398,8 @@ inline void trace_zeFenceDestroy(ze_result_t ret, ze_fence_handle_t hFence) {
 
 inline std::string _trace_zeFenceHostSynchronize(ze_fence_handle_t hFence, uint64_t timeout) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeFenceHostSynchronize(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeFenceHostSynchronize(";
     ss << "hFence: " << hFence;
     ss << ", timeout: " << timeout;
     ss << ")";
@@ -3420,8 +3421,8 @@ trace_zeFenceHostSynchronize(ze_result_t ret, ze_fence_handle_t hFence, uint64_t
 
 inline std::string _trace_zeFenceQueryStatus(ze_fence_handle_t hFence) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeFenceQueryStatus(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeFenceQueryStatus(";
     ss << "hFence: " << hFence;
     ss << ")";
     return ss.str();
@@ -3439,8 +3440,8 @@ inline void trace_zeFenceQueryStatus(ze_result_t ret, ze_fence_handle_t hFence) 
 
 inline std::string _trace_zeFenceReset(ze_fence_handle_t hFence) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeFenceReset(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeFenceReset(";
     ss << "hFence: " << hFence;
     ss << ")";
     return ss.str();
@@ -3460,8 +3461,8 @@ inline std::string _trace_zeImageGetProperties(ze_device_handle_t hDevice,
                                                const ze_image_desc_t *desc,
                                                ze_image_properties_t *pImageProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeImageGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeImageGetProperties(";
     ss << "hDevice: " << hDevice;
     if (desc == nullptr) {
         ss << ", desc: nullptr";
@@ -3520,8 +3521,8 @@ inline std::string _trace_zeImageCreate(ze_context_handle_t hContext,
                                         const ze_image_desc_t *desc,
                                         ze_image_handle_t *phImage) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeImageCreate(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeImageCreate(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     if (desc == nullptr) {
@@ -3576,8 +3577,8 @@ inline void trace_zeImageCreate(ze_result_t ret,
 
 inline std::string _trace_zeImageDestroy(ze_image_handle_t hImage) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeImageDestroy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeImageDestroy(";
     ss << "hImage: " << hImage;
     ss << ")";
     return ss.str();
@@ -3601,8 +3602,8 @@ inline std::string _trace_zeMemAllocShared(ze_context_handle_t hContext,
                                            ze_device_handle_t hDevice,
                                            void **pptr) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeMemAllocShared(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeMemAllocShared(";
     ss << "hContext: " << hContext;
     if (device_desc == nullptr) {
         ss << ", device_desc: nullptr";
@@ -3675,8 +3676,8 @@ inline std::string _trace_zeMemAllocDevice(ze_context_handle_t hContext,
                                            ze_device_handle_t hDevice,
                                            void **pptr) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeMemAllocDevice(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeMemAllocDevice(";
     ss << "hContext: " << hContext;
     if (device_desc == nullptr) {
         ss << ", device_desc: nullptr";
@@ -3727,8 +3728,8 @@ inline std::string _trace_zeMemAllocHost(ze_context_handle_t hContext,
                                          size_t alignment,
                                          void **pptr) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeMemAllocHost(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeMemAllocHost(";
     ss << "hContext: " << hContext;
     if (host_desc == nullptr) {
         ss << ", host_desc: nullptr";
@@ -3768,8 +3769,8 @@ inline void trace_zeMemAllocHost(ze_result_t ret,
 
 inline std::string _trace_zeMemFree(ze_context_handle_t hContext, void *ptr) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeMemFree(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeMemFree(";
     ss << "hContext: " << hContext;
     ss << ", ptr: " << ptr;
     ss << ")";
@@ -3792,8 +3793,8 @@ _trace_zeMemGetAllocProperties(ze_context_handle_t hContext,
                                ze_memory_allocation_properties_t *pMemAllocProperties,
                                ze_device_handle_t *phDevice) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeMemGetAllocProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeMemGetAllocProperties(";
     ss << "hContext: " << hContext;
     ss << ", ptr: " << ptr;
     if (pMemAllocProperties == nullptr) {
@@ -3840,8 +3841,8 @@ inline std::string _trace_zeMemGetAddressRange(ze_context_handle_t hContext,
                                                void **pBase,
                                                size_t *pSize) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeMemGetAddressRange(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeMemGetAddressRange(";
     ss << "hContext: " << hContext;
     ss << ", ptr: " << ptr;
     ss << ", pBase: " << pBase;
@@ -3876,8 +3877,8 @@ inline std::string _trace_zeMemGetIpcHandle(ze_context_handle_t hContext,
                                             const void *ptr,
                                             ze_ipc_mem_handle_t *pIpcHandle) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeMemGetIpcHandle(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeMemGetIpcHandle(";
     ss << "hContext: " << hContext;
     ss << ", ptr: " << ptr;
     if (pIpcHandle == nullptr) {
@@ -3911,8 +3912,8 @@ inline std::string _trace_zeMemGetIpcHandleFromFileDescriptorExp(ze_context_hand
                                                                  uint64_t handle,
                                                                  ze_ipc_mem_handle_t *pIpcHandle) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeMemGetIpcHandleFromFileDescriptorExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeMemGetIpcHandleFromFileDescriptorExp(";
     ss << "hContext: " << hContext;
     ss << ", handle: " << handle;
     if (pIpcHandle == nullptr) {
@@ -3948,8 +3949,8 @@ inline std::string _trace_zeMemGetFileDescriptorFromIpcHandleExp(ze_context_hand
                                                                  ze_ipc_mem_handle_t ipcHandle,
                                                                  uint64_t *pHandle) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeMemGetFileDescriptorFromIpcHandleExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeMemGetFileDescriptorFromIpcHandleExp(";
     ss << "hContext: " << hContext;
     ss << ", ipcHandle {";
     ss << "data: ";
@@ -3984,8 +3985,8 @@ inline void trace_zeMemGetFileDescriptorFromIpcHandleExp(ze_result_t ret,
 inline std::string _trace_zeMemPutIpcHandle(ze_context_handle_t hContext,
                                             ze_ipc_mem_handle_t handle) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeMemPutIpcHandle(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeMemPutIpcHandle(";
     ss << "hContext: " << hContext;
     ss << ", handle {";
     ss << "data: ";
@@ -4012,8 +4013,8 @@ inline std::string _trace_zeMemOpenIpcHandle(ze_context_handle_t hContext,
                                              ze_ipc_memory_flags_t flags,
                                              void **pptr) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeMemOpenIpcHandle(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeMemOpenIpcHandle(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     ss << ", handle {";
@@ -4048,8 +4049,8 @@ inline void trace_zeMemOpenIpcHandle(ze_result_t ret,
 
 inline std::string _trace_zeMemCloseIpcHandle(ze_context_handle_t hContext, const void *ptr) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeMemCloseIpcHandle(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeMemCloseIpcHandle(";
     ss << "hContext: " << hContext;
     ss << ", ptr: " << ptr;
     ss << ")";
@@ -4073,8 +4074,8 @@ inline std::string _trace_zeMemSetAtomicAccessAttributeExp(ze_context_handle_t h
                                                            size_t size,
                                                            ze_memory_atomic_attr_exp_flags_t attr) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeMemSetAtomicAccessAttributeExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeMemSetAtomicAccessAttributeExp(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     ss << ", ptr: " << ptr;
@@ -4112,8 +4113,8 @@ _trace_zeMemGetAtomicAccessAttributeExp(ze_context_handle_t hContext,
                                         size_t size,
                                         ze_memory_atomic_attr_exp_flags_t *pAttr) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeMemGetAtomicAccessAttributeExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeMemGetAtomicAccessAttributeExp(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     ss << ", ptr: " << ptr;
@@ -4154,8 +4155,8 @@ inline std::string _trace_zeModuleCreate(ze_context_handle_t hContext,
                                          ze_module_handle_t *phModule,
                                          ze_module_build_log_handle_t *phBuildLog) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeModuleCreate(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeModuleCreate(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     if (desc == nullptr) {
@@ -4227,8 +4228,8 @@ inline void trace_zeModuleCreate(ze_result_t ret,
 
 inline std::string _trace_zeModuleDestroy(ze_module_handle_t hModule) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeModuleDestroy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeModuleDestroy(";
     ss << "hModule: " << hModule;
     ss << ")";
     return ss.str();
@@ -4248,8 +4249,8 @@ inline std::string _trace_zeModuleDynamicLink(uint32_t numModules,
                                               ze_module_handle_t *phModules,
                                               ze_module_build_log_handle_t *phLinkLog) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeModuleDynamicLink(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeModuleDynamicLink(";
     ss << "numModules: " << numModules;
     if (phModules == nullptr) {
         ss << ", phModules: nullptr";
@@ -4283,8 +4284,8 @@ inline void trace_zeModuleDynamicLink(ze_result_t ret,
 
 inline std::string _trace_zeModuleBuildLogDestroy(ze_module_build_log_handle_t hModuleBuildLog) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeModuleBuildLogDestroy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeModuleBuildLogDestroy(";
     ss << "hModuleBuildLog: " << hModuleBuildLog;
     ss << ")";
     return ss.str();
@@ -4305,8 +4306,8 @@ inline std::string _trace_zeModuleBuildLogGetString(ze_module_build_log_handle_t
                                                     size_t *pSize,
                                                     char *pBuildLog) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeModuleBuildLogGetString(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeModuleBuildLogGetString(";
     ss << "hModuleBuildLog: " << hModuleBuildLog;
     if (pSize == nullptr) {
         ss << ", pSize: nullptr";
@@ -4342,8 +4343,8 @@ inline std::string _trace_zeModuleGetNativeBinary(ze_module_handle_t hModule,
                                                   size_t *pSize,
                                                   uint8_t *pModuleNativeBinary) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeModuleGetNativeBinary(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeModuleGetNativeBinary(";
     ss << "hModule: " << hModule;
     if (pSize == nullptr) {
         ss << ", pSize: nullptr";
@@ -4380,8 +4381,8 @@ inline std::string _trace_zeModuleGetGlobalPointer(ze_module_handle_t hModule,
                                                    size_t *pSize,
                                                    void **pptr) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeModuleGetGlobalPointer(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeModuleGetGlobalPointer(";
     ss << "hModule: " << hModule;
     if (pGlobalName == nullptr) {
         ss << ", pGlobalName: nullptr";
@@ -4419,8 +4420,8 @@ inline void trace_zeModuleGetGlobalPointer(ze_result_t ret,
 inline std::string
 _trace_zeModuleGetKernelNames(ze_module_handle_t hModule, uint32_t *pCount, const char **pNames) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeModuleGetKernelNames(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeModuleGetKernelNames(";
     ss << "hModule: " << hModule;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -4450,8 +4451,8 @@ inline void trace_zeModuleGetKernelNames(ze_result_t ret,
 inline std::string _trace_zeModuleGetProperties(ze_module_handle_t hModule,
                                                 ze_module_properties_t *pModuleProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeModuleGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeModuleGetProperties(";
     ss << "hModule: " << hModule;
     if (pModuleProperties == nullptr) {
         ss << ", pModuleProperties: nullptr";
@@ -4484,8 +4485,8 @@ inline std::string _trace_zeKernelCreate(ze_module_handle_t hModule,
                                          const ze_kernel_desc_t *desc,
                                          ze_kernel_handle_t *phKernel) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeKernelCreate(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeKernelCreate(";
     ss << "hModule: " << hModule;
     if (desc == nullptr) {
         ss << ", desc: nullptr";
@@ -4527,8 +4528,8 @@ inline void trace_zeKernelCreate(ze_result_t ret,
 
 inline std::string _trace_zeKernelDestroy(ze_kernel_handle_t hKernel) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeKernelDestroy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeKernelDestroy(";
     ss << "hKernel: " << hKernel;
     ss << ")";
     return ss.str();
@@ -4548,8 +4549,8 @@ inline std::string _trace_zeModuleGetFunctionPointer(ze_module_handle_t hModule,
                                                      const char *pFunctionName,
                                                      void **pfnFunction) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeModuleGetFunctionPointer(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeModuleGetFunctionPointer(";
     ss << "hModule: " << hModule;
     if (pFunctionName == nullptr) {
         ss << ", pFunctionName: nullptr";
@@ -4583,8 +4584,8 @@ inline std::string _trace_zeKernelSetGroupSize(ze_kernel_handle_t hKernel,
                                                uint32_t groupSizeY,
                                                uint32_t groupSizeZ) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeKernelSetGroupSize(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeKernelSetGroupSize(";
     ss << "hKernel: " << hKernel;
     ss << ", groupSizeX: " << groupSizeX;
     ss << ", groupSizeY: " << groupSizeY;
@@ -4620,8 +4621,8 @@ inline std::string _trace_zeKernelSuggestGroupSize(ze_kernel_handle_t hKernel,
                                                    uint32_t *groupSizeY,
                                                    uint32_t *groupSizeZ) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeKernelSuggestGroupSize(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeKernelSuggestGroupSize(";
     ss << "hKernel: " << hKernel;
     ss << ", globalSizeX: " << globalSizeX;
     ss << ", globalSizeY: " << globalSizeY;
@@ -4685,8 +4686,8 @@ inline void trace_zeKernelSuggestGroupSize(ze_result_t ret,
 inline std::string _trace_zeKernelSuggestMaxCooperativeGroupCount(ze_kernel_handle_t hKernel,
                                                                   uint32_t *totalGroupCount) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeKernelSuggestMaxCooperativeGroupCount(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeKernelSuggestMaxCooperativeGroupCount(";
     ss << "hKernel: " << hKernel;
     if (totalGroupCount == nullptr) {
         ss << ", totalGroupCount: nullptr";
@@ -4717,8 +4718,8 @@ inline std::string _trace_zeKernelSetArgumentValue(ze_kernel_handle_t hKernel,
                                                    size_t argSize,
                                                    const void *pArgValue) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeKernelSetArgumentValue(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeKernelSetArgumentValue(";
     ss << "hKernel: " << hKernel;
     ss << ", argIndex: " << argIndex;
     ss << ", argSize: " << argSize;
@@ -4749,8 +4750,8 @@ inline void trace_zeKernelSetArgumentValue(ze_result_t ret,
 inline std::string _trace_zeKernelSetIndirectAccess(ze_kernel_handle_t hKernel,
                                                     ze_kernel_indirect_access_flags_t flags) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeKernelSetIndirectAccess(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeKernelSetIndirectAccess(";
     ss << "hKernel: " << hKernel;
     ss << ", flags: " << flags;
     ss << ")";
@@ -4773,8 +4774,8 @@ inline void trace_zeKernelSetIndirectAccess(ze_result_t ret,
 inline std::string _trace_zeKernelGetIndirectAccess(ze_kernel_handle_t hKernel,
                                                     ze_kernel_indirect_access_flags_t *pFlags) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeKernelGetIndirectAccess(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeKernelGetIndirectAccess(";
     ss << "hKernel: " << hKernel;
     if (pFlags == nullptr) {
         ss << ", pFlags: nullptr";
@@ -4801,8 +4802,8 @@ inline void trace_zeKernelGetIndirectAccess(ze_result_t ret,
 inline std::string
 _trace_zeKernelGetSourceAttributes(ze_kernel_handle_t hKernel, uint32_t *pSize, char **pString) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeKernelGetSourceAttributes(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeKernelGetSourceAttributes(";
     ss << "hKernel: " << hKernel;
     if (pSize == nullptr) {
         ss << ", pSize: nullptr";
@@ -4832,8 +4833,8 @@ inline void trace_zeKernelGetSourceAttributes(ze_result_t ret,
 inline std::string _trace_zeKernelSetCacheConfig(ze_kernel_handle_t hKernel,
                                                  ze_cache_config_flags_t flags) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeKernelSetCacheConfig(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeKernelSetCacheConfig(";
     ss << "hKernel: " << hKernel;
     ss << ", flags: " << flags;
     ss << ")";
@@ -4856,8 +4857,8 @@ inline void trace_zeKernelSetCacheConfig(ze_result_t ret,
 inline std::string _trace_zeKernelGetProperties(ze_kernel_handle_t hKernel,
                                                 ze_kernel_properties_t *pKernelProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeKernelGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeKernelGetProperties(";
     ss << "hKernel: " << hKernel;
     if (pKernelProperties == nullptr) {
         ss << ", pKernelProperties: nullptr";
@@ -4906,8 +4907,8 @@ inline void trace_zeKernelGetProperties(ze_result_t ret,
 
 inline std::string _trace_zeKernelGetName(ze_kernel_handle_t hKernel, size_t *pSize, char *pName) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeKernelGetName(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeKernelGetName(";
     ss << "hKernel: " << hKernel;
     if (pSize == nullptr) {
         ss << ", pSize: nullptr";
@@ -4941,8 +4942,8 @@ inline std::string _trace_zeCommandListAppendLaunchKernel(ze_command_list_handle
                                                           uint32_t numWaitEvents,
                                                           ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendLaunchKernel(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendLaunchKernel(";
     ss << "hCommandList: " << hCommandList;
     ss << ", hKernel: " << hKernel;
     if (pLaunchFuncArgs == nullptr) {
@@ -5006,8 +5007,8 @@ _trace_zeCommandListAppendLaunchCooperativeKernel(ze_command_list_handle_t hComm
                                                   uint32_t numWaitEvents,
                                                   ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendLaunchCooperativeKernel(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendLaunchCooperativeKernel(";
     ss << "hCommandList: " << hCommandList;
     ss << ", hKernel: " << hKernel;
     if (pLaunchFuncArgs == nullptr) {
@@ -5073,8 +5074,8 @@ _trace_zeCommandListAppendLaunchKernelIndirect(ze_command_list_handle_t hCommand
                                                uint32_t numWaitEvents,
                                                ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendLaunchKernelIndirect(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendLaunchKernelIndirect(";
     ss << "hCommandList: " << hCommandList;
     ss << ", hKernel: " << hKernel;
     if (pLaunchArgumentsBuffer == nullptr) {
@@ -5142,8 +5143,9 @@ inline std::string _trace_zeCommandListAppendLaunchMultipleKernelsIndirect(
     uint32_t numWaitEvents,
     ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid()
+       << "] zeCommandListAppendLaunchMultipleKernelsIndirect(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendLaunchMultipleKernelsIndirect(";
     ss << "hCommandList: " << hCommandList;
     ss << ", numKernels: " << numKernels;
     if (phKernels == nullptr) {
@@ -5224,8 +5226,8 @@ inline std::string _trace_zeContextMakeMemoryResident(ze_context_handle_t hConte
                                                       void *ptr,
                                                       size_t size) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeContextMakeMemoryResident(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeContextMakeMemoryResident(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     ss << ", ptr: " << ptr;
@@ -5257,8 +5259,8 @@ inline std::string _trace_zeContextEvictMemory(ze_context_handle_t hContext,
                                                void *ptr,
                                                size_t size) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeContextEvictMemory(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeContextEvictMemory(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     ss << ", ptr: " << ptr;
@@ -5289,8 +5291,8 @@ inline std::string _trace_zeContextMakeImageResident(ze_context_handle_t hContex
                                                      ze_device_handle_t hDevice,
                                                      ze_image_handle_t hImage) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeContextMakeImageResident(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeContextMakeImageResident(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     ss << ", hImage: " << hImage;
@@ -5318,8 +5320,8 @@ inline std::string _trace_zeContextEvictImage(ze_context_handle_t hContext,
                                               ze_device_handle_t hDevice,
                                               ze_image_handle_t hImage) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeContextEvictImage(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeContextEvictImage(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     ss << ", hImage: " << hImage;
@@ -5347,8 +5349,8 @@ inline std::string _trace_zeSamplerCreate(ze_context_handle_t hContext,
                                           const ze_sampler_desc_t *desc,
                                           ze_sampler_handle_t *phSampler) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeSamplerCreate(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeSamplerCreate(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     if (desc == nullptr) {
@@ -5391,8 +5393,8 @@ inline void trace_zeSamplerCreate(ze_result_t ret,
 
 inline std::string _trace_zeSamplerDestroy(ze_sampler_handle_t hSampler) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeSamplerDestroy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeSamplerDestroy(";
     ss << "hSampler: " << hSampler;
     ss << ")";
     return ss.str();
@@ -5413,8 +5415,8 @@ inline std::string _trace_zeVirtualMemReserve(ze_context_handle_t hContext,
                                               size_t size,
                                               void **pptr) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeVirtualMemReserve(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeVirtualMemReserve(";
     ss << "hContext: " << hContext;
     ss << ", pStart: " << pStart;
     ss << ", size: " << size;
@@ -5444,8 +5446,8 @@ inline void trace_zeVirtualMemReserve(ze_result_t ret,
 inline std::string
 _trace_zeVirtualMemFree(ze_context_handle_t hContext, const void *ptr, size_t size) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeVirtualMemFree(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeVirtualMemFree(";
     ss << "hContext: " << hContext;
     ss << ", ptr: " << ptr;
     ss << ", size: " << size;
@@ -5471,8 +5473,8 @@ inline std::string _trace_zeVirtualMemQueryPageSize(ze_context_handle_t hContext
                                                     size_t size,
                                                     size_t *pagesize) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeVirtualMemQueryPageSize(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeVirtualMemQueryPageSize(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     ss << ", size: " << size;
@@ -5508,8 +5510,8 @@ inline std::string _trace_zePhysicalMemCreate(ze_context_handle_t hContext,
                                               ze_physical_mem_desc_t *desc,
                                               ze_physical_mem_handle_t *phPhysicalMemory) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zePhysicalMemCreate(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zePhysicalMemCreate(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     if (desc == nullptr) {
@@ -5552,8 +5554,8 @@ inline void trace_zePhysicalMemCreate(ze_result_t ret,
 inline std::string _trace_zePhysicalMemDestroy(ze_context_handle_t hContext,
                                                ze_physical_mem_handle_t hPhysicalMemory) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zePhysicalMemDestroy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zePhysicalMemDestroy(";
     ss << "hContext: " << hContext;
     ss << ", hPhysicalMemory: " << hPhysicalMemory;
     ss << ")";
@@ -5581,8 +5583,8 @@ inline std::string _trace_zeVirtualMemMap(ze_context_handle_t hContext,
                                           size_t offset,
                                           ze_memory_access_attribute_t access) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeVirtualMemMap(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeVirtualMemMap(";
     ss << "hContext: " << hContext;
     ss << ", ptr: " << ptr;
     ss << ", size: " << size;
@@ -5619,8 +5621,8 @@ inline void trace_zeVirtualMemMap(ze_result_t ret,
 inline std::string
 _trace_zeVirtualMemUnmap(ze_context_handle_t hContext, const void *ptr, size_t size) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeVirtualMemUnmap(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeVirtualMemUnmap(";
     ss << "hContext: " << hContext;
     ss << ", ptr: " << ptr;
     ss << ", size: " << size;
@@ -5646,8 +5648,8 @@ inline std::string _trace_zeVirtualMemSetAccessAttribute(ze_context_handle_t hCo
                                                          size_t size,
                                                          ze_memory_access_attribute_t access) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeVirtualMemSetAccessAttribute(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeVirtualMemSetAccessAttribute(";
     ss << "hContext: " << hContext;
     ss << ", ptr: " << ptr;
     ss << ", size: " << size;
@@ -5680,8 +5682,8 @@ inline std::string _trace_zeVirtualMemGetAccessAttribute(ze_context_handle_t hCo
                                                          ze_memory_access_attribute_t *access,
                                                          size_t *outSize) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeVirtualMemGetAccessAttribute(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeVirtualMemGetAccessAttribute(";
     ss << "hContext: " << hContext;
     ss << ", ptr: " << ptr;
     ss << ", size: " << size;
@@ -5725,8 +5727,8 @@ inline std::string _trace_zeKernelSetGlobalOffsetExp(ze_kernel_handle_t hKernel,
                                                      uint32_t offsetY,
                                                      uint32_t offsetZ) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeKernelSetGlobalOffsetExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeKernelSetGlobalOffsetExp(";
     ss << "hKernel: " << hKernel;
     ss << ", offsetX: " << offsetX;
     ss << ", offsetY: " << offsetY;
@@ -5757,8 +5759,8 @@ inline std::string _trace_zeDeviceReserveCacheExt(ze_device_handle_t hDevice,
                                                   size_t cacheLevel,
                                                   size_t cacheReservationSize) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceReserveCacheExt(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDeviceReserveCacheExt(";
     ss << "hDevice: " << hDevice;
     ss << ", cacheLevel: " << cacheLevel;
     ss << ", cacheReservationSize: " << cacheReservationSize;
@@ -5788,8 +5790,8 @@ inline std::string _trace_zeDeviceSetCacheAdviceExt(ze_device_handle_t hDevice,
                                                     size_t regionSize,
                                                     ze_cache_ext_region_t cacheRegion) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceSetCacheAdviceExt(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDeviceSetCacheAdviceExt(";
     ss << "hDevice: " << hDevice;
     ss << ", ptr: " << ptr;
     ss << ", regionSize: " << regionSize;
@@ -5822,8 +5824,8 @@ inline std::string _trace_zeEventQueryTimestampsExp(ze_event_handle_t hEvent,
                                                     uint32_t *pCount,
                                                     ze_kernel_timestamp_result_t *pTimestamps) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventQueryTimestampsExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeEventQueryTimestampsExp(";
     ss << "hEvent: " << hEvent;
     ss << ", hDevice: " << hDevice;
     if (pCount == nullptr) {
@@ -5877,8 +5879,8 @@ inline std::string
 _trace_zeImageGetMemoryPropertiesExp(ze_image_handle_t hImage,
                                      ze_image_memory_properties_exp_t *pMemoryProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeImageGetMemoryPropertiesExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeImageGetMemoryPropertiesExp(";
     ss << "hImage: " << hImage;
     if (pMemoryProperties == nullptr) {
         ss << ", pMemoryProperties: nullptr";
@@ -5917,8 +5919,8 @@ inline std::string _trace_zeImageViewCreateExt(ze_context_handle_t hContext,
                                                ze_image_handle_t hImage,
                                                ze_image_handle_t *phImageView) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeImageViewCreateExt(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeImageViewCreateExt(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     if (desc == nullptr) {
@@ -5981,8 +5983,8 @@ inline std::string _trace_zeImageViewCreateExp(ze_context_handle_t hContext,
                                                ze_image_handle_t hImage,
                                                ze_image_handle_t *phImageView) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeImageViewCreateExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeImageViewCreateExp(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     if (desc == nullptr) {
@@ -6042,8 +6044,8 @@ inline void trace_zeImageViewCreateExp(ze_result_t ret,
 inline std::string _trace_zeKernelSchedulingHintExp(ze_kernel_handle_t hKernel,
                                                     ze_scheduling_hint_exp_desc_t *pHint) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeKernelSchedulingHintExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeKernelSchedulingHintExp(";
     ss << "hKernel: " << hKernel;
     if (pHint == nullptr) {
         ss << ", pHint: nullptr";
@@ -6074,8 +6076,8 @@ inline void trace_zeKernelSchedulingHintExp(ze_result_t ret,
 inline std::string _trace_zeDevicePciGetPropertiesExt(ze_device_handle_t hDevice,
                                                       ze_pci_ext_properties_t *pPciProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDevicePciGetPropertiesExt(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDevicePciGetPropertiesExt(";
     ss << "hDevice: " << hDevice;
     if (pPciProperties == nullptr) {
         ss << ", pPciProperties: nullptr";
@@ -6125,8 +6127,8 @@ _trace_zeCommandListAppendImageCopyToMemoryExt(ze_command_list_handle_t hCommand
                                                uint32_t numWaitEvents,
                                                ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendImageCopyToMemoryExt(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendImageCopyToMemoryExt(";
     ss << "hCommandList: " << hCommandList;
     ss << ", dstptr: " << dstptr;
     ss << ", hSrcImage: " << hSrcImage;
@@ -6211,8 +6213,8 @@ _trace_zeCommandListAppendImageCopyFromMemoryExt(ze_command_list_handle_t hComma
                                                  uint32_t numWaitEvents,
                                                  ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListAppendImageCopyFromMemoryExt(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListAppendImageCopyFromMemoryExt(";
     ss << "hCommandList: " << hCommandList;
     ss << ", hDstImage: " << hDstImage;
     ss << ", srcptr: " << srcptr;
@@ -6291,8 +6293,8 @@ _trace_zeImageGetAllocPropertiesExt(ze_context_handle_t hContext,
                                     ze_image_handle_t hImage,
                                     ze_image_allocation_ext_properties_t *pImageAllocProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeImageGetAllocPropertiesExt(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeImageGetAllocPropertiesExt(";
     ss << "hContext: " << hContext;
     ss << ", hImage: " << hImage;
     if (pImageAllocProperties == nullptr) {
@@ -6332,8 +6334,8 @@ inline std::string _trace_zeModuleInspectLinkageExt(ze_linkage_inspection_ext_de
                                                     ze_module_handle_t *phModules,
                                                     ze_module_build_log_handle_t *phLog) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeModuleInspectLinkageExt(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeModuleInspectLinkageExt(";
     if (pInspectDesc == nullptr) {
         ss << ", pInspectDesc: nullptr";
     } else {
@@ -6381,8 +6383,8 @@ inline std::string _trace_zeMemFreeExt(ze_context_handle_t hContext,
                                        const ze_memory_free_ext_desc_t *pMemFreeDesc,
                                        void *ptr) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeMemFreeExt(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeMemFreeExt(";
     ss << "hContext: " << hContext;
     if (pMemFreeDesc == nullptr) {
         ss << ", pMemFreeDesc: nullptr";
@@ -6417,8 +6419,8 @@ inline std::string _trace_zeFabricVertexGetExp(ze_driver_handle_t hDriver,
                                                uint32_t *pCount,
                                                ze_fabric_vertex_handle_t *phVertices) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeFabricVertexGetExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeFabricVertexGetExp(";
     ss << "hDriver: " << hDriver;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -6455,8 +6457,8 @@ _trace_zeFabricVertexGetSubVerticesExp(ze_fabric_vertex_handle_t hVertex,
                                        uint32_t *pCount,
                                        ze_fabric_vertex_handle_t *phSubvertices) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeFabricVertexGetSubVerticesExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeFabricVertexGetSubVerticesExp(";
     ss << "hVertex: " << hVertex;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -6493,8 +6495,8 @@ inline std::string
 _trace_zeFabricVertexGetPropertiesExp(ze_fabric_vertex_handle_t hVertex,
                                       ze_fabric_vertex_exp_properties_t *pVertexProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeFabricVertexGetPropertiesExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeFabricVertexGetPropertiesExp(";
     ss << "hVertex: " << hVertex;
     if (pVertexProperties == nullptr) {
         ss << ", pVertexProperties: nullptr";
@@ -6540,8 +6542,8 @@ trace_zeFabricVertexGetPropertiesExp(ze_result_t ret,
 inline std::string _trace_zeFabricVertexGetDeviceExp(ze_fabric_vertex_handle_t hVertex,
                                                      ze_device_handle_t *phDevice) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeFabricVertexGetDeviceExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeFabricVertexGetDeviceExp(";
     ss << "hVertex: " << hVertex;
     if (phDevice == nullptr) {
         ss << ", phDevice: nullptr";
@@ -6568,8 +6570,8 @@ inline void trace_zeFabricVertexGetDeviceExp(ze_result_t ret,
 inline std::string _trace_zeDeviceGetFabricVertexExp(ze_device_handle_t hDevice,
                                                      ze_fabric_vertex_handle_t *phVertex) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceGetFabricVertexExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDeviceGetFabricVertexExp(";
     ss << "hDevice: " << hDevice;
     if (phVertex == nullptr) {
         ss << ", phVertex: nullptr";
@@ -6598,8 +6600,8 @@ inline std::string _trace_zeFabricEdgeGetExp(ze_fabric_vertex_handle_t hVertexA,
                                              uint32_t *pCount,
                                              ze_fabric_edge_handle_t *phEdges) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeFabricEdgeGetExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeFabricEdgeGetExp(";
     ss << "hVertexA: " << hVertexA;
     ss << ", hVertexB: " << hVertexB;
     if (pCount == nullptr) {
@@ -6638,8 +6640,8 @@ inline std::string _trace_zeFabricEdgeGetVerticesExp(ze_fabric_edge_handle_t hEd
                                                      ze_fabric_vertex_handle_t *phVertexA,
                                                      ze_fabric_vertex_handle_t *phVertexB) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeFabricEdgeGetVerticesExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeFabricEdgeGetVerticesExp(";
     ss << "hEdge: " << hEdge;
     if (phVertexA == nullptr) {
         ss << ", phVertexA: nullptr";
@@ -6675,8 +6677,8 @@ inline std::string
 _trace_zeFabricEdgeGetPropertiesExp(ze_fabric_edge_handle_t hEdge,
                                     ze_fabric_edge_exp_properties_t *pEdgeProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeFabricEdgeGetPropertiesExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeFabricEdgeGetPropertiesExp(";
     ss << "hEdge: " << hEdge;
     if (pEdgeProperties == nullptr) {
         ss << ", pEdgeProperties: nullptr";
@@ -6721,8 +6723,8 @@ inline std::string _trace_zeEventQueryKernelTimestampsExt(
     uint32_t *pCount,
     ze_event_query_kernel_timestamps_results_ext_properties_t *pResults) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventQueryKernelTimestampsExt(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeEventQueryKernelTimestampsExt(";
     ss << "hEvent: " << hEvent;
     ss << ", hDevice: " << hDevice;
     if (pCount == nullptr) {
@@ -6807,8 +6809,8 @@ inline std::string _trace_zeRTASBuilderCreateExp(ze_driver_handle_t hDriver,
                                                  const ze_rtas_builder_exp_desc_t *pDescriptor,
                                                  ze_rtas_builder_exp_handle_t *phBuilder) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeRTASBuilderCreateExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeRTASBuilderCreateExp(";
     ss << "hDriver: " << hDriver;
     if (pDescriptor == nullptr) {
         ss << ", pDescriptor: nullptr";
@@ -6849,8 +6851,8 @@ inline std::string _trace_zeRTASBuilderGetBuildPropertiesExp(
     const ze_rtas_builder_build_op_exp_desc_t *pBuildOpDescriptor,
     ze_rtas_builder_exp_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeRTASBuilderGetBuildPropertiesExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeRTASBuilderGetBuildPropertiesExp(";
     ss << "hBuilder: " << hBuilder;
     if (pBuildOpDescriptor == nullptr) {
         ss << ", pBuildOpDescriptor: nullptr";
@@ -6909,8 +6911,8 @@ _trace_zeDriverRTASFormatCompatibilityCheckExp(ze_driver_handle_t hDriver,
                                                ze_rtas_format_exp_t rtasFormatA,
                                                ze_rtas_format_exp_t rtasFormatB) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDriverRTASFormatCompatibilityCheckExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeDriverRTASFormatCompatibilityCheckExp(";
     ss << "hDriver: " << hDriver;
     ss << ", rtasFormatA: " << rtasFormatA;
     ss << ", rtasFormatB: " << rtasFormatB;
@@ -6951,8 +6953,8 @@ _trace_zeRTASBuilderBuildExp(ze_rtas_builder_exp_handle_t hBuilder,
                              ze_rtas_aabb_exp_t *pBounds,
                              size_t *pRtasBufferSizeBytes) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeRTASBuilderBuildExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeRTASBuilderBuildExp(";
     ss << "hBuilder: " << hBuilder;
     if (pBuildOpDescriptor == nullptr) {
         ss << ", pBuildOpDescriptor: nullptr";
@@ -7051,8 +7053,8 @@ trace_zeRTASBuilderBuildExp(ze_result_t ret,
 
 inline std::string _trace_zeRTASBuilderDestroyExp(ze_rtas_builder_exp_handle_t hBuilder) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeRTASBuilderDestroyExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeRTASBuilderDestroyExp(";
     ss << "hBuilder: " << hBuilder;
     ss << ")";
     return ss.str();
@@ -7072,8 +7074,8 @@ inline std::string _trace_zeRTASParallelOperationCreateExp(
     ze_driver_handle_t hDriver,
     ze_rtas_parallel_operation_exp_handle_t *phParallelOperation) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeRTASParallelOperationCreateExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeRTASParallelOperationCreateExp(";
     ss << "hDriver: " << hDriver;
     if (phParallelOperation == nullptr) {
         ss << ", phParallelOperation: nullptr";
@@ -7104,8 +7106,8 @@ inline std::string _trace_zeRTASParallelOperationGetPropertiesExp(
     ze_rtas_parallel_operation_exp_handle_t hParallelOperation,
     ze_rtas_parallel_operation_exp_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeRTASParallelOperationGetPropertiesExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeRTASParallelOperationGetPropertiesExp(";
     ss << "hParallelOperation: " << hParallelOperation;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -7143,8 +7145,8 @@ inline void trace_zeRTASParallelOperationGetPropertiesExp(
 inline std::string
 _trace_zeRTASParallelOperationJoinExp(ze_rtas_parallel_operation_exp_handle_t hParallelOperation) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeRTASParallelOperationJoinExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeRTASParallelOperationJoinExp(";
     ss << "hParallelOperation: " << hParallelOperation;
     ss << ")";
     return ss.str();
@@ -7167,8 +7169,8 @@ trace_zeRTASParallelOperationJoinExp(ze_result_t ret,
 inline std::string _trace_zeRTASParallelOperationDestroyExp(
     ze_rtas_parallel_operation_exp_handle_t hParallelOperation) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeRTASParallelOperationDestroyExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeRTASParallelOperationDestroyExp(";
     ss << "hParallelOperation: " << hParallelOperation;
     ss << ")";
     return ss.str();
@@ -7195,8 +7197,8 @@ inline std::string _trace_zeMemGetPitchFor2dImage(ze_context_handle_t hContext,
                                                   unsigned int elementSizeInBytes,
                                                   size_t *rowPitch) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeMemGetPitchFor2dImage(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeMemGetPitchFor2dImage(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     ss << ", imageWidth: " << imageWidth;
@@ -7247,8 +7249,8 @@ inline void trace_zeMemGetPitchFor2dImage(ze_result_t ret,
 inline std::string _trace_zeImageGetDeviceOffsetExp(ze_image_handle_t hImage,
                                                     uint64_t *pDeviceOffset) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeImageGetDeviceOffsetExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeImageGetDeviceOffsetExp(";
     ss << "hImage: " << hImage;
     if (pDeviceOffset == nullptr) {
         ss << ", pDeviceOffset: nullptr";
@@ -7276,8 +7278,8 @@ inline std::string
 _trace_zeCommandListCreateCloneExp(ze_command_list_handle_t hCommandList,
                                    ze_command_list_handle_t *phClonedCommandList) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListCreateCloneExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListCreateCloneExp(";
     ss << "hCommandList: " << hCommandList;
     if (phClonedCommandList == nullptr) {
         ss << ", phClonedCommandList: nullptr";
@@ -7310,8 +7312,8 @@ _trace_zeCommandListImmediateAppendCommandListsExp(ze_command_list_handle_t hCom
                                                    uint32_t numWaitEvents,
                                                    ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListImmediateAppendCommandListsExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListImmediateAppendCommandListsExp(";
     ss << "hCommandListImmediate: " << hCommandListImmediate;
     ss << ", numCommandLists: " << numCommandLists;
     if (phCommandLists == nullptr) {
@@ -7370,8 +7372,8 @@ _trace_zeCommandListGetNextCommandIdExp(ze_command_list_handle_t hCommandList,
                                         const ze_mutable_command_id_exp_desc_t *desc,
                                         uint64_t *pCommandId) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListGetNextCommandIdExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListGetNextCommandIdExp(";
     ss << "hCommandList: " << hCommandList;
     if (desc == nullptr) {
         ss << ", desc: nullptr";
@@ -7415,8 +7417,8 @@ _trace_zeCommandListGetNextCommandIdWithKernelsExp(ze_command_list_handle_t hCom
                                                    ze_kernel_handle_t *phKernels,
                                                    uint64_t *pCommandId) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListGetNextCommandIdWithKernelsExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListGetNextCommandIdWithKernelsExp(";
     ss << "hCommandList: " << hCommandList;
     if (desc == nullptr) {
         ss << ", desc: nullptr";
@@ -7477,8 +7479,8 @@ inline std::string
 _trace_zeCommandListUpdateMutableCommandsExp(ze_command_list_handle_t hCommandList,
                                              const ze_mutable_commands_exp_desc_t *desc) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListUpdateMutableCommandsExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListUpdateMutableCommandsExp(";
     ss << "hCommandList: " << hCommandList;
     if (desc == nullptr) {
         ss << ", desc: nullptr";
@@ -7514,8 +7516,8 @@ _trace_zeCommandListUpdateMutableCommandSignalEventExp(ze_command_list_handle_t 
                                                        uint64_t commandId,
                                                        ze_event_handle_t hSignalEvent) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListUpdateMutableCommandSignalEventExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListUpdateMutableCommandSignalEventExp(";
     ss << "hCommandList: " << hCommandList;
     ss << ", commandId: " << commandId;
     ss << ", hSignalEvent: " << hSignalEvent;
@@ -7552,8 +7554,8 @@ _trace_zeCommandListUpdateMutableCommandWaitEventsExp(ze_command_list_handle_t h
                                                       uint32_t numWaitEvents,
                                                       ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListUpdateMutableCommandWaitEventsExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListUpdateMutableCommandWaitEventsExp(";
     ss << "hCommandList: " << hCommandList;
     ss << ", commandId: " << commandId;
     ss << ", numWaitEvents: " << numWaitEvents;
@@ -7599,8 +7601,8 @@ _trace_zeCommandListUpdateMutableCommandKernelsExp(ze_command_list_handle_t hCom
                                                    uint64_t *pCommandId,
                                                    ze_kernel_handle_t *phKernels) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListUpdateMutableCommandKernelsExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zeCommandListUpdateMutableCommandKernelsExp(";
     ss << "hCommandList: " << hCommandList;
     ss << ", numKernels: " << numKernels;
     if (pCommandId == nullptr) {

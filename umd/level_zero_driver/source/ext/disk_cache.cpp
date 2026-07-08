@@ -33,13 +33,7 @@ static std::filesystem::path getCacheDir() {
 #ifdef ANDROID
     return std::filesystem::path("/data/data") / getprogname() / "ze_intel_npu_cache";
 #else
-    const char *env = getenv("ZE_INTEL_NPU_CACHE_DIR");
-    if (env)
-        return env;
-    env = getenv("XDG_CACHE_HOME");
-    if (env)
-        return std::filesystem::path(env) / "ze_intel_npu_cache";
-    env = getenv("HOME");
+    const char *env = getenv("HOME");
     if (env)
         return std::filesystem::path(env) / ".cache/ze_intel_npu_cache";
     return std::filesystem::current_path() / ".cache/ze_intel_npu_cache";
@@ -63,6 +57,12 @@ DiskCache::DiskCache(VPU::OsInterface &osInfc)
     : osInfc(osInfc)
     , cachePath()
     , maxSize() {
+    maxSize = getCacheMaxSize();
+    if (maxSize == 0) {
+        LOG_W("Cache size is set to 0, disabling cache");
+        return;
+    }
+
     cachePath = getCacheDir();
     if (cachePath.empty()) {
         LOG_W("Cache path is empty, disabling cache");
@@ -75,7 +75,6 @@ DiskCache::DiskCache(VPU::OsInterface &osInfc)
         return;
     }
 
-    maxSize = getCacheMaxSize();
     LOG(CACHE, "Cache is initialized, path: %s, max size: %lu", cachePath.c_str(), maxSize);
 }
 

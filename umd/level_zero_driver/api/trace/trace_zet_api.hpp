@@ -20,8 +20,8 @@ inline std::string _trace_zetModuleGetDebugInfo(zet_module_handle_t hModule,
                                                 size_t *pSize,
                                                 uint8_t *pDebugInfo) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetModuleGetDebugInfo(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetModuleGetDebugInfo(";
     ss << "hModule: " << hModule;
     ss << ", format: " << format;
     if (pSize == nullptr) {
@@ -60,8 +60,8 @@ inline std::string
 _trace_zetDeviceGetDebugProperties(zet_device_handle_t hDevice,
                                    zet_device_debug_properties_t *pDebugProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetDeviceGetDebugProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetDeviceGetDebugProperties(";
     ss << "hDevice: " << hDevice;
     if (pDebugProperties == nullptr) {
         ss << ", pDebugProperties: nullptr";
@@ -94,8 +94,8 @@ inline std::string _trace_zetDebugAttach(zet_device_handle_t hDevice,
                                          const zet_debug_config_t *config,
                                          zet_debug_session_handle_t *phDebug) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetDebugAttach(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetDebugAttach(";
     ss << "hDevice: " << hDevice;
     if (config == nullptr) {
         ss << ", config: nullptr";
@@ -130,8 +130,8 @@ inline void trace_zetDebugAttach(ze_result_t ret,
 
 inline std::string _trace_zetDebugDetach(zet_debug_session_handle_t hDebug) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetDebugDetach(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetDebugDetach(";
     ss << "hDebug: " << hDebug;
     ss << ")";
     return ss.str();
@@ -151,8 +151,8 @@ inline std::string _trace_zetDebugReadEvent(zet_debug_session_handle_t hDebug,
                                             uint64_t timeout,
                                             zet_debug_event_t *event) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetDebugReadEvent(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetDebugReadEvent(";
     ss << "hDebug: " << hDebug;
     ss << ", timeout: " << timeout;
     if (event == nullptr) {
@@ -209,8 +209,8 @@ inline void trace_zetDebugReadEvent(ze_result_t ret,
 inline std::string _trace_zetDebugAcknowledgeEvent(zet_debug_session_handle_t hDebug,
                                                    const zet_debug_event_t *event) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetDebugAcknowledgeEvent(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetDebugAcknowledgeEvent(";
     ss << "hDebug: " << hDebug;
     if (event == nullptr) {
         ss << ", event: nullptr";
@@ -264,8 +264,8 @@ inline void trace_zetDebugAcknowledgeEvent(ze_result_t ret,
 inline std::string _trace_zetDebugInterrupt(zet_debug_session_handle_t hDebug,
                                             ze_device_thread_t thread) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetDebugInterrupt(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetDebugInterrupt(";
     ss << "hDebug: " << hDebug;
     ss << ", thread {";
     ss << "slice: " << thread.slice;
@@ -292,8 +292,8 @@ inline void trace_zetDebugInterrupt(ze_result_t ret,
 inline std::string _trace_zetDebugResume(zet_debug_session_handle_t hDebug,
                                          ze_device_thread_t thread) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetDebugResume(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetDebugResume(";
     ss << "hDebug: " << hDebug;
     ss << ", thread {";
     ss << "slice: " << thread.slice;
@@ -323,8 +323,8 @@ inline std::string _trace_zetDebugReadMemory(zet_debug_session_handle_t hDebug,
                                              size_t size,
                                              void *buffer) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetDebugReadMemory(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetDebugReadMemory(";
     ss << "hDebug: " << hDebug;
     ss << ", thread {";
     ss << "slice: " << thread.slice;
@@ -374,8 +374,8 @@ inline std::string _trace_zetDebugWriteMemory(zet_debug_session_handle_t hDebug,
                                               size_t size,
                                               const void *buffer) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetDebugWriteMemory(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetDebugWriteMemory(";
     ss << "hDebug: " << hDebug;
     ss << ", thread {";
     ss << "slice: " << thread.slice;
@@ -424,8 +424,8 @@ _trace_zetDebugGetRegisterSetProperties(zet_device_handle_t hDevice,
                                         uint32_t *pCount,
                                         zet_debug_regset_properties_t *pRegisterSetProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetDebugGetRegisterSetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetDebugGetRegisterSetProperties(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -488,8 +488,8 @@ inline std::string _trace_zetDebugGetThreadRegisterSetProperties(
     uint32_t *pCount,
     zet_debug_regset_properties_t *pRegisterSetProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetDebugGetThreadRegisterSetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetDebugGetThreadRegisterSetProperties(";
     ss << "hDebug: " << hDebug;
     ss << ", thread {";
     ss << "slice: " << thread.slice;
@@ -563,8 +563,8 @@ inline std::string _trace_zetDebugReadRegisters(zet_debug_session_handle_t hDebu
                                                 uint32_t count,
                                                 void *pRegisterValues) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetDebugReadRegisters(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetDebugReadRegisters(";
     ss << "hDebug: " << hDebug;
     ss << ", thread {";
     ss << "slice: " << thread.slice;
@@ -612,8 +612,8 @@ inline std::string _trace_zetDebugWriteRegisters(zet_debug_session_handle_t hDeb
                                                  uint32_t count,
                                                  void *pRegisterValues) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetDebugWriteRegisters(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetDebugWriteRegisters(";
     ss << "hDebug: " << hDebug;
     ss << ", thread {";
     ss << "slice: " << thread.slice;
@@ -656,8 +656,8 @@ inline void trace_zetDebugWriteRegisters(ze_result_t ret,
 
 inline std::string _trace_zetDeviceEnableMetricsExp(zet_device_handle_t hDevice) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetDeviceEnableMetricsExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetDeviceEnableMetricsExp(";
     ss << "hDevice: " << hDevice;
     ss << ")";
     return ss.str();
@@ -677,8 +677,8 @@ inline void trace_zetDeviceEnableMetricsExp(ze_result_t ret, zet_device_handle_t
 
 inline std::string _trace_zetDeviceDisableMetricsExp(zet_device_handle_t hDevice) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetDeviceDisableMetricsExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetDeviceDisableMetricsExp(";
     ss << "hDevice: " << hDevice;
     ss << ")";
     return ss.str();
@@ -700,8 +700,8 @@ inline std::string _trace_zetMetricGroupGet(zet_device_handle_t hDevice,
                                             uint32_t *pCount,
                                             zet_metric_group_handle_t *phMetricGroups) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricGroupGet(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricGroupGet(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -736,8 +736,8 @@ inline void trace_zetMetricGroupGet(ze_result_t ret,
 inline std::string _trace_zetMetricGroupGetProperties(zet_metric_group_handle_t hMetricGroup,
                                                       zet_metric_group_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricGroupGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricGroupGetProperties(";
     ss << "hMetricGroup: " << hMetricGroup;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -780,8 +780,8 @@ _trace_zetMetricGroupCalculateMetricValues(zet_metric_group_handle_t hMetricGrou
                                            uint32_t *pMetricValueCount,
                                            zet_typed_value_t *pMetricValues) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricGroupCalculateMetricValues(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricGroupCalculateMetricValues(";
     ss << "hMetricGroup: " << hMetricGroup;
     ss << ", type: " << type;
     ss << ", rawDataSize: " << rawDataSize;
@@ -850,8 +850,8 @@ inline std::string _trace_zetMetricGet(zet_metric_group_handle_t hMetricGroup,
                                        uint32_t *pCount,
                                        zet_metric_handle_t *phMetrics) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricGet(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricGet(";
     ss << "hMetricGroup: " << hMetricGroup;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -885,8 +885,8 @@ inline void trace_zetMetricGet(ze_result_t ret,
 inline std::string _trace_zetMetricGetProperties(zet_metric_handle_t hMetric,
                                                  zet_metric_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricGetProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricGetProperties(";
     ss << "hMetric: " << hMetric;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -930,8 +930,8 @@ _trace_zetContextActivateMetricGroups(zet_context_handle_t hContext,
                                       uint32_t count,
                                       zet_metric_group_handle_t *phMetricGroups) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetContextActivateMetricGroups(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetContextActivateMetricGroups(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     ss << ", count: " << count;
@@ -976,8 +976,8 @@ inline std::string _trace_zetMetricStreamerOpen(zet_context_handle_t hContext,
                                                 ze_event_handle_t hNotificationEvent,
                                                 zet_metric_streamer_handle_t *phMetricStreamer) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricStreamerOpen(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricStreamerOpen(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     ss << ", hMetricGroup: " << hMetricGroup;
@@ -1039,8 +1039,8 @@ _trace_zetCommandListAppendMetricStreamerMarker(zet_command_list_handle_t hComma
                                                 zet_metric_streamer_handle_t hMetricStreamer,
                                                 uint32_t value) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetCommandListAppendMetricStreamerMarker(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetCommandListAppendMetricStreamerMarker(";
     ss << "hCommandList: " << hCommandList;
     ss << ", hMetricStreamer: " << hMetricStreamer;
     ss << ", value: " << value;
@@ -1073,8 +1073,8 @@ trace_zetCommandListAppendMetricStreamerMarker(ze_result_t ret,
 
 inline std::string _trace_zetMetricStreamerClose(zet_metric_streamer_handle_t hMetricStreamer) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricStreamerClose(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricStreamerClose(";
     ss << "hMetricStreamer: " << hMetricStreamer;
     ss << ")";
     return ss.str();
@@ -1096,8 +1096,8 @@ inline std::string _trace_zetMetricStreamerReadData(zet_metric_streamer_handle_t
                                                     size_t *pRawDataSize,
                                                     uint8_t *pRawData) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricStreamerReadData(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricStreamerReadData(";
     ss << "hMetricStreamer: " << hMetricStreamer;
     ss << ", maxReportCount: " << maxReportCount;
     if (pRawDataSize == nullptr) {
@@ -1146,8 +1146,8 @@ _trace_zetMetricQueryPoolCreate(zet_context_handle_t hContext,
                                 const zet_metric_query_pool_desc_t *desc,
                                 zet_metric_query_pool_handle_t *phMetricQueryPool) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricQueryPoolCreate(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricQueryPoolCreate(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     ss << ", hMetricGroup: " << hMetricGroup;
@@ -1202,8 +1202,8 @@ inline void trace_zetMetricQueryPoolCreate(ze_result_t ret,
 inline std::string
 _trace_zetMetricQueryPoolDestroy(zet_metric_query_pool_handle_t hMetricQueryPool) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricQueryPoolDestroy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricQueryPoolDestroy(";
     ss << "hMetricQueryPool: " << hMetricQueryPool;
     ss << ")";
     return ss.str();
@@ -1224,8 +1224,8 @@ inline std::string _trace_zetMetricQueryCreate(zet_metric_query_pool_handle_t hM
                                                uint32_t index,
                                                zet_metric_query_handle_t *phMetricQuery) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricQueryCreate(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricQueryCreate(";
     ss << "hMetricQueryPool: " << hMetricQueryPool;
     ss << ", index: " << index;
     if (phMetricQuery == nullptr) {
@@ -1255,8 +1255,8 @@ inline void trace_zetMetricQueryCreate(ze_result_t ret,
 
 inline std::string _trace_zetMetricQueryDestroy(zet_metric_query_handle_t hMetricQuery) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricQueryDestroy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricQueryDestroy(";
     ss << "hMetricQuery: " << hMetricQuery;
     ss << ")";
     return ss.str();
@@ -1274,8 +1274,8 @@ inline void trace_zetMetricQueryDestroy(ze_result_t ret, zet_metric_query_handle
 
 inline std::string _trace_zetMetricQueryReset(zet_metric_query_handle_t hMetricQuery) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricQueryReset(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricQueryReset(";
     ss << "hMetricQuery: " << hMetricQuery;
     ss << ")";
     return ss.str();
@@ -1295,8 +1295,8 @@ inline std::string
 _trace_zetCommandListAppendMetricQueryBegin(zet_command_list_handle_t hCommandList,
                                             zet_metric_query_handle_t hMetricQuery) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetCommandListAppendMetricQueryBegin(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetCommandListAppendMetricQueryBegin(";
     ss << "hCommandList: " << hCommandList;
     ss << ", hMetricQuery: " << hMetricQuery;
     ss << ")";
@@ -1324,8 +1324,8 @@ inline std::string _trace_zetCommandListAppendMetricQueryEnd(zet_command_list_ha
                                                              uint32_t numWaitEvents,
                                                              ze_event_handle_t *phWaitEvents) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetCommandListAppendMetricQueryEnd(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetCommandListAppendMetricQueryEnd(";
     ss << "hCommandList: " << hCommandList;
     ss << ", hMetricQuery: " << hMetricQuery;
     ss << ", hSignalEvent: " << hSignalEvent;
@@ -1371,8 +1371,8 @@ inline void trace_zetCommandListAppendMetricQueryEnd(ze_result_t ret,
 inline std::string
 _trace_zetCommandListAppendMetricMemoryBarrier(zet_command_list_handle_t hCommandList) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetCommandListAppendMetricMemoryBarrier(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetCommandListAppendMetricMemoryBarrier(";
     ss << "hCommandList: " << hCommandList;
     ss << ")";
     return ss.str();
@@ -1394,8 +1394,8 @@ inline std::string _trace_zetMetricQueryGetData(zet_metric_query_handle_t hMetri
                                                 size_t *pRawDataSize,
                                                 uint8_t *pRawData) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricQueryGetData(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricQueryGetData(";
     ss << "hMetricQuery: " << hMetricQuery;
     if (pRawDataSize == nullptr) {
         ss << ", pRawDataSize: nullptr";
@@ -1430,8 +1430,8 @@ inline void trace_zetMetricQueryGetData(ze_result_t ret,
 inline std::string _trace_zetKernelGetProfileInfo(zet_kernel_handle_t hKernel,
                                                   zet_profile_properties_t *pProfileProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetKernelGetProfileInfo(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetKernelGetProfileInfo(";
     ss << "hKernel: " << hKernel;
     if (pProfileProperties == nullptr) {
         ss << ", pProfileProperties: nullptr";
@@ -1465,8 +1465,8 @@ inline std::string _trace_zetTracerExpCreate(zet_context_handle_t hContext,
                                              const zet_tracer_exp_desc_t *desc,
                                              zet_tracer_exp_handle_t *phTracer) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetTracerExpCreate(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetTracerExpCreate(";
     ss << "hContext: " << hContext;
     if (desc == nullptr) {
         ss << ", desc: nullptr";
@@ -1503,8 +1503,8 @@ inline void trace_zetTracerExpCreate(ze_result_t ret,
 
 inline std::string _trace_zetTracerExpDestroy(zet_tracer_exp_handle_t hTracer) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetTracerExpDestroy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetTracerExpDestroy(";
     ss << "hTracer: " << hTracer;
     ss << ")";
     return ss.str();
@@ -1523,8 +1523,8 @@ inline void trace_zetTracerExpDestroy(ze_result_t ret, zet_tracer_exp_handle_t h
 inline std::string _trace_zetTracerExpSetPrologues(zet_tracer_exp_handle_t hTracer,
                                                    zet_core_callbacks_t *pCoreCbs) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetTracerExpSetPrologues(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetTracerExpSetPrologues(";
     ss << "hTracer: " << hTracer;
     if (pCoreCbs == nullptr) {
         ss << ", pCoreCbs: nullptr";
@@ -1551,8 +1551,8 @@ inline void trace_zetTracerExpSetPrologues(ze_result_t ret,
 inline std::string _trace_zetTracerExpSetEpilogues(zet_tracer_exp_handle_t hTracer,
                                                    zet_core_callbacks_t *pCoreCbs) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetTracerExpSetEpilogues(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetTracerExpSetEpilogues(";
     ss << "hTracer: " << hTracer;
     if (pCoreCbs == nullptr) {
         ss << ", pCoreCbs: nullptr";
@@ -1579,8 +1579,8 @@ inline void trace_zetTracerExpSetEpilogues(ze_result_t ret,
 inline std::string _trace_zetTracerExpSetEnabled(zet_tracer_exp_handle_t hTracer,
                                                  ze_bool_t enable) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetTracerExpSetEnabled(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetTracerExpSetEnabled(";
     ss << "hTracer: " << hTracer;
     ss << ", enable: " << enable;
     ss << ")";
@@ -1605,8 +1605,8 @@ _trace_zetDeviceGetConcurrentMetricGroupsExp(zet_device_handle_t hDevice,
                                              uint32_t *pMetricGroupsCountPerConcurrentGroup,
                                              uint32_t *pConcurrentGroupCount) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetDeviceGetConcurrentMetricGroupsExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetDeviceGetConcurrentMetricGroupsExp(";
     ss << "hDevice: " << hDevice;
     ss << ", metricGroupCount: " << metricGroupCount;
     if (phMetricGroups == nullptr) {
@@ -1669,8 +1669,8 @@ inline std::string _trace_zetMetricTracerCreateExp(zet_context_handle_t hContext
                                                    ze_event_handle_t hNotificationEvent,
                                                    zet_metric_tracer_exp_handle_t *phMetricTracer) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricTracerCreateExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricTracerCreateExp(";
     ss << "hContext: " << hContext;
     ss << ", hDevice: " << hDevice;
     ss << ", metricGroupCount: " << metricGroupCount;
@@ -1737,8 +1737,8 @@ inline void trace_zetMetricTracerCreateExp(ze_result_t ret,
 
 inline std::string _trace_zetMetricTracerDestroyExp(zet_metric_tracer_exp_handle_t hMetricTracer) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricTracerDestroyExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricTracerDestroyExp(";
     ss << "hMetricTracer: " << hMetricTracer;
     ss << ")";
     return ss.str();
@@ -1758,8 +1758,8 @@ inline void trace_zetMetricTracerDestroyExp(ze_result_t ret,
 inline std::string _trace_zetMetricTracerEnableExp(zet_metric_tracer_exp_handle_t hMetricTracer,
                                                    ze_bool_t synchronous) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricTracerEnableExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricTracerEnableExp(";
     ss << "hMetricTracer: " << hMetricTracer;
     ss << ", synchronous: " << synchronous;
     ss << ")";
@@ -1783,8 +1783,8 @@ inline void trace_zetMetricTracerEnableExp(ze_result_t ret,
 inline std::string _trace_zetMetricTracerDisableExp(zet_metric_tracer_exp_handle_t hMetricTracer,
                                                     ze_bool_t synchronous) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricTracerDisableExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricTracerDisableExp(";
     ss << "hMetricTracer: " << hMetricTracer;
     ss << ", synchronous: " << synchronous;
     ss << ")";
@@ -1809,8 +1809,8 @@ inline std::string _trace_zetMetricTracerReadDataExp(zet_metric_tracer_exp_handl
                                                      size_t *pRawDataSize,
                                                      uint8_t *pRawData) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricTracerReadDataExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricTracerReadDataExp(";
     ss << "hMetricTracer: " << hMetricTracer;
     if (pRawDataSize == nullptr) {
         ss << ", pRawDataSize: nullptr";
@@ -1847,8 +1847,8 @@ inline std::string
 _trace_zetMetricDecoderCreateExp(zet_metric_tracer_exp_handle_t hMetricTracer,
                                  zet_metric_decoder_exp_handle_t *phMetricDecoder) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricDecoderCreateExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricDecoderCreateExp(";
     ss << "hMetricTracer: " << hMetricTracer;
     if (phMetricDecoder == nullptr) {
         ss << ", phMetricDecoder: nullptr";
@@ -1876,8 +1876,8 @@ inline void trace_zetMetricDecoderCreateExp(ze_result_t ret,
 inline std::string
 _trace_zetMetricDecoderDestroyExp(zet_metric_decoder_exp_handle_t phMetricDecoder) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricDecoderDestroyExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricDecoderDestroyExp(";
     ss << "phMetricDecoder: " << phMetricDecoder;
     ss << ")";
     return ss.str();
@@ -1899,8 +1899,8 @@ _trace_zetMetricDecoderGetDecodableMetricsExp(zet_metric_decoder_exp_handle_t hM
                                               uint32_t *pCount,
                                               zet_metric_handle_t *phMetrics) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricDecoderGetDecodableMetricsExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricDecoderGetDecodableMetricsExp(";
     ss << "hMetricDecoder: " << hMetricDecoder;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -1949,8 +1949,8 @@ inline std::string _trace_zetMetricTracerDecodeExp(zet_metric_decoder_exp_handle
                                                    uint32_t *pMetricEntriesCount,
                                                    zet_metric_entry_exp_t *pMetricEntries) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricTracerDecodeExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricTracerDecodeExp(";
     ss << "phMetricDecoder: " << phMetricDecoder;
     if (pRawDataSize == nullptr) {
         ss << ", pRawDataSize: nullptr";
@@ -2059,8 +2059,8 @@ _trace_zetMetricGroupCalculateMultipleMetricValuesExp(zet_metric_group_handle_t 
                                                       uint32_t *pMetricCounts,
                                                       zet_typed_value_t *pMetricValues) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricGroupCalculateMultipleMetricValuesExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricGroupCalculateMultipleMetricValuesExp(";
     ss << "hMetricGroup: " << hMetricGroup;
     ss << ", type: " << type;
     ss << ", rawDataSize: " << rawDataSize;
@@ -2151,8 +2151,8 @@ _trace_zetMetricGroupGetGlobalTimestampsExp(zet_metric_group_handle_t hMetricGro
                                             uint64_t *globalTimestamp,
                                             uint64_t *metricTimestamp) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricGroupGetGlobalTimestampsExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricGroupGetGlobalTimestampsExp(";
     ss << "hMetricGroup: " << hMetricGroup;
     ss << ", synchronizedWithHost: " << synchronizedWithHost;
     if (globalTimestamp == nullptr) {
@@ -2200,8 +2200,8 @@ inline std::string _trace_zetMetricGroupGetExportDataExp(zet_metric_group_handle
                                                          size_t *pExportDataSize,
                                                          uint8_t *pExportData) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricGroupGetExportDataExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricGroupGetExportDataExp(";
     ss << "hMetricGroup: " << hMetricGroup;
     if (pRawData == nullptr) {
         ss << ", pRawData: nullptr";
@@ -2263,8 +2263,8 @@ inline std::string _trace_zetMetricGroupCalculateMetricExportDataExp(
     uint32_t *pMetricCounts,
     zet_typed_value_t *pMetricValues) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricGroupCalculateMetricExportDataExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricGroupCalculateMetricExportDataExp(";
     ss << "hDriver: " << hDriver;
     ss << ", type: " << type;
     ss << ", exportDataSize: " << exportDataSize;
@@ -2367,8 +2367,8 @@ _trace_zetMetricProgrammableGetExp(zet_device_handle_t hDevice,
                                    uint32_t *pCount,
                                    zet_metric_programmable_exp_handle_t *phMetricProgrammables) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricProgrammableGetExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricProgrammableGetExp(";
     ss << "hDevice: " << hDevice;
     if (pCount == nullptr) {
         ss << ", pCount: nullptr";
@@ -2407,8 +2407,8 @@ inline std::string _trace_zetMetricProgrammableGetPropertiesExp(
     zet_metric_programmable_exp_handle_t hMetricProgrammable,
     zet_metric_programmable_exp_properties_t *pProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricProgrammableGetPropertiesExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricProgrammableGetPropertiesExp(";
     ss << "hMetricProgrammable: " << hMetricProgrammable;
     if (pProperties == nullptr) {
         ss << ", pProperties: nullptr";
@@ -2457,8 +2457,8 @@ inline std::string _trace_zetMetricProgrammableGetParamInfoExp(
     uint32_t *pParameterCount,
     zet_metric_programmable_param_info_exp_t *pParameterInfo) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricProgrammableGetParamInfoExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricProgrammableGetParamInfoExp(";
     ss << "hMetricProgrammable: " << hMetricProgrammable;
     if (pParameterCount == nullptr) {
         ss << ", pParameterCount: nullptr";
@@ -2518,8 +2518,8 @@ inline std::string _trace_zetMetricProgrammableGetParamValueInfoExp(
     uint32_t *pValueInfoCount,
     zet_metric_programmable_param_value_info_exp_t *pValueInfo) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricProgrammableGetParamValueInfoExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricProgrammableGetParamValueInfoExp(";
     ss << "hMetricProgrammable: " << hMetricProgrammable;
     ss << ", parameterOrdinal: " << parameterOrdinal;
     if (pValueInfoCount == nullptr) {
@@ -2594,8 +2594,8 @@ inline std::string _trace_zetMetricCreateFromProgrammableExp2(
     uint32_t *pMetricHandleCount,
     zet_metric_handle_t *phMetricHandles) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricCreateFromProgrammableExp2(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricCreateFromProgrammableExp2(";
     ss << "hMetricProgrammable: " << hMetricProgrammable;
     ss << ", parameterCount: " << parameterCount;
     if (pParameterValues == nullptr) {
@@ -2683,8 +2683,8 @@ inline std::string _trace_zetMetricCreateFromProgrammableExp(
     uint32_t *pMetricHandleCount,
     zet_metric_handle_t *phMetricHandles) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricCreateFromProgrammableExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricCreateFromProgrammableExp(";
     ss << "hMetricProgrammable: " << hMetricProgrammable;
     if (pParameterValues == nullptr) {
         ss << ", pParameterValues: nullptr";
@@ -2772,8 +2772,8 @@ _trace_zetDeviceCreateMetricGroupsFromMetricsExp(zet_device_handle_t hDevice,
                                                  uint32_t *pMetricGroupCount,
                                                  zet_metric_group_handle_t *phMetricGroup) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetDeviceCreateMetricGroupsFromMetricsExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetDeviceCreateMetricGroupsFromMetricsExp(";
     ss << "hDevice: " << hDevice;
     ss << ", metricCount: " << metricCount;
     if (phMetrics == nullptr) {
@@ -2851,8 +2851,8 @@ _trace_zetMetricGroupCreateExp(zet_device_handle_t hDevice,
                                zet_metric_group_sampling_type_flags_t samplingType,
                                zet_metric_group_handle_t *phMetricGroup) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricGroupCreateExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricGroupCreateExp(";
     ss << "hDevice: " << hDevice;
     if (pName == nullptr) {
         ss << ", pName: nullptr";
@@ -2908,8 +2908,8 @@ inline std::string _trace_zetMetricGroupAddMetricExp(zet_metric_group_handle_t h
                                                      size_t *pErrorStringSize,
                                                      char *pErrorString) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricGroupAddMetricExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricGroupAddMetricExp(";
     ss << "hMetricGroup: " << hMetricGroup;
     ss << ", hMetric: " << hMetric;
     if (pErrorStringSize == nullptr) {
@@ -2954,8 +2954,8 @@ inline void trace_zetMetricGroupAddMetricExp(ze_result_t ret,
 inline std::string _trace_zetMetricGroupRemoveMetricExp(zet_metric_group_handle_t hMetricGroup,
                                                         zet_metric_handle_t hMetric) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricGroupRemoveMetricExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricGroupRemoveMetricExp(";
     ss << "hMetricGroup: " << hMetricGroup;
     ss << ", hMetric: " << hMetric;
     ss << ")";
@@ -2978,8 +2978,8 @@ inline void trace_zetMetricGroupRemoveMetricExp(ze_result_t ret,
 
 inline std::string _trace_zetMetricGroupCloseExp(zet_metric_group_handle_t hMetricGroup) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricGroupCloseExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricGroupCloseExp(";
     ss << "hMetricGroup: " << hMetricGroup;
     ss << ")";
     return ss.str();
@@ -2997,8 +2997,8 @@ inline void trace_zetMetricGroupCloseExp(ze_result_t ret, zet_metric_group_handl
 
 inline std::string _trace_zetMetricGroupDestroyExp(zet_metric_group_handle_t hMetricGroup) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricGroupDestroyExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricGroupDestroyExp(";
     ss << "hMetricGroup: " << hMetricGroup;
     ss << ")";
     return ss.str();
@@ -3017,8 +3017,8 @@ inline void trace_zetMetricGroupDestroyExp(ze_result_t ret,
 
 inline std::string _trace_zetMetricDestroyExp(zet_metric_handle_t hMetric) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zetMetricDestroyExp(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API] zetMetricDestroyExp(";
     ss << "hMetric: " << hMetric;
     ss << ")";
     return ss.str();

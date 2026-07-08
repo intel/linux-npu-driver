@@ -20,8 +20,8 @@ inline std::string _trace_zeDeviceGetProfilingDataProperties(
     ze_device_handle_t hDevice,
     ze_device_profiling_data_properties_t *pDeviceProfilingDataProperties) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeDeviceGetProfilingDataProperties(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeDeviceGetProfilingDataProperties(";
     ss << "hDevice: " << hDevice;
     if (pDeviceProfilingDataProperties == nullptr) {
         ss << ", pDeviceProfilingDataProperties: nullptr";
@@ -60,8 +60,8 @@ _trace_zeGraphProfilingPoolCreate(ze_graph_handle_t hGraph,
                                   uint32_t count,
                                   ze_graph_profiling_pool_handle_t *phProfilingPool) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphProfilingPoolCreate(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphProfilingPoolCreate(";
     ss << "hGraph: " << hGraph;
     ss << ", count: " << count;
     if (phProfilingPool == nullptr) {
@@ -92,8 +92,8 @@ inline void trace_zeGraphProfilingPoolCreate(ze_result_t ret,
 inline std::string
 _trace_zeGraphProfilingPoolDestroy(ze_graph_profiling_pool_handle_t hProfilingPool) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphProfilingPoolDestroy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphProfilingPoolDestroy(";
     ss << "hProfilingPool: " << hProfilingPool;
     ss << ")";
     return ss.str();
@@ -115,8 +115,8 @@ _trace_zeGraphProfilingQueryCreate(ze_graph_profiling_pool_handle_t hProfilingPo
                                    uint32_t index,
                                    ze_graph_profiling_query_handle_t *phProfilingQuery) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphProfilingQueryCreate(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphProfilingQueryCreate(";
     ss << "hProfilingPool: " << hProfilingPool;
     ss << ", index: " << index;
     if (phProfilingQuery == nullptr) {
@@ -148,8 +148,8 @@ inline void trace_zeGraphProfilingQueryCreate(ze_result_t ret,
 inline std::string
 _trace_zeGraphProfilingQueryDestroy(ze_graph_profiling_query_handle_t hProfilingQuery) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphProfilingQueryDestroy(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphProfilingQueryDestroy(";
     ss << "hProfilingQuery: " << hProfilingQuery;
     ss << ")";
     return ss.str();
@@ -172,8 +172,8 @@ _trace_zeGraphProfilingQueryGetData(ze_graph_profiling_query_handle_t hProfiling
                                     uint32_t *pSize,
                                     uint8_t *pData) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphProfilingQueryGetData(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphProfilingQueryGetData(";
     ss << "hProfilingQuery: " << hProfilingQuery;
     ss << ", profilingType: " << profilingType;
     if (pSize == nullptr) {
@@ -220,8 +220,8 @@ _trace_zeGraphProfilingLogGetString(ze_graph_profiling_query_handle_t phProfilin
                                     uint32_t *pSize,
                                     char *pProfilingLog) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphProfilingLogGetString(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeGraphProfilingLogGetString(";
     ss << "phProfilingQuery: " << phProfilingQuery;
     if (pSize == nullptr) {
         ss << ", pSize: nullptr";

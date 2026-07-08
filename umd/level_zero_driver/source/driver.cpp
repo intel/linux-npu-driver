@@ -16,7 +16,6 @@
 #include "vpu_driver/source/os_interface/os_interface.hpp"
 #include "vpu_driver/source/os_interface/vpu_device_factory.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
-#include "vpu_driver/source/utilities/stats.hpp"
 
 #include <memory>
 #include <stdlib.h>
@@ -64,12 +63,6 @@ void Driver::initializeLogging() {
 
     env = getenv("ZE_INTEL_NPU_COMPILER_LOGLEVEL");
     std::string_view cidLogLevel = env == nullptr ? "" : env;
-
-    env = getenv("ZE_INTEL_NPU_DUMP_MEM_STAT");
-    if (env) {
-        std::string_view umdMemStatsPath = env;
-        MemoryStatistics::get().enable(umdMemStatsPath);
-    }
 
     VPU::setLogLevel(umdLogLevel);
     VPU::setLogMask(umdLogMask);

@@ -17,8 +17,8 @@
 inline std::string _trace_zeDriverGetExtensionExt(ze_driver_handle_t hDriver,
                                                   ze_driver_extension_npu_ext_t *pExtension) {
     std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeDriverGetExtensionExt(";
     ss << std::hex << std::showbase;
-    ss << "NPU_LOG: [API_EXT] zeDriverGetExtensionExt(";
     ss << "hDriver: " << hDriver;
     ss << ", pExtension: " << pExtension;
     ss << ")";

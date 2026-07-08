@@ -12,6 +12,7 @@
 #include "level_zero_driver/unit_tests/options.hpp"
 
 #include <api/vpu_nnrt_api_37xx.h>
+#include <fstream>
 
 namespace L0 {
 namespace ult {

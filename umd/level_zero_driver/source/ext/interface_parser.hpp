@@ -31,7 +31,8 @@ class IParser {
                            const std::vector<const void *> &outputArgs,
                            const ArgumentStridesMap &inputStrides,
                            const ArgumentStridesMap &outputStrides,
-                           GraphProfilingQuery *profilingQuery) = 0;
+                           GraphProfilingQuery *profilingQuery,
+                           bool optimizeForDynamicShapes) = 0;
 };
 
 } // namespace L0

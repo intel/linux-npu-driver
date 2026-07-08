@@ -299,7 +299,6 @@ ze_result_t zeDriverGetExtensionFunctionAddress(ze_driver_handle_t hDriver,
 
     CHECK_PRIVATE_FUNCTION(zexDiskCacheSetSize);
     CHECK_PRIVATE_FUNCTION(zexDiskCacheGetSize);
-    CHECK_PRIVATE_FUNCTION(zexDiskCacheGetDirectory);
     CHECK_PRIVATE_FUNCTION(zexContextSetIdlePruningTimeout);
 
     LOG_E("Driver Function Extension with %s name does not exist", name);
