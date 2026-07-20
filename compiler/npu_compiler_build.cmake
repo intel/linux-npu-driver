@@ -74,6 +74,8 @@ if (ANDROID)
   set(NPU_COMPILER_NATIVE_TOOLS_BUILD npu_compiler_native_tools_build)
   set(NPU_COMPILER_NATIVE_TOOLS_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/build_npu_compiler_native_tools)
 
+  list(APPEND NPU_COMPILER_CMAKE_ARGS "-DCMAKE_CXX_FLAGS=-Wno-error=unused-but-set-variable")
+
   ExternalProject_Add(
     ${NPU_COMPILER_NATIVE_TOOLS_BUILD}
     DOWNLOAD_COMMAND ""
@@ -93,6 +95,8 @@ if (ANDROID)
     BYPRODUCTS
       ${NPU_COMPILER_BINARY_DIR}/bin/intel64/Release/npureg-tblgen
   )
+
+  list(APPEND NPU_COMPILER_CMAKE_ARGS "-DCMAKE_CXX_FLAGS=-Wno-error=unused-but-set-variable -Wno-error=unused-private-field")
 
   list(APPEND NPU_COMPILER_CMAKE_ARGS "${ANDROID_CMAKE_ARGS}")
   list(APPEND NPU_COMPILER_CMAKE_ARGS "${TBB_CMAKE_ARGS}")
