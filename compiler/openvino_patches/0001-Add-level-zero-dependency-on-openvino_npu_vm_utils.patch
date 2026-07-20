@@ -1,0 +1,25 @@
+From e7ed58a5bbcc9c35f6ff9dd9bf56ce6b2d6fa654 Mon Sep 17 00:00:00 2001
+From: "Wludzik, Jozef" <jozef.wludzik@intel.com>
+Date: Mon, 11 May 2026 11:25:14 +0200
+Subject: [PATCH] Add level-zero dependency on openvino_npu_vm_utils
+
+---
+ src/plugins/intel_npu/src/utils/src/vm/CMakeLists.txt | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/plugins/intel_npu/src/utils/src/vm/CMakeLists.txt b/src/plugins/intel_npu/src/utils/src/vm/CMakeLists.txt
+index 6c077c0b18..9219e5c252 100644
+--- a/src/plugins/intel_npu/src/utils/src/vm/CMakeLists.txt
++++ b/src/plugins/intel_npu/src/utils/src/vm/CMakeLists.txt
+@@ -25,6 +25,8 @@ target_include_directories(${TARGET_NAME}
+         $<TARGET_PROPERTY:openvino_npu_zero_utils,INTERFACE_INCLUDE_DIRECTORIES>
+ )
+ 
++add_dependencies(${TARGET_NAME} openvino::runtime::dev openvino::zero_loader)
++
+ if(NOT BUILD_SHARED_LIBS)
+     target_compile_definitions(${TARGET_NAME} PRIVATE OPENVINO_STATIC_LIBRARY)
+ endif()
+-- 
+2.43.0
+

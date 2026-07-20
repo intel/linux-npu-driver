@@ -150,6 +150,7 @@ ExternalProject_Add(
     -DBUILD_opencv_dnn=OFF
     -DBUILD_opencv_java=OFF
     -DWITH_EIGEN=OFF
+    -DWITH_IPP=OFF
     -DWITH_JASPER=OFF
     -DWITH_OPENCL=OFF
     -DWITH_OPENEXR=OFF
