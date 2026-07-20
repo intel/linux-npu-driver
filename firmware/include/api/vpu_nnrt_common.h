@@ -5,7 +5,8 @@
 
 /**
  * @file
- * @brief Contains VpuTaskReference used in loader API and in the mapped inference.
+ * @brief Common types shared between the loader API, non-WLM and WLM APIs: VpuTaskReference, VpuPtr,
+ *        VpuTaskSchedulingBarrierConfig, and VpuTaskBarrierDependency.
  */
 
 #ifndef VPU_NNRT_COMMON_H
@@ -115,6 +116,49 @@ struct VPU_ALIGNED_STRUCT(8) VpuTaskReference<void> {
 };
 
 static_assert(sizeof(VpuTaskReference<void>) == 40, "VpuTaskReference size != 40");
+
+template <typename T>
+struct VPU_ALIGNED_STRUCT(8) VpuPtr {
+    uint64_t ptr;
+
+    VpuPtr()
+        : ptr(0) {}
+
+    VpuPtr<T> &operator=(T *ptr) {
+        this->ptr = reinterpret_cast<uint64_t>(ptr);
+        return *this;
+    }
+
+    VpuPtr<T> &operator=(uint64_t ptr) {
+        this->ptr = ptr;
+        return *this;
+    }
+
+    operator T *() const { return reinterpret_cast<T *>(ptr); }
+    T *operator->() const { return reinterpret_cast<T *>(ptr); }
+    explicit operator bool() const { return ptr; }
+    explicit operator uintptr_t() const { return ptr; }
+};
+
+static_assert(sizeof(VpuPtr<void>) == 8, "VpuPtr size != 8");
+
+struct VPU_ALIGNED_STRUCT(4) VpuTaskSchedulingBarrierConfig {
+    uint32_t start_after_;
+    uint32_t clean_after_;
+};
+
+static_assert(sizeof(VpuTaskSchedulingBarrierConfig) == 8, "VpuTaskSchedulingBarrierConfig size != 8");
+
+struct VPU_ALIGNED_STRUCT(8) VpuTaskBarrierDependency {
+    uint64_t wait_mask_hi_;
+    uint64_t wait_mask_lo_;
+    uint64_t post_mask_hi_;
+    uint64_t post_mask_lo_;
+    uint8_t deprecated_[2]; /* deprecated member, do not reuse until next API major version update */
+    uint8_t pad_[6];
+};
+
+static_assert(sizeof(VpuTaskBarrierDependency) == 40, "VpuTaskBarrierDependency size != 40");
 
 #pragma pack(pop)
 

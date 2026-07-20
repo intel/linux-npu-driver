@@ -126,7 +126,7 @@ struct VPU_ALIGNED_STRUCT(8) VpuTaskReference {
     T *data(int64_t offset) { return reinterpret_cast<T *>(address + offset); }
     const T *data(int64_t offset) const { return reinterpret_cast<T *>(address + offset); }
 
-    uint32_t size() const { return count; }
+    uint64_t size() const { return count; }
 
     T &at(uint32_t index, int64_t offset = 0) { return (reinterpret_cast<T *>(address + offset))[index]; }
     const T &at(uint32_t index, int64_t offset = 0) const { return (reinterpret_cast<T *>(address + offset))[index]; }

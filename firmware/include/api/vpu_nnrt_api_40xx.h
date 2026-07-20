@@ -30,8 +30,6 @@ namespace nn_public {
 constexpr uint32_t VPU_MAX_TILES = 6;
 constexpr uint32_t VPU_BARRIERS_PER_GROUP = 16;
 constexpr uint32_t VPU_DPU_PER_TILE = 1;
-constexpr uint32_t VPU_SNN_PER_TILE = VPU_DPU_PER_TILE;
-constexpr uint32_t VPU_SNN_TOTAL = VPU_SNN_PER_TILE * VPU_MAX_TILES;
 constexpr uint32_t VPU_AS_PER_TILE = 2;
 /* On NPU4-5, there is only one physical DMA engine, but it is logically split into two interfaces. */
 constexpr uint32_t VPU_MAX_DMA_ENGINES = 2;
@@ -41,51 +39,6 @@ constexpr uint32_t VPU_AS_TOTAL = VPU_AS_PER_TILE * VPU_MAX_TILES;
 
 /* Do not document the legacy non-WLM API structs. */
 /** @cond */
-
-template <typename T>
-struct VPU_ALIGNED_STRUCT(8) VpuPtr {
-    uint64_t ptr;
-
-    VpuPtr()
-        : ptr(0) {}
-
-    VpuPtr<T> &operator=(T *ptr) {
-        this->ptr = reinterpret_cast<uint64_t>(ptr);
-        return *this;
-    }
-
-    VpuPtr<T> &operator=(uint64_t ptr) {
-        this->ptr = ptr;
-        return *this;
-    }
-
-    operator T *() const { return reinterpret_cast<T *>(ptr); }
-    T *operator->() const { return reinterpret_cast<T *>(ptr); }
-    explicit operator bool() const { return ptr; }
-    explicit operator uintptr_t() const { return ptr; }
-};
-
-static_assert(sizeof(VpuPtr<void>) == 8, "VpuPtr size != 8");
-
-typedef void(actKernelEntryFunction)(void *);
-
-struct VPU_ALIGNED_STRUCT(4) VpuTaskSchedulingBarrierConfig {
-    uint32_t start_after_;
-    uint32_t clean_after_;
-};
-
-static_assert(sizeof(VpuTaskSchedulingBarrierConfig) == 8, "VpuTaskSchedulingBarrierConfig size != 8");
-
-struct VPU_ALIGNED_STRUCT(8) VpuTaskBarrierDependency {
-    uint64_t wait_mask_hi_;
-    uint64_t wait_mask_lo_;
-    uint64_t post_mask_hi_;
-    uint64_t post_mask_lo_;
-    uint8_t deprecated_[2]; /* deprecated member, do not reuse until next API major version update */
-    uint8_t pad_[6];
-};
-
-static_assert(sizeof(VpuTaskBarrierDependency) == 40, "VpuTaskBarrierDependency size != 40");
 
 struct VPU_ALIGNED_STRUCT(4) VpuBarrierCountConfig {
     uint32_t next_same_id_;
@@ -133,40 +86,6 @@ struct VPU_ALIGNED_STRUCT(32) VpuDMATask {
 
 static_assert(sizeof(VpuDMATask) == 224, "VpuDMATask size != 224");
 static_assert(offsetof(VpuDMATask, barriers_sched_) % 4 == 0, "Alignment error");
-
-/* ActKernel structs */
-struct VPU_ALIGNED_STRUCT(8) VpuActKernelRange {
-    VpuActWLType type;
-    uint8_t use_ram_barriers;
-    uint8_t pad0_[6];
-    VpuPtr<actKernelEntryFunction> kernel_entry;
-    VpuPtr<void> text_window_base;
-    uint32_t code_size;
-    uint8_t deprecated_[4]; /* deprecated member, do not reuse until next API major version update */
-    uint32_t kernel_invo_count;
-    uint8_t pad1_[4];
-};
-
-static_assert(sizeof(VpuActKernelRange) == 40, "VpuActKernelRange size != 40");
-static_assert(offsetof(VpuActKernelRange, kernel_entry) % 8 == 0, "Alignment error");
-
-struct VPU_ALIGNED_STRUCT(32) VpuActKernelInvocation {
-    VpuPtr<VpuActKernelRange> range;
-    VpuPtr<void> kernel_args;
-    VpuPtr<void> data_window_base;
-    VpuPtr<void> perf_packet_out;
-    VpuTaskBarrierDependency barriers;
-    VpuTaskSchedulingBarrierConfig barriers_sched;
-    uint32_t invo_index;
-    uint32_t invo_tile;
-    uint32_t kernel_range_index;
-    uint32_t next_aki_wl_addr;
-};
-
-static_assert(sizeof(VpuActKernelInvocation) == 96, "VpuActKernelInvocation size != 96");
-static_assert(offsetof(VpuActKernelInvocation, barriers) % 8 == 0, "Alignment error");
-static_assert(offsetof(VpuActKernelInvocation, barriers_sched) % 4 == 0, "Alignment error");
-static_assert(offsetof(VpuActKernelInvocation, invo_tile) % 4 == 0, "Alignment error");
 
 struct VPU_ALIGNED_STRUCT(16) VpuMediaTask {
     union VPU_ALIGNED_STRUCT(16) {

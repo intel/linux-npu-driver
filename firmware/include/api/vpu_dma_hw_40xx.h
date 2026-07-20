@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (c) 2022-2025, Intel Corporation.
+ * Copyright (c) 2022-2026, Intel Corporation.
  */
 
 /**
@@ -17,7 +17,7 @@
 /*
  * If changes are made to this file that break backwards compatibility, e.g. adding struct
  * members, please update VPU_NNRT_40XX_API_VER_MAJOR & VPU_NNRT_40XX_API_VER_MINOR in
- * vpu_nnrt_api_40xx.h. This allows the NNRuntime to detect old MappedInferences.
+ * vpu_nnrt_api_ver.h. This allows the NNRuntime to detect old MappedInferences.
  */
 
 #define DMA_DESC_CFG_INT_ID_WID (8)

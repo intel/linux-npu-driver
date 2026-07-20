@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (c) 2022-2025, Intel Corporation.
+ * Copyright (c) 2022-2026, Intel Corporation.
  */
 
 #ifndef VPU_NCE_HW_40XX_H
@@ -556,17 +556,6 @@ enum class VpuHWPStatMode : uint8_t {
     MODE3 = 03,
     // invalid
     INVALID_MODE = 04
-};
-
-enum class VpuActWLType : uint8_t {
-    WL_KERNEL = 0x00,
-    WL_DXIL_KERNEL,
-    WL_DEBUG = 0x04,
-    WL_CACHE_OP_FLUSH,
-    WL_CACHE_OP_INVALIDATE,
-    WL_CACHE_OP_FLUSHINV,
-    WL_CACHE_OP_PREFETCH,
-    WL_UNKNOWN
 };
 
 // NCE_DPU_TENSOR_MODE wmode&amode - IDU types for activation&weights

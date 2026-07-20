@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (c) 2023, Intel Corporation.
+ * Copyright (c) 2023-2026, Intel Corporation.
  */
 
 #ifndef VPU_CMX_INFO_40XX_H_
 #define VPU_CMX_INFO_40XX_H_
-
-#include "vpu_nnrt_api_40xx.h"
 
 namespace nn_public {
 
@@ -25,8 +23,6 @@ static_assert(((VPU_SNN_DATA_SIZE + VPU_SNN_STACK_SIZE + VPU_ACTSHV_SCRATCH_SIZE
                 VPU_METADATA_SIZE) &
                0x7FFF) == 0,
               "Workspace size must be multiple of 32k");
-
-constexpr uint32_t VPU_ACTSHV_STACK_PER_SHAVE = VPU_ACTSHV_STACKS_SIZE / VPU_AS_PER_TILE;
 
 // Kept here for backwards compatibility for the moment.
 // Will be removed once transition to VpuTaskCounts is complete.
