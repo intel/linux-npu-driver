@@ -258,12 +258,17 @@ ResourceCleaner::ResourceCleaner(Context *ctx, std::chrono::milliseconds timeout
     , thread(
           [this](Context *ctx) {
               std::unique_lock<std::mutex> lock(mutex);
-              auto timeout = std::chrono::time_point<std::chrono::steady_clock>::max();
+              const auto noTimeout = std::chrono::time_point<std::chrono::steady_clock>::max();
+              auto timeout = noTimeout;
               while (action != Action::BREAK) {
-                  if (cv.wait_until(lock, timeout) == std::cv_status::timeout) {
+                  if (timeout == noTimeout) {
+                      cv.wait(lock);
+                  } else if (cv.wait_until(lock, timeout) == std::cv_status::timeout) {
                       ctx->releaseMemory();
-                      timeout = std::chrono::time_point<std::chrono::steady_clock>::max();
-                  } else if (action == Action::PRUNE_AFTER_TIMEOUT) {
+                      timeout = noTimeout;
+                      continue;
+                  }
+                  if (action == Action::PRUNE_AFTER_TIMEOUT) {
                       timeout = std::chrono::steady_clock::now() + idleTimeout;
                   }
               }
