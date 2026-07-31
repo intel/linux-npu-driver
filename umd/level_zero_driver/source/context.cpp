@@ -261,20 +261,18 @@ ResourceCleaner::ResourceCleaner(Context *ctx, std::chrono::milliseconds timeout
               const auto noTimeout =
                   std::chrono::time_point<std::chrono::steady_clock>::max();
               auto timeout = noTimeout;
-	      while (action != Action::BREAK) {
-                  if (timeout == noTimeout) {
-                      cv.wait(lock);
-                  } else if (cv.wait_until(lock, timeout) ==
-                             std::cv_status::timeout) {
-                      ctx->releaseMemory();
-                      timeout = noTimeout;
-                      continue;
+	              while (action != Action::BREAK) {
+                      if (timeout == noTimeout) {
+                          cv.wait(lock);
+                      } else if (cv.wait_until(lock, timeout) == std::cv_status::timeout) {
+                          ctx->releaseMemory();
+                          timeout = noTimeout;
+                          continue;
+                      }
+                      if (action == Action::PRUNE_AFTER_TIMEOUT) {
+                          timeout = std::chrono::steady_clock::now() + idleTimeout;
+                      }
                   }
-
-                  if (action == Action::PRUNE_AFTER_TIMEOUT) {
-                      timeout = std::chrono::steady_clock::now() + idleTimeout;
-                  }
-              }
           },
           ctx) {}
 
