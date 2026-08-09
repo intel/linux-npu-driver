@@ -74,6 +74,7 @@ const char *driver_struct_param_cap_index_str(unsigned index) {
         CASE_RETURN_STR(DRM_IVPU_CAP_DMA_MEMORY_RANGE);
         CASE_RETURN_STR(DRM_IVPU_CAP_MANAGE_CMDQ);
         CASE_RETURN_STR(DRM_IVPU_CAP_BO_CREATE_FROM_USERPTR);
+        CASE_RETURN_STR(DRM_IVPU_CAP_UMQ);
     default:
         return "Unknown";
     }

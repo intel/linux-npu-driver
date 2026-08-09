@@ -136,13 +136,14 @@ bool VPUDriverApi::isVpuDevice() const {
     return true;
 }
 
-int VPUDriverApi::commandQueueCreate(uint32_t priority, uint32_t &queueId, bool isTurboMode) {
+int VPUDriverApi::commandQueueCreate(uint32_t priority, uint32_t &queueId, bool isTurboMode, bool isPersistent) {
     drm_ivpu_cmdq_create createArgs = {};
 
     createArgs.priority = priority;
-    if (isTurboMode) {
-        createArgs.flags = DRM_IVPU_CMDQ_FLAG_TURBO;
-    }
+    if (isTurboMode)
+        createArgs.flags |= DRM_IVPU_CMDQ_FLAG_TURBO;
+    if (isPersistent)
+        createArgs.flags |= DRM_IVPU_CMDQ_FLAG_PERSISTENT;
     int ret = doIoctl(DRM_IOCTL_IVPU_CMDQ_CREATE, &createArgs);
     if (ret) {
         LOG_E("DRM_IOCTL_IVPU_CMDQ_CREATE failed, error %d", ret);
@@ -166,6 +167,28 @@ int VPUDriverApi::commandQueueDestroy(uint32_t queueId) const {
     int ret = doIoctl(DRM_IOCTL_IVPU_CMDQ_DESTROY, &destroyArgs);
     if (ret)
         LOG_E("DRM_IOCTL_IVPU_CMDQ_DESTROY failed, error %d", ret);
+    return ret;
+}
+
+int VPUDriverApi::commandQueueGetInfo(drm_ivpu_cmdq_info *arg) const {
+    int ret = doIoctl(DRM_IOCTL_IVPU_CMDQ_INFO, arg);
+    if (ret)
+        LOG_E("DRM_IOCTL_IVPU_CMDQ_INFO failed, error %d", ret);
+    return ret;
+}
+
+int VPUDriverApi::commandQueueUmqEnable(drm_ivpu_cmdq_umq_enable *arg) const {
+    int ret = doIoctl(DRM_IOCTL_IVPU_CMDQ_UMQ_ENABLE, arg);
+    if (ret)
+        LOG_E("DRM_IOCTL_IVPU_CMDQ_UMQ_ENABLE failed, error %d", ret);
+    return ret;
+}
+
+int VPUDriverApi::commandQueueUmqDisable(uint32_t cmdqId) const {
+    drm_ivpu_cmdq_umq_disable args = {cmdqId, 0};
+    int ret = doIoctl(DRM_IOCTL_IVPU_CMDQ_UMQ_DISABLE, &args);
+    if (ret)
+        LOG_E("DRM_IOCTL_IVPU_CMDQ_UMQ_DISABLE failed, error %d", ret);
     return ret;
 }
 

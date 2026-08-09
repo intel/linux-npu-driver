@@ -89,6 +89,11 @@ class VPUCommandBuffer {
     void addPreemptionBuffer(std::shared_ptr<VPUBufferObject> bo);
     uint32_t getPreemptionBufferIndex() const;
     void useBusyWait();
+    /**
+     * Enable UMQ mode: waitForCompletion() will skip the BO_WAIT ioctl and rely
+     * solely on the busy-wait fence value written by the NPU firmware.
+     */
+    void setUmqMode(bool enable) { umqMode = enable; }
 
   private:
     /**
@@ -149,6 +154,7 @@ class VPUCommandBuffer {
 
     std::shared_ptr<VPUBufferObject> preemptionBuffer;
     bool useBusyWaitFlag = false;
+    bool umqMode = false;
 };
 
 } // namespace VPU

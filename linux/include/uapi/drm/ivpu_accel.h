@@ -25,7 +25,10 @@ extern "C" {
 #define DRM_IVPU_CMDQ_CREATE              0x0b
 #define DRM_IVPU_CMDQ_DESTROY             0x0c
 #define DRM_IVPU_CMDQ_SUBMIT              0x0d
-#define DRM_IVPU_BO_CREATE_FROM_USERPTR	  0x0e
+#define DRM_IVPU_CMDQ_INFO                0x0e
+#define DRM_IVPU_CMDQ_UMQ_ENABLE          0x0f
+#define DRM_IVPU_CMDQ_UMQ_DISABLE         0x10
+#define DRM_IVPU_BO_CREATE_FROM_USERPTR        0x11
 
 #define DRM_IOCTL_IVPU_GET_PARAM                                               \
 	DRM_IOWR(DRM_COMMAND_BASE + DRM_IVPU_GET_PARAM, struct drm_ivpu_param)
@@ -73,6 +76,17 @@ extern "C" {
 #define DRM_IOCTL_IVPU_BO_CREATE_FROM_USERPTR                        \
 	DRM_IOWR(DRM_COMMAND_BASE + DRM_IVPU_BO_CREATE_FROM_USERPTR, \
 		 struct drm_ivpu_bo_create_from_userptr)
+
+#define DRM_IOCTL_IVPU_CMDQ_INFO                                               \
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_IVPU_CMDQ_INFO, struct drm_ivpu_cmdq_info)
+
+#define DRM_IOCTL_IVPU_CMDQ_UMQ_ENABLE                                         \
+	DRM_IOW(DRM_COMMAND_BASE + DRM_IVPU_CMDQ_UMQ_ENABLE,                   \
+		struct drm_ivpu_cmdq_umq_enable)
+
+#define DRM_IOCTL_IVPU_CMDQ_UMQ_DISABLE                                        \
+	DRM_IOW(DRM_COMMAND_BASE + DRM_IVPU_CMDQ_UMQ_DISABLE,                  \
+		struct drm_ivpu_cmdq_umq_disable)
 
 /**
  * DOC: contexts
@@ -139,6 +153,14 @@ extern "C" {
  * This allows creating GEM buffers from existing user memory regions.
  */
 #define DRM_IVPU_CAP_BO_CREATE_FROM_USERPTR	4
+/**
+ * DRM_IVPU_CAP_UMQ
+ *
+ * Driver supports User Mode Queue (UMQ): direct doorbell access from
+ * userspace via mmap, bypassing the CMDQ_SUBMIT ioctl in the hot path.
+ * Requires HW scheduling mode, silicon platform, and SMMU enabled.
+ */
+#define DRM_IVPU_CAP_UMQ               5
 
 /**
  * struct drm_ivpu_param - Get/Set VPU parameters
@@ -515,36 +537,44 @@ struct drm_ivpu_metric_streamer_get_data {
 };
 
 /* Command queue flags */
-#define DRM_IVPU_CMDQ_FLAG_TURBO 0x00000001
+#define DRM_IVPU_CMDQ_FLAG_TURBO       0x00000001 /* BIT(0): low-latency turbo scheduling */
+#define DRM_IVPU_CMDQ_FLAG_PERSISTENT  0x00000002 /* BIT(1): persistent CmdQ — hold NPU tile between inferences */
 
 /**
  * struct drm_ivpu_cmdq_create - Create command queue for job submission
  */
 struct drm_ivpu_cmdq_create {
-	/** @cmdq_id: Returned ID of created command queue */
-	__u32 cmdq_id;
-	/**
-	 * @priority:
-	 *
-	 * Priority to be set for related job command queue, can be one of the following:
-	 * %DRM_IVPU_JOB_PRIORITY_DEFAULT
-	 * %DRM_IVPU_JOB_PRIORITY_IDLE
-	 * %DRM_IVPU_JOB_PRIORITY_NORMAL
-	 * %DRM_IVPU_JOB_PRIORITY_FOCUS
-	 * %DRM_IVPU_JOB_PRIORITY_REALTIME
-	 */
-	__u32 priority;
-	/**
-	 * @flags:
-	 *
-	 * Supported flags:
-	 *
-	 * %DRM_IVPU_CMDQ_FLAG_TURBO
-	 *
-	 * Enable low-latency mode for the command queue. The NPU will maximize performance
-	 * when executing jobs from such queue at the cost of increased power usage.
-	 */
-	__u32 flags;
+        /** @cmdq_id: Returned ID of created command queue */
+        __u32 cmdq_id;
+        /**
+         * @priority:
+         *
+         * Priority to be set for related job command queue, can be one of the following:
+         * %DRM_IVPU_JOB_PRIORITY_DEFAULT
+         * %DRM_IVPU_JOB_PRIORITY_IDLE
+         * %DRM_IVPU_JOB_PRIORITY_NORMAL
+         * %DRM_IVPU_JOB_PRIORITY_FOCUS
+         * %DRM_IVPU_JOB_PRIORITY_REALTIME
+         */
+        __u32 priority;
+        /**
+         * @flags:
+         *
+         * Supported flags:
+         *
+         * %DRM_IVPU_CMDQ_FLAG_TURBO
+         *
+         * Enable low-latency mode for the command queue. The NPU will maximize performance
+         * when executing jobs from such queue at the cost of increased power usage.
+         *
+         * %DRM_IVPU_CMDQ_FLAG_PERSISTENT
+         *
+         * Keep the NPU tile allocated between inferences, eliminating per-inference
+         * tile acquire/release overhead. Used with UMQ fast path.
+         */
+        __u32 flags;
+        /** @_pad: Reserved, must be zero. */
+        __u32 _pad;
 };
 
 /**
@@ -553,6 +583,71 @@ struct drm_ivpu_cmdq_create {
 struct drm_ivpu_cmdq_destroy {
 	/** @cmdq_id: ID of command queue to destroy */
 	__u32 cmdq_id;
+};
+
+/**
+ * struct drm_ivpu_cmdq_info - Query UMQ parameters for a command queue
+ *
+ * Used with DRM_IOCTL_IVPU_CMDQ_INFO. After a successful call the
+ * job ring buffer is accessible at @cmdq_mmap_offset and the doorbell
+ * MMIO page is accessible at @db_mmap_offset (after CMDQ_UMQ_ENABLE).
+ */
+struct drm_ivpu_cmdq_info {
+	/** @cmdq_id: Command queue ID (input) */
+	__u32 cmdq_id;
+	/** @entry_count: Number of job slots in the ring buffer */
+	__u32 entry_count;
+	/** @cmdq_mmap_offset: mmap() offset for the job ring buffer */
+	__u64 cmdq_mmap_offset;
+	/** @db_mmap_offset: mmap() offset for the doorbell MMIO page */
+	__u64 db_mmap_offset;
+	/** @db_id: Doorbell register index */
+	__u32 db_id;
+	/** @job_id_base: Upper bits of job_id (context identifier) */
+	__u32 job_id_base;
+	/** @primary_preempt_buf_vpu_addr: VPU address of primary preemption buffer */
+	__u64 primary_preempt_buf_vpu_addr;
+	/** @primary_preempt_buf_size: Size of primary preemption buffer in bytes (OUT) */
+	__u32 primary_preempt_buf_size;
+	/** @_pad0: Explicit padding for alignment of secondary_preempt_buf_vpu_addr */
+	__u32 _pad0;
+	/** @secondary_preempt_buf_vpu_addr: VPU address of secondary preemption buffer (OUT) */
+	__u64 secondary_preempt_buf_vpu_addr;
+	/** @secondary_preempt_buf_size: Size of secondary preemption buffer in bytes (OUT) */
+	__u32 secondary_preempt_buf_size;
+	/**
+	 * @reset_counter: Device reset counter (OUT).
+	 * Incremented on every device reset. UMD must check this before
+	 * each UMQ submit and re-setup the UMQ if it has changed.
+	 */
+	__u32 reset_counter;
+};
+
+/**
+ * struct drm_ivpu_cmdq_umq_enable - Enable User Mode Queue for a command queue
+ *
+ * After a successful call the userspace may mmap the job ring buffer and
+ * doorbell MMIO page and submit jobs directly without any ioctl.
+ */
+struct drm_ivpu_cmdq_umq_enable {
+	/** @cmdq_id: Command queue ID */
+	__u32 cmdq_id;
+	/** @flags: Reserved, must be zero */
+	__u32 flags;
+	/** @reset_eventfd: eventfd for device-reset notification (-1 to disable) */
+	__s32 reset_eventfd;
+	/** @pad: Reserved, must be zero */
+	__u32 pad;
+};
+
+/**
+ * struct drm_ivpu_cmdq_umq_disable - Disable User Mode Queue for a command queue
+ */
+struct drm_ivpu_cmdq_umq_disable {
+	/** @cmdq_id: Command queue ID */
+	__u32 cmdq_id;
+	/** @pad: Reserved, must be zero */
+	__u32 pad;
 };
 
 /**

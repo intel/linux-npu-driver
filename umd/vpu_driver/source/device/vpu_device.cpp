@@ -63,6 +63,8 @@ bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
         hwInfo.dmaMemoryRangeCapability = true;
     if (drvApi->checkDeviceCapability(DRM_IVPU_CAP_MANAGE_CMDQ))
         hwInfo.cmdQueueCreationCapability = true;
+    if (drvApi->checkDeviceCapability(DRM_IVPU_CAP_UMQ))
+        hwInfo.umqCapability = true;
     // Disable userptr for NPU37XX to avoid performance degradation
     if (hwInfo.npuArch > NPU37XX &&
         drvApi->checkDeviceCapability(DRM_IVPU_CAP_BO_CREATE_FROM_USERPTR))

@@ -35,6 +35,7 @@ uint32_t VPUDeviceContext::getCpuTscFreqMHz() {
     static uint32_t cpuTscFreqMHz = 0;
 
     if (cpuTscFreqMHz == 0) {
+#ifdef __x86_64__
         // Estimate TSC frequency using RDTSC and steady clock
         auto hwTimerStartPoint = __rdtsc();
         auto osTimerStartPoint = std::chrono::steady_clock::now();
@@ -50,6 +51,10 @@ uint32_t VPUDeviceContext::getCpuTscFreqMHz() {
         cpuTscFreqMHz = static_cast<uint32_t>(
             (static_cast<double>(deltaHw) / static_cast<double>(deltaOs)) * 1000);
         LOG(DEVICE, "Estimated TSC frequency: %u MHz", cpuTscFreqMHz);
+#else
+        /* Non-x86: TSC not available; return 0 (busyWait path disabled on non-x86). */
+        cpuTscFreqMHz = 0;
+#endif
     }
     return cpuTscFreqMHz;
 }

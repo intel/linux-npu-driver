@@ -20,7 +20,10 @@
 #include <chrono> // IWYU pragma: keep
 #include <compare>
 #include <errno.h>
+#include <immintrin.h>
 #include <memory>
+#include <sys/mman.h>
+#include <sys/user.h>
 #include <thread>
 #include <uapi/drm/ivpu_accel.h>
 #include <vector>
@@ -82,11 +85,26 @@ VPUDeviceQueue::create(VPUDeviceContext *VPUContext, Priority queuePriority, uin
     }
     if (VPUContext->getDeviceCapabilities().cmdQueueCreationCapability) {
         uint32_t defaultQueue;
+        /* NPU_PERSISTENT_CMDQ=0 disables persistent flag at runtime (for benchmarking) */
+        const bool persistentEnabled = VPUContext->getDeviceCapabilities().umqCapability &&
+                                       (getenv("NPU_PERSISTENT_CMDQ") == nullptr ||
+                                        std::string(getenv("NPU_PERSISTENT_CMDQ")) != "0");
         if (pApi->commandQueueCreate(static_cast<uint32_t>(queuePriority),
                                      defaultQueue,
-                                     mode & ModeFlags::TURBO ? true : false)) {
+                                     mode & ModeFlags::TURBO ? true : false,
+                                     persistentEnabled)) {
             LOG_E("Command queue creation failed.");
             return nullptr;
+        }
+
+        /* Try to set up UMQ fast path if the capability is available */
+        if (VPUContext->getDeviceCapabilities().umqCapability) {
+            auto umq = VPUDeviceQueueUMQ::tryCreate(pApi, defaultQueue, mode);
+            if (umq) {
+                LOG(CMDQUEUE, "UMQ fast path enabled for cmdq %u", defaultQueue);
+                return umq;
+            }
+            LOG(CMDQUEUE, "UMQ setup failed, falling back to managed queue");
         }
 
         return std::make_unique<VPUDeviceQueueManaged>(pApi, defaultQueue, mode);
@@ -210,5 +228,170 @@ bool VPUDeviceQueueManaged::toBackgroundPriority() {
 bool VPUDeviceQueueManaged::toDefaultPriority() {
     currentId = defaultId;
     return true;
+}
+
+/* ========================================================================
+ * VPUDeviceQueueUMQ — User Mode Queue fast path
+ * ======================================================================== */
+
+VPUDeviceQueueUMQ::VPUDeviceQueueUMQ(VPUDriverApi *api,
+                                     uint32_t cmdqId,
+                                     uint32_t mode,
+                                     void *ringPtr,
+                                     volatile uint32_t *doorbellPtr,
+                                     const drm_ivpu_cmdq_info &info,
+                                     size_t ringMapSize)
+    : VPUDeviceQueue(api)
+    , cmdqId(cmdqId)
+    , modeFlags(mode)
+    , ringBuf(reinterpret_cast<vpu_job_queue *>(ringPtr))
+    , ringSize(ringMapSize)
+    , doorbell(doorbellPtr)
+    , entryCount(info.entry_count)
+    , jobIdBase(info.job_id_base)
+    , primaryPreemptBufVpuAddr(info.primary_preempt_buf_vpu_addr)
+    , primaryPreemptBufSize(info.primary_preempt_buf_size)
+    , secondaryPreemptBufVpuAddr(info.secondary_preempt_buf_vpu_addr)
+    , secondaryPreemptBufSize(info.secondary_preempt_buf_size)
+    , jobIdCounter(0)
+    , lastResetCounter(info.reset_counter) {}
+
+VPUDeviceQueueUMQ::~VPUDeviceQueueUMQ() {
+    if (doorbell && doorbell != MAP_FAILED)
+        pDriverApi->unmap(const_cast<uint32_t *>(doorbell), PAGE_SIZE);
+    if (ringBuf && ringBuf != MAP_FAILED)
+        pDriverApi->unmap(ringBuf, ringSize);
+    pDriverApi->commandQueueUmqDisable(cmdqId);
+    pDriverApi->commandQueueDestroy(cmdqId);
+}
+
+std::unique_ptr<VPUDeviceQueueUMQ>
+VPUDeviceQueueUMQ::tryCreate(VPUDriverApi *api, uint32_t cmdqId, uint32_t mode) {
+    /* 1. Query UMQ parameters */
+    drm_ivpu_cmdq_info info = {};
+    info.cmdq_id = cmdqId;
+    if (api->commandQueueGetInfo(&info)) {
+        LOG_E("CMDQ_INFO failed for cmdq %u", cmdqId);
+        return nullptr;
+    }
+
+    /* 2. Enable UMQ — holds a PM reference in the kernel */
+    drm_ivpu_cmdq_umq_enable enableArgs = {};
+    enableArgs.cmdq_id = cmdqId;
+    enableArgs.reset_eventfd = -1; /* no reset eventfd for now */
+    if (api->commandQueueUmqEnable(&enableArgs)) {
+        LOG_E("CMDQ_UMQ_ENABLE failed for cmdq %u", cmdqId);
+        return nullptr;
+    }
+
+    /* 3. mmap the job ring buffer */
+    const size_t ringSize = static_cast<size_t>(PAGE_SIZE); /* cmdq mem is SZ_4K */
+    void *ringPtr = api->mmap(ringSize, static_cast<off_t>(info.cmdq_mmap_offset));
+    if (!ringPtr || ringPtr == MAP_FAILED) {
+        LOG_E("mmap of cmdq ring buffer failed, offset %#llx", info.cmdq_mmap_offset);
+        api->commandQueueUmqDisable(cmdqId);
+        return nullptr;
+    }
+
+    /* 4. mmap the doorbell MMIO page (write-only, noncached) */
+    void *dbPtr = api->mmap(PAGE_SIZE, static_cast<off_t>(info.db_mmap_offset));
+    if (!dbPtr || dbPtr == MAP_FAILED) {
+        LOG_E("mmap of doorbell failed, offset %#llx", info.db_mmap_offset);
+        api->unmap(ringPtr, ringSize);
+        api->commandQueueUmqDisable(cmdqId);
+        return nullptr;
+    }
+
+    LOG(CMDQUEUE,
+        "UMQ: cmdq %u ring @%p db @%p entry_count %u job_id_base %#x reset %u",
+        cmdqId, ringPtr, dbPtr, info.entry_count, info.job_id_base, info.reset_counter);
+
+    return std::unique_ptr<VPUDeviceQueueUMQ>(
+        new VPUDeviceQueueUMQ(api, cmdqId, mode, ringPtr,
+                              reinterpret_cast<volatile uint32_t *>(dbPtr), info, ringSize));
+}
+
+bool VPUDeviceQueueUMQ::checkReset() {
+    drm_ivpu_cmdq_info info = {};
+    info.cmdq_id = cmdqId;
+    if (pDriverApi->commandQueueGetInfo(&info))
+        return true; /* assume reset if ioctl fails */
+    if (info.reset_counter != lastResetCounter) {
+        LOG(CMDQUEUE, "UMQ: device reset detected (counter %u -> %u)",
+            lastResetCounter, info.reset_counter);
+        lastResetCounter = info.reset_counter;
+        return true;
+    }
+    return false;
+}
+
+int VPUDeviceQueueUMQ::ringJob(uint64_t batchBufAddr, uint32_t jobId,
+                               uint32_t preemptBufSize, uint64_t preemptBufAddr,
+                               uint32_t secPreemptBufSize, uint64_t secPreemptBufAddr) {
+    vpu_job_queue_header *header = &ringBuf->header;
+    uint32_t tail = __atomic_load_n(&header->tail, __ATOMIC_ACQUIRE);
+    uint32_t nextEntry = (tail + 1) % entryCount;
+
+    if (nextEntry == header->head) {
+        /* Ring full */
+        errno = EBUSY;
+        return -1;
+    }
+
+    vpu_job *entry = &ringBuf->slot[tail].job;
+    entry->batch_buf_addr           = batchBufAddr;
+    entry->job_id                   = jobId;
+    entry->flags                    = 0;
+    entry->doorbell_timestamp       = 0;
+    entry->host_tracking_id         = 0;
+    entry->primary_preempt_buf_addr = preemptBufAddr;
+    entry->primary_preempt_buf_size = preemptBufSize;
+    entry->secondary_preempt_buf_addr = secPreemptBufAddr;
+    entry->secondary_preempt_buf_size = secPreemptBufSize;
+    entry->reserved_0               = 0;
+
+    /* Ensure entry is written before updating tail */
+    __asm__ volatile("sfence" ::: "memory");
+    __atomic_store_n(&header->tail, nextEntry, __ATOMIC_RELEASE);
+    /* Flush WC buffer and ensure tail is visible before doorbell write */
+    __asm__ volatile("sfence" ::: "memory");
+
+    /* Ring the doorbell — MMIO WC write, one word is enough */
+    *doorbell = 1u;
+    /* Flush the MMIO write */
+    __asm__ volatile("sfence" ::: "memory");
+
+    return 0;
+}
+
+int VPUDeviceQueueUMQ::submitCommandBuffer(const std::unique_ptr<VPUCommandBuffer> &cmdBuf) {
+    /* Enable busy-wait completion (NPU writes fenceValue when done) and UMQ mode
+     * (skip BO_WAIT ioctl in waitForCompletion). */
+    cmdBuf->useBusyWait();
+    cmdBuf->setUmqMode(true);
+
+    uint32_t jobId = jobIdBase | (jobIdCounter.fetch_add(1, std::memory_order_relaxed) &
+                                   0x00FFFFFFu);
+
+    int ret = ringJob(cmdBuf->getBuffer()->getVPUAddr() + cmdBuf->getCommandBufferOffset(),
+                      jobId,
+                      primaryPreemptBufSize,
+                      primaryPreemptBufVpuAddr,
+                      secondaryPreemptBufSize,
+                      secondaryPreemptBufVpuAddr);
+    if (ret < 0 && errno != EBUSY) {
+        /* Non-EBUSY failure: check whether a device reset occurred */
+        if (checkReset()) {
+            errno = ENODEV;
+        }
+    }
+    return ret;
+}
+
+bool VPUDeviceQueueUMQ::submit(VPUJob *job) {
+    if (!job)
+        return false;
+
+    return submitWithWait(job, [this](auto &cmdBuf) { return this->submitCommandBuffer(cmdBuf); });
 }
 } // namespace VPU
