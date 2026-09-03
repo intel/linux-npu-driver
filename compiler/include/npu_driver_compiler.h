@@ -23,7 +23,7 @@ extern "C" {
 #endif
 
 #define VCL_COMPILER_VERSION_MAJOR 7
-#define VCL_COMPILER_VERSION_MINOR 8
+#define VCL_COMPILER_VERSION_MINOR 10
 #define VCL_PROFILING_VERSION_MAJOR 2
 #define VCL_PROFILING_VERSION_MINOR 0
 
@@ -268,10 +268,6 @@ VCL_APIEXPORT vcl_result_t VCL_APICALL vclAllocatedExecutableCreate2(vcl_compile
                                                                      vcl_allocator2_t* allocator, uint8_t** blobBuffer,
                                                                      uint64_t* blobSize);
 
-DEPRECATED VCL_APIEXPORT vcl_result_t VCL_APICALL vclAllocatedExecutableCreate3(
-        vcl_compiler_handle_t compiler, vcl_executable_desc_t desc, vcl_allocator2_t* allocator, uint8_t** blobBuffer,
-        uint64_t* blobSize, uint8_t** compatibilityReqBuffer, uint64_t* compatibilityReqSize);
-
 VCL_APIEXPORT vcl_result_t VCL_APICALL vclAllocatedExecutableCreate4(vcl_compiler_handle_t compiler,
                                                                      vcl_executable_desc_t desc,
                                                                      vcl_allocator2_t* allocator, uint8_t** blobBuffer,
@@ -281,6 +277,14 @@ VCL_APIEXPORT vcl_result_t VCL_APICALL vclAllocatedExecutableCreate4(vcl_compile
 VCL_APIEXPORT vcl_result_t VCL_APICALL vclAllocatedExecutableCreateWSOneShot(vcl_compiler_handle_t compiler,
                                                                              vcl_executable_desc_t desc,
                                                                              vcl_allocator2_t* allocator);
+
+/// @brief Creates weight-separated blobs and returns an executable handle containing their compatibility string.
+/// @details The returned handle is a lightweight handle intended for metadata queries, such as
+///          \b vclExecutableGetCompatibilityString. It must be released with \b vclExecutableDestroy.
+VCL_APIEXPORT vcl_result_t VCL_APICALL vclAllocatedExecutableCreateWSOneShot2(vcl_compiler_handle_t compiler,
+                                                                              vcl_executable_desc_t desc,
+                                                                              vcl_allocator2_t* allocator,
+                                                                              vcl_executable_handle_t* executable);
 
 ///////////////////////////////////////////////////////////////////////////////
 /// @brief Returns the compatibility string associated with the provided executable (if available).
