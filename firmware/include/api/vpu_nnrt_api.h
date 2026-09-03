@@ -27,7 +27,7 @@ struct VPU_ALIGNED_STRUCT(4) VpuResourceRequirements {
      * @brief Amount of CMX memory required per tile.
      */
     uint32_t nn_slice_length_;
-    uint8_t deprecated_[6]; // Deprecated member, do not reuse until next API major version update
+    uint8_t deprecated_[6]; /* deprecated member, do not reuse until next API major version update */
     /**
      * @brief Number of tiles.
      */
@@ -73,6 +73,6 @@ static_assert(offsetof(VpuHostParsedInference, mapped_) % 8 == 0, "Alignment err
 
 #pragma pack(pop)
 
-} // namespace nn_public
+} /* namespace nn_public */
 
 #endif /* VPU_NNRT_API_H */

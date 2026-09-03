@@ -70,13 +70,7 @@ struct VPU_ALIGNED_STRUCT(8) VpuTaskReference {
     T *data() { return reinterpret_cast<T *>(address); }
     const T *data() const { return reinterpret_cast<T *>(address); }
 
-    T *data(int64_t offset) { return reinterpret_cast<T *>(address + offset); }
-    const T *data(int64_t offset) const { return reinterpret_cast<T *>(address + offset); }
-
     uint64_t size() const { return count; };
-
-    T &at(uint32_t index, int64_t offset = 0) { return (reinterpret_cast<T *>(address + offset))[index]; }
-    const T &at(uint32_t index, int64_t offset = 0) const { return (reinterpret_cast<T *>(address + offset))[index]; }
 
     bool is_valid() const {
         // Check if address is non-null and aligned to the natural alignment of T

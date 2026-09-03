@@ -23,7 +23,7 @@
 /*
  * Minor version changes when API backward compatibility is preserved.
  */
-#define VPU_JSM_API_VER_MINOR 40
+#define VPU_JSM_API_VER_MINOR 41
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
@@ -660,6 +660,10 @@ enum vpu_ipc_msg_type {
      * @see vpu_ipc_msg_payload_native_fence_signalled
      */
     VPU_IPC_MSG_NATIVE_FENCE_SIGNALLED = 0x2101,
+    /**
+     * Reserved command for future extensions.
+     */
+    VPU_IPC_MSG_EXT_1 = 0x2102,
 
     /* IPC Device -> Host, Async command completion */
     VPU_IPC_MSG_ASYNC_CMD_DONE = 0x2200,
