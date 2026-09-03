@@ -60,6 +60,7 @@ struct VPUHwInfo {
     bool dmaMemoryRangeCapability = false;
     bool primeBuffersCapability = false;
     bool cmdQueueCreationCapability = false;
+    bool cmdQueueSetPriorityCapability = false;
     bool userPtrCapability = false;
 
     GetCopyCommand *getCopyCommand = nullptr;

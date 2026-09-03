@@ -81,8 +81,7 @@ class Vcl {
     Vcl() {
         // First try to load library placed in same directory as driver
         std::vector<std::string> libToLoads = {getDriverLibDir() /
-                                                   "libopenvino_intel_npu_compiler_loader.so",
-                                               "libnpu_driver_compiler.so"};
+                                               "libopenvino_intel_npu_compiler_loader.so"};
         std::string errorMsg;
         for (const auto &name : libToLoads) {
             handle = VclHandle(dlopen(name.c_str(), RTLD_LAZY | RTLD_LOCAL), &closeHandle);

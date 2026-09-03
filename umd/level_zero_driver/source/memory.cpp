@@ -189,7 +189,7 @@ ze_result_t Context::getMemAddressRange(const void *ptr, void **basePtr, size_t 
     auto bo = ctx->findBufferObject(ptr);
     if (bo == nullptr) {
         LOG(CONTEXT, "Pointer %p has not been allocated by Context %p", ptr, this);
-        return ZE_RESULT_ERROR_NOT_AVAILABLE;
+        return ZE_RESULT_ERROR_ADDRESS_NOT_FOUND;
     }
 
     if (basePtr != nullptr) {

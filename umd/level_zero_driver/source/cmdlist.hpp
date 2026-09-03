@@ -18,7 +18,6 @@
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <memory>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 #include <ze_api.h>
@@ -213,7 +212,7 @@ struct CommandList : _ze_command_list_handle_t, IContextObject {
     VPU::VPUDeviceContext *ctx = nullptr;
     std::shared_ptr<VPU::VPUJob> vpuJob = nullptr;
     std::vector<VPU::VPUBufferObject *> tracedInternalBos;
-    std::unordered_map<uint64_t, uint64_t> commandIdMap;
+    std::vector<VPU::VPUCommand *> inferences;
 };
 
 } // namespace L0

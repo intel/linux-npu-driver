@@ -54,6 +54,7 @@ static const char *struct_param_name(unsigned int param) {
         CASE_RETURN_STR(DRM_IVPU_PARAM_PLATFORM_TYPE);
         CASE_RETURN_STR(DRM_IVPU_PARAM_CORE_CLOCK_RATE);
         CASE_RETURN_STR(DRM_IVPU_PARAM_NUM_CONTEXTS);
+        CASE_RETURN_STR(DRM_IVPU_PARAM_CONTEXT_BASE_ADDRESS);
         CASE_RETURN_STR(DRM_IVPU_PARAM_CONTEXT_PRIORITY);
         CASE_RETURN_STR(DRM_IVPU_PARAM_CONTEXT_ID);
         CASE_RETURN_STR(DRM_IVPU_PARAM_FW_API_VERSION);
@@ -63,6 +64,7 @@ static const char *struct_param_name(unsigned int param) {
         CASE_RETURN_STR(DRM_IVPU_PARAM_SKU);
         CASE_RETURN_STR(DRM_IVPU_PARAM_CAPABILITIES);
         CASE_RETURN_STR(DRM_IVPU_PARAM_PREEMPT_BUFFER_SIZE);
+        CASE_RETURN_STR(DRM_IVPU_PARAM_CMDQ_PRIORITY);
     default:
         return "Unknown";
     }
@@ -74,6 +76,7 @@ const char *driver_struct_param_cap_index_str(unsigned index) {
         CASE_RETURN_STR(DRM_IVPU_CAP_DMA_MEMORY_RANGE);
         CASE_RETURN_STR(DRM_IVPU_CAP_MANAGE_CMDQ);
         CASE_RETURN_STR(DRM_IVPU_CAP_BO_CREATE_FROM_USERPTR);
+        CASE_RETURN_STR(DRM_IVPU_CAP_CMDQ_SET_PRIORITY);
     default:
         return "Unknown";
     }

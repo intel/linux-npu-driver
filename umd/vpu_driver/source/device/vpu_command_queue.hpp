@@ -27,7 +27,12 @@ class VPUDeviceQueue {
         REALTIME = DRM_IVPU_JOB_PRIORITY_REALTIME,
     };
 
-    enum ModeFlags : uint32_t { DEFAULT = 0, TURBO = 0x1, IN_ORDER = 0x2 };
+    enum ModeFlags : uint32_t {
+        DEFAULT = 0,
+        TURBO = 0x1,
+        IN_ORDER = 0x2,
+        HAS_VARIABLE_PRIORITY = 0x4
+    };
 
     virtual ~VPUDeviceQueue() = default;
 
@@ -68,7 +73,10 @@ class VPUDeviceQueueLegacy final : public VPUDeviceQueue {
 
 class VPUDeviceQueueManaged final : public VPUDeviceQueue {
   public:
-    VPUDeviceQueueManaged(VPUDriverApi *api, uint32_t defaultQueue, uint32_t mode);
+    VPUDeviceQueueManaged(VPUDriverApi *api,
+                          uint32_t defaultQueue,
+                          Priority queuePriority,
+                          uint32_t mode);
     virtual ~VPUDeviceQueueManaged() override;
 
     bool submit(VPUJob *job) override;
@@ -84,6 +92,7 @@ class VPUDeviceQueueManaged final : public VPUDeviceQueue {
     uint32_t currentId;
     uint32_t defaultId;
     uint32_t backgroundId;
+    Priority priority;
 
     uint32_t modeFlags;
     std::shared_ptr<VPUBufferObject> lastWaitBo;

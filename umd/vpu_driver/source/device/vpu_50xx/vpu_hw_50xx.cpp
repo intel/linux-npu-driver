@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -30,7 +30,7 @@ VPUHwInfo getHwInfo50xx(uint32_t deviceId) {
                       .fwTimestampType = VPU_TIME_SYSTIME,
                       .getCopyCommand = getHwInfo40xx().getCopyCommand,
                       .printCopyDescriptor = getHwInfo40xx().printCopyDescriptor,
-                      .fwMappedInferenceIndex = VPU_NNRT_40XX_API_VER_INDEX,
+                      .fwMappedInferenceIndex = VPU_NNRT_API_VER_INDEX,
                       .fwJsmCmdApiVerIndex = VPU_JSM_JOB_CMD_API_VER_INDEX,
                       .fwJsmApiVerIndex = VPU_JSM_API_VER_INDEX};
 

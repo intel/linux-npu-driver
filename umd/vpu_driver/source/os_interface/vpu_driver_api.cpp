@@ -153,6 +153,39 @@ int VPUDriverApi::commandQueueCreate(uint32_t priority, uint32_t &queueId, bool 
     return 0;
 }
 
+int VPUDriverApi::commandQueueSetPriority(uint32_t queueId, uint32_t priority) const {
+    struct drm_ivpu_param arg = {};
+    arg.param = DRM_IVPU_PARAM_CMDQ_PRIORITY;
+    arg.index = queueId;
+    arg.value = priority;
+
+    int ret = doIoctl(DRM_IOCTL_IVPU_SET_PARAM, &arg);
+    if (ret) {
+        LOG_E("Set command queue priority failed, queue: %u, priority: %u, errno: %d",
+              queueId,
+              priority,
+              errno);
+        return ret;
+    }
+
+    return 0;
+}
+
+int VPUDriverApi::commandQueueGetPriority(uint32_t queueId, uint32_t &priority) const {
+    struct drm_ivpu_param arg = {};
+    arg.param = DRM_IVPU_PARAM_CMDQ_PRIORITY;
+    arg.index = queueId;
+
+    int ret = doIoctl(DRM_IOCTL_IVPU_GET_PARAM, &arg);
+    if (ret) {
+        LOG_E("Get command queue priority failed, queue: %u, errno: %d", queueId, errno);
+        return ret;
+    }
+
+    priority = static_cast<uint32_t>(arg.value);
+    return 0;
+}
+
 int VPUDriverApi::commandQueueSubmit(drm_ivpu_cmdq_submit *arg) const {
     int ret = doIoctl(DRM_IOCTL_IVPU_CMDQ_SUBMIT, arg);
     if (ret && errno != EBUSY)
