@@ -79,9 +79,11 @@
     if (!sysfs_file_exists(fname)) \
         SKIP_("No " fname " sysfs file");
 
-#define SKIP_NEEDS_ROOT()             \
+#define SKIP_NEEDS_ROOT_(msg)         \
     if (!test_app::has_root_access()) \
-    SKIP_("Needs root privileges")
+    SKIP_(msg)
+
+#define SKIP_NEEDS_ROOT() SKIP_NEEDS_ROOT_("Needs root privileges")
 
 #define SKIP_HARDENING(msg)              \
     if (test_app::is_hardening_kernel()) \
@@ -148,6 +150,8 @@ bool array_eq(T *arr, size_t size, T value) {
 #define HAS_COPY_ENGINE 0
 
 #define API_VER(api_name) VPU_API_VERSION(api_name##_API_VER_MAJOR, api_name##_API_VER_MINOR)
+
+#define INVALID_AUTOSUSPEND_DELAY (-987)
 
 typedef struct copy_descriptor {
     union {
@@ -245,6 +249,12 @@ class KmdContext {
     bool is_vpu37xx();
     size_t copy_desc_size();
 
+    bool compare_fdinfo(uint64_t total,
+                        uint64_t shared,
+                        uint64_t resident,
+                        uint64_t active,
+                        uint64_t purgeable);
+
   protected:
     int fd;
     int major_id = -1;
@@ -310,7 +320,6 @@ class KmdTest : public ::testing::Test {
     void check_api_version();
     bool api_version_lt(int major, int minor);
     bool is_patchset();
-    bool is_autosuspend_enabled();
     bool is_debugfs_file_accessible(const char *fname);
 
     bool resume();
@@ -319,8 +328,11 @@ class KmdTest : public ::testing::Test {
     bool wait_for_recovery_event(int timeout_ms = PM_STATE_TIMEOUT_MS);
     bool wait_for_engine_reset(int timeout_ms = PM_STATE_TIMEOUT_MS);
     int force_recovery();
+    bool is_autosuspend_enabled();
     int get_autosuspend_delay(int &delay);
     int set_autosuspend_delay(int delay);
+    int store_autosuspend_delay();
+    void restore_autosuspend_delay();
 
     bool get_TDR_timeout(int &tdr);
     bool is_hws_enabled();
@@ -329,6 +341,8 @@ class KmdTest : public ::testing::Test {
     int bind_module() const;
     int unbind_module();
     int rebind_module();
+    int reset_device();
+    int rescan_device();
 
     void fw_store();
     void fw_restore();
@@ -419,6 +433,9 @@ class KmdTest : public ::testing::Test {
     bool custom_affinity = false;
     cpu_set_t original_affinity;
     bool has_debugfs = false;
+
+  private:
+    int initial_delay = INVALID_AUTOSUSPEND_DELAY;
 };
 
 struct MemoryBuffer {
@@ -520,7 +537,9 @@ struct MemoryBuffer {
 };
 
 struct CmdBuffer : MemoryBuffer {
-    CmdBuffer(KmdContext &context, size_t size, VPU_BUF_USAGE usage = VPU_BUF_USAGE_BATCHBUFFER);
+    CmdBuffer(KmdContext &context,
+              size_t size = 4096,
+              VPU_BUF_USAGE usage = VPU_BUF_USAGE_BATCHBUFFER);
 
     int create();
     int create_from_fd(int fd);
@@ -566,9 +585,10 @@ struct CmdBuffer : MemoryBuffer {
                       size_t length,
                       uint16_t copy_cmd = VPU_CMD_COPY);
     int submit(int engine = ENGINE_COMPUTE, int priority = 0, uint32_t timeout_ms = 0);
-    int cmdq_submit(uint32_t cmdq_id);
+    int cmdq_submit(uint32_t cmdq_id, uint32_t timeout_ms = 0);
     void prepare_bb_hdr(void);
     void prepare_params(int engine, int priority, drm_ivpu_submit *params);
+    void prepare_cmdq_params(uint32_t cmdq_id, drm_ivpu_cmdq_submit *params);
     void set_preempt_buffer(MemoryBuffer &buf);
     int wait(uint32_t timeout_ms = JOB_SYNC_TIMEOUT_MS);
 
@@ -578,11 +598,52 @@ struct CmdBuffer : MemoryBuffer {
                        uint32_t fence_offset,
                        uint64_t fence_value,
                        enum vpu_cmd_type type);
-    int submit_retry(drm_ivpu_submit *params, uint32_t timeout_ms = 0);
+    int submit_retry(void *params,
+                     uint32_t timeout_ms = 0,
+                     unsigned long ioctl = DRM_IOCTL_IVPU_SUBMIT);
 
     uint32_t _start;
     uint32_t _end;
     uint32_t _preempt_buffer_index;
+};
+
+class CmdQueue {
+  public:
+    CmdQueue(KmdContext &context,
+             int priority = DRM_IVPU_JOB_PRIORITY_DEFAULT,
+             uint32_t flags = 0,
+             bool legacy = false);
+    ~CmdQueue();
+
+    // Owns a single command queue id, copying would double-destroy it
+    CmdQueue(const CmdQueue &) = delete;
+    CmdQueue &operator=(const CmdQueue &) = delete;
+
+    int create();
+    int destroy();
+    int reset();
+    int set_priority(uint32_t priority);
+    int get_priority(uint32_t *priority);
+    void set_flags(uint32_t flags) { _flags = flags; }
+    uint32_t get_flags() { return _flags; }
+
+    int submit(CmdBuffer &cmd_buffer, uint32_t timeout_ms = 0);
+    bool is_legacy() const { return _legacy; }
+    bool is_managed() const { return !_legacy; }
+    bool is_created() const { return _cmdq_id != 0; }
+    uint32_t get_id() const { return _cmdq_id; }
+
+  private:
+    void detect_capabilities();
+
+    // Cached managed command queue support: -1 unknown, 0 unsupported, 1 supported
+    static int _has_managed_cmdq;
+
+    KmdContext &_context;
+    uint32_t _cmdq_id;
+    int _priority;
+    uint32_t _flags;
+    bool _legacy;
 };
 
 struct DmaBuffer {

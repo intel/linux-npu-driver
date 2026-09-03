@@ -309,6 +309,7 @@ class Environment : public ::testing::Environment {
         }
 
         if (configFilePath == "none") {
+            Environment::createMinimalConfiguration();
             return true;
         }
 
@@ -342,7 +343,6 @@ class Environment : public ::testing::Environment {
                 return true;
             }
         }
-
         return false;
     }
 
@@ -373,6 +373,59 @@ class Environment : public ::testing::Environment {
             return false;
         }
         return true;
+    }
+
+    static void createMinimalConfiguration() {
+        YAML::Node &config = getConfiguration();
+
+        YAML::Emitter out;
+        // clang-format off
+        out << YAML::BeginMap;
+            out << YAML::Key << "log_level" << YAML::Value << "ERROR";
+            out << YAML::Key << "model_dir" << YAML::Value << "use_internal";
+            out << YAML::Key << "image_dir" << YAML::Value << "use_internal";
+            /*graph_execution section begin*/
+            out << YAML::Key << "graph_execution" << YAML::Value << YAML::BeginSeq;
+                out << YAML::BeginMap;
+                    out << YAML::Key << "path" << YAML::Value << "Internal_add_abc.xml";
+                    out << YAML::Key << "name" << YAML::Value << "add_abc";
+                out << YAML::EndMap;
+                out << YAML::BeginMap;
+                    out << YAML::Key << "path" << YAML::Value << "Internal_mul_add.xml";
+                    out << YAML::Key << "name" << YAML::Value << "mul_add";
+                out << YAML::EndMap;
+            out << YAML::EndSeq;/*graph_execution section end*/
+
+            /*multi_inference section begin*/
+            out << YAML::Key << "multi_inference" << YAML::Value << YAML::BeginSeq;
+                out << YAML::BeginMap; /*InferencePreemption group begin*/
+                    out << YAML::Key << "name" << YAML::Value << "InferencePreemption";
+                    out << YAML::Key << "pipeline" << YAML::Value << YAML::BeginSeq;
+                        out << YAML::BeginMap;
+                            out << YAML::Key << "path" << YAML::Value << "Internal_add_abc.xml";
+                            out << YAML::Key << "name" << YAML::Value << "add_abc";
+                        out << YAML::EndMap;
+                        out << YAML::BeginMap;
+                            out << YAML::Key << "path" << YAML::Value << "Internal_mul_add.xml";
+                            out << YAML::Key << "name" << YAML::Value << "mul_add";
+                        out << YAML::EndMap;
+                    out << YAML::EndSeq;
+                out << YAML::EndMap; /*InferencePreemption group end*/
+            out <<   YAML::EndSeq;/*multi_inference section end*/
+        out << YAML::EndMap;
+        // clang-format on
+        if (!out.good()) {
+            PRINTF("WARNING: Failed to create minimal configuration, tests will be run without "
+                   "configuration\n");
+            return;
+        }
+        try {
+            config = YAML::Load(out.c_str());
+        } catch (YAML::Exception &e) {
+            PRINTF("WARNING: Failed to load minimal configuration, tests will be run without "
+                   "configuration\n");
+            PRINTF("Reason: %s\n", e.what());
+        }
     }
 
   private:

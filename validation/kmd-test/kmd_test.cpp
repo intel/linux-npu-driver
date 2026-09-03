@@ -13,7 +13,9 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <linux/netlink.h>
+#include <sstream>
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <thread>
@@ -279,6 +281,108 @@ size_t KmdContext::copy_desc_size() {
     return sizeof(copy_descriptor::vpu40xx);
 }
 
+struct FdInfo {
+    uint64_t drm_total_memory = 0;
+    uint64_t drm_shared_memory = 0;
+    uint64_t drm_resident_memory = 0;
+    uint64_t drm_active_memory = 0;
+    uint64_t drm_purgeable_memory = 0;
+
+    void trace() const {
+        TRACE("Parsed:\n");
+        TRACE("  %s:\t%lu\n", "drm-total-memory", drm_total_memory);
+        TRACE("  %s:\t%lu\n", "drm-shared-memory", drm_shared_memory);
+        TRACE("  %s:\t%lu\n", "drm-resident-memory", drm_resident_memory);
+        TRACE("  %s:\t%lu\n", "drm-active-memory", drm_active_memory);
+        TRACE("  %s:\t%lu\n", "drm-purgeable-memory", drm_purgeable_memory);
+        TRACE("\n");
+    }
+};
+
+static void parse_fdinfo(int fd, FdInfo &info) {
+    std::string fdinfo_path = "/proc/self/fdinfo/" + std::to_string(fd);
+    std::ifstream fdinfo_file(fdinfo_path);
+    if (!fdinfo_file.is_open()) {
+        ADD_FAILURE() << "Failed to open " << fdinfo_path << ": " << strerror(errno);
+        return;
+    }
+
+    // Reset all values
+    info = {};
+    std::string line;
+
+    TRACE("Source:\n");
+    while (std::getline(fdinfo_file, line)) {
+        auto parse_memory_line = [&](const std::string &prefix) -> uint64_t {
+            TRACE("  %s\n", line.c_str());
+
+            if (line.find(prefix) != std::string::npos) {
+                size_t colon_pos = line.find(':');
+
+                if (colon_pos != std::string::npos) {
+                    std::string value_str = line.substr(colon_pos + 1);
+                    value_str.erase(0, value_str.find_first_not_of(" \t"));
+
+                    // Extract the integer part and detect suffix
+                    std::stringstream ss(value_str);
+                    uint64_t value;
+                    ss >> value;
+
+                    // Prevent overflow when converting MB to bytes,
+                    // if value is too large, return max value
+                    if (value > std::numeric_limits<decltype(value)>::max() / MB)
+                        return std::numeric_limits<decltype(value)>::max();
+
+                    // Check for suffix and apply appropriate multiplier
+                    if (value_str.find("MiB") != std::string::npos) {
+                        return value * MB;
+                    } else if (value_str.find("KiB") != std::string::npos) {
+                        return value * KB;
+                    } else {
+                        return value;
+                    }
+                }
+            }
+            return 0;
+        };
+
+        // Parse different memory types
+        if (line.find("drm-total-memory:") != std::string::npos) {
+            info.drm_total_memory = parse_memory_line("drm-total-memory:");
+        } else if (line.find("drm-shared-memory:") != std::string::npos) {
+            info.drm_shared_memory = parse_memory_line("drm-shared-memory:");
+        } else if (line.find("drm-resident-memory:") != std::string::npos) {
+            info.drm_resident_memory = parse_memory_line("drm-resident-memory:");
+        } else if (line.find("drm-active-memory:") != std::string::npos) {
+            info.drm_active_memory = parse_memory_line("drm-active-memory:");
+        } else if (line.find("drm-purgeable-memory:") != std::string::npos) {
+            info.drm_purgeable_memory = parse_memory_line("drm-purgeable-memory:");
+        }
+    }
+
+    info.trace();
+    fdinfo_file.close();
+}
+
+bool KmdContext::compare_fdinfo(uint64_t expected_total,
+                                uint64_t expected_shared,
+                                uint64_t expected_resident,
+                                uint64_t expected_active,
+                                uint64_t expected_purgeable) {
+    FdInfo info;
+
+    parse_fdinfo(fd, info);
+    EXPECT_EQ(info.drm_total_memory, expected_total);
+    EXPECT_EQ(info.drm_shared_memory, expected_shared);
+    EXPECT_EQ(info.drm_resident_memory, expected_resident);
+    EXPECT_EQ(info.drm_active_memory, expected_active);
+    EXPECT_EQ(info.drm_purgeable_memory, expected_purgeable);
+    return info.drm_total_memory == expected_total && info.drm_shared_memory == expected_shared &&
+           info.drm_resident_memory == expected_resident &&
+           info.drm_active_memory == expected_active &&
+           info.drm_purgeable_memory == expected_purgeable;
+}
+
 KmdTest::KmdTest()
     : pci_id(0)
     , num_contexts(0) {
@@ -331,9 +435,11 @@ void KmdTest::TearDown() {
 
     if (has_debugfs && !read_debugfs_file("engine_reset_counter", current_engine_reset_counter)) {
         int actual_resets = current_engine_reset_counter - initial_engine_reset_counter;
-        EXPECT_EQ(expected_engine_resets, actual_resets)
-            << "The test failed because it caused " << actual_resets << " VPU engine resets but "
-            << expected_engine_resets << " were expected";
+        if (is_hws_enabled()) {
+            EXPECT_EQ(expected_engine_resets, actual_resets)
+                << "The test failed because it caused " << actual_resets
+                << " VPU engine resets but " << expected_engine_resets << " were expected";
+        }
     }
 }
 
@@ -396,14 +502,6 @@ bool KmdTest::api_version_lt(int major, int minor) {
 
 bool KmdTest::is_patchset() {
     return api_version_lt(1, 3);
-}
-
-bool KmdTest::is_autosuspend_enabled() {
-    int delay = 0;
-    if (get_autosuspend_delay(delay) == 0) {
-        return delay >= 0;
-    }
-    return false;
 }
 
 bool KmdTest::is_debugfs_file_accessible(const char *fname) {
@@ -484,6 +582,11 @@ bool KmdTest::wait_for_engine_reset(int timeout_ms) {
     int count;
 
     if (!is_debugfs_file_accessible("engine_reset_counter")) {
+        return true;
+    }
+
+    if (!is_hws_enabled()) {
+        TRACE("HWS is not enabled, engine reset counter will not be incremented\n");
         return true;
     }
 
@@ -571,12 +674,44 @@ int KmdTest::force_recovery() {
     return write_debugfs_file("force_recovery", 1);
 }
 
+bool KmdTest::is_autosuspend_enabled() {
+    int delay = 0;
+
+    if (get_autosuspend_delay(delay) == 0) {
+        return delay >= 0;
+    }
+    return false;
+}
+
 int KmdTest::get_autosuspend_delay(int &delay) {
     return read_sysfs_file("power/autosuspend_delay_ms", delay);
 }
 
 int KmdTest::set_autosuspend_delay(int delay) {
     return write_sysfs_file("power/autosuspend_delay_ms", delay);
+}
+
+int KmdTest::store_autosuspend_delay() {
+    int ret = get_autosuspend_delay(initial_delay);
+    if (ret) {
+        TRACE("Autosuspend disabled: %d\n", ret);
+        initial_delay = -1;
+    }
+    return initial_delay;
+}
+
+void KmdTest::restore_autosuspend_delay() {
+    int current_delay = 0;
+
+    ASSERT_NE(initial_delay, INVALID_AUTOSUSPEND_DELAY) << "Autosuspend delay was not stored";
+
+    if (auto ret = get_autosuspend_delay(current_delay)) {
+        TRACE("Autosuspend disabled: %d\n", ret);
+        current_delay = -1;
+    }
+    if (current_delay != initial_delay) {
+        set_autosuspend_delay(initial_delay);
+    }
 }
 
 int KmdTest::ioctl(unsigned long req, void *data) {
@@ -701,10 +836,50 @@ int KmdTest::unbind_module() {
 }
 
 int KmdTest::rebind_module() {
-    if (auto ret = unbind_module())
-        return ret;
+    context.close();
 
-    return bind_module();
+    if (auto ret = unbind_module()) {
+        TRACE("Failed to unbind module: %d\n", ret);
+        return ret;
+    }
+
+    if (auto ret = bind_module()) {
+        TRACE("Failed to bind module: %d\n", ret);
+        return ret;
+    }
+
+    if (auto ret = context.open(); ret <= 0) {
+        TRACE("Failed to open context after rebind: %d\n", ret);
+        return ret;
+    }
+
+    return 0;
+}
+
+int KmdTest::reset_device() {
+    expected_resets++;
+    return write_sysfs_file("reset", 1);
+}
+
+int KmdTest::rescan_device() {
+    context.close();
+
+    if (auto ret = write_sysfs_file("remove", 1)) {
+        TRACE("Failed to remove device: %d\n", ret);
+        return ret;
+    }
+
+    if (auto ret = write_existing_file("/sys/bus/pci/rescan", 1)) {
+        TRACE("Failed to rescan device: %d\n", ret);
+        return ret;
+    }
+
+    if (auto ret = context.open(); ret <= 0) {
+        TRACE("Failed to open context after rescan: %d\n", ret);
+        return ret;
+    }
+
+    return 0;
 }
 
 void KmdTest::fw_store() {
@@ -1028,7 +1203,7 @@ int MemoryBuffer::mmap() {
 
     _buffer = _context.bo_mmap(_size, PROT_READ | PROT_WRITE, _mmap_offset);
     if (!_buffer)
-        return ENOMEM;
+        return errno != 0 ? errno : ENOMEM;
 
     return 0;
 }
@@ -1039,11 +1214,7 @@ int MemoryBuffer::munmap() {
     if (!_buffer)
         return EINVAL;
 
-    if (!_mmap_offset)
-        return EINVAL;
-
     ret = ::munmap(_buffer, _size);
-    _mmap_offset = 0;
     _buffer = nullptr;
     return ret;
 }
@@ -1369,11 +1540,11 @@ int CmdBuffer::submit(int engine, int priority, uint32_t submit_timeout_ms) {
     prepare_bb_hdr();
     prepare_params(engine, priority, &params);
 
-    return submit_retry(&params, submit_timeout_ms);
+    return submit_retry(&params, submit_timeout_ms, DRM_IOCTL_IVPU_SUBMIT);
 }
 
 // Retry submit if VPU is BUSY
-int CmdBuffer::submit_retry(drm_ivpu_submit *params, uint32_t submit_timeout_ms) {
+int CmdBuffer::submit_retry(void *params, uint32_t submit_timeout_ms, unsigned long ioctl) {
     test_app::overwrite_timeout(submit_timeout_ms);
     std::chrono::steady_clock::time_point timeOut =
         std::chrono::steady_clock::now() + std::chrono::milliseconds(submit_timeout_ms);
@@ -1381,8 +1552,8 @@ int CmdBuffer::submit_retry(drm_ivpu_submit *params, uint32_t submit_timeout_ms)
     int ret = 0;
 
     do {
-        ret = _context.ioctl(DRM_IOCTL_IVPU_SUBMIT, params);
-        if (ret == 0 || ret != EBUSY)
+        ret = _context.ioctl(ioctl, params);
+        if (ret != EBUSY)
             break;
 
         std::this_thread::sleep_for(sleep_time_ms);
@@ -1391,21 +1562,24 @@ int CmdBuffer::submit_retry(drm_ivpu_submit *params, uint32_t submit_timeout_ms)
     return ret;
 }
 
-int CmdBuffer::cmdq_submit(uint32_t cmdq_id) {
+void CmdBuffer::prepare_cmdq_params(uint32_t cmdq_id, drm_ivpu_cmdq_submit *params) {
+    params->buffers_ptr = (__u64)referenced_handles.data();
+    params->buffer_count = referenced_handles.size();
+    params->cmdq_id = cmdq_id;
+    params->commands_offset = _start;
+    params->preempt_buffer_index = _preempt_buffer_index;
+}
+
+int CmdBuffer::cmdq_submit(uint32_t cmdq_id, uint32_t submit_timeout_ms) {
     drm_ivpu_cmdq_submit args = {};
 
     if (ALIGN(_end, 64) + VPU_CONTEXT_SAVE_AREA_SIZE > _size)
         return -ENOSPC;
 
-    args.buffers_ptr = (__u64)referenced_handles.data();
-    args.buffer_count = (__u32)referenced_handles.size();
-    args.cmdq_id = cmdq_id;
-    args.commands_offset = _start;
-    args.preempt_buffer_index = _preempt_buffer_index;
-
     prepare_bb_hdr();
+    prepare_cmdq_params(cmdq_id, &args);
 
-    return _context.ioctl(DRM_IOCTL_IVPU_CMDQ_SUBMIT, &args);
+    return submit_retry(&args, submit_timeout_ms, DRM_IOCTL_IVPU_CMDQ_SUBMIT);
 }
 
 int CmdBuffer::wait(uint32_t timeout_ms) {
@@ -1423,6 +1597,114 @@ int CmdBuffer::wait(uint32_t timeout_ms) {
         return args.job_status;
 
     return ret;
+}
+
+int CmdQueue::_has_managed_cmdq = -1;
+
+CmdQueue::CmdQueue(KmdContext &context, int priority, uint32_t flags, bool legacy)
+    : _context(context)
+    , _cmdq_id(0)
+    , _priority(priority)
+    , _flags(flags)
+    , _legacy(legacy) {
+    detect_capabilities();
+
+    if (!_legacy) {
+        _legacy = !_has_managed_cmdq;
+    }
+
+    TRACE("CmdQueue: _legacy=%d(%d), priority=%d, flags=0x%x\n",
+          _legacy,
+          legacy,
+          _priority,
+          _flags);
+}
+
+void CmdQueue::detect_capabilities() {
+    uint64_t value = 0;
+
+    if (_has_managed_cmdq >= 0) {
+        // Already detected
+        return;
+    }
+
+    if (_context.get_param(DRM_IVPU_PARAM_CAPABILITIES, &value, DRM_IVPU_CAP_MANAGE_CMDQ) == 0) {
+        _has_managed_cmdq = (value != 0) ? 1 : 0;
+    } else {
+        _has_managed_cmdq = 0;
+    }
+}
+
+CmdQueue::~CmdQueue() {
+    if (is_created())
+        destroy();
+}
+
+int CmdQueue::create() {
+    if (is_created())
+        return EEXIST;
+
+    if (is_managed()) {
+        return _context.create_cmdq(&_cmdq_id, _priority, _flags);
+    } else {
+        return 0;
+    }
+}
+
+int CmdQueue::destroy() {
+    if (is_created()) {
+        int ret = _context.destroy_cmdq(_cmdq_id);
+        if (ret != 0)
+            return ret;
+    } else if (is_managed()) {
+        return EINVAL;
+    }
+    _cmdq_id = 0;
+
+    return 0;
+}
+
+int CmdQueue::reset() {
+    int ret = destroy();
+    if (ret != 0)
+        return ret;
+    return create();
+}
+
+int CmdQueue::set_priority(uint32_t new_priority) {
+    if (is_created()) {
+        int ret = _context.set_param(DRM_IVPU_PARAM_CMDQ_PRIORITY, new_priority, _cmdq_id);
+        if (ret != 0)
+            return ret;
+    }
+    _priority = new_priority;
+    return 0;
+}
+
+int CmdQueue::get_priority(uint32_t *priority) {
+    if (!priority)
+        return EINVAL;
+
+    if (is_created()) {
+        uint64_t value;
+        int ret = _context.get_param(DRM_IVPU_PARAM_CMDQ_PRIORITY, &value, _cmdq_id);
+        if (ret != 0)
+            return ret;
+        _priority = static_cast<uint32_t>(value);
+    }
+    *priority = _priority;
+
+    return 0;
+}
+
+int CmdQueue::submit(CmdBuffer &cmd_buffer, uint32_t timeout_ms) {
+    if (is_legacy()) {
+        return cmd_buffer.submit(ENGINE_COMPUTE, _priority, timeout_ms);
+    } else if (is_created()) {
+        return cmd_buffer.cmdq_submit(_cmdq_id, timeout_ms);
+    } else {
+        return EINVAL;
+    }
 }
 
 PmMonitor::PmMonitor() {
@@ -1530,4 +1812,6 @@ void DmaBuffer::munmap() {
 
 TEST_F(KmdTest, Init) {
     TRACE_IN();
+    TRACE_STR(vpu_bus_id.c_str());
+    TRACE_INT(platform_type);
 }

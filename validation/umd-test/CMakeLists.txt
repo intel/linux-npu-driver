@@ -15,8 +15,6 @@ find_package(OpenVINO QUIET COMPONENTS Runtime)
 find_package(OpenCV QUIET)
 find_package(OpenCL QUIET)
 
-add_compile_options(-Wno-error=ignored-qualifiers)
-
 add_executable(${PROJECT_NAME}
     graph_utilities.cpp
     image.cpp
@@ -57,11 +55,13 @@ add_executable(${PROJECT_NAME}
 
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/linux/include/uapi")
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/umd/level_zero_driver/api/prv/")
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/validation/models")
 
 if (TARGET openvino::runtime)
     target_sources(${PROJECT_NAME} PRIVATE test_ov_inference.cpp)
     target_link_libraries(${PROJECT_NAME} openvino::runtime)
     target_compile_definitions(${PROJECT_NAME} PUBLIC VALIDATION_LAYER_ENABLE)
+    set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/${OPENVINO_INSTALL_DIR})
 endif()
 
 if (TARGET opencv_core AND TARGET opencv_imgcodecs)
@@ -75,6 +75,6 @@ if (TARGET OpenCL::OpenCL)
 endif()
 
 target_compile_options(${PROJECT_NAME} PRIVATE -DVPU_GTEST_APP -Wall -Wextra -Werror)
-target_link_libraries(${PROJECT_NAME} ze_loader test_app_lib yaml-cpp data_handle fw_vpu_api_headers)
+target_link_libraries(${PROJECT_NAME} ze_loader test_app_lib yaml-cpp data_handle fw_vpu_api_headers embed_models)
 install(TARGETS ${PROJECT_NAME}
         COMPONENT validation-npu)
