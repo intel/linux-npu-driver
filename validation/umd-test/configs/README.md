@@ -21,8 +21,21 @@ The order in which the network is defined is important, API tests only take the 
 from the section.
 
 ## Global variables
-Global variables define the directories where models, blobs, and images used in tests are stored.
-This section also defines the logging level, accepted values ​​are: QUIET, ERROR, WARNING, INFO, VERBOSE.
+Global variables define the directories where models, blobs, and images used in tests are stored,
+the logging levels used by the driver and OpenVINO, and other options applied globally to all
+test sections.
+
+This section consists of fields:
+- **log_level:** UMD driver logging level, accepted values are: QUIET, ERROR, WARNING, INFO, VERBOSE
+- **ov_log_level:** OpenVINO logging level, accepted values are: NO, ERR, WARNING, INFO, DEBUG, TRACE
+- **model_dir:** directory prefix added to the **path** field pointing to models used in tests
+- **blob_dir:** directory prefix added to the **path** field pointing to compiled blobs used in tests
+- **image_dir:** directory prefix added to the **in** field pointing to images used in tests
+- **save_per_iteration_latency_data:** bool, if set to true, the latency measured for every
+                                        executed iteration in the `multi_inference` section
+                                        tests will be saved to a
+                                        `<test_name>_<model_name>_<unique_id>_<pid>_latency.csv`
+                                        file in the current working directory
 
 Example:
 ```
@@ -30,6 +43,7 @@ log_level: ERROR
 model_dir: /opt/user/models/
 blob_dir: /opt/user/blobs/
 image_dir: /opt/user/sample-images/
+save_per_iteration_latency_data: true
 ```
 
 > [!NOTE]

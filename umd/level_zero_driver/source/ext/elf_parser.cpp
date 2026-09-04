@@ -263,7 +263,7 @@ class DriverAccessManager : public elf::AccessManager {
 
     std::unique_ptr<elf::ManagedBuffer> readInternal(size_t offset,
                                                      const elf::BufferSpecs &specs) override {
-        VPUX_ELF_THROW_WHEN(offset + specs.size > getSize(),
+        VPUX_ELF_THROW_WHEN(specs.size > getSize() || offset > getSize() - specs.size,
                             elf::AccessError,
                             "Read request out of bounds");
 
@@ -305,7 +305,8 @@ class DriverAccessManager : public elf::AccessManager {
     }
 
     void readExternal(size_t offset, elf::ManagedBuffer &buffer) override {
-        VPUX_ELF_THROW_WHEN(offset + buffer.getBufferSpecs().size > getSize(),
+        const size_t size = buffer.getBufferSpecs().size;
+        VPUX_ELF_THROW_WHEN(size > getSize() || offset > getSize() - size,
                             elf::AccessError,
                             "Read request out of bounds");
 
@@ -331,7 +332,10 @@ ElfParser::ElfParser(VPU::VPUDeviceContext *ctx,
     , bufferManager(std::move(buffer))
     , accessManager(std::move(access))
     , hpiManager(
-          std::make_unique<HostParsedInferenceManager>(std::move(hpi), bufferManager.get())) {}
+          std::make_unique<HostParsedInferenceManager>(std::move(hpi), bufferManager.get())) {
+    if (!ctx->getUniqueInferenceId(inferenceId))
+        throw DriverError(ZE_RESULT_ERROR_UNKNOWN);
+}
 
 ElfParser::~ElfParser() {
     ctx->scratchCachePrune(getSharedScratchSize());
@@ -352,13 +356,13 @@ static inline elf::platform::ArchKind toArchKind(uint32_t deviceId) {
     switch (deviceId) {
     case PCI_DEVICE_ID_MTL:
     case PCI_DEVICE_ID_ARL:
-        return elf::platform::ArchKind::VPUX37XX;
+        return elf::platform::ArchKind::NPU3720;
     case PCI_DEVICE_ID_LNL:
-        return elf::platform::ArchKind::VPUX40XX;
+        return elf::platform::ArchKind::NPU4000;
     case PCI_DEVICE_ID_PTL_P:
-        return elf::platform::ArchKind::VPUX501X;
+        return elf::platform::ArchKind::NPU5010;
     case PCI_DEVICE_ID_WCL:
-        return elf::platform::ArchKind::VPUX502X;
+        return elf::platform::ArchKind::NPU5020;
     default:
         return elf::platform::ArchKind::UNKNOWN;
     }
@@ -434,7 +438,7 @@ copyHostParsedInference(std::shared_ptr<elf::HostParsedInference> &hpi) {
         LOG_E("Failed to copy elf::HostParsedInference, type: elf::LogicError, reason: %s",
               err.what());
     } catch (const std::exception &err) {
-        LOG_E("Failed to create elf::HostParsedInference, type: std::exception, reason: %s",
+        LOG_E("Failed to copy elf::HostParsedInference, type: std::exception, reason: %s",
               err.what());
     } catch (...) {
         LOG_E("Failed to copy elf::HostParsedInference, reason: unknown");
@@ -470,33 +474,37 @@ static void loadHostParsedInference(const std::shared_ptr<elf::HostParsedInferen
     throw DriverError(ZE_RESULT_ERROR_UNKNOWN);
 }
 
-std::shared_ptr<elf::HostParsedInference> HostParsedInferenceManager::acquire() {
-    std::lock_guard<std::mutex> lock(mtx);
-    if (!loaded) {
-        loadHostParsedInference(headHpi);
-        loaded = true;
-
+void HostParsedInferenceManager::load() {
+    std::call_once(loadFlag, [this]() {
+        std::lock_guard<std::mutex> lock(mtx);
+        loadHostParsedInference(hpis.front());
         auto bm = dynamic_cast<DriverBufferManager *>(bufferManager);
         if (bm) {
             bm->scratchCollected = true;
         }
-    }
+    });
+}
 
-    if (headHpi.use_count() == 1)
-        return headHpi;
+std::shared_ptr<elf::HostParsedInference> HostParsedInferenceManager::acquire() {
+    try {
+        load();
 
-    for (auto &hpi : hpis) {
-        if (hpi.use_count() == 1) {
-            return hpi;
+        std::lock_guard<std::mutex> lock(mtx);
+        for (auto &hpi : hpis) {
+            if (hpi.use_count() == 1) {
+                return hpi;
+            }
         }
-    }
+        auto hpi = copyHostParsedInference(hpis.front());
+        if (hpi != nullptr) {
+            hpis.push_back(hpi);
+        }
 
-    auto hpi = copyHostParsedInference(headHpi);
-    if (hpi != nullptr) {
-        hpis.push_back(hpi);
+        return hpi;
+    } catch (const DriverError &err) {
+        LOG_E("Failed to acquire HostParsedInference, type: DriverError, reason: %s", err.what());
+        return nullptr;
     }
-
-    return hpi;
 }
 
 std::unique_ptr<ElfParser> ElfParser::getElfParser(VPU::VPUDeviceContext *ctx,
@@ -977,17 +985,6 @@ bool ElfParser::applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &cmd
                 return false;
             }
 
-            uint64_t offset = reinterpret_cast<uint64_t>(ptrs[i]) -
-                              reinterpret_cast<uint64_t>(bo->getBasePointer());
-
-            if (bo->getAllocSize() - offset < buffers[i].size()) {
-                LOG_E("Graph argument at position: %zu with size: %lu exceedes expected size: %lu",
-                      i,
-                      bo->getAllocSize() - offset,
-                      buffers[i].size());
-                return false;
-            }
-
             bos.push_back(bo);
 
             uint64_t vpuAddr = bo->getVPUAddr(ptrs[i]);
@@ -1063,15 +1060,10 @@ ElfParser::createInferenceExecuteCommand(const std::vector<const void *> &inputP
                                          const ArgumentStridesMap &outputStrides,
                                          GraphProfilingQuery *profilingQuery,
                                          bool optimizeForDynamicShapes) {
-    uint64_t inferenceId = 0;
-    if (!ctx->getUniqueInferenceId(inferenceId))
-        return nullptr;
 
-    std::shared_ptr<elf::HostParsedInference> cmdHpi;
-    try {
-        cmdHpi = hpiManager->acquire();
-    } catch (const DriverError &e) {
-        LOG_E("Failed to acquire HostParsedInference, error: %d", static_cast<int>(e.result()));
+    std::shared_ptr<elf::HostParsedInference> cmdHpi = hpiManager->acquire();
+    if (!cmdHpi) {
+        LOG_E("Failed to acquire HostParsedInference");
         return nullptr;
     }
 
@@ -1137,7 +1129,7 @@ ze_result_t ElfParser::parse(std::vector<GraphArgumentProperties> &argumentPrope
 
 ze_result_t ElfParser::initialize() {
     try {
-        hpiManager->acquire();
+        hpiManager->load();
         return ZE_RESULT_SUCCESS;
     } catch (const DriverError &e) {
         return e.result();

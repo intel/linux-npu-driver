@@ -102,18 +102,24 @@ struct DriverCounter::TrackImpl {
     std::string trackName;
     perfetto::CounterTrack track;
 
+    // Generates a unique counter ID from its name.
+    static uint64_t getCounterId(const std::string &name) { return std::hash<std::string>{}(name); }
+
     TrackImpl(const std::string &name, CounterUnit unit)
         : trackName(name)
-        , track(perfetto::DynamicString(trackName), toPerfettoUnit(unit), perfetto::Track()) {}
+        , track(perfetto::CounterTrack(perfetto::DynamicString(trackName),
+                                       getCounterId(trackName),
+                                       perfetto::ProcessTrack::Current())
+                    .set_unit(toPerfettoUnit(unit))) {}
 #else
     TrackImpl(const std::string &, CounterUnit) {}
 #endif
 };
 
-DriverCounter::DriverCounter(const std::string &counterName, CounterUnit unit)
+DriverCounter::DriverCounter(const std::string &counterName, CounterUnit counterUnit)
     : name(counterName)
     , value(0)
-    , track(std::make_unique<TrackImpl>(counterName, unit)) {}
+    , unit(counterUnit) {}
 
 DriverCounter::~DriverCounter() = default;
 
@@ -153,6 +159,8 @@ void DriverCounter::sub(size_t x) {
 }
 
 void DriverCounter::publish(int64_t v) {
+    std::call_once(trackInitFlag, [this] { track = std::make_unique<TrackImpl>(name, unit); });
+
 #if ENABLE_NPU_PERFETTO_BUILD
     TRACE_COUNTER("NPU_MEMORY", track->track, v);
 #else

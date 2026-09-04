@@ -8,6 +8,7 @@
 #pragma once
 
 #include "image.hpp"
+#include "model_object.h"
 #include "umd_extensions.h"
 #include "umd_test.h"
 #include "utilities/data_handle.h"
@@ -254,8 +255,12 @@ class GraphBuffer {
 
         if (std::filesystem::exists(modelXml) == false ||
             std::filesystem::exists(modelBin) == false) {
-            PRINTF("Model %s doesn't exist.\n", modelXml.c_str());
-            return false;
+            /* Try use internal model */
+            if (!loadInternalModel(modelXml.stem().string(), xml, bin)) {
+                PRINTF("Model %s doesn't exist.\n", modelXml.c_str());
+                return false;
+            }
+            return true;
         }
 
         TRACE("Model: %s\n", modelXml.c_str());
@@ -313,6 +318,21 @@ class GraphBuffer {
         offset += sizeof(sizeBin);
 
         memcpy(&buffer[offset], bufferBin.data(), sizeBin);
+    }
+
+    bool loadInternalModel(const std::string &modelName,
+                           std::vector<char> &xml,
+                           std::vector<char> &bin) {
+        for (const auto &model : embeddedModel) {
+            if (modelName == model.name) {
+                xml.resize(model.xml_len);
+                bin.resize(model.bin_len);
+                memcpy(xml.data(), model.xml, model.xml_len);
+                memcpy(bin.data(), model.bin, model.bin_len);
+                return true;
+            }
+        }
+        return false;
     }
 
   public:

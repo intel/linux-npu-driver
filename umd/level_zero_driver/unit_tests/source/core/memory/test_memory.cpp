@@ -73,10 +73,10 @@ TEST_F(ContextMemoryTestRange, passOutOfScopeMemoryToGetMemAddressRangeExpectNot
                                    VPU::VPUBufferObject::Location::Host,
                                    VPU::VPUBufferObject::Type::CachedShave));
 
-    EXPECT_EQ(ZE_RESULT_ERROR_NOT_AVAILABLE,
+    EXPECT_EQ(ZE_RESULT_ERROR_ADDRESS_NOT_FOUND,
               context->getMemAddressRange(static_cast<char *>(ptr) - 1, &basePtr, &pSize));
 
-    EXPECT_EQ(ZE_RESULT_ERROR_NOT_AVAILABLE,
+    EXPECT_EQ(ZE_RESULT_ERROR_ADDRESS_NOT_FOUND,
               context->getMemAddressRange(static_cast<char *>(ptr) + size, &basePtr, &pSize));
 
     context->freeMem(ptr);

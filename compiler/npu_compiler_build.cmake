@@ -6,7 +6,7 @@ include(compiler_source.cmake)
 
 set(THREADING "TBB" CACHE STRING "Build NPU Compiler with specific THREADING option")
 
-if (ANDROID)
+if(ANDROID)
   include(android.cmake)
 endif()
 
@@ -63,13 +63,13 @@ list(APPEND NPU_COMPILER_CMAKE_ARGS "-D OPENVINO_EXTRA_MODULES=${NPU_COMPILER_SO
 list(APPEND NPU_COMPILER_CMAKE_ARGS "-D OUTPUT_ROOT=${NPU_COMPILER_BINARY_DIR}")
 list(APPEND NPU_COMPILER_CMAKE_ARGS "-D THREADING=${THREADING}")
 
-if (NOT BUILD_TYPE_LOWER STREQUAL "release")
+if(NOT BUILD_TYPE_LOWER STREQUAL "release")
     list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_DEVELOPER_BUILD=ON")
 else()
     list(APPEND NPU_COMPILER_CMAKE_ARGS "-D ENABLE_DEVELOPER_BUILD=OFF")
 endif()
 
-if (ANDROID)
+if(ANDROID)
   # First build native tools required for NPU compiler
   set(NPU_COMPILER_NATIVE_TOOLS_BUILD npu_compiler_native_tools_build)
   set(NPU_COMPILER_NATIVE_TOOLS_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/build_npu_compiler_native_tools)
@@ -130,6 +130,9 @@ ExternalProject_Add(
 )
 
 add_dependencies(npu_compiler npu_compiler_build)
+if(ANDROID)
+  copy_tbb_libs(${NPU_COMPILER_PACKAGE_DIR}/lib npu_compiler_build npu_compiler)
+endif()
 
 # Extra command to prepare a standalone package with NPU compiler
 string(REPLACE "/" "_" NPU_COMPILER_TAG_PACKAGE ${NPU_COMPILER_TAG})
@@ -138,7 +141,7 @@ set(NPU_COMPILER_PACKAGE_NAME "npu-drv-compiler-${TARGET_DISTRO}-${NPU_COMPILER_
 add_custom_target(npu_compiler_package
   COMMAND
     tar -C ${NPU_COMPILER_INSTALL_PREFIX} -czf ${CMAKE_BINARY_DIR}/${NPU_COMPILER_PACKAGE_NAME}.tar.gz --transform='s,/cid,/npu_compiler,' ./cid/
-  DEPENDS npu_compiler_build
+  DEPENDS npu_compiler
   BYPRODUCTS ${CMAKE_BINARY_DIR}/${NPU_COMPILER_PACKAGE_NAME}.tar.gz)
 
 install(

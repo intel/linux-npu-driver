@@ -13,10 +13,6 @@ class MutableCmdList : public UmdTest {
     void SetUp() override {
         UmdTest::SetUp();
 
-        if (globalConfig.modelDir.empty()) {
-            SKIP_("The test is skipped because config file was not provided. Use --config option");
-        }
-
         ze_mutable_command_list_exp_properties_t mutableCmdListProps{
             .stype = ZE_STRUCTURE_TYPE_MUTABLE_COMMAND_LIST_EXP_PROPERTIES,
             .pNext = nullptr,
@@ -46,7 +42,7 @@ class MutableCmdList : public UmdTest {
 
         queue = scopedQueue.get();
 
-        modelPath = globalConfig.modelDir + "mul_add/mul_add.xml";
+        modelPath = "Internal_mul_add.xml";
     }
 
     ze_command_list_handle_t createMutableCmdList() {
@@ -781,4 +777,195 @@ TEST_F(MutableCmdList, MutateGraphExecuteInMultipleCommandList) {
     for (size_t i = 0; i < cmdListCount; i++) {
         ASSERT_EQ(ZE_RESULT_SUCCESS, zeCommandListDestroy(cmdLists[i]));
     }
+}
+
+static void
+verifyOutputs(const std::vector<float16 *> &inputs,
+              const std::vector<float16 *> &outputs,
+              const std::vector<uint32_t> &shape,
+              const std::unordered_map<uint32_t, std::array<uint32_t, 5>> &stridesMap = {}) {
+    size_t numInputs = inputs.size();
+    auto getOff = [&](size_t argIdx, size_t i, size_t j, size_t k) {
+        auto it = stridesMap.find(argIdx);
+        if (it != stridesMap.end()) {
+            const auto &strides = it->second;
+            size_t off = i * strides[2] + j * strides[1] + k * strides[0];
+            return off;
+        }
+        size_t off = (i * shape[1] + j) * shape[2] + k;
+        return off;
+    };
+
+    for (size_t i = 0; i < shape[0]; i++) {
+        for (size_t j = 0; j < shape[1]; j++) {
+            for (size_t k = 0; k < shape[2]; k++) {
+                float16 in0 = inputs[0][getOff(0, i, j, k)];
+                float16 in1 = inputs[1][getOff(1, i, j, k)];
+                float16 in2 = inputs[2][getOff(2, i, j, k)];
+                float16 out0 = outputs[0][getOff(numInputs, i, j, k)];
+                float16 out1 = outputs[1][getOff(numInputs + 1, i, j, k)];
+                float16 ref0 = in0 * in1;
+                float16 ref1 = ref0 + in2;
+                EXPECT_EQ(ref0, out0);
+                EXPECT_EQ(ref1, out1);
+            }
+        }
+    }
+}
+
+// Test that check if call zeCommandListGetNextCommandIdExp with
+// ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS returns next
+// GraphExecute command id instead of id of next appended command.
+TEST_F(MutableCmdList, GetNextInferenceId) {
+    if (isVPU37xx()) {
+        SKIP_("Tensor strides feature is not available on NPU37xx");
+    }
+
+    std::vector<uint32_t> shape = {8, 12, 20};
+    std::vector<uint32_t> slice = {2, 3, 4};
+    size_t shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<uint32_t>());
+
+    std::string buildOptions =
+        "--config NPU_ENABLE_STRIDES_FOR=\"Parameter_1,Parameter_2,Parameter_3,Result_6,Result_7\"";
+    auto firstGraph =
+        Graph::create(zeContext, zeDevice, zeGraphDDITableExt, modelPath, buildOptions);
+    ASSERT_NE(firstGraph, nullptr);
+    auto secondGraph = Graph::create(zeContext,
+                                     zeDevice,
+                                     zeGraphDDITableExt,
+                                     modelPath,
+                                     buildOptions,
+                                     nullptr,
+                                     ZE_GRAPH_FLAG_OPTIMIZE_FOR_DYNAMIC_SHAPES);
+    ASSERT_NE(secondGraph, nullptr);
+
+    firstGraph->allocateArguments(MemType::SHARED_MEMORY);
+    secondGraph->allocateArguments(MemType::SHARED_MEMORY);
+
+    std::vector<float16 *> firstGraphInputs;
+    std::vector<float16 *> secondGraphInputs;
+    for (size_t i = 0; i < firstGraph->inputSize.size(); i++) {
+        float16 *input = reinterpret_cast<float16 *>(firstGraph->inArgs[i]);
+        std::iota(input, input + firstGraph->inputSize[i] / sizeof(float16), i);
+        firstGraphInputs.push_back(input);
+        input = reinterpret_cast<float16 *>(secondGraph->inArgs[i]);
+        std::iota(input, input + secondGraph->inputSize[i] / sizeof(float16), i + 1);
+        secondGraphInputs.push_back(input);
+    }
+
+    std::vector<float16 *> firstGraphOutputs;
+    std::vector<float16 *> secondGraphOutputs;
+    for (size_t i = 0; i < firstGraph->outputSize.size(); i++) {
+        float16 *output = reinterpret_cast<float16 *>(firstGraph->outArgs[i]);
+        firstGraphOutputs.push_back(output);
+        output = reinterpret_cast<float16 *>(secondGraph->outArgs[i]);
+        secondGraphOutputs.push_back(output);
+    }
+
+    size_t copySize = 64;
+    std::shared_ptr<void> copySrc = zeMemory::allocShared(zeContext, zeDevice, copySize, 0);
+    std::shared_ptr<void> copyDst = zeMemory::allocShared(zeContext, zeDevice, copySize, 0);
+
+    ze_command_list_handle_t commandList = createMutableCmdList();
+    ASSERT_NE(nullptr, commandList);
+
+    // create command list with following commands:
+    // - barrier
+    // - inference
+    // - barrier
+    // - copy
+    // - inference
+
+    ze_mutable_command_id_exp_desc_t mutableCmdIdDesc{
+        .stype = ZE_STRUCTURE_TYPE_MUTABLE_COMMAND_ID_EXP_DESC,
+        .pNext = nullptr,
+        .flags = ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS,
+    };
+    // get command id of first inference
+    uint64_t firstInferenceId;
+    ASSERT_EQ(zeCommandListGetNextCommandIdExp(commandList, &mutableCmdIdDesc, &firstInferenceId),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListAppendBarrier(commandList, nullptr, 0, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(
+        zeGraphDDITableExt
+            ->pfnAppendGraphExecute(commandList, firstGraph->handle, nullptr, nullptr, 0, nullptr),
+        ZE_RESULT_SUCCESS);
+
+    // get command id of second inference
+    uint64_t secondInferenceId;
+    ASSERT_EQ(zeCommandListGetNextCommandIdExp(commandList, &mutableCmdIdDesc, &secondInferenceId),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListAppendBarrier(commandList, nullptr, 0, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListAppendMemoryCopy(commandList,
+                                            copyDst.get(),
+                                            copySrc.get(),
+                                            copySize,
+                                            nullptr,
+                                            0,
+                                            nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(
+        zeGraphDDITableExt
+            ->pfnAppendGraphExecute(commandList, secondGraph->handle, nullptr, nullptr, 0, nullptr),
+        ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(commandList), ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &commandList, nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+
+    verifyOutputs(firstGraphInputs, firstGraphOutputs, shape);
+    verifyOutputs(secondGraphInputs, secondGraphOutputs, shape);
+
+    // mutate second input for first inference and third input for second inference
+    firstGraphInputs[1] = static_cast<float16 *>(
+        firstGraph->allocMemory(shapeSize * sizeof(float16), MemType::SHARED_MEMORY));
+    std::iota(firstGraphInputs[1],
+              firstGraphInputs[1] + firstGraph->inputSize[1] / sizeof(float16),
+              5);
+    secondGraphInputs[2] = static_cast<float16 *>(
+        secondGraph->allocMemory(shapeSize * sizeof(float16), MemType::SHARED_MEMORY));
+    std::iota(secondGraphInputs[2],
+              secondGraphInputs[2] + secondGraph->inputSize[2] / sizeof(float16),
+              8);
+    std::array<uint32_t, 5> firstInferenceStrides = {2, 20, 240, 1920};
+    std::array<uint32_t, 5> secondInferenceStrides = {1, 40, 240, 1920};
+
+    ze_graph_argument_value_strides_t firstInferenceStridesDesc = {};
+    firstInferenceStridesDesc.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_STRIDES;
+    firstInferenceStridesDesc.userStrides[0] = firstInferenceStrides[0];
+    firstInferenceStridesDesc.userStrides[1] = firstInferenceStrides[1];
+    firstInferenceStridesDesc.userStrides[2] = firstInferenceStrides[2];
+    firstInferenceStridesDesc.userStrides[3] = firstInferenceStrides[3];
+    ze_mutable_graph_argument_exp_desc_t firstInferenceArgumentDesc = {};
+    firstInferenceArgumentDesc.stype = ZE_STRUCTURE_TYPE_MUTABLE_GRAPH_ARGUMENT_EXP_DESC;
+    firstInferenceArgumentDesc.pNext = &firstInferenceStridesDesc;
+    firstInferenceArgumentDesc.commandId = firstInferenceId;
+    firstInferenceArgumentDesc.argIndex = 1;
+    firstInferenceArgumentDesc.pArgValue = firstGraphInputs[1];
+    ze_graph_argument_value_strides_t secondInferenceStridesDesc = {};
+    secondInferenceStridesDesc.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_STRIDES;
+    secondInferenceStridesDesc.pNext = &firstInferenceArgumentDesc;
+    secondInferenceStridesDesc.userStrides[0] = secondInferenceStrides[0];
+    secondInferenceStridesDesc.userStrides[1] = secondInferenceStrides[1];
+    secondInferenceStridesDesc.userStrides[2] = secondInferenceStrides[2];
+    secondInferenceStridesDesc.userStrides[3] = secondInferenceStrides[3];
+    ze_mutable_graph_argument_exp_desc_t secondInferenceArgumentDesc = {};
+    secondInferenceArgumentDesc.stype = ZE_STRUCTURE_TYPE_MUTABLE_GRAPH_ARGUMENT_EXP_DESC;
+    secondInferenceArgumentDesc.pNext = &secondInferenceStridesDesc;
+    secondInferenceArgumentDesc.commandId = secondInferenceId;
+    secondInferenceArgumentDesc.argIndex = 2;
+    secondInferenceArgumentDesc.pArgValue = secondGraphInputs[2];
+    ze_mutable_commands_exp_desc_t mutableDesc = {};
+    mutableDesc.stype = ZE_STRUCTURE_TYPE_MUTABLE_COMMANDS_EXP_DESC,
+    mutableDesc.pNext = &secondInferenceArgumentDesc;
+    ASSERT_EQ(zeCommandListUpdateMutableCommandsExp(commandList, &mutableDesc), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(commandList), ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &commandList, nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(queue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+
+    verifyOutputs(firstGraphInputs, firstGraphOutputs, slice, {{1, firstInferenceStrides}});
+    verifyOutputs(secondGraphInputs, secondGraphOutputs, slice, {{2, secondInferenceStrides}});
 }

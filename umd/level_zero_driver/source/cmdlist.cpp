@@ -29,6 +29,7 @@
 #include <optional>
 #include <string.h>
 #include <type_traits>
+#include <unordered_map>
 #include <ze_api.h>
 #include <ze_graph_ext.h>
 #include <zet_api.h>
@@ -546,7 +547,6 @@ ze_result_t CommandList::appendGraphExecute(ze_graph_handle_t hGraph,
     ze_result_t result = checkCommandAppendCondition();
     if (result != ZE_RESULT_SUCCESS)
         return result;
-    uint64_t newCommandId = getNumCommands();
 
     if (numWaitEvents > 0) {
         if (phWaitEvents == nullptr) {
@@ -560,13 +560,6 @@ ze_result_t CommandList::appendGraphExecute(ze_graph_handle_t hGraph,
         if (result != ZE_RESULT_SUCCESS) {
             LOG_E("Failed to add %u wait on events.", numWaitEvents);
             return result;
-        }
-    }
-
-    if (isMutable) {
-        uint64_t newCommandIdAfterEvents = getNumCommands();
-        if (newCommandId < newCommandIdAfterEvents) {
-            commandIdMap.emplace(newCommandId, newCommandIdAfterEvents);
         }
     }
 
@@ -590,6 +583,7 @@ ze_result_t CommandList::appendGraphExecute(ze_graph_handle_t hGraph,
         LOG_E("Graph-Execute Command failed to be initialized!");
         return ZE_RESULT_ERROR_UNINITIALIZED;
     }
+    inferences.push_back(cmd.get());
 
     if (!vpuJob->appendCommand(std::move(cmd))) {
         LOG_E("Failed to push Graph-Execute command to list!");
@@ -776,6 +770,7 @@ ze_result_t CommandList::getNextCommandId(const ze_mutable_command_id_exp_desc_t
     switch (desc->flags) {
     case ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT_DEPRECATED:
     case ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS:
+        *pCommandId = inferences.size();
         break;
     default:
         LOG_E("Unsupported flag (%#x) in ze_mutable_command_id_exp_desc_t::flags. Only "
@@ -784,18 +779,16 @@ ze_result_t CommandList::getNextCommandId(const ze_mutable_command_id_exp_desc_t
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    *pCommandId = getNumCommands();
-
     return ZE_RESULT_SUCCESS;
 }
 
-using CommandUpdatesMap = std::unordered_map<uint64_t, // key: command id
+using CommandUpdatesMap = std::unordered_map<VPU::VPUCommand *, // key: command ptr
                                              VPU::VPUCommand::ArgumentUpdatesMap>;
 
 static std::optional<const void *>
 getCommandUpdates(const void *pNext,
-                  const std::unordered_map<uint64_t, uint64_t> &commandIdMap,
                   CommandUpdatesMap &updatesMap,
+                  const std::vector<VPU::VPUCommand *> &inferences,
                   int64_t &prevCommandId,
                   int &prevArgIndex) {
     const auto stype =
@@ -807,20 +800,21 @@ getCommandUpdates(const void *pNext,
         const ze_mutable_graph_argument_exp_desc_t *desc =
             reinterpret_cast<const ze_mutable_graph_argument_exp_desc_t *>(pNext);
         uint64_t commandId = desc->commandId;
-        if (commandIdMap.count(commandId) > 0) {
-            commandId = commandIdMap.at(commandId);
+        if (commandId >= inferences.size()) {
+            LOG_E("Unable to mutate graph argument: invalid commandId %lu", commandId);
+            return {};
         }
-
         uint32_t argIndex = desc->argIndex;
+        VPU::VPUCommand *command = inferences[commandId];
 
-        if (updatesMap[commandId].count(argIndex) > 0 && updatesMap[commandId][argIndex].ptr) {
+        if (updatesMap[command].count(argIndex) > 0 && updatesMap[command][argIndex].ptr) {
             LOG_W("Argument %u for command %lu is being mutated more than once. "
                   "Verify the values in ze_mutable_graph_argument_exp_desc_t structs",
                   argIndex,
                   commandId);
         }
 
-        updatesMap[commandId][argIndex].ptr = desc->pArgValue;
+        updatesMap[command][argIndex].ptr = desc->pArgValue;
         LOG(CMDLIST, "Mutate GraphArgument[%u] = %p", argIndex, desc->pArgValue);
 
         prevCommandId = safe_cast<int64_t>(commandId);
@@ -839,9 +833,14 @@ getCommandUpdates(const void *pNext,
         }
 
         uint64_t commandId = safe_cast<uint64_t>(prevCommandId);
+        if (commandId >= inferences.size()) {
+            LOG_E("Unable to mutate graph argument's strides: invalid commandId %lu", commandId);
+            return {};
+        }
         uint32_t argIndex = safe_cast<uint32_t>(prevArgIndex);
+        VPU::VPUCommand *command = inferences[commandId];
 
-        if (updatesMap[commandId].count(argIndex) > 0 && updatesMap[commandId][argIndex].strides) {
+        if (updatesMap[command].count(argIndex) > 0 && updatesMap[command][argIndex].strides) {
             LOG_W("Strides for argument %u for command %lu are being mutated more than once. "
                   "Verify the values in ze_mutable_graph_argument_strides_desc_t structs",
                   argIndex,
@@ -852,7 +851,7 @@ getCommandUpdates(const void *pNext,
         for (size_t i = 0; i < ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE; i++) {
             strides[i] = desc->userStrides[i];
         }
-        updatesMap[commandId][argIndex].strides = strides;
+        updatesMap[command][argIndex].strides = strides;
 
         LOG(CMDLIST, "Mutate GraphArgument[%u]'s strides", argIndex);
 
@@ -871,14 +870,14 @@ getCommandUpdates(const void *pNext,
 }
 
 static bool gatherCommandUpdates(const void *pNext,
-                                 const std::unordered_map<uint64_t, uint64_t> &commandIdMap,
-                                 CommandUpdatesMap &updatesMap) {
+                                 CommandUpdatesMap &updatesMap,
+                                 const std::vector<VPU::VPUCommand *> &inferences) {
     int64_t commandId = -1;
     int argIndex = -1;
     return handleNestedStructs(pNext,
                                getCommandUpdates,
-                               commandIdMap,
                                updatesMap,
+                               inferences,
                                commandId,
                                argIndex);
 }
@@ -895,23 +894,15 @@ ze_result_t CommandList::updateMutableCommands(const ze_mutable_commands_exp_des
     }
 
     CommandUpdatesMap updatesMap;
-    if (!gatherCommandUpdates(desc->pNext, commandIdMap, updatesMap) || updatesMap.size() == 0) {
+    if (!gatherCommandUpdates(desc->pNext, updatesMap, inferences) || updatesMap.size() == 0) {
         LOG_E("Unable to gather command updates. Verify the values in "
               "ze_mutable_commands_exp_desc_t struct");
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    for (const auto &[commandId, update] : updatesMap) {
-        auto command = vpuJob->getCommand(commandId);
-        if (command == nullptr) {
-            LOG_E("Unable to get command with id %lu", commandId);
-            return ZE_RESULT_ERROR_INVALID_ARGUMENT;
-        }
-
+    for (const auto &[command, update] : updatesMap) {
         if (!command->setUpdates(update)) {
-            LOG_E("Unable to set updates for command with id %lu and type %#x",
-                  commandId,
-                  command->getCommandType());
+            LOG_E("Unable to set updates for command with type %#x", command->getCommandType());
             return ZE_RESULT_ERROR_INVALID_ARGUMENT;
         }
     }

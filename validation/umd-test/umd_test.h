@@ -16,14 +16,13 @@
 #include "ze_scope.hpp"
 #include "ze_stringify.hpp"
 
+#include <atomic>
 #include <filesystem>
 #include <linux/kernel.h>
 #include <memory>
 #include <ostream>
 #include <string>
-#include <thread>
 #include <unistd.h>
-#include <vector>
 #include <yaml-cpp/yaml.h>
 
 #define SKIP_(msg)                      \
@@ -134,6 +133,23 @@ inline std::string generateTestNameFromNode(const YAML::Node &node) {
     return testName;
 }
 
+inline std::string generateLatencyCsvFileName(const std::string &modelName) {
+    static std::atomic_size_t counter{0};
+    const size_t id = counter.fetch_add(1, std::memory_order_relaxed);
+    std::string testName = "UnknownTest";
+
+    const ::testing::TestInfo *testInfo = ::testing::UnitTest::GetInstance()->current_test_info();
+    if (testInfo != nullptr) {
+        testName = std::string(testInfo->test_suite_name()) + "_" + testInfo->name();
+        std::replace(testName.begin(), testName.end(), '/', '_');
+    }
+
+    std::string fileName = replacePathSigns(std::move(testName)) + "_" + modelName + "_" +
+                           std::to_string(id) + "_" + std::to_string(getpid()) + "_latency.csv";
+
+    return fileName;
+}
+
 inline std::string getDeviceSysFsDirectory() {
     drm_device_desc desc = drm::open_intel_vpu();
     close(desc.fd);
@@ -206,6 +222,7 @@ class UmdTest : public ::testing::Test {
         std::string blobDir = "";
         std::string imageDir = "";
         std::string modelDir = "";
+        bool saveLatencyData = false;
     } globalConfig;
 
   protected:

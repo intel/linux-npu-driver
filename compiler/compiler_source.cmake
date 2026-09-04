@@ -15,22 +15,19 @@ endif()
 include(ExternalProject)
 
 set(OPENVINO_REPOSITORY https://github.com/openvinotoolkit/openvino.git)
-set(OPENVINO_REVISION ede283a88e35465f0d680dabbf1f44080f8fc387)
+set(OPENVINO_REVISION 759c5a6ab8c066af5f4bc5ebd04643706012a37d)
 set(OPENCV_REVISION 8ec62ad3460fd4f371000157cf98cccaaa933303)
-set(GENAI_REVISION 7dea0459b2ac7d8dfd877fd9df6737674fd8371d)
-set(ONNXRUNTIME_TAG microsoft:8f0278c77bf44b0cc83c098c6c722b92a36ac4b5)
-set(ONNXRUNTIME_REVISION 8f0278c77bf44b0cc83c098c6c722b92a36ac4b5)
+set(GENAI_REVISION 56d9685302da2fc5cc7c9689cfab500fd0660a02)
+set(ONNXRUNTIME_TAG da9b5e3)
+set(ONNXRUNTIME_REVISION da9b5e3)
 
-set(NPU_COMPILER_TAG npu_ud_2026_28_rc1)
-set(NPU_COMPILER_REVISION 6a7a7c531f54baed1dddfda1b80299413c4c6943)
+set(NPU_COMPILER_TAG npu_ud_2026_38_rc1)
+set(NPU_COMPILER_REVISION 0b38f7d42113ff329ac2bdd33583d123de4ccf2f)
 # Compiler might use different OpenVINO revision
-set(NPU_COMPILER_OPENVINO_REVISION 4089686065a245d648cdd2b99c31884f53cb7a5e)
+set(NPU_COMPILER_OPENVINO_REVISION d8047fb380b27a9d5827cb3f22aec7781ae5ac82)
 
 set(OPENVINO_SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/src/openvino")
 file(MAKE_DIRECTORY ${OPENVINO_SOURCE_DIR})
-
-set(OPENVINO_PATCHES
-  ${CMAKE_CURRENT_SOURCE_DIR}/openvino_patches/0001-Add-level-zero-dependency-on-openvino_npu_vm_utils.patch)
 
 list(APPEND DISABLE_GIT_LFS "filter.lfs.smudge=git-lfs smudge --skip -- %f")
 list(APPEND DISABLE_GIT_LFS "filter.lfs.process=git-lfs filter-process --skip")
@@ -41,10 +38,7 @@ ExternalProject_Add(
   GIT_TAG ${OPENVINO_REVISION}
   GIT_CONFIG ${DISABLE_GIT_LFS}
   SOURCE_DIR ${OPENVINO_SOURCE_DIR}
-  PATCH_COMMAND
-    git -C ${OPENVINO_SOURCE_DIR} reset --hard HEAD &&
-    git -C ${OPENVINO_SOURCE_DIR} clean -fdx &&
-    git -C ${OPENVINO_SOURCE_DIR} apply ${OPENVINO_PATCHES}
+  PATCH_COMMAND ""
   CONFIGURE_COMMAND ""
   BUILD_COMMAND ""
   INSTALL_COMMAND ""

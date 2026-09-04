@@ -108,6 +108,8 @@ inline const char *ze_result_to_str(const ze_result_t result) {
         return "ZE_RESULT_ERROR_INVALID_COMMAND_LIST_TYPE";
     case ZE_RESULT_ERROR_OVERLAPPING_REGIONS:
         return "ZE_RESULT_ERROR_OVERLAPPING_REGIONS";
+    case ZE_RESULT_ERROR_ADDRESS_NOT_FOUND:
+        return "ZE_RESULT_ERROR_ADDRESS_NOT_FOUND";
     case ZE_RESULT_ERROR_UNKNOWN:
         return "ZE_RESULT_ERROR_UNKNOWN";
     default:

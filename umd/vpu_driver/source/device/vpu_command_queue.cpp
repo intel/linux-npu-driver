@@ -88,8 +88,10 @@ VPUDeviceQueue::create(VPUDeviceContext *VPUContext, Priority queuePriority, uin
             LOG_E("Command queue creation failed.");
             return nullptr;
         }
-
-        return std::make_unique<VPUDeviceQueueManaged>(pApi, defaultQueue, mode);
+        if (VPUContext->getDeviceCapabilities().cmdQueueSetPriorityCapability) {
+            mode |= ModeFlags::HAS_VARIABLE_PRIORITY;
+        }
+        return std::make_unique<VPUDeviceQueueManaged>(pApi, defaultQueue, queuePriority, mode);
     }
     if (mode & ModeFlags::IN_ORDER) {
         LOG_E("In order mode not supported. Command queue creation failed.");
@@ -146,11 +148,13 @@ bool VPUDeviceQueueLegacy::toDefaultPriority() {
 
 VPUDeviceQueueManaged::VPUDeviceQueueManaged(VPUDriverApi *api,
                                              uint32_t defaultQueue,
+                                             Priority queuePriority,
                                              uint32_t mode)
     : VPUDeviceQueue(api)
     , currentId(defaultQueue)
     , defaultId(defaultQueue)
     , backgroundId(defaultQueue)
+    , priority(queuePriority)
     , modeFlags(mode) {}
 
 VPUDeviceQueueManaged::~VPUDeviceQueueManaged() {
@@ -195,6 +199,14 @@ bool VPUDeviceQueueManaged::submit(VPUJob *job) {
 }
 
 bool VPUDeviceQueueManaged::toBackgroundPriority() {
+    if (modeFlags & ModeFlags::HAS_VARIABLE_PRIORITY) {
+        if (pDriverApi->commandQueueSetPriority(currentId, static_cast<uint32_t>(Priority::IDLE))) {
+            LOG_E("Failed to set background priority for command queue id %u", currentId);
+            return false;
+        }
+        return true;
+    }
+    // Fall back for old APIs that do not support command queue priority change.
     if (backgroundId == defaultId) {
         if (pDriverApi->commandQueueCreate(static_cast<uint32_t>(Priority::IDLE),
                                            backgroundId,
@@ -208,6 +220,14 @@ bool VPUDeviceQueueManaged::toBackgroundPriority() {
 }
 
 bool VPUDeviceQueueManaged::toDefaultPriority() {
+    if (modeFlags & ModeFlags::HAS_VARIABLE_PRIORITY) {
+        if (pDriverApi->commandQueueSetPriority(currentId, static_cast<uint32_t>(priority))) {
+            LOG_E("Failed to set default priority for command queue id %u", currentId);
+            return false;
+        }
+        return true;
+    }
+    // Fall back for old APIs that do not support command queue priority change.
     currentId = defaultId;
     return true;
 }

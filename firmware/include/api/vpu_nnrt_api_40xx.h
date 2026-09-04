@@ -22,7 +22,6 @@
 #include "vpu_media_hw.h"
 #include "vpu_nnrt_wlm.h"
 #include "vpu_nnrt_common.h"
-#include "vpu_nnrt_api.h" /* To be removed. Temporary w/a for loader build. */
 
 namespace nn_public {
 

@@ -23,7 +23,10 @@ TEST_F(Device, GetProperties) {
     EXPECT_STREQ(devProp.name, "Intel(R) AI Boost");
 
     TRACE("PCI Device ID: %#x\n", devProp.deviceId);
-    TRACE("Tile count: %u\n", devProp.numSlices);
+    TRACE("Tile count:    %u\n", devProp.numSlices);
+    TRACE("Max core freq: %u\n", devProp.coreClockRate);
+    TRACE("Max mem size:  %lu\n", devProp.maxMemAllocSize);
+    TRACE("Max contexts:  %u\n", devProp.maxHardwareContexts);
 
     ze_pci_ext_properties_t devPci = {};
     devPci.stype = ZE_STRUCTURE_TYPE_PCI_EXT_PROPERTIES;
@@ -160,9 +163,6 @@ TEST_F(Device, GetPropertiesMutableCmdListDeviceIpVersion) {
                   ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT_DEPRECATED) |
                   static_cast<ze_mutable_command_exp_flag_t>(
                       ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS));
-
-    TRACE("PCI Device ID: %#x\n", devProp.deviceId);
-    TRACE("Tile count: %u\n", devProp.numSlices);
 }
 
 TEST_F(Device, GetGlobalTimestamps) {
@@ -222,4 +222,14 @@ TEST_F(Device, VerifySetWorkloadTypeApi) {
     ret = zeCommandQueueDDITableExt->pfnSetWorkloadType(scopedQueue.get(),
                                                         ZE_WORKLOAD_TYPE_FORCE_UINT32);
     ASSERT_EQ(ret, ZE_RESULT_ERROR_INVALID_ENUMERATION);
+}
+
+TEST_F(Device, PerfGetStatus) {
+    PerfCounter counter;
+    counter.start();
+    while (!counter.isTimedOut()) {
+        ASSERT_EQ(zeDeviceGetStatus(zeDevice), ZE_RESULT_SUCCESS);
+        counter.countFrame();
+    }
+    counter.stop();
 }

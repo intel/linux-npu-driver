@@ -10,5 +10,6 @@ if(NOT ENABLE_VALIDATION_BUILD)
 endif()
 
 add_subdirectory(kmd-test)
+add_subdirectory(models)
 add_subdirectory(test-app-lib)
 add_subdirectory(umd-test)

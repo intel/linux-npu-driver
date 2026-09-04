@@ -212,7 +212,7 @@ set(OPENVINO_LIBRARY_DIR ${OPENVINO_BINARY_RELEASE_DIR} PARENT_SCOPE)
 set(OPENCV_LIBRARY_DIR "${OPENCV_BINARY_DIR}/lib" PARENT_SCOPE)
 
 add_custom_target(
-  copy_to_openvino_package ALL
+  copy_to_openvino_package
   COMMAND
     cp -d ${OPENCV_BINARY_DIR}/setup_vars.sh ${OPENCV_PACKAGE_DIR}/setupvars.sh &&
     cp -d ${SAMPLES_APPS_BUILD_DIR}/intel64/benchmark_app ${SAMPLES_APPS_PACKAGE_DIR}/ &&
@@ -233,7 +233,7 @@ if (${BUILD_GENAI})
   set(GENAI_TOOLS_PACKAGE_DIR ${OPENVINO_PACKAGE_DIR}/genai_tools)
   file(MAKE_DIRECTORY ${GENAI_TOOLS_PACKAGE_DIR})
   add_custom_target(
-    copy_wheels_to_openvino_package ALL
+    copy_wheels_to_openvino_package
     COMMAND
       cp -d ${WHEELS_DIR}/openvino-*_x86_64.whl ${WHEELS_PACKAGE_DIR}/ &&
       cp -d ${WHEELS_DIR}/openvino_genai-*_x86_64.whl ${WHEELS_PACKAGE_DIR}/ &&
@@ -245,7 +245,7 @@ if (${BUILD_GENAI})
 endif()
 
 add_custom_target(
-  openvino_package ALL
+  openvino_package
   COMMAND
     tar -C ${OPENVINO_PACKAGE_DIR} -czf ${CMAKE_BINARY_DIR}/${OPENVINO_PACKAGE_NAME}.tar.gz .
   DEPENDS ${OPENVINO_PACKAGE_DEPS}
@@ -257,6 +257,25 @@ install(
   COMPONENT openvino_standalone_package
   EXCLUDE_FROM_ALL)
 
+set(FILES_TO_PATCH
+    ${SAMPLES_APPS_BUILD_DIR}/intel64/benchmark_app
+    ${SAMPLES_APPS_BUILD_DIR}/intel64/classification_sample_async
+    ${SAMPLES_APPS_BUILD_DIR}/intel64/hello_classification
+    ${SAMPLES_APPS_BUILD_DIR}/intel64/hello_query_device
+    ${OPENVINO_BINARY_RELEASE_DIR}/protopipe
+    ${OPENVINO_BINARY_RELEASE_DIR}/single-image-test
+    ${OPENVINO_BINARY_RELEASE_DIR}/compile_tool
+    ${OPENCV_BINARY_DIR}/lib/libopencv_calib3d.so
+    ${OPENCV_BINARY_DIR}/lib/libopencv_core.so
+    ${OPENCV_BINARY_DIR}/lib/libopencv_features2d.so
+    ${OPENCV_BINARY_DIR}/lib/libopencv_flann.so
+    ${OPENCV_BINARY_DIR}/lib/libopencv_gapi.so
+    ${OPENCV_BINARY_DIR}/lib/libopencv_imgcodecs.so
+    ${OPENCV_BINARY_DIR}/lib/libopencv_imgproc.so
+    ${OPENCV_BINARY_DIR}/lib/libopencv_video.so)
+add_custom_target(patch_rpath ALL patchelf --add-rpath ${CMAKE_INSTALL_PREFIX}/${OPENVINO_INSTALL_DIR} ${FILES_TO_PATCH}
+              DEPENDS openvino_build opencv_build sample_apps_build single_image_test_build)
+
 install(PROGRAMS
             ${SAMPLES_APPS_BUILD_DIR}/intel64/benchmark_app
             ${SAMPLES_APPS_BUILD_DIR}/intel64/classification_sample_async
@@ -266,11 +285,11 @@ install(PROGRAMS
             ${OPENVINO_BINARY_RELEASE_DIR}/single-image-test
             ${OPENVINO_BINARY_RELEASE_DIR}/compile_tool
         COMPONENT openvino-npu
-        TYPE BIN)
+        DESTINATION ${OPENVINO_INSTALL_DIR})
 
 install(DIRECTORY ${OPENVINO_BINARY_RELEASE_DIR}/
         COMPONENT openvino-npu
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        DESTINATION ${OPENVINO_INSTALL_DIR}
         FILES_MATCHING
         PATTERN "libnpu_driver_compiler_adapter.so"
         PATTERN "libnpu_level_zero_backend.so"
@@ -283,11 +302,10 @@ install(DIRECTORY ${OPENVINO_BINARY_RELEASE_DIR}/
 
 install(DIRECTORY ${OPENCV_BINARY_DIR}/lib/
         COMPONENT openvino-npu
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        DESTINATION ${OPENVINO_INSTALL_DIR}
         FILES_MATCHING
         PATTERN "libopencv_calib3d.so*"
         PATTERN "libopencv_core.so*"
-        PATTERN "libopencv_dnn.so*"
         PATTERN "libopencv_features2d.so*"
         PATTERN "libopencv_flann.so*"
         PATTERN "libopencv_gapi.so*"
@@ -299,12 +317,12 @@ install(DIRECTORY ${OPENCV_BINARY_DIR}/lib/
 if (${BUILD_GENAI})
   install(DIRECTORY ${WHEELS_DIR}/
           COMPONENT openvino-npu
-          DESTINATION ${VALIDATION_INSTALL_DATADIR}/wheels
+          DESTINATION ${OPENVINO_INSTALL_DIR}/wheels
           FILES_MATCHING
           PATTERN "openvino-*_x86_64.whl"
           PATTERN "openvino_genai-*_x86_64.whl"
           PATTERN "openvino_tokenizers-*-py3-none-linux_x86_64.whl")
   install(DIRECTORY ${GENAI_SOURCE_DIR}/tools/llm_bench
           COMPONENT openvino-npu
-          DESTINATION ${VALIDATION_INSTALL_DATADIR}/genai_tools)
+          DESTINATION ${OPENVINO_INSTALL_DIR}/genai_tools)
 endif()

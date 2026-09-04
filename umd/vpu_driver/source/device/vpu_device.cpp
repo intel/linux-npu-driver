@@ -63,6 +63,8 @@ bool VPUDevice::initializeCaps(VPUDriverApi *drvApi) {
         hwInfo.dmaMemoryRangeCapability = true;
     if (drvApi->checkDeviceCapability(DRM_IVPU_CAP_MANAGE_CMDQ))
         hwInfo.cmdQueueCreationCapability = true;
+    if (drvApi->checkDeviceCapability(DRM_IVPU_CAP_CMDQ_SET_PRIORITY))
+        hwInfo.cmdQueueSetPriorityCapability = true;
     // Disable userptr for NPU37XX to avoid performance degradation
     if (hwInfo.npuArch > NPU37XX &&
         drvApi->checkDeviceCapability(DRM_IVPU_CAP_BO_CREATE_FROM_USERPTR))
@@ -360,7 +362,7 @@ bool VPUDevice::isConnected() {
         return false;
 
     try {
-        drvApi->getDeviceParam<uint32_t>(DRM_IVPU_PARAM_ENGINE_HEARTBEAT);
+        drvApi->getDeviceParam<uint64_t>(DRM_IVPU_PARAM_ENGINE_HEARTBEAT);
         LOG(DEVICE, "Device connected");
         return true;
 

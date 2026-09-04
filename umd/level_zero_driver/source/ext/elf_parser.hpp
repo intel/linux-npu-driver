@@ -46,18 +46,22 @@ class HostParsedInferenceManager {
   public:
     HostParsedInferenceManager(std::shared_ptr<elf::HostParsedInference> hpi,
                                elf::BufferManager *bufferManager)
-        : headHpi(std::move(hpi))
-        , bufferManager(bufferManager) {}
+        : bufferManager(bufferManager) {
+        hpis.push_back(std::move(hpi));
+    }
 
-    std::shared_ptr<elf::HostParsedInference> &head() { return headHpi; }
+    const std::shared_ptr<elf::HostParsedInference> &head() {
+        std::lock_guard<std::mutex> lock(mtx);
+        return hpis.front();
+    }
+    void load();
     std::shared_ptr<elf::HostParsedInference> acquire();
 
   private:
     std::mutex mtx;
-    std::shared_ptr<elf::HostParsedInference> headHpi;
     std::vector<std::shared_ptr<elf::HostParsedInference>> hpis;
     elf::BufferManager *bufferManager = nullptr;
-    bool loaded = false;
+    std::once_flag loadFlag;
 };
 
 class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser> {
@@ -124,6 +128,7 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
     std::unique_ptr<elf::BufferManager> bufferManager;
     std::unique_ptr<elf::AccessManager> accessManager;
     std::unique_ptr<HostParsedInferenceManager> hpiManager;
+    uint64_t inferenceId = 0;
 };
 
 template <class T>

@@ -179,6 +179,8 @@ void UmdTest::SetUp() {
     if (configuration["model_dir"].IsDefined()) {
         globalConfig.modelDir = configuration["model_dir"].as<std::string>();
     }
+
+    globalConfig.saveLatencyData = configuration["save_per_iteration_latency_data"].as<bool>(false);
 }
 
 void UmdTest::TearDown() {

@@ -11,10 +11,13 @@
 
 #include <algorithm>
 #include <chrono>
+#include <fstream>
 #include <limits>
 #include <optional>
 #include <stdio.h>
+#include <string>
 #include <thread>
+#include <vector>
 
 constexpr static long MS_PER_SEC = 1'000;
 constexpr static long US_PER_SEC = 1'000'000;
@@ -22,7 +25,7 @@ constexpr static long NS_PER_SEC = 1'000'000'000;
 
 class FrameCounter {
   public:
-    void startTimer(size_t timeoutSec, size_t expTargetFps) {
+    void startTimer(size_t timeoutSec, size_t expTargetFps, bool saveLatencyData = false) {
         targetFps = expTargetFps;
         frameCount = 0;
         fps = 0;
@@ -36,7 +39,38 @@ class FrameCounter {
         frameTargetPoint = framePoint;
         timeoutPoint = startPoint + std::chrono::seconds(timeoutSec);
 
+        latencyMsVec.reset();
+        if (saveLatencyData) {
+            latencyMsVec.emplace();
+            latencyMsVec->reserve(std::min(timeoutSec * expTargetFps, size_t(100'000)));
+        }
+
         running = true;
+    }
+
+    bool saveLatencyCsv(const std::string &filePath) const {
+        if (!latencyMsVec.has_value() || latencyMsVec->empty())
+            return false;
+
+        std::ofstream csvFile(filePath);
+        if (!csvFile.is_open()) {
+            printf("Failed to open file: %s for writing per iteration latency data\n",
+                   filePath.c_str());
+            return false;
+        }
+
+        auto &latencyMsVecRef = latencyMsVec.value();
+        csvFile << "iteration,latency_ms\n";
+        for (size_t i = 0; i < latencyMsVecRef.size() && csvFile.good(); i++)
+            csvFile << (i + 1) << "," << latencyMsVecRef[i] << "\n";
+
+        csvFile.close();
+        if (csvFile.fail()) {
+            printf("Failed to write per iteration latency data to file: %s\n", filePath.c_str());
+            return false;
+        }
+
+        return true;
     }
 
     bool isTimeout() {
@@ -74,6 +108,9 @@ class FrameCounter {
         frameAvgMs += frameSpanMs;
         frameMaxMs = std::max(frameMaxMs, frameSpanMs);
         frameCount++;
+
+        if (latencyMsVec.has_value())
+            latencyMsVec->push_back(frameSpanMs);
     }
 
     void stopTimer() {
@@ -140,4 +177,5 @@ class FrameCounter {
     std::chrono::microseconds frameTargetSpan;
     size_t targetFps;
     bool running = false;
+    std::optional<std::vector<double>> latencyMsVec;
 };

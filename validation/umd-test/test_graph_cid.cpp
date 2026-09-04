@@ -259,6 +259,7 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
             : model(node){};
         const YAML::Node model;
         std::string modelName;
+        std::string buildFlags;
         std::shared_ptr<Graph> graph;
 
         uint32_t execTimeSec = 0;
@@ -270,6 +271,7 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
         ze_command_queue_workload_type_t workloadType = ZE_WORKLOAD_TYPE_FORCE_UINT32;
         size_t delayInUs = 0;
         size_t parallelReqs = 0;
+        bool saveLatencyData = false;
     };
 
     struct InferenceStats {
@@ -303,6 +305,7 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
             inference.iterationCount = model["iteration_count"].as<uint64_t>(0);
             inference.parallelReqs = model["parallel_reqs"].as<size_t>(1);
             ASSERT_GT(inference.parallelReqs, 0) << "parallel_reqs field has to be greater than 0";
+            inference.saveLatencyData = globalConfig.saveLatencyData;
 
             if (model["priority"].IsDefined() && model["priority"].as<std::string>().size())
                 inference.priority = toZePriority(model["priority"].as<std::string>());
@@ -330,6 +333,7 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
 
             inference.graph = std::move(graph);
             inference.modelName = model["path"].as<std::string>();
+            inference.buildFlags = model["flags"].as<std::string>("");
             testInferences.push_back(std::move(inference));
         }
     }
@@ -345,9 +349,13 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
         throw std::runtime_error("Invalid priority, should be: high, low or normal");
     }
 
-    void printInferenceStats(const std::string &model, const InferenceStats &stats) {
+    void printInferenceStats(const LocalInference &infer, const InferenceStats &stats) {
         PRINTF("----------------------------------------------------\n");
-        PRINTF("Model:                %s\n", model.c_str());
+        PRINTF("Model:                %s\n", infer.modelName.c_str());
+        if (!infer.buildFlags.empty())
+            PRINTF("Flags:                %s\n", infer.buildFlags.c_str());
+        if (infer.parallelReqs > 1)
+            PRINTF("ParallelReqs:         %lu\n", infer.parallelReqs);
         if (stats.status == ZE_RESULT_SUCCESS)
             PRINTF("Status:               SUCCESS\n");
         else
@@ -410,7 +418,9 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
 
         std::this_thread::sleep_for(std::chrono::microseconds(inference.delayInUs));
 
-        stats.counter.startTimer(inference.execTimeSec, inference.targetFps);
+        stats.counter.startTimer(inference.execTimeSec,
+                                 inference.targetFps,
+                                 inference.saveLatencyData);
         for (size_t i = 1; i < inferReqs.size(); i++) {
             ret = inferReqs[i]->runAsync();
             BREAK_ON_FAIL(ret, stats, "Failed to run async inference");
@@ -448,6 +458,14 @@ class CompilerInDriverMultiInference : public CompilerInDriverLongT,
         }
 
         stats.counter.stopTimer();
+
+        if (inference.saveLatencyData) {
+            std::string fileName =
+                generateLatencyCsvFileName(generateTestNameFromNode(inference.model));
+            if (stats.counter.saveLatencyCsv(fileName))
+                PRINTF("Per iteration latency data saved to: %s\n", fileName.c_str());
+        }
+
         return stats;
     }
 };
@@ -472,7 +490,7 @@ TEST_P(CompilerInDriverMultiInference, Pipeline) {
 
     for (size_t i = 0; i < results.size(); i++) {
         InferenceStats stats = results[i].get();
-        printInferenceStats(testInferences[i].modelName, stats);
+        printInferenceStats(testInferences[i], stats);
         EXPECT_EQ(stats.status, ZE_RESULT_SUCCESS);
     }
 };
@@ -491,7 +509,7 @@ TEST_P(CompilerInDriverInferenceBenchmark, Benchmark) {
     if (!isHwsModeEnabled() || !Environment::getInstance()->isDriverExtensionSupported(
                                    COMMAND_QUEUE_EXT_NAME,
                                    ZE_COMMAND_QUEUE_NPU_EXT_VERSION_1_1)) {
-        GTEST_SKIP() << "HW configuration not sufficient for benchmark test.";
+        SKIP_("HW configuration not sufficient for benchmark test.");
     }
 
     auto testInference =
@@ -516,7 +534,7 @@ TEST_P(CompilerInDriverInferenceBenchmark, Benchmark) {
             referenceFrames++;
         }
         statsCollection.push_back(stats);
-        printInferenceStats(testInferences[i].modelName, stats);
+        printInferenceStats(testInferences[i], stats);
         EXPECT_EQ(stats.status, ZE_RESULT_SUCCESS);
     }
 

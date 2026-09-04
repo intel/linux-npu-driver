@@ -43,6 +43,16 @@ TEST_F(Context, CreateContextRepeat) {
     }
 }
 
+TEST_F(Context, PerfGetStatus) {
+    PerfCounter counter;
+    counter.start();
+    while (!counter.isTimedOut()) {
+        ASSERT_EQ(zeContextGetStatus(zeContext), ZE_RESULT_SUCCESS);
+        counter.countFrame();
+    }
+    counter.stop();
+}
+
 class MultiContext : public Context, public ::testing::WithParamInterface<uint32_t> {
   public:
     void SetUp() override {

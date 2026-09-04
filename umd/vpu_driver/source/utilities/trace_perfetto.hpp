@@ -12,6 +12,7 @@
 
 #include <atomic>
 #include <memory>
+#include <mutex>
 #include <string>
 
 #if ENABLE_NPU_PERFETTO_BUILD
@@ -69,26 +70,26 @@ enum class CounterUnit { None, Bytes };
 class DriverCounter {
   public:
     explicit DriverCounter(const std::string &counterName, CounterUnit unit = CounterUnit::None);
-
-    ~DriverCounter();
-
     DriverCounter(const DriverCounter &) = delete;
     DriverCounter &operator=(const DriverCounter &) = delete;
     DriverCounter(DriverCounter &&) = delete;
     DriverCounter &operator=(DriverCounter &&) = delete;
 
+    ~DriverCounter();
+
     void add(size_t x);
     void sub(size_t x);
 
   private:
-    void publish(int64_t v);
-
     struct TrackImpl;
+
+    void publish(int64_t v);
 
     std::string name;
     std::atomic<int64_t> value = 0;
-
+    CounterUnit unit;
     std::unique_ptr<TrackImpl> track;
+    std::once_flag trackInitFlag;
 };
 
 inline DriverCounter npuMemoryAllocatedByteCounter{"npu_memory_allocated_bytes",

@@ -235,6 +235,50 @@ struct VPU_ALIGNED_STRUCT(8) VpuDpuPVP {
 static_assert(sizeof(VpuDpuPVP) == 32, "VpuDpuPVP size != 32");
 
 /**
+ *  @brief Contains the information needed for handing a "direct" inference control flow operation.
+ */
+struct VPU_ALIGNED_STRUCT(32) VpuControlFlowOp {
+    /**
+     * @brief Reserved field used by the inference pipeline construction plug-in.​
+     * Populated field to be ignored by the firmware
+     */
+    uint64_t reserved1;
+
+    /**
+     * @brief Total number of ControlFlowOp branches in an inference pipeline.​ Every ControlFlowOp must contain the
+     * same value which is validated before every sub-branch execution.
+     */
+    uint32_t max_op_count;
+
+    /**
+     * @brief Monotonic identifier for a series of ControlFlowOps. op_id must be sequential, starting from 0, and has to
+     * always be less than the max_op_count value.​
+     */
+    uint32_t op_id;
+
+    /**
+     * @brief This field defines a bitmask of control flow functions and operations implemented by this interface.
+     * It is extensible for future needs.
+     */
+    uint32_t magic;
+
+    /**
+     * @brief Unused fields for future extension. Should be set to 0 and ignored by the firmware.
+     */
+    uint16_t pad0[2];
+    uint64_t pad1[4];
+
+    /**
+     * @brief NPU task reference pointing to the mapped inference of the next inference in the pipeline to be executed.
+     * Although a task reference can contain multiple elements, the FW will only access and execute the first entry.
+     */
+    VpuTaskReference<void> branch_runtime_entry;
+};
+
+static_assert(sizeof(VpuControlFlowOp) == 96, "VpuControlFlowOp size != 96");
+static_assert(offsetof(VpuControlFlowOp, branch_runtime_entry) % 8 == 0, "Alignment error");
+
+/**
  * @brief Contains the information needed to run a fully or partially managed inference.
  */
 struct VPU_ALIGNED_STRUCT(32) VpuManagedMappedInference {
@@ -267,7 +311,14 @@ struct VPU_ALIGNED_STRUCT(32) VpuManagedMappedInference {
     /**
      * @brief VpuTaskReferences reserved for future use.
      */
-    VpuTaskReference<uint32_t> reserved0[3];
+    VpuTaskReference<uint32_t> reserved0[2];
+
+    /**
+     * @brief Points to the ControlFlowOp associated with the current VpuManagedMappedInference.
+     * This collection can be empty if there are no control flow operations associated to the current
+     * VpuManagedMappedInference.
+     */
+    VpuTaskReference<VpuControlFlowOp> control_flow_ops;
 
     /**
      * @brief The DPU floating point operation values for this inference, used for dynamic PVP.
@@ -342,7 +393,15 @@ struct VPU_ALIGNED_STRUCT(32) VpuManagedMappedInference {
      */
     uint8_t dma_from_cmx_used;
 
-    uint8_t pad0_[2];
+    /**
+     * @brief Bitfield indicating that ActShaves that are used by the inference to
+     * directly submit DMA transfers (see also actshv_used)
+     *
+     * e.g. 00000000b - no ActShave DMA used, 00001111b - ActShaves on 4 tiles submit DMA transfers
+     */
+    uint8_t dma_from_shave_used;
+
+    uint8_t pad0_;
 
     /**
      * @brief Represents the programming modes for the barriers.
@@ -425,6 +484,7 @@ static_assert(offsetof(VpuManagedMappedInference, barrier_configuration_stride) 
 static_assert(offsetof(VpuManagedMappedInference, inference_feature_cfg) % 4 == 0, "Alignment error");
 static_assert(offsetof(VpuManagedMappedInference, model_identifier) % 4 == 0, "Alignment error");
 static_assert(offsetof(VpuManagedMappedInference, bootstrap_workitems_count) % 4 == 0, "Alignment error");
+static_assert(offsetof(VpuManagedMappedInference, control_flow_ops) % 8 == 0, "Alignment error");
 
 #pragma pack(pop)
 

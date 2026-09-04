@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -29,6 +29,7 @@ bool max_timeout;
 bool verbose_logs;
 bool run_skipped_tests;
 bool disable_unbind;
+bool kernel_log;
 unsigned pause_after_test_ms;
 int device_index = -1;
 
@@ -96,6 +97,8 @@ static void print_help(const char *extraMessage, const char *appName) {
            "       Select device /dev/accel/accelN (n=0 for PF (default), n>0 for VFn)\n"
            "  -u/--disable_unbind\n"
            "       Disable unbinding the device from the driver\n"
+           "  -k/--kernel_log\n"
+           "       Write test start and end (with result) to the Linux kernel log\n"
            "  -V/--version\n"
            "       Display application version\n"
            "%s\n",
@@ -196,6 +199,7 @@ void parse_args(std::unordered_map<int, Argument> &extArgs,
         {'p', {"pause_after_test_ms", required_argument, &setPauseAfterTestMs}},
         {'d', {"device", required_argument, &setDeviceIndex}},
         {'u', {"disable_unbind", no_argument, [](auto) { test_app::disable_unbind = true; }}},
+        {'k', {"kernel_log", no_argument, [](auto) { test_app::kernel_log = true; }}},
         {'V', {"version", no_argument, &printVersion}},
     };
 
@@ -293,6 +297,39 @@ class ThrowListener : public testing::EmptyTestEventListener {
         if (result.type() == testing::TestPartResult::kFatalFailure) {
             if (getpid() == parent_process_pid && std::this_thread::get_id() == main_thread_id)
                 throw testing::AssertionException(result);
+        }
+    }
+
+    void OnTestStart(const testing::TestInfo &test_info) override {
+        if (!test_app::kernel_log)
+            return;
+
+        // Write to dmesg via /dev/kmsg
+        FILE *kmsg = fopen("/dev/kmsg", "w");
+        if (kmsg) {
+            fprintf(kmsg,
+                    "*** Test %s.%s starting.\n",
+                    test_info.test_suite_name(),
+                    test_info.name());
+            fclose(kmsg);
+        }
+    }
+
+    // Called after a test ends.
+    void OnTestEnd(const testing::TestInfo &test_info) override {
+        if (!test_app::kernel_log)
+            return;
+
+        // Write to dmesg via /dev/kmsg
+        FILE *kmsg = fopen("/dev/kmsg", "w");
+        if (kmsg) {
+            const char *result = test_info.result()->Passed() ? "PASSED" : "FAILED";
+            fprintf(kmsg,
+                    "*** Test %s.%s ending: %s.\n",
+                    test_info.test_suite_name(),
+                    test_info.name(),
+                    result);
+            fclose(kmsg);
         }
     }
 
