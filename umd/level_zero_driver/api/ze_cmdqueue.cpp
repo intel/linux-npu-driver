@@ -85,13 +85,94 @@ exit:
     return ret;
 }
 
+ze_result_t zeCommandQueueGetOrdinal(ze_command_queue_handle_t hCommandQueue, uint32_t *pOrdinal) {
+    trace_zeCommandQueueGetOrdinal(hCommandQueue, pOrdinal);
+    ze_result_t ret;
+
+    if (hCommandQueue == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(ret, L0::CommandQueue::fromHandle(hCommandQueue)->getOrdinal(pOrdinal));
+
+exit:
+    trace_zeCommandQueueGetOrdinal(ret, hCommandQueue, pOrdinal);
+    return ret;
+}
+
+ze_result_t zeCommandQueueGetIndex(ze_command_queue_handle_t hCommandQueue, uint32_t *pIndex) {
+    trace_zeCommandQueueGetIndex(hCommandQueue, pIndex);
+    ze_result_t ret;
+
+    if (hCommandQueue == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(ret, L0::CommandQueue::fromHandle(hCommandQueue)->getIndex(pIndex));
+
+exit:
+    trace_zeCommandQueueGetIndex(ret, hCommandQueue, pIndex);
+    return ret;
+}
+
+ze_result_t zeCommandQueueGetFlags(ze_command_queue_handle_t hCommandQueue,
+                                   ze_command_queue_flags_t *pFlags) {
+    trace_zeCommandQueueGetFlags(hCommandQueue, pFlags);
+    ze_result_t ret;
+
+    if (hCommandQueue == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(ret, L0::CommandQueue::fromHandle(hCommandQueue)->getFlags(pFlags));
+
+exit:
+    trace_zeCommandQueueGetFlags(ret, hCommandQueue, pFlags);
+    return ret;
+}
+
+ze_result_t zeCommandQueueGetMode(ze_command_queue_handle_t hCommandQueue,
+                                  ze_command_queue_mode_t *pMode) {
+    trace_zeCommandQueueGetMode(hCommandQueue, pMode);
+    ze_result_t ret;
+
+    if (hCommandQueue == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(ret, L0::CommandQueue::fromHandle(hCommandQueue)->getMode(pMode));
+
+exit:
+    trace_zeCommandQueueGetMode(ret, hCommandQueue, pMode);
+    return ret;
+}
+
+ze_result_t zeCommandQueueGetPriority(ze_command_queue_handle_t hCommandQueue,
+                                      ze_command_queue_priority_t *pPriority) {
+    trace_zeCommandQueueGetPriority(hCommandQueue, pPriority);
+    ze_result_t ret;
+
+    if (hCommandQueue == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(ret, L0::CommandQueue::fromHandle(hCommandQueue)->getPriority(pPriority));
+
+exit:
+    trace_zeCommandQueueGetPriority(ret, hCommandQueue, pPriority);
+    return ret;
+}
+
 ze_command_queue_dditable_t zeCommandQueueDdiTable = {.pfnCreate = zeCommandQueueCreate,
                                                       .pfnDestroy = zeCommandQueueDestroy,
                                                       .pfnExecuteCommandLists =
                                                           zeCommandQueueExecuteCommandLists,
                                                       .pfnSynchronize = zeCommandQueueSynchronize,
-                                                      .pfnGetOrdinal = nullptr,
-                                                      .pfnGetIndex = nullptr};
+                                                      .pfnGetOrdinal = zeCommandQueueGetOrdinal,
+                                                      .pfnGetIndex = zeCommandQueueGetIndex,
+                                                      .pfnGetFlags = zeCommandQueueGetFlags,
+                                                      .pfnGetMode = zeCommandQueueGetMode,
+                                                      .pfnGetPriority = zeCommandQueueGetPriority};
 } // namespace L0
 
 extern "C" {
@@ -115,6 +196,11 @@ zeGetCommandQueueProcAddrTable(ze_api_version_t version, ze_command_queue_dditab
         pDdiTable->pfnDestroy = L0::zeCommandQueueDestroy;
         pDdiTable->pfnExecuteCommandLists = L0::zeCommandQueueExecuteCommandLists;
         pDdiTable->pfnSynchronize = L0::zeCommandQueueSynchronize;
+        pDdiTable->pfnGetOrdinal = L0::zeCommandQueueGetOrdinal;
+        pDdiTable->pfnGetIndex = L0::zeCommandQueueGetIndex;
+        pDdiTable->pfnGetFlags = L0::zeCommandQueueGetFlags;
+        pDdiTable->pfnGetMode = L0::zeCommandQueueGetMode;
+        pDdiTable->pfnGetPriority = L0::zeCommandQueueGetPriority;
     }
 
     ret = ZE_RESULT_SUCCESS;

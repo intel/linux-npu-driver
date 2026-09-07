@@ -35,10 +35,13 @@ namespace L0 {
 struct Context;
 
 struct CommandQueue : _ze_command_queue_handle_t, IContextObject {
-    enum class CommandQueueMode : uint32_t { DEFAULT, SYNCHRONOUS };
     CommandQueue(Context *context,
                  std::unique_ptr<VPU::VPUDeviceQueue> queue,
-                 CommandQueueMode mode = CommandQueueMode::DEFAULT);
+                 uint32_t ordinal,
+                 uint32_t index,
+                 ze_command_queue_flags_t flags,
+                 ze_command_queue_mode_t mode,
+                 ze_command_queue_priority_t priority);
     ~CommandQueue() override;
 
     static ze_result_t create(ze_context_handle_t hContext,
@@ -57,6 +60,11 @@ struct CommandQueue : _ze_command_queue_handle_t, IContextObject {
                                     ze_command_list_handle_t *phCommandLists,
                                     ze_fence_handle_t hFence);
     ze_result_t synchronize(uint64_t timeout);
+    ze_result_t getOrdinal(uint32_t *pOrdinal) const;
+    ze_result_t getIndex(uint32_t *pIndex) const;
+    ze_result_t getFlags(ze_command_queue_flags_t *pFlags) const;
+    ze_result_t getMode(ze_command_queue_mode_t *pMode) const;
+    ze_result_t getPriority(ze_command_queue_priority_t *pPriority) const;
 
     void destroyFence(Fence *pFence);
     ze_result_t waitForJobs(std::chrono::steady_clock::time_point timeout,
@@ -66,11 +74,16 @@ struct CommandQueue : _ze_command_queue_handle_t, IContextObject {
   protected:
     std::unique_ptr<VPU::VPUDeviceQueue> vpuQueue;
     Context *pContext = nullptr;
+    uint32_t ordinal = 0;
+    uint32_t index = 0;
+    ze_command_queue_flags_t flags = 0;
+    ze_command_queue_mode_t mode = ZE_COMMAND_QUEUE_MODE_DEFAULT;
+    ze_command_queue_priority_t priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL;
 
     std::vector<std::shared_ptr<VPU::VPUJob>> trackedJobs;
     std::shared_mutex fenceMutex;
     std::unordered_map<Fence *, std::unique_ptr<Fence>> fences;
-    CommandQueueMode queueMode;
+    bool isSynchronousMode = false;
 
     std::mutex preemptionMutex;
     std::shared_ptr<VPU::VPUBufferObject> preemptionBuffer = nullptr;

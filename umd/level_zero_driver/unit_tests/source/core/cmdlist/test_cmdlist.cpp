@@ -15,6 +15,7 @@
 #include "level_zero_driver/source/device.hpp"
 #include "level_zero_driver/source/event.hpp"
 #include "level_zero_driver/source/eventpool.hpp"
+#include "level_zero_driver/source/immediate_cmdlist.hpp"
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
 #include "level_zero_driver/unit_tests/mocks/mock_driver.hpp"
 #include "vpu_driver/source/command/command.hpp"
@@ -23,6 +24,7 @@
 #include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
 
+#include <limits>
 #include <memory>
 #include <vector>
 #include <ze_api.h>
@@ -70,6 +72,243 @@ TEST_F(CommandListTest, whenCreatingCommandListFromContextThenSuccessIsReturned)
     EXPECT_EQ(ZE_RESULT_SUCCESS, result);
 
     L0::CommandList *commandList = L0::CommandList::fromHandle(hCommandList0);
+    result = commandList->destroy();
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+}
+
+TEST_F(CommandListTest, whenCalledGetDeviceHandleThenCorrectDeviceHandleIsReturned) {
+    ze_command_list_desc_t desc = {};
+
+    ze_result_t result = L0::CommandList::create(context, device, &desc, &hCommandList0);
+    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
+
+    L0::CommandList *commandList = L0::CommandList::fromHandle(hCommandList0);
+
+    result = commandList->getDeviceHandle(nullptr);
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, result);
+
+    ze_device_handle_t phDevice = nullptr;
+    result = commandList->getDeviceHandle(&phDevice);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+    EXPECT_EQ(device->toHandle(), phDevice);
+
+    result = commandList->destroy();
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+}
+
+TEST_F(CommandListTest, whenCalledGetContextHandleThenCorrectContextHandleIsReturned) {
+    ze_command_list_desc_t desc = {};
+
+    ze_result_t result = L0::CommandList::create(context, device, &desc, &hCommandList0);
+    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
+
+    L0::CommandList *commandList = L0::CommandList::fromHandle(hCommandList0);
+
+    result = commandList->getContextHandle(nullptr);
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, result);
+
+    ze_context_handle_t phContext = nullptr;
+    result = commandList->getContextHandle(&phContext);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+    EXPECT_EQ(context, phContext);
+
+    result = commandList->destroy();
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+}
+
+TEST_F(CommandListTest, whenCalledGetOrdinalThenCorrectOrdinalIsReturned) {
+    ze_command_list_desc_t desc = {};
+    desc.commandQueueGroupOrdinal = 0u;
+
+    ze_result_t result = L0::CommandList::create(context, device, &desc, &hCommandList0);
+    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
+
+    L0::CommandList *commandList = L0::CommandList::fromHandle(hCommandList0);
+
+    result = commandList->getOrdinal(nullptr);
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, result);
+
+    uint32_t ordinal = std::numeric_limits<uint32_t>::max();
+    result = commandList->getOrdinal(&ordinal);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+    EXPECT_EQ(desc.commandQueueGroupOrdinal, ordinal);
+
+    result = commandList->destroy();
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+}
+
+TEST_F(CommandListTest, whenCalledGetFlagsThenCorrectFlagsAreReturned) {
+    ze_command_list_desc_t desc = {};
+    desc.flags = ZE_COMMAND_LIST_FLAG_IN_ORDER;
+
+    ze_result_t result = L0::CommandList::create(context, device, &desc, &hCommandList0);
+    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
+
+    L0::CommandList *commandList = L0::CommandList::fromHandle(hCommandList0);
+
+    result = commandList->getFlags(nullptr);
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, result);
+
+    ze_command_list_flags_t flags = std::numeric_limits<ze_command_list_flags_t>::max();
+    result = commandList->getFlags(&flags);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+    EXPECT_EQ(desc.flags, flags);
+
+    result = commandList->destroy();
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+}
+
+TEST_F(CommandListTest, whenCalledImmediateGetIndexOnRegularCommandListThenErrorIsReturned) {
+    ze_command_list_desc_t desc = {};
+
+    ze_result_t result = L0::CommandList::create(context, device, &desc, &hCommandList0);
+    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
+
+    L0::CommandList *commandList = L0::CommandList::fromHandle(hCommandList0);
+
+    uint32_t index = 0;
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_ARGUMENT, commandList->getIndex(&index));
+
+    result = commandList->destroy();
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+}
+
+TEST_F(CommandListTest,
+       whenCalledImmediateGetIndexOnImmediateCommandListThenCorrectIndexIsReturned) {
+    ze_command_queue_desc_t altdesc = {};
+    altdesc.index = 2u;
+    ze_command_list_handle_t hImmediateCmdList = nullptr;
+
+    ze_result_t result =
+        L0::ImmediateCommandList::create(context, device, &altdesc, &hImmediateCmdList);
+    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
+
+    L0::CommandList *commandList = L0::CommandList::fromHandle(hImmediateCmdList);
+
+    result = commandList->getIndex(nullptr);
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, result);
+
+    uint32_t index = std::numeric_limits<uint32_t>::max();
+    result = commandList->getIndex(&index);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+    EXPECT_EQ(altdesc.index, index);
+
+    result = commandList->destroy();
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+}
+
+TEST_F(CommandListTest, whenCalledImmediateGetFlagsOnRegularCommandListThenErrorIsReturned) {
+    ze_command_list_desc_t desc = {};
+
+    ze_result_t result = L0::CommandList::create(context, device, &desc, &hCommandList0);
+    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
+
+    L0::CommandList *commandList = L0::CommandList::fromHandle(hCommandList0);
+
+    ze_command_queue_flags_t flags = 0;
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_ARGUMENT, commandList->getImmediateFlags(&flags));
+
+    result = commandList->destroy();
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+}
+
+TEST_F(CommandListTest,
+       whenCalledImmediateGetFlagsOnImmediateCommandListThenCorrectFlagsAreReturned) {
+    ze_command_queue_desc_t altdesc = {};
+    altdesc.flags = ZE_COMMAND_QUEUE_FLAG_EXPLICIT_ONLY;
+    ze_command_list_handle_t hImmediateCmdList = nullptr;
+
+    ze_result_t result =
+        L0::ImmediateCommandList::create(context, device, &altdesc, &hImmediateCmdList);
+    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
+
+    L0::CommandList *commandList = L0::CommandList::fromHandle(hImmediateCmdList);
+
+    result = commandList->getImmediateFlags(nullptr);
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, result);
+
+    ze_command_queue_flags_t flags = std::numeric_limits<ze_command_queue_flags_t>::max();
+    result = commandList->getImmediateFlags(&flags);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+    EXPECT_EQ(altdesc.flags, flags);
+
+    result = commandList->destroy();
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+}
+
+TEST_F(CommandListTest, whenCalledImmediateGetModeOnRegularCommandListThenErrorIsReturned) {
+    ze_command_list_desc_t desc = {};
+
+    ze_result_t result = L0::CommandList::create(context, device, &desc, &hCommandList0);
+    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
+
+    L0::CommandList *commandList = L0::CommandList::fromHandle(hCommandList0);
+
+    ze_command_queue_mode_t mode = ZE_COMMAND_QUEUE_MODE_DEFAULT;
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_ARGUMENT, commandList->getImmediateMode(&mode));
+
+    result = commandList->destroy();
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+}
+
+TEST_F(CommandListTest, whenCalledImmediateGetModeOnImmediateCommandListThenCorrectModeIsReturned) {
+    ze_command_queue_desc_t altdesc = {};
+    altdesc.mode = ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS;
+    ze_command_list_handle_t hImmediateCmdList = nullptr;
+
+    ze_result_t result =
+        L0::ImmediateCommandList::create(context, device, &altdesc, &hImmediateCmdList);
+    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
+
+    L0::CommandList *commandList = L0::CommandList::fromHandle(hImmediateCmdList);
+
+    result = commandList->getImmediateMode(nullptr);
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, result);
+
+    ze_command_queue_mode_t mode = ZE_COMMAND_QUEUE_MODE_DEFAULT;
+    result = commandList->getImmediateMode(&mode);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+    EXPECT_EQ(altdesc.mode, mode);
+
+    result = commandList->destroy();
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+}
+
+TEST_F(CommandListTest, whenCalledImmediateGetPriorityOnRegularCommandListThenErrorIsReturned) {
+    ze_command_list_desc_t desc = {};
+
+    ze_result_t result = L0::CommandList::create(context, device, &desc, &hCommandList0);
+    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
+
+    L0::CommandList *commandList = L0::CommandList::fromHandle(hCommandList0);
+
+    ze_command_queue_priority_t priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL;
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_ARGUMENT, commandList->getImmediatePriority(&priority));
+
+    result = commandList->destroy();
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+}
+
+TEST_F(CommandListTest,
+       whenCalledImmediateGetPriorityOnImmediateCommandListThenCorrectPriorityIsReturned) {
+    ze_command_queue_desc_t altdesc = {};
+    altdesc.priority = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH;
+    ze_command_list_handle_t hImmediateCmdList = nullptr;
+
+    ze_result_t result =
+        L0::ImmediateCommandList::create(context, device, &altdesc, &hImmediateCmdList);
+    ASSERT_EQ(ZE_RESULT_SUCCESS, result);
+
+    L0::CommandList *commandList = L0::CommandList::fromHandle(hImmediateCmdList);
+
+    result = commandList->getImmediatePriority(nullptr);
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, result);
+
+    ze_command_queue_priority_t priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL;
+    result = commandList->getImmediatePriority(&priority);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
+    EXPECT_EQ(altdesc.priority, priority);
+
     result = commandList->destroy();
     EXPECT_EQ(ZE_RESULT_SUCCESS, result);
 }

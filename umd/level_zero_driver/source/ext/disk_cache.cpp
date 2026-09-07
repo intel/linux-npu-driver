@@ -253,6 +253,7 @@ std::unique_ptr<BlobContainer> DiskCache::setBlob(const Key &key,
         LOG_E("Failed to read back cached blob for key %s\n", key.c_str());
         return blob;
     }
+    newBlob->compatibilityString = std::move(blob->compatibilityString);
     return newBlob;
 }
 

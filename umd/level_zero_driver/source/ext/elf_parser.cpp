@@ -34,6 +34,7 @@
 #include <iterator>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string.h>
 #include <unordered_map>
 #include <vpux_elf/accessor.hpp>
@@ -1159,6 +1160,34 @@ ElfParser::allocateExecuteCommand(const std::vector<const void *> &inputArgs,
                                          outputStrides,
                                          profilingQuery,
                                          optimizeForDynamicShapes);
+}
+
+bool ElfParser::validateCompatibilityString(const std::string &compatibilityString,
+                                            const VPU::VPUHwInfo &hwInfo) {
+    elf::DeviceDescriptor devDesc = {};
+
+    devDesc.size = sizeof(elf::DeviceDescriptor);
+    devDesc.deviceID = hwInfo.deviceId;
+    devDesc.revision = hwInfo.deviceRevision;
+    devDesc.tileCount = static_cast<uint32_t>(std::bitset<32>(hwInfo.tileConfig).count());
+
+    auto nnVersion = toVersion<elf::Version>(hwInfo.fwMappedInferenceVersion);
+    try {
+        elf::checkCompatibilityString(devDesc, compatibilityString, nnVersion);
+        return true;
+    } catch (elf::CompatibilityError &err) {
+        LOG_E("Check compatibility string failed due to elf::CompatibilityError, reason: %s",
+              err.what());
+    } catch (const elf::RuntimeError &err) {
+        LOG_E("Check compatibility string failed due to elf::RuntimeError, reason: %s", err.what());
+    } catch (const elf::LogicError &err) {
+        LOG_E("Check compatibility string failed due to elf::LogicError, reason: %s", err.what());
+    } catch (const std::exception &err) {
+        LOG_E("Check compatibility string failed due to std::exception, reason: %s", err.what());
+    } catch (...) {
+        LOG_E("Check compatibility string failed, reason: unknown");
+    }
+    return false;
 }
 
 } // namespace L0

@@ -123,6 +123,11 @@ class Vcl {
         getCompilerIsOptionSupported =
             getSymbolAddrOrNullptr<decltype(getCompilerIsOptionSupported)>(
                 "vclGetCompilerIsOptionSupported");
+        allocatedExecutableCreate4 = getSymbolAddrOrNullptr<decltype(allocatedExecutableCreate4)>(
+            "vclAllocatedExecutableCreate4");
+        executableGetCompatibilityString =
+            getSymbolAddrOrNullptr<decltype(executableGetCompatibilityString)>(
+                "vclExecutableGetCompatibilityString");
     }
 
     static void closeHandle(void *handle) noexcept { dlclose(handle); }
@@ -146,6 +151,8 @@ class Vcl {
     decltype(vclGetVersion) *getVersion = &missingSymbol;
     decltype(vclGetCompilerSupportedOptions) *getCompilerSupportedOptions = nullptr;
     decltype(vclGetCompilerIsOptionSupported) *getCompilerIsOptionSupported = nullptr;
+    decltype(vclAllocatedExecutableCreate4) *allocatedExecutableCreate4 = nullptr;
+    decltype(vclExecutableGetCompatibilityString) *executableGetCompatibilityString = nullptr;
 
   private:
     using VclHandle = std::unique_ptr<void, decltype(&closeHandle)>;

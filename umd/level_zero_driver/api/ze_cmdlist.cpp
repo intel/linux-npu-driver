@@ -13,6 +13,7 @@
 #include "level_zero_driver/include/l0_exception.hpp"
 #include "level_zero_driver/source/cmdlist.hpp"
 #include "level_zero_driver/source/context.hpp"
+#include "level_zero_driver/source/device.hpp"
 #include "level_zero_driver/source/event.hpp"
 #include "level_zero_driver/source/immediate_cmdlist.hpp"
 
@@ -98,9 +99,84 @@ ze_result_t zeCommandListCreateImmediate(ze_context_handle_t hContext,
 ze_result_t zeCommandListImmediateGetIndex(ze_command_list_handle_t hCommandListImmediate,
                                            uint32_t *pIndex) {
     trace_zeCommandListImmediateGetIndex(hCommandListImmediate, pIndex);
-    ze_result_t ret = ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    ze_result_t ret;
 
+    if (hCommandListImmediate == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(ret, CommandList::fromHandle(hCommandListImmediate)->getIndex(pIndex));
+
+exit:
     trace_zeCommandListImmediateGetIndex(ret, hCommandListImmediate, pIndex);
+    return ret;
+}
+
+ze_result_t zeCommandListGetFlags(ze_command_list_handle_t hCommandList,
+                                  ze_command_list_flags_t *pFlags) {
+    trace_zeCommandListGetFlags(hCommandList, pFlags);
+    ze_result_t ret;
+
+    if (hCommandList == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(ret, CommandList::fromHandle(hCommandList)->getFlags(pFlags));
+
+exit:
+    trace_zeCommandListGetFlags(ret, hCommandList, pFlags);
+    return ret;
+}
+
+ze_result_t zeCommandListImmediateGetFlags(ze_command_list_handle_t hCommandListImmediate,
+                                           ze_command_queue_flags_t *pFlags) {
+    trace_zeCommandListImmediateGetFlags(hCommandListImmediate, pFlags);
+    ze_result_t ret;
+
+    if (hCommandListImmediate == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(ret,
+                        CommandList::fromHandle(hCommandListImmediate)->getImmediateFlags(pFlags));
+
+exit:
+    trace_zeCommandListImmediateGetFlags(ret, hCommandListImmediate, pFlags);
+    return ret;
+}
+
+ze_result_t zeCommandListImmediateGetMode(ze_command_list_handle_t hCommandListImmediate,
+                                          ze_command_queue_mode_t *pMode) {
+    trace_zeCommandListImmediateGetMode(hCommandListImmediate, pMode);
+    ze_result_t ret;
+
+    if (hCommandListImmediate == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(ret,
+                        CommandList::fromHandle(hCommandListImmediate)->getImmediateMode(pMode));
+
+exit:
+    trace_zeCommandListImmediateGetMode(ret, hCommandListImmediate, pMode);
+    return ret;
+}
+
+ze_result_t zeCommandListImmediateGetPriority(ze_command_list_handle_t hCommandListImmediate,
+                                              ze_command_queue_priority_t *pPriority) {
+    trace_zeCommandListImmediateGetPriority(hCommandListImmediate, pPriority);
+    ze_result_t ret;
+
+    if (hCommandListImmediate == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(
+        ret,
+        CommandList::fromHandle(hCommandListImmediate)->getImmediatePriority(pPriority));
+
+exit:
+    trace_zeCommandListImmediateGetPriority(ret, hCommandListImmediate, pPriority);
     return ret;
 }
 
@@ -133,6 +209,53 @@ ze_result_t zeCommandListHostSynchronize(ze_command_list_handle_t hCommandList, 
 
 exit:
     trace_zeCommandListHostSynchronize(ret, hCommandList, timeout);
+    return ret;
+}
+
+ze_result_t zeCommandListGetDeviceHandle(ze_command_list_handle_t hCommandList,
+                                         ze_device_handle_t *phDevice) {
+    trace_zeCommandListGetDeviceHandle(hCommandList, phDevice);
+    ze_result_t ret;
+
+    if (hCommandList == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(ret, CommandList::fromHandle(hCommandList)->getDeviceHandle(phDevice));
+
+exit:
+    trace_zeCommandListGetDeviceHandle(ret, hCommandList, phDevice);
+    return ret;
+}
+
+ze_result_t zeCommandListGetContextHandle(ze_command_list_handle_t hCommandList,
+                                          ze_context_handle_t *phContext) {
+    trace_zeCommandListGetContextHandle(hCommandList, phContext);
+    ze_result_t ret;
+
+    if (hCommandList == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(ret, CommandList::fromHandle(hCommandList)->getContextHandle(phContext));
+
+exit:
+    trace_zeCommandListGetContextHandle(ret, hCommandList, phContext);
+    return ret;
+}
+
+ze_result_t zeCommandListGetOrdinal(ze_command_list_handle_t hCommandList, uint32_t *pOrdinal) {
+    trace_zeCommandListGetOrdinal(hCommandList, pOrdinal);
+    ze_result_t ret;
+
+    if (hCommandList == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(ret, CommandList::fromHandle(hCommandList)->getOrdinal(pOrdinal));
+
+exit:
+    trace_zeCommandListGetOrdinal(ret, hCommandList, pOrdinal);
     return ret;
 }
 
@@ -647,15 +770,29 @@ ze_command_list_dditable_t zeCommandListDdiTable = {
     .pfnAppendImageCopyToMemoryExt = nullptr,
     .pfnAppendImageCopyFromMemoryExt = nullptr,
     .pfnHostSynchronize = zeCommandListHostSynchronize,
-    .pfnGetDeviceHandle = nullptr,
-    .pfnGetContextHandle = nullptr,
-    .pfnGetOrdinal = nullptr,
+    .pfnGetDeviceHandle = zeCommandListGetDeviceHandle,
+    .pfnGetContextHandle = zeCommandListGetContextHandle,
+    .pfnGetOrdinal = zeCommandListGetOrdinal,
     .pfnImmediateGetIndex = zeCommandListImmediateGetIndex,
     .pfnIsImmediate = zeCommandListIsImmediate,
     .pfnAppendSignalExternalSemaphoreExt = nullptr,
     .pfnAppendWaitExternalSemaphoreExt = nullptr,
     .pfnAppendLaunchKernelWithParameters = nullptr,
-    .pfnAppendLaunchKernelWithArguments = nullptr};
+    .pfnAppendLaunchKernelWithArguments = nullptr,
+    .pfnAppendMemoryCopyWithParameters = nullptr,
+    .pfnAppendMemoryFillWithParameters = nullptr,
+    .pfnImmediateAppendCommandListsWithParameters = nullptr,
+    .pfnGetFlags = zeCommandListGetFlags,
+    .pfnImmediateGetFlags = zeCommandListImmediateGetFlags,
+    .pfnImmediateGetMode = zeCommandListImmediateGetMode,
+    .pfnImmediateGetPriority = zeCommandListImmediateGetPriority,
+    .pfnBeginGraphCaptureExt = nullptr,
+    .pfnBeginCaptureIntoGraphExt = nullptr,
+    .pfnIsGraphCaptureEnabledExt = nullptr,
+    .pfnEndGraphCaptureExt = nullptr,
+    .pfnGetGraphExt = nullptr,
+    .pfnAppendGraphExt = nullptr,
+    .pfnAppendHostFunction = nullptr};
 
 ze_command_list_exp_dditable_t zeCommandListExpDdiTable = {
     .pfnCreateCloneExp = nullptr,
@@ -665,7 +802,8 @@ ze_command_list_exp_dditable_t zeCommandListExpDdiTable = {
     .pfnUpdateMutableCommandSignalEventExp = nullptr,
     .pfnUpdateMutableCommandWaitEventsExp = nullptr,
     .pfnGetNextCommandIdWithKernelsExp = nullptr,
-    .pfnUpdateMutableCommandKernelsExp = nullptr};
+    .pfnUpdateMutableCommandKernelsExp = nullptr,
+    .pfnIsMutableExp = nullptr};
 } // namespace L0
 
 extern "C" {

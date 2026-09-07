@@ -77,6 +77,11 @@ struct Device : _ze_device_handle_t {
     bool isMetricsLoaded() const { return metricsLoaded; }
     bool isMetricGroupAvailable(MetricGroup *metricGroup) const;
 
+    ze_result_t getRuntimeRequirements(const void *pObjDesc, size_t *pSize, char *pRequirements);
+    ze_result_t getRuntimeRequirementsKey(const char **pKey);
+    ze_result_t validateRuntimeRequirements(const char *pRequirements,
+                                            ze_validate_runtime_requirements_output_t *pOut);
+
     static Device *fromHandle(ze_device_handle_t handle) { return static_cast<Device *>(handle); }
     inline ze_device_handle_t toHandle() { return this; }
 

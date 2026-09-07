@@ -177,5 +177,50 @@ TEST_F(SingleDeviceTest, givenCallToGetDeviceMemoryPropertiesExpectedValuesRetur
     delete[] memProperties;
 }
 
+TEST_F(SingleDeviceTest, givenCallToGetRequirementsKeyExpectedValuesReturned) {
+    const char *key = nullptr;
+    EXPECT_EQ(device->getRuntimeRequirementsKey(&key), ZE_RESULT_SUCCESS);
+    EXPECT_STREQ(key, "INTEL.NPU.UMD");
+
+    EXPECT_EQ(device->getRuntimeRequirementsKey(nullptr), ZE_RESULT_ERROR_INVALID_NULL_POINTER);
+}
+
+TEST_F(SingleDeviceTest, givenCallToValidateRequirementsWithInvalidPointerExpectedErrorReturned) {
+    EXPECT_EQ(device->validateRuntimeRequirements(nullptr, nullptr),
+              ZE_RESULT_ERROR_INVALID_NULL_POINTER);
+
+    const char *key = "key";
+    EXPECT_EQ(device->validateRuntimeRequirements(key, nullptr),
+              ZE_RESULT_ERROR_INVALID_NULL_POINTER);
+
+    ze_validate_runtime_requirements_output_t output = {};
+    output.stype = ZE_STRUCTURE_TYPE_RUNTIME_REQUIREMENTS_OUTPUT;
+    EXPECT_EQ(device->validateRuntimeRequirements(nullptr, &output),
+              ZE_RESULT_ERROR_INVALID_NULL_POINTER);
+}
+
+TEST_F(SingleDeviceTest,
+       givenCallToValidateRequirementsWithInvalidKeyExpectedResultNotMetReturned) {
+    ze_validate_runtime_requirements_output_t output = {};
+    output.stype = ZE_STRUCTURE_TYPE_RUNTIME_REQUIREMENTS_OUTPUT;
+
+    // valid compatibility string example:
+    // meta=2.6;ov=2026.3.0;desc=[compiler=8.2;npu=4000;t=2;elf=1.2.2;mi=11.4.10]
+    const char *incorrectKey = "meta=1.0;ov=1.0;desc=[compiler=1;npu=1;t=16;elf=1.0;mi=1.0]";
+    output.result = ZE_VALIDATE_RUNTIME_REQUIREMENTS_RESULT_FORCE_UINT32;
+    EXPECT_EQ(device->validateRuntimeRequirements(incorrectKey, &output), ZE_RESULT_SUCCESS);
+    EXPECT_EQ(output.result, ZE_VALIDATE_RUNTIME_REQUIREMENTS_RESULT_REQUIREMENTS_NOT_MET);
+
+    const char *emptyStr = "";
+    output.result = ZE_VALIDATE_RUNTIME_REQUIREMENTS_RESULT_FORCE_UINT32;
+    EXPECT_EQ(device->validateRuntimeRequirements(emptyStr, &output), ZE_RESULT_SUCCESS);
+    EXPECT_EQ(output.result, ZE_VALIDATE_RUNTIME_REQUIREMENTS_RESULT_REQUIREMENTS_NOT_MET);
+
+    std::string longKey = incorrectKey + std::string(1000, 'x');
+    output.result = ZE_VALIDATE_RUNTIME_REQUIREMENTS_RESULT_FORCE_UINT32;
+    EXPECT_EQ(device->validateRuntimeRequirements(longKey.c_str(), &output), ZE_RESULT_SUCCESS);
+    EXPECT_EQ(output.result, ZE_VALIDATE_RUNTIME_REQUIREMENTS_RESULT_REQUIREMENTS_NOT_MET);
+}
+
 } // namespace ult
 } // namespace L0

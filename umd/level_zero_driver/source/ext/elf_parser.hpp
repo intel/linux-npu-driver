@@ -34,6 +34,7 @@ namespace VPU {
 class VPUBufferObject;
 class VPUDeviceContext;
 class VPUInferenceExecute;
+struct VPUHwInfo;
 } // namespace VPU
 
 namespace L0 {
@@ -122,6 +123,9 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
                            GraphProfilingQuery *profilingQuery,
                            std::vector<std::shared_ptr<VPU::VPUBufferObject>> &bos);
     std::shared_ptr<VPU::VPUBufferObject> findBuffer(const void *ptr);
+
+    static bool validateCompatibilityString(const std::string &compatibilityString,
+                                            const VPU::VPUHwInfo &hwInfo);
 
   private:
     VPU::VPUDeviceContext *ctx;

@@ -13,6 +13,7 @@
 #include "event.hpp"
 #include "level_zero_driver/include/l0_exception.hpp"
 #include "level_zero_driver/include/l0_handler.hpp"
+#include "level_zero_driver/source/device.hpp"
 #include "vpu_driver/source/command/event_command.hpp"
 #include "vpu_driver/source/command/job.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
@@ -24,8 +25,20 @@
 #include <ze_api.h>
 
 namespace L0 {
-ImmediateCommandList::ImmediateCommandList(Context *pCtx, CommandQueue *pCmdQueue)
-    : CommandList(pCtx, false)
+ImmediateCommandList::ImmediateCommandList(Context *pCtx,
+                                           ze_device_handle_t hDevice,
+                                           uint32_t ordinal,
+                                           uint32_t index,
+                                           ze_command_queue_flags_t flags,
+                                           ze_command_queue_mode_t mode,
+                                           ze_command_queue_priority_t priority,
+                                           CommandQueue *pCmdQueue)
+    // Immediate lists have no ze_command_list_desc_t, so no list creation flags apply.
+    : CommandList(pCtx, hDevice, ordinal, 0, false)
+    , index(index)
+    , flags(flags)
+    , mode(mode)
+    , priority(priority)
     , pCommandQueue(pCmdQueue) {}
 
 ze_result_t ImmediateCommandList::create(ze_context_handle_t hContext,
@@ -59,7 +72,14 @@ ze_result_t ImmediateCommandList::create(ze_context_handle_t hContext,
 
         auto pContext = Context::fromHandle(hContext);
         auto pCmdq = CommandQueue::fromHandle(hCommandQueue);
-        auto commandList = std::make_unique<ImmediateCommandList>(pContext, pCmdq);
+        auto commandList = std::make_unique<ImmediateCommandList>(pContext,
+                                                                  hDevice,
+                                                                  altdesc->ordinal,
+                                                                  altdesc->index,
+                                                                  altdesc->flags,
+                                                                  altdesc->mode,
+                                                                  altdesc->priority,
+                                                                  pCmdq);
 
         *phCommandList = commandList.get();
         pContext->appendObject(std::move(commandList));
@@ -84,6 +104,42 @@ ze_result_t ImmediateCommandList::isImmediate(ze_bool_t *pIsImmediate) {
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
     *pIsImmediate = true;
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t ImmediateCommandList::getIndex(uint32_t *pIndex) {
+    if (pIndex == nullptr) {
+        LOG_E("Invalid data pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    *pIndex = index;
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t ImmediateCommandList::getImmediateFlags(ze_command_queue_flags_t *pFlags) {
+    if (pFlags == nullptr) {
+        LOG_E("Invalid data pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    *pFlags = flags;
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t ImmediateCommandList::getImmediateMode(ze_command_queue_mode_t *pMode) {
+    if (pMode == nullptr) {
+        LOG_E("Invalid data pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    *pMode = mode;
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t ImmediateCommandList::getImmediatePriority(ze_command_queue_priority_t *pPriority) {
+    if (pPriority == nullptr) {
+        LOG_E("Invalid data pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    *pPriority = priority;
     return ZE_RESULT_SUCCESS;
 }
 

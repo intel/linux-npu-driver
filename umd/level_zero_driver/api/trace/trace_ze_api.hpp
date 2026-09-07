@@ -1465,6 +1465,91 @@ inline void trace_zeCommandQueueGetIndex(ze_result_t ret,
         std::cerr << _trace_zeCommandQueueGetIndex(hCommandQueue, pIndex) + trace_ze_result_t(ret);
 }
 
+inline std::string _trace_zeCommandQueueGetFlags(ze_command_queue_handle_t hCommandQueue,
+                                                 ze_command_queue_flags_t *pFlags) {
+    std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandQueueGetFlags(";
+    ss << std::hex << std::showbase;
+    ss << "hCommandQueue: " << hCommandQueue;
+    if (pFlags == nullptr) {
+        ss << ", pFlags: nullptr";
+    } else {
+        ss << ", pFlags: " << *pFlags;
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeCommandQueueGetFlags(ze_command_queue_handle_t hCommandQueue,
+                                         ze_command_queue_flags_t *pFlags) {
+    TRACE_EVENT_BEGIN("API", "zeCommandQueueGetFlags");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeCommandQueueGetFlags(hCommandQueue, pFlags) + "..\n";
+}
+inline void trace_zeCommandQueueGetFlags(ze_result_t ret,
+                                         ze_command_queue_handle_t hCommandQueue,
+                                         ze_command_queue_flags_t *pFlags) {
+    TRACE_EVENT_END("API");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeCommandQueueGetFlags(hCommandQueue, pFlags) + trace_ze_result_t(ret);
+}
+
+inline std::string _trace_zeCommandQueueGetMode(ze_command_queue_handle_t hCommandQueue,
+                                                ze_command_queue_mode_t *pMode) {
+    std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandQueueGetMode(";
+    ss << std::hex << std::showbase;
+    ss << "hCommandQueue: " << hCommandQueue;
+    if (pMode == nullptr) {
+        ss << ", pMode: nullptr";
+    } else {
+        ss << ", pMode: " << *pMode;
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeCommandQueueGetMode(ze_command_queue_handle_t hCommandQueue,
+                                        ze_command_queue_mode_t *pMode) {
+    TRACE_EVENT_BEGIN("API", "zeCommandQueueGetMode");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeCommandQueueGetMode(hCommandQueue, pMode) + "..\n";
+}
+inline void trace_zeCommandQueueGetMode(ze_result_t ret,
+                                        ze_command_queue_handle_t hCommandQueue,
+                                        ze_command_queue_mode_t *pMode) {
+    TRACE_EVENT_END("API");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeCommandQueueGetMode(hCommandQueue, pMode) + trace_ze_result_t(ret);
+}
+
+inline std::string _trace_zeCommandQueueGetPriority(ze_command_queue_handle_t hCommandQueue,
+                                                    ze_command_queue_priority_t *pPriority) {
+    std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandQueueGetPriority(";
+    ss << std::hex << std::showbase;
+    ss << "hCommandQueue: " << hCommandQueue;
+    if (pPriority == nullptr) {
+        ss << ", pPriority: nullptr";
+    } else {
+        ss << ", pPriority: " << *pPriority;
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeCommandQueueGetPriority(ze_command_queue_handle_t hCommandQueue,
+                                            ze_command_queue_priority_t *pPriority) {
+    TRACE_EVENT_BEGIN("API", "zeCommandQueueGetPriority");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeCommandQueueGetPriority(hCommandQueue, pPriority) + "..\n";
+}
+inline void trace_zeCommandQueueGetPriority(ze_result_t ret,
+                                            ze_command_queue_handle_t hCommandQueue,
+                                            ze_command_queue_priority_t *pPriority) {
+    TRACE_EVENT_END("API");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeCommandQueueGetPriority(hCommandQueue, pPriority) +
+                         trace_ze_result_t(ret);
+}
+
 inline std::string _trace_zeCommandListCreate(ze_context_handle_t hContext,
                                               ze_device_handle_t hDevice,
                                               const ze_command_list_desc_t *desc,
@@ -1856,6 +1941,125 @@ inline void trace_zeCommandListIsImmediate(ze_result_t ret,
     TRACE_EVENT_END("API");
     if (IS_API_TRACE())
         std::cerr << _trace_zeCommandListIsImmediate(hCommandList, pIsImmediate) +
+                         trace_ze_result_t(ret);
+}
+
+inline std::string _trace_zeCommandListGetFlags(ze_command_list_handle_t hCommandList,
+                                                ze_command_list_flags_t *pFlags) {
+    std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListGetFlags(";
+    ss << std::hex << std::showbase;
+    ss << "hCommandList: " << hCommandList;
+    if (pFlags == nullptr) {
+        ss << ", pFlags: nullptr";
+    } else {
+        ss << ", pFlags: " << *pFlags;
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeCommandListGetFlags(ze_command_list_handle_t hCommandList,
+                                        ze_command_list_flags_t *pFlags) {
+    TRACE_EVENT_BEGIN("API", "zeCommandListGetFlags");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeCommandListGetFlags(hCommandList, pFlags) + "..\n";
+}
+inline void trace_zeCommandListGetFlags(ze_result_t ret,
+                                        ze_command_list_handle_t hCommandList,
+                                        ze_command_list_flags_t *pFlags) {
+    TRACE_EVENT_END("API");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeCommandListGetFlags(hCommandList, pFlags) + trace_ze_result_t(ret);
+}
+
+inline std::string
+_trace_zeCommandListImmediateGetFlags(ze_command_list_handle_t hCommandListImmediate,
+                                      ze_command_queue_flags_t *pFlags) {
+    std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListImmediateGetFlags(";
+    ss << std::hex << std::showbase;
+    ss << "hCommandListImmediate: " << hCommandListImmediate;
+    if (pFlags == nullptr) {
+        ss << ", pFlags: nullptr";
+    } else {
+        ss << ", pFlags: " << *pFlags;
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeCommandListImmediateGetFlags(ze_command_list_handle_t hCommandListImmediate,
+                                                 ze_command_queue_flags_t *pFlags) {
+    TRACE_EVENT_BEGIN("API", "zeCommandListImmediateGetFlags");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeCommandListImmediateGetFlags(hCommandListImmediate, pFlags) + "..\n";
+}
+inline void trace_zeCommandListImmediateGetFlags(ze_result_t ret,
+                                                 ze_command_list_handle_t hCommandListImmediate,
+                                                 ze_command_queue_flags_t *pFlags) {
+    TRACE_EVENT_END("API");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeCommandListImmediateGetFlags(hCommandListImmediate, pFlags) +
+                         trace_ze_result_t(ret);
+}
+
+inline std::string
+_trace_zeCommandListImmediateGetMode(ze_command_list_handle_t hCommandListImmediate,
+                                     ze_command_queue_mode_t *pMode) {
+    std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListImmediateGetMode(";
+    ss << std::hex << std::showbase;
+    ss << "hCommandListImmediate: " << hCommandListImmediate;
+    if (pMode == nullptr) {
+        ss << ", pMode: nullptr";
+    } else {
+        ss << ", pMode: " << *pMode;
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeCommandListImmediateGetMode(ze_command_list_handle_t hCommandListImmediate,
+                                                ze_command_queue_mode_t *pMode) {
+    TRACE_EVENT_BEGIN("API", "zeCommandListImmediateGetMode");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeCommandListImmediateGetMode(hCommandListImmediate, pMode) + "..\n";
+}
+inline void trace_zeCommandListImmediateGetMode(ze_result_t ret,
+                                                ze_command_list_handle_t hCommandListImmediate,
+                                                ze_command_queue_mode_t *pMode) {
+    TRACE_EVENT_END("API");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeCommandListImmediateGetMode(hCommandListImmediate, pMode) +
+                         trace_ze_result_t(ret);
+}
+
+inline std::string
+_trace_zeCommandListImmediateGetPriority(ze_command_list_handle_t hCommandListImmediate,
+                                         ze_command_queue_priority_t *pPriority) {
+    std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandListImmediateGetPriority(";
+    ss << std::hex << std::showbase;
+    ss << "hCommandListImmediate: " << hCommandListImmediate;
+    if (pPriority == nullptr) {
+        ss << ", pPriority: nullptr";
+    } else {
+        ss << ", pPriority: " << *pPriority;
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeCommandListImmediateGetPriority(ze_command_list_handle_t hCommandListImmediate,
+                                                    ze_command_queue_priority_t *pPriority) {
+    TRACE_EVENT_BEGIN("API", "zeCommandListImmediateGetPriority");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeCommandListImmediateGetPriority(hCommandListImmediate, pPriority) +
+                         "..\n";
+}
+inline void trace_zeCommandListImmediateGetPriority(ze_result_t ret,
+                                                    ze_command_list_handle_t hCommandListImmediate,
+                                                    ze_command_queue_priority_t *pPriority) {
+    TRACE_EVENT_END("API");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeCommandListImmediateGetPriority(hCommandListImmediate, pPriority) +
                          trace_ze_result_t(ret);
 }
 
@@ -6114,6 +6318,125 @@ inline void trace_zeDevicePciGetPropertiesExt(ze_result_t ret,
     TRACE_EVENT_END("API");
     if (IS_API_TRACE())
         std::cerr << _trace_zeDevicePciGetPropertiesExt(hDevice, pPciProperties) +
+                         trace_ze_result_t(ret);
+}
+
+inline std::string _trace_zeDeviceGetRuntimeRequirements(ze_device_handle_t hDevice,
+                                                         const void *pObjDesc,
+                                                         size_t *pSize,
+                                                         char *pRequirements) {
+    std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceGetRuntimeRequirements(";
+    ss << std::hex << std::showbase;
+    ss << "hDevice: " << hDevice;
+    ss << ", pObjDesc: " << pObjDesc;
+    if (pSize == nullptr) {
+        ss << ", pSize: nullptr";
+    } else {
+        ss << ", pSize: " << *pSize;
+    }
+    ss << ", pRequirements: " << static_cast<void *>(pRequirements);
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeDeviceGetRuntimeRequirements(ze_device_handle_t hDevice,
+                                                 const void *pObjDesc,
+                                                 size_t *pSize,
+                                                 char *pRequirements) {
+    TRACE_EVENT_BEGIN("API", "zeDeviceGetRuntimeRequirements");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeDeviceGetRuntimeRequirements(hDevice,
+                                                           pObjDesc,
+                                                           pSize,
+                                                           pRequirements) +
+                         "..\n";
+}
+inline void trace_zeDeviceGetRuntimeRequirements(ze_result_t ret,
+                                                 ze_device_handle_t hDevice,
+                                                 const void *pObjDesc,
+                                                 size_t *pSize,
+                                                 char *pRequirements) {
+    TRACE_EVENT_END("API");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeDeviceGetRuntimeRequirements(hDevice,
+                                                           pObjDesc,
+                                                           pSize,
+                                                           pRequirements) +
+                         trace_ze_result_t(ret);
+}
+
+inline std::string _trace_zeDeviceGetRuntimeRequirementsKey(ze_device_handle_t hDevice,
+                                                            const char **pKey) {
+    std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceGetRuntimeRequirementsKey(";
+    ss << std::hex << std::showbase;
+    ss << "hDevice: " << hDevice;
+    if (pKey == nullptr) {
+        ss << ", pKey: nullptr";
+    } else if (*pKey == nullptr) {
+        ss << ", pKey: " << static_cast<const void *>(pKey) << " -> nullptr";
+    } else {
+        ss << ", pKey: \"" << trace_ascii_array(*pKey, 256).str() << "\"";
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeDeviceGetRuntimeRequirementsKey(ze_device_handle_t hDevice, const char **pKey) {
+    TRACE_EVENT_BEGIN("API", "zeDeviceGetRuntimeRequirementsKey");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeDeviceGetRuntimeRequirementsKey(hDevice, pKey) + "..\n";
+}
+inline void trace_zeDeviceGetRuntimeRequirementsKey(ze_result_t ret,
+                                                    ze_device_handle_t hDevice,
+                                                    const char **pKey) {
+    TRACE_EVENT_END("API");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeDeviceGetRuntimeRequirementsKey(hDevice, pKey) +
+                         trace_ze_result_t(ret);
+}
+
+inline std::string
+_trace_zeDeviceValidateRuntimeRequirements(ze_device_handle_t hDevice,
+                                           const char *pRequirements,
+                                           ze_validate_runtime_requirements_output_t *pOut) {
+    std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceValidateRuntimeRequirements(";
+    ss << std::hex << std::showbase;
+    ss << "hDevice: " << hDevice;
+    if (pRequirements == nullptr) {
+        ss << ", pRequirements: nullptr";
+    } else {
+        ss << ", pRequirements: " << static_cast<const void *>(pRequirements);
+    }
+    if (pOut == nullptr) {
+        ss << ", pOut: nullptr";
+    } else {
+        ss << ", pOut {";
+        ss << "stype: " << pOut->stype;
+        ss << ", pNext: " << pOut->pNext;
+        ss << ", result: " << pOut->result;
+        ss << "}";
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void
+trace_zeDeviceValidateRuntimeRequirements(ze_device_handle_t hDevice,
+                                          const char *pRequirements,
+                                          ze_validate_runtime_requirements_output_t *pOut) {
+    TRACE_EVENT_BEGIN("API", "zeDeviceValidateRuntimeRequirements");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeDeviceValidateRuntimeRequirements(hDevice, pRequirements, pOut) +
+                         "..\n";
+}
+inline void
+trace_zeDeviceValidateRuntimeRequirements(ze_result_t ret,
+                                          ze_device_handle_t hDevice,
+                                          const char *pRequirements,
+                                          ze_validate_runtime_requirements_output_t *pOut) {
+    TRACE_EVENT_END("API");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeDeviceValidateRuntimeRequirements(hDevice, pRequirements, pOut) +
                          trace_ze_result_t(ret);
 }
 

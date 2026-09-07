@@ -12,6 +12,7 @@
 
 #include "level_zero_driver/api/zet_misc.hpp"
 #include "level_zero_driver/include/l0_handler.hpp"
+#include "level_zero_driver/source/device.hpp"
 #include "level_zero_driver/source/event.hpp"
 #include "vpu_driver/source/command/event_command.hpp"
 #include "vpu_driver/source/command/job.hpp"
@@ -38,7 +39,11 @@ struct _ze_command_list_handle_t : public L0::_ze_generic_handle_t {};
 namespace L0 {
 
 struct CommandList : _ze_command_list_handle_t, IContextObject {
-    CommandList(Context *pContext, bool isMutable);
+    CommandList(Context *pContext,
+                ze_device_handle_t hDevice,
+                uint32_t ordinal,
+                ze_command_list_flags_t flags,
+                bool isMutable);
 
     static ze_result_t create(ze_context_handle_t hContext,
                               ze_device_handle_t hDevice,
@@ -48,6 +53,20 @@ struct CommandList : _ze_command_list_handle_t, IContextObject {
     virtual ze_result_t close();
     virtual ze_result_t destroy();
     virtual ze_result_t hostSynchronize(uint64_t timeout) { return ZE_RESULT_ERROR_UNINITIALIZED; }
+    ze_result_t getDeviceHandle(ze_device_handle_t *phDevice);
+    ze_result_t getContextHandle(ze_context_handle_t *phContext);
+    ze_result_t getOrdinal(uint32_t *pOrdinal);
+    ze_result_t getFlags(ze_command_list_flags_t *pFlags);
+    virtual ze_result_t getIndex(uint32_t *pIndex) { return ZE_RESULT_ERROR_INVALID_ARGUMENT; }
+    virtual ze_result_t getImmediateFlags(ze_command_queue_flags_t *pFlags) {
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+    virtual ze_result_t getImmediateMode(ze_command_queue_mode_t *pMode) {
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+    virtual ze_result_t getImmediatePriority(ze_command_queue_priority_t *pPriority) {
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
     ze_result_t reset();
     ze_result_t appendBarrier(ze_event_handle_t hSignalEvent,
                               uint32_t numWaitEvents,
@@ -208,6 +227,9 @@ struct CommandList : _ze_command_list_handle_t, IContextObject {
     }
 
     Context *pContext = nullptr;
+    ze_device_handle_t hDevice = nullptr;
+    uint32_t ordinal = 0;
+    ze_command_list_flags_t flags = 0;
     bool isMutable = false;
     VPU::VPUDeviceContext *ctx = nullptr;
     std::shared_ptr<VPU::VPUJob> vpuJob = nullptr;

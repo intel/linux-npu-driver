@@ -36,8 +36,15 @@
 
 namespace L0 {
 
-CommandList::CommandList(Context *pContext, bool isMutable)
+CommandList::CommandList(Context *pContext,
+                         ze_device_handle_t hDevice,
+                         uint32_t ordinal,
+                         ze_command_list_flags_t flags,
+                         bool isMutable)
     : pContext(pContext)
+    , hDevice(hDevice)
+    , ordinal(ordinal)
+    , flags(flags)
     , isMutable(isMutable)
     , ctx(pContext->getDeviceContext())
     , vpuJob(std::make_shared<VPU::VPUJob>(ctx)) {}
@@ -76,7 +83,11 @@ ze_result_t CommandList::create(ze_context_handle_t hContext,
                 *reinterpret_cast<const ze_structure_type_t *>(desc->pNext);
             isMutable = stype == ZE_STRUCTURE_TYPE_MUTABLE_COMMAND_LIST_EXP_DESC;
         }
-        auto commandList = std::make_unique<CommandList>(pContext, isMutable);
+        auto commandList = std::make_unique<CommandList>(pContext,
+                                                         hDevice,
+                                                         desc->commandQueueGroupOrdinal,
+                                                         desc->flags,
+                                                         isMutable);
 
         *phCommandList = commandList.get();
         pContext->appendObject(std::move(commandList));
@@ -85,6 +96,42 @@ ze_result_t CommandList::create(ze_context_handle_t hContext,
     } catch (const DriverError &err) {
         return err.result();
     }
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t CommandList::getDeviceHandle(ze_device_handle_t *phDevice) {
+    if (phDevice == nullptr) {
+        LOG_E("Invalid data pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    *phDevice = hDevice;
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t CommandList::getContextHandle(ze_context_handle_t *phContext) {
+    if (phContext == nullptr) {
+        LOG_E("Invalid data pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    *phContext = pContext->toHandle();
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t CommandList::getOrdinal(uint32_t *pOrdinal) {
+    if (pOrdinal == nullptr) {
+        LOG_E("Invalid data pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    *pOrdinal = ordinal;
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t CommandList::getFlags(ze_command_list_flags_t *pFlags) {
+    if (pFlags == nullptr) {
+        LOG_E("Invalid data pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    *pFlags = flags;
     return ZE_RESULT_SUCCESS;
 }
 

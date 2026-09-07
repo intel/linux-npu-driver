@@ -20,6 +20,14 @@
 #include <ze_ddi.h>
 
 namespace L0 {
+// ZE_HOST_MEM_ALLOC_FLAG_MEM_READ_ONLY and ZE_HOST_MEM_ALLOC_FLAG_BIAS_WRITE_COMBINED are
+// mutually exclusive per spec.
+static bool isValidHostMemAllocFlags(ze_host_mem_alloc_flags_t flags) {
+    ze_host_mem_alloc_flags_t mutuallyExclusive =
+        ZE_HOST_MEM_ALLOC_FLAG_MEM_READ_ONLY | ZE_HOST_MEM_ALLOC_FLAG_BIAS_WRITE_COMBINED;
+    return (flags & mutuallyExclusive) != mutuallyExclusive;
+}
+
 static VPU::VPUBufferObject::Type flagToBufferObjectType(ze_host_mem_alloc_flags_t flag) {
     switch (flag) {
     case ZE_HOST_MEM_ALLOC_FLAG_BIAS_CACHED:
@@ -244,6 +252,12 @@ ze_result_t zeMemAllocHost(ze_context_handle_t hContext,
     case ZE_STRUCTURE_TYPE_EXTERNAL_MEMMAP_SYSMEM_EXT_DESC: {
         const ze_external_memmap_sysmem_ext_desc_t *pImportMemDesc =
             reinterpret_cast<const ze_external_memmap_sysmem_ext_desc_t *>(hostDesc->pNext);
+
+        if (!isValidHostMemAllocFlags(hostDesc->flags)) {
+            ret = ZE_RESULT_ERROR_INVALID_ENUMERATION;
+            goto exit;
+        }
+
         L0_HANDLE_EXCEPTION(ret,
                             L0::Context::fromHandle(hContext)->importUserPtr(
                                 const_cast<void *>(pImportMemDesc->pSystemMemory),
