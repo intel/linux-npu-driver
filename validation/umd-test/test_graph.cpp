@@ -8,6 +8,7 @@
 #include "graph_utilities.hpp"
 
 #include <climits>
+#include <ze_graph_ext.h>
 
 class GraphApiBase : public UmdTest {
   public:
@@ -163,6 +164,38 @@ TEST_F(GraphApiBase, IsCompilerOptionSupported) {
                                                                option,
                                                                nullptr),
               ZE_RESULT_SUCCESS);
+}
+
+TEST_F(GraphApiBase, GetRuntimeRequirements) {
+    const YAML::Node node = Environment::getConfiguration("graph_execution")[0];
+    ASSERT_GT(node["path"].as<std::string>().size(), 0);
+
+    graphBuffer->desc.flags = ZE_GRAPH_FLAG_DISABLE_CACHING;
+
+    auto graph =
+        Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, node, graphBuffer);
+    ASSERT_NE(graph, nullptr);
+    ze_runtime_requirements_graph_desc_t graphDesc = {};
+    graphDesc.stype = ZE_STRUCTURE_TYPE_RUNTIME_REQUIREMENTS_GRAPH_DESC;
+    graphDesc.requirementsSrc = graph->handle;
+
+    size_t size = 0;
+    EXPECT_EQ(zeDeviceGetRuntimeRequirements(zeDevice, &graphDesc, &size, nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_GT(size, 0);
+    TRACE("Runtime requirements size: %zu\n", size);
+
+    std::string requirements(size, '\0');
+    EXPECT_EQ(zeDeviceGetRuntimeRequirements(zeDevice, &graphDesc, &size, requirements.data()),
+              ZE_RESULT_SUCCESS);
+    TRACE("Runtime requirements: %s\n", requirements.c_str());
+
+    ze_validate_runtime_requirements_output_t output = {};
+    output.stype = ZE_STRUCTURE_TYPE_RUNTIME_REQUIREMENTS_OUTPUT;
+
+    EXPECT_EQ(zeDeviceValidateRuntimeRequirements(zeDevice, requirements.c_str(), &output),
+              ZE_RESULT_SUCCESS);
+    EXPECT_EQ(output.result, ZE_VALIDATE_RUNTIME_REQUIREMENTS_RESULT_REQUIREMENTS_MET);
 }
 
 class GraphApi : public GraphApiBase {
@@ -386,6 +419,44 @@ TEST_F(GraphApi, GetArgumentProperties3) {
     ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties3(graph->handle,
                                                             graphProps.numGraphArgs,
                                                             &graphArgumentProperties),
+              ZE_RESULT_ERROR_INVALID_ARGUMENT);
+}
+
+TEST_F(GraphApi, GetArgumentMetadata) {
+    ASSERT_EQ(zeGraphDDITableExt->pfnGraphGetArgumentMetadata(graph->handle, 0, nullptr),
+              ZE_RESULT_ERROR_INVALID_NULL_POINTER);
+
+    ze_graph_properties_t graphProps = {};
+    graphProps.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
+
+    ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties(graph->handle, &graphProps), ZE_RESULT_SUCCESS)
+        << "Failed to get Graph properties";
+
+    for (uint32_t index = 0; index < graphProps.numGraphArgs; index++) {
+        ze_graph_argument_metadata_t metadata = {};
+        metadata.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_METADATA;
+        ASSERT_EQ(zeGraphDDITableExt->pfnGraphGetArgumentMetadata(graph->handle, index, &metadata),
+                  ZE_RESULT_SUCCESS);
+        if (index == 0) {
+            ASSERT_EQ(metadata.type, ZE_GRAPH_ARGUMENT_TYPE_INPUT);
+        } else if (index == graphProps.numGraphArgs - 1) {
+            ASSERT_EQ(metadata.type, ZE_GRAPH_ARGUMENT_TYPE_OUTPUT);
+        } else if (metadata.type != ZE_GRAPH_ARGUMENT_TYPE_INPUT &&
+                   metadata.type != ZE_GRAPH_ARGUMENT_TYPE_OUTPUT) {
+            FAIL() << "Invalid graph argument type";
+        }
+
+        ASSERT_GT(strlen(metadata.friendly_name), 0);
+        ASSERT_LT(metadata.shape_size, ZE_MAX_GRAPH_TENSOR_REF_DIMS);
+        ASSERT_LT(metadata.tensor_names_count, ZE_MAX_GRAPH_TENSOR_NAMES_SIZE);
+        ASSERT_GT(strlen(metadata.input_name), 0);
+    }
+
+    ze_graph_argument_metadata_t metadata = {};
+    metadata.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_METADATA;
+    ASSERT_EQ(zeGraphDDITableExt->pfnGraphGetArgumentMetadata(graph->handle,
+                                                              graphProps.numGraphArgs,
+                                                              &metadata),
               ZE_RESULT_ERROR_INVALID_ARGUMENT);
 }
 

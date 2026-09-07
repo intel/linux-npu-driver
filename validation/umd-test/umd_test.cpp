@@ -241,7 +241,7 @@ UmdTest::importSystemMemory(void *ptr, size_t size, bool readOnly /* = false */)
     ze_host_mem_alloc_desc_t hostMemAllocDesc = {
         ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC,
         &importSystemMemory,
-        readOnly ? ZE_HOST_MEM_ALLOC_FLAG_BIAS_WRITE_COMBINED : ZE_HOST_MEM_ALLOC_FLAG_BIAS_CACHED,
+        readOnly ? ZE_HOST_MEM_ALLOC_FLAG_MEM_READ_ONLY : ZE_HOST_MEM_ALLOC_FLAG_BIAS_CACHED,
     };
 
     auto ret = ZE_RESULT_SUCCESS;
