@@ -7,7 +7,7 @@ option(ENABLE_LEVEL_ZERO_FROM_SUBMODULE "Force building Level Zero from submodul
 include(FetchContent)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-set(LEVEL_ZERO_VERSION "1.28.2")
+set(LEVEL_ZERO_VERSION "1.32.0")
 
 if(NOT ENABLE_LEVEL_ZERO_FROM_SUBMODULE)
   find_package(LevelZero ${LEVEL_ZERO_VERSION})
@@ -22,14 +22,14 @@ if(NOT ENABLE_LEVEL_ZERO_FROM_SUBMODULE
   # https://launchpad.net/~kobuk-team/+archive/ubuntu/intel-graphics/+files/libze1*
   # https://launchpad.net/~kobuk-team/+archive/ubuntu/intel-graphics/+files/libze-dev*
   set(PKG_NAMES libze1;libze-dev)
-  set(PPA_URL https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260606T100000Z/pool/main/l/level-zero-loader)
+  set(PPA_URL https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader)
 
   if(LINUX_SYSTEM_VERSION_ID STREQUAL "24.04")
     set(UBUNTU_PPA_SUFFIX "24.04")
-    set(PKG_MD5S 5c751167369d9c4a44572f4d81a27d0c;fa2be4c30e45b5ebe4b1e1b5c82d2890)
+    set(PKG_MD5S 28e8212ff4e980c4a2858716783ac1e4;d868e744c86a407fe46c0f57002dd0f0)
   elseif(LINUX_SYSTEM_VERSION_ID STREQUAL "26.04")
     set(UBUNTU_PPA_SUFFIX "26.04")
-     set(PKG_MD5S 236b888efa6c67471a320eec257a9b03;300b9c967385a1aa6d4e05209f0e7df9)
+    set(PKG_MD5S c7a4eec5d4d4e59ba67372d250443c40;afa826ababde99100682454726a58a14)
   endif()
 
   foreach(PKG_NAME PKG_MD5 IN ZIP_LISTS PKG_NAMES PKG_MD5S)
@@ -58,20 +58,18 @@ if(NOT ENABLE_LEVEL_ZERO_FROM_SUBMODULE
   find_package(LevelZero ${LEVEL_ZERO_VERSION})
 endif()
 
+if(ENABLE_LEVEL_ZERO_FROM_SUBMODULE)
+    set(LevelZero_FOUND FALSE)
+endif()
+
 if(NOT LevelZero_FOUND)
   message(STATUS "LevelZero not found. Downloads source from v${LEVEL_ZERO_VERSION} tag")
-  # TODO: Remove patch when LEVEL_ZERO_VERSION tag includes https://github.com/oneapi-src/level-zero/pull/433
-  set(LEVEL_ZERO_PATCHES
-    ${CMAKE_CURRENT_SOURCE_DIR}/level-zero-patches/0001-Add-vendor-lib64-to-driver-search-path-for-android.patch)
 
   FetchContent_Declare(
     level_zero
     GIT_REPOSITORY https://github.com/oneapi-src/level-zero.git
     GIT_TAG "v${LEVEL_ZERO_VERSION}"
     GIT_SHALLOW TRUE
-    PATCH_COMMAND
-      git -C <SOURCE_DIR> reset --hard HEAD &&
-      git -C <SOURCE_DIR> apply ${LEVEL_ZERO_PATCHES}
     EXCLUDE_FROM_ALL)
   FetchContent_MakeAvailable(level_zero)
 
