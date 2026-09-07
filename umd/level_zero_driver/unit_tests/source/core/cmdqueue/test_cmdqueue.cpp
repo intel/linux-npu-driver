@@ -81,6 +81,126 @@ TEST_F(CommandQueueCreate, expectCommandQueueIsDestroyOnContextDestroy) {
     ASSERT_NE(hCommandQueue, nullptr);
 }
 
+TEST_F(CommandQueueCreate, whenCallingGetOrdinalThenValueSetAtCreationIsReturned) {
+    ze_command_queue_handle_t hCommandQueue = nullptr;
+    ze_command_queue_desc_t cmdQueueDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
+                                            .pNext = nullptr,
+                                            .ordinal = 0,
+                                            .index = 0,
+                                            .flags = 0,
+                                            .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
+                                            .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
+    ASSERT_EQ(ZE_RESULT_SUCCESS,
+              L0::CommandQueue::create(context, device, &cmdQueueDesc, &hCommandQueue));
+    ASSERT_NE(hCommandQueue, nullptr);
+
+    L0::CommandQueue *commandQueue = L0::CommandQueue::fromHandle(hCommandQueue);
+
+    uint32_t ordinal = 0xDEADBEEFu;
+    EXPECT_EQ(ZE_RESULT_SUCCESS, commandQueue->getOrdinal(&ordinal));
+    EXPECT_EQ(cmdQueueDesc.ordinal, ordinal);
+
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, commandQueue->getOrdinal(nullptr));
+
+    EXPECT_EQ(ZE_RESULT_SUCCESS, commandQueue->destroy());
+}
+
+TEST_F(CommandQueueCreate, whenCallingGetIndexThenValueSetAtCreationIsReturned) {
+    ze_command_queue_handle_t hCommandQueue = nullptr;
+    ze_command_queue_desc_t cmdQueueDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
+                                            .pNext = nullptr,
+                                            .ordinal = 0,
+                                            .index = 0,
+                                            .flags = 0,
+                                            .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
+                                            .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
+    ASSERT_EQ(ZE_RESULT_SUCCESS,
+              L0::CommandQueue::create(context, device, &cmdQueueDesc, &hCommandQueue));
+    ASSERT_NE(hCommandQueue, nullptr);
+
+    L0::CommandQueue *commandQueue = L0::CommandQueue::fromHandle(hCommandQueue);
+
+    uint32_t index = 0xDEADBEEFu;
+    EXPECT_EQ(ZE_RESULT_SUCCESS, commandQueue->getIndex(&index));
+    EXPECT_EQ(cmdQueueDesc.index, index);
+
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, commandQueue->getIndex(nullptr));
+
+    EXPECT_EQ(ZE_RESULT_SUCCESS, commandQueue->destroy());
+}
+
+TEST_F(CommandQueueCreate, whenCallingGetFlagsThenValueSetAtCreationIsReturned) {
+    ze_command_queue_handle_t hCommandQueue = nullptr;
+    ze_command_queue_desc_t cmdQueueDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
+                                            .pNext = nullptr,
+                                            .ordinal = 0,
+                                            .index = 0,
+                                            .flags = ZE_COMMAND_QUEUE_FLAG_EXPLICIT_ONLY,
+                                            .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
+                                            .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
+    ASSERT_EQ(ZE_RESULT_SUCCESS,
+              L0::CommandQueue::create(context, device, &cmdQueueDesc, &hCommandQueue));
+    ASSERT_NE(hCommandQueue, nullptr);
+
+    L0::CommandQueue *commandQueue = L0::CommandQueue::fromHandle(hCommandQueue);
+
+    ze_command_queue_flags_t flags = 0xDEADBEEFu;
+    EXPECT_EQ(ZE_RESULT_SUCCESS, commandQueue->getFlags(&flags));
+    EXPECT_EQ(cmdQueueDesc.flags, flags);
+
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, commandQueue->getFlags(nullptr));
+
+    EXPECT_EQ(ZE_RESULT_SUCCESS, commandQueue->destroy());
+}
+
+TEST_F(CommandQueueCreate, whenCallingGetModeThenValueSetAtCreationIsReturned) {
+    ze_command_queue_handle_t hCommandQueue = nullptr;
+    ze_command_queue_desc_t cmdQueueDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
+                                            .pNext = nullptr,
+                                            .ordinal = 0,
+                                            .index = 0,
+                                            .flags = 0,
+                                            .mode = ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
+                                            .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
+    ASSERT_EQ(ZE_RESULT_SUCCESS,
+              L0::CommandQueue::create(context, device, &cmdQueueDesc, &hCommandQueue));
+    ASSERT_NE(hCommandQueue, nullptr);
+
+    L0::CommandQueue *commandQueue = L0::CommandQueue::fromHandle(hCommandQueue);
+
+    ze_command_queue_mode_t mode = ZE_COMMAND_QUEUE_MODE_FORCE_UINT32;
+    EXPECT_EQ(ZE_RESULT_SUCCESS, commandQueue->getMode(&mode));
+    EXPECT_EQ(cmdQueueDesc.mode, mode);
+
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, commandQueue->getMode(nullptr));
+
+    EXPECT_EQ(ZE_RESULT_SUCCESS, commandQueue->destroy());
+}
+
+TEST_F(CommandQueueCreate, whenCallingGetPriorityThenValueSetAtCreationIsReturned) {
+    ze_command_queue_handle_t hCommandQueue = nullptr;
+    ze_command_queue_desc_t cmdQueueDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
+                                            .pNext = nullptr,
+                                            .ordinal = 0,
+                                            .index = 0,
+                                            .flags = 0,
+                                            .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
+                                            .priority = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH};
+    ASSERT_EQ(ZE_RESULT_SUCCESS,
+              L0::CommandQueue::create(context, device, &cmdQueueDesc, &hCommandQueue));
+    ASSERT_NE(hCommandQueue, nullptr);
+
+    L0::CommandQueue *commandQueue = L0::CommandQueue::fromHandle(hCommandQueue);
+
+    ze_command_queue_priority_t priority = ZE_COMMAND_QUEUE_PRIORITY_FORCE_UINT32;
+    EXPECT_EQ(ZE_RESULT_SUCCESS, commandQueue->getPriority(&priority));
+    EXPECT_EQ(cmdQueueDesc.priority, priority);
+
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, commandQueue->getPriority(nullptr));
+
+    EXPECT_EQ(ZE_RESULT_SUCCESS, commandQueue->destroy());
+}
+
 struct CommandQueueExecTest : Test<CommandQueueFixture> {
     void SetUp() override {
         CommandQueueFixture::SetUp();

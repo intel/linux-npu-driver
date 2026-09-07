@@ -29,9 +29,10 @@ class BlobContainer final {
         , size(size)
         , backingStore(std::move(file)) {}
 
-    BlobContainer(std::unique_ptr<uint8_t[]> buffer, size_t size)
+    BlobContainer(std::unique_ptr<uint8_t[]> buffer, size_t size, std::string compStr)
         : ptr(buffer.get())
         , size(size)
+        , compatibilityString(std::move(compStr))
         , backingStore(std::move(buffer)) {}
 
     BlobContainer(uint8_t *ptr, size_t size, std::shared_ptr<VPU::VPUBufferObject> bo)
@@ -50,6 +51,7 @@ class BlobContainer final {
   public:
     uint8_t *ptr;
     size_t size;
+    std::string compatibilityString;
 
   private:
     std::variant<std::monostate, std::unique_ptr<VPU::OsFile>, std::unique_ptr<uint8_t[]>>

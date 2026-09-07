@@ -48,10 +48,19 @@ static VPU::VPUDeviceQueue::Priority toVPUDevicePriority(ze_command_queue_priori
 
 CommandQueue::CommandQueue(Context *context,
                            std::unique_ptr<VPU::VPUDeviceQueue> queue,
-                           CommandQueueMode mode)
+                           uint32_t ordinal,
+                           uint32_t index,
+                           ze_command_queue_flags_t flags,
+                           ze_command_queue_mode_t mode,
+                           ze_command_queue_priority_t priority)
     : vpuQueue(std::move(queue))
     , pContext(context)
-    , queueMode(mode) {
+    , ordinal(ordinal)
+    , index(index)
+    , flags(flags)
+    , mode(mode)
+    , priority(priority)
+    , isSynchronousMode(mode == ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS) {
     pContext->getDeviceContext()->preemptionCacheLoad();
 }
 
@@ -87,9 +96,6 @@ ze_result_t CommandQueue::create(ze_context_handle_t hContext,
         LOG_E("Invalid phCommandQueue pointer");
         return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
     }
-    CommandQueueMode mode = desc->mode == ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS
-                                ? CommandQueueMode::SYNCHRONOUS
-                                : CommandQueueMode::DEFAULT;
 
     try {
         Device *pDevice = Device::fromHandle(hDevice);
@@ -140,8 +146,13 @@ ze_result_t CommandQueue::create(ze_context_handle_t hContext,
                       "VPU Command queue creation failed.",
                       ZE_RESULT_ERROR_UNINITIALIZED);
 
-        auto cmdQueue =
-            std::make_unique<CommandQueue>(pContext, std::move(vpuQueue), std::move(mode));
+        auto cmdQueue = std::make_unique<CommandQueue>(pContext,
+                                                       std::move(vpuQueue),
+                                                       desc->ordinal,
+                                                       desc->index,
+                                                       desc->flags,
+                                                       desc->mode,
+                                                       desc->priority);
         *phCommandQueue = cmdQueue.get();
         pContext->appendObject(std::move(cmdQueue));
         LOG(CMDQUEUE, "CommandQueue created - %p", *phCommandQueue);
@@ -154,6 +165,51 @@ ze_result_t CommandQueue::create(ze_context_handle_t hContext,
 ze_result_t CommandQueue::destroy() {
     pContext->removeObject(this);
     LOG(CMDQUEUE, "CommandQueue destroyed - %p", this);
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t CommandQueue::getOrdinal(uint32_t *pOrdinal) const {
+    if (pOrdinal == nullptr) {
+        LOG_E("Invalid pOrdinal pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    *pOrdinal = ordinal;
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t CommandQueue::getIndex(uint32_t *pIndex) const {
+    if (pIndex == nullptr) {
+        LOG_E("Invalid pIndex pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    *pIndex = index;
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t CommandQueue::getFlags(ze_command_queue_flags_t *pFlags) const {
+    if (pFlags == nullptr) {
+        LOG_E("Invalid pFlags pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    *pFlags = flags;
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t CommandQueue::getMode(ze_command_queue_mode_t *pMode) const {
+    if (pMode == nullptr) {
+        LOG_E("Invalid pMode pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    *pMode = mode;
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t CommandQueue::getPriority(ze_command_queue_priority_t *pPriority) const {
+    if (pPriority == nullptr) {
+        LOG_E("Invalid pPriority pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    *pPriority = priority;
     return ZE_RESULT_SUCCESS;
 }
 
@@ -287,7 +343,7 @@ ze_result_t CommandQueue::executeCommandLists(uint32_t nCommandLists,
         std::copy(jobs.begin(), jobs.end(), std::back_inserter(trackedJobs));
     }
 
-    if (queueMode == CommandQueueMode::SYNCHRONOUS)
+    if (isSynchronousMode)
         return synchronize(std::numeric_limits<uint64_t>::max());
 
     return ZE_RESULT_SUCCESS;

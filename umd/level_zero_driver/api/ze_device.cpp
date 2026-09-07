@@ -5,6 +5,7 @@
  *
  */
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "level_zero_driver/api/trace/trace_ze_api.hpp"
@@ -282,6 +283,60 @@ exit:
     return ret;
 }
 
+ze_result_t zeDeviceGetRuntimeRequirements(ze_device_handle_t hDevice,
+                                           const void *pObjDesc,
+                                           size_t *pSize,
+                                           char *pRequirements) {
+    trace_zeDeviceGetRuntimeRequirements(hDevice, pObjDesc, pSize, pRequirements);
+    ze_result_t ret;
+
+    if (hDevice == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(
+        ret,
+        L0::Device::fromHandle(hDevice)->getRuntimeRequirements(pObjDesc, pSize, pRequirements));
+
+exit:
+    trace_zeDeviceGetRuntimeRequirements(ret, hDevice, pObjDesc, pSize, pRequirements);
+    return ret;
+}
+
+ze_result_t zeDeviceGetRuntimeRequirementsKey(ze_device_handle_t hDevice, const char **pKey) {
+    trace_zeDeviceGetRuntimeRequirementsKey(hDevice, pKey);
+    ze_result_t ret;
+
+    if (hDevice == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(ret, L0::Device::fromHandle(hDevice)->getRuntimeRequirementsKey(pKey));
+
+exit:
+    trace_zeDeviceGetRuntimeRequirementsKey(ret, hDevice, pKey);
+    return ret;
+}
+
+ze_result_t zeDeviceValidateRuntimeRequirements(ze_device_handle_t hDevice,
+                                                const char *pRequirements,
+                                                ze_validate_runtime_requirements_output_t *pOut) {
+    trace_zeDeviceValidateRuntimeRequirements(hDevice, pRequirements, pOut);
+    ze_result_t ret;
+
+    if (hDevice == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(
+        ret,
+        L0::Device::fromHandle(hDevice)->validateRuntimeRequirements(pRequirements, pOut));
+
+exit:
+    trace_zeDeviceValidateRuntimeRequirements(ret, hDevice, pRequirements, pOut);
+    return ret;
+}
+
 ze_device_dditable_t zeDeviceDdiTable = {
     .pfnGet = zeDeviceGet,
     .pfnGetSubDevices = zeDeviceGetSubDevices,
@@ -306,7 +361,11 @@ ze_device_dditable_t zeDeviceDdiTable = {
     .pfnReleaseExternalSemaphoreExt = nullptr,
     .pfnGetVectorWidthPropertiesExt = nullptr,
     .pfnSynchronize = nullptr,
-    .pfnGetAggregatedCopyOffloadIncrementValue = nullptr};
+    .pfnGetAggregatedCopyOffloadIncrementValue = nullptr,
+    .pfnGetRuntimeRequirements = zeDeviceGetRuntimeRequirements,
+    .pfnGetRuntimeRequirementsKey = zeDeviceGetRuntimeRequirementsKey,
+    .pfnValidateRuntimeRequirements = zeDeviceValidateRuntimeRequirements,
+    .pfnGetCounterBasedEventMaxValue = nullptr};
 
 } // namespace L0
 
@@ -349,6 +408,12 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetDeviceProcAddrTable(ze_api_version_t ve
 
     if (version >= ZE_API_VERSION_1_3) {
         pDdiTable->pfnPciGetPropertiesExt = L0::zeDevicePciGetPropertiesExt;
+    }
+
+    if (version >= ZE_API_VERSION_1_17) {
+        pDdiTable->pfnGetRuntimeRequirements = L0::zeDeviceGetRuntimeRequirements;
+        pDdiTable->pfnGetRuntimeRequirementsKey = L0::zeDeviceGetRuntimeRequirementsKey;
+        pDdiTable->pfnValidateRuntimeRequirements = L0::zeDeviceValidateRuntimeRequirements;
     }
 
     ret = ZE_RESULT_SUCCESS;

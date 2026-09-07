@@ -58,6 +58,8 @@ ze_dditable_driver_t coreDDITable = {
     .VirtualMem = &L0::zeVirtualMemDdiTable,
     .FabricVertexExp = nullptr,
     .FabricEdgeExp = nullptr,
+    .Graph = nullptr,
+    .ExecutableGraph = nullptr,
 };
 
 zer_dditable_driver_t runtimeDdiTable = {};

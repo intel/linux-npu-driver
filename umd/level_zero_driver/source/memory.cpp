@@ -110,7 +110,9 @@ Context::importUserPtr(void *userPtr, size_t size, ze_host_mem_alloc_flags_t fla
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    bool isReadOnly = (flags & ZE_HOST_MEM_ALLOC_FLAG_BIAS_WRITE_COMBINED) != 0;
+    // BIAS_WRITE_COMBINED is kept as a legacy way to request read-only, for backward compatibility.
+    bool isReadOnly = (flags & (ZE_HOST_MEM_ALLOC_FLAG_MEM_READ_ONLY |
+                                ZE_HOST_MEM_ALLOC_FLAG_BIAS_WRITE_COMBINED)) != 0;
     bo = ctx->createTrackedBufferObjectFromUserPtr(userPtr, size, isReadOnly);
     if (bo == nullptr) {
         LOG_E("Failed to create buffer object from user pointer");

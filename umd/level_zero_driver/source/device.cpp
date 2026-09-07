@@ -14,6 +14,8 @@
 #include "context.hpp"
 #include "driver.hpp"
 #include "driver_handle.hpp"
+#include "ext/elf_parser.hpp"
+#include "ext/graph.hpp"
 #include "level_zero_driver/include/nested_structs_handler.hpp"
 #include "metric.hpp"
 #include "umd_common.hpp"
@@ -26,6 +28,7 @@
 #include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/source/utilities/timer.hpp"
 
+#include <algorithm>
 #include <bitset>
 #include <chrono> // IWYU pragma: keep
 #include <errno.h>
@@ -33,6 +36,7 @@
 #include <linux/sysinfo.h>
 #include <optional>
 #include <string.h>
+#include <string>
 #include <sys/sysinfo.h>
 #include <utility>
 #include <ze_api.h>
@@ -728,6 +732,67 @@ Device::activateMetricGroups(int vpuFd, uint32_t count, zet_metric_group_handle_
 
 const std::shared_ptr<MetricContext> Device::getMetricContext() const {
     return metricContext;
+}
+
+ze_result_t
+Device::getRuntimeRequirements(const void *pObjDesc, size_t *pSize, char *pRequirements) {
+    if (pObjDesc == nullptr || pSize == nullptr) {
+        LOG_E("Invalid pObjDesc or pSize pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    auto *pDesc = reinterpret_cast<const ze_runtime_requirements_graph_desc_t *>(pObjDesc);
+    if (pDesc->stype != ZE_STRUCTURE_TYPE_RUNTIME_REQUIREMENTS_GRAPH_DESC) {
+        LOG_E("Invalid structure type: %#x", pDesc->stype);
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    auto hGraph = pDesc->requirementsSrc;
+    if (hGraph == nullptr) {
+        LOG_E("Invalid graph handle");
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    std::string requirements = Graph::fromHandle(hGraph)->getCompatibilityString();
+    if (pRequirements == nullptr) {
+        *pSize = requirements.size() + 1;
+        return ZE_RESULT_SUCCESS;
+    }
+
+    *pSize = std::min(*pSize, requirements.size() + 1);
+    memcpy(pRequirements, requirements.c_str(), *pSize);
+    if (*pSize > 0) // Ensure null-termination
+        pRequirements[*pSize - 1] = '\0';
+
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t Device::getRuntimeRequirementsKey(const char **pKey) {
+    static constexpr const char *requirements_key = "INTEL.NPU.UMD";
+    if (pKey == nullptr) {
+        LOG_E("Invalid pKey pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+    *pKey = requirements_key;
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t Device::validateRuntimeRequirements(const char *pRequirements,
+                                                ze_validate_runtime_requirements_output_t *pOut) {
+    if (pRequirements == nullptr || pOut == nullptr) {
+        LOG_E("Invalid pRequirements or pOut pointer");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    if (pOut->stype != ZE_STRUCTURE_TYPE_RUNTIME_REQUIREMENTS_OUTPUT) {
+        LOG_E("Invalid structure type: %#x", pOut->stype);
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    auto valid = ElfParser::validateCompatibilityString(pRequirements, getVPUDevice()->getHwInfo());
+    pOut->result = valid ? ZE_VALIDATE_RUNTIME_REQUIREMENTS_RESULT_REQUIREMENTS_MET
+                         : ZE_VALIDATE_RUNTIME_REQUIREMENTS_RESULT_REQUIREMENTS_NOT_MET;
+    return ZE_RESULT_SUCCESS;
 }
 
 } // namespace L0

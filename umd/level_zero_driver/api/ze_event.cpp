@@ -203,7 +203,8 @@ ze_event_dditable_t zeEventDdiTable = {.pfnCreate = zeEventCreate,
                                        .pfnCounterBasedGetIpcHandle = nullptr,
                                        .pfnCounterBasedOpenIpcHandle = nullptr,
                                        .pfnCounterBasedCloseIpcHandle = nullptr,
-                                       .pfnCounterBasedGetDeviceAddress = nullptr};
+                                       .pfnCounterBasedGetDeviceAddress = nullptr,
+                                       .pfnGetCounterBasedFlags = nullptr};
 } // namespace L0
 
 extern "C" {

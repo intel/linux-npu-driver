@@ -238,6 +238,42 @@ static void vclDeallocate2(vcl_allocator2_t *allocator, uint8_t *ptr) {
     delete[] ptr;
 }
 
+static vcl_result_t
+getCompatibilityString(vcl_executable_handle_t hExec, std::string &compStr, std::string &log) {
+    if (!Vcl::sym().allocatedExecutableCreate4 || !Vcl::sym().executableGetCompatibilityString)
+        return VCL_RESULT_ERROR_UNSUPPORTED_FEATURE;
+
+    uint64_t size = 0;
+    TRACE_EVENT_BEGIN("NPU_COMPILER", "vclExecutableGetCompatibilityString");
+    vcl_result_t ret = Vcl::sym().executableGetCompatibilityString(hExec, nullptr, &size);
+    TRACE_EVENT_END("NPU_COMPILER");
+    if (ret != VCL_RESULT_SUCCESS) {
+        log += "[NPU_DRV] Driver reports a failure from vclExecutableGetCompatibilityString to get "
+               "string size, return code: " +
+               std::to_string(ret) + '\n';
+        LOG_E("Failed to get compiler executable compatibility string size! Result:%#x", ret);
+        return ret;
+    }
+
+    compStr.resize(size, '\0');
+    TRACE_EVENT_BEGIN("NPU_COMPILER", "vclExecutableGetCompatibilityString");
+    ret = Vcl::sym().executableGetCompatibilityString(hExec, compStr.data(), &size);
+    TRACE_EVENT_END("NPU_COMPILER");
+    if (ret != VCL_RESULT_SUCCESS) {
+        log += "[NPU_DRV] Driver reports a failure from vclExecutableGetCompatibilityString to get "
+               "string, return code: " +
+               std::to_string(ret) + '\n';
+        LOG_E("Failed to get compiler executable compatibility string! Result:%#x", ret);
+        return ret;
+    }
+
+    if (size > 0 && compStr.back() == '\0')
+        compStr.pop_back(); // Trim the null terminator if present in std::string
+
+    LOG(GRAPH, "Compiler executable compatibility string: %s", compStr.c_str());
+    return VCL_RESULT_SUCCESS;
+}
+
 static ze_result_t getCompilerExecutableAllocation(VPU::VPUDeviceContext *ctx,
                                                    vcl_compiler_handle_t &compiler,
                                                    ze_graph_desc_2_t &desc,
@@ -254,23 +290,60 @@ static ze_result_t getCompilerExecutableAllocation(VPU::VPUDeviceContext *ctx,
 
     uint8_t *graphBuffer = nullptr;
     size_t graphSize = 0;
+    std::string compStr;
 
     vcl_allocator2_t allocator = {.allocate = &vclAllocate2, .deallocate = &vclDeallocate2};
-    TRACE_EVENT("NPU_COMPILER", "vclAllocatedExecutableCreate2");
-    ze_result_t ret = vclToL0Err(Vcl::sym().allocatedExecutableCreate2(compiler,
-                                                                       exeDesc,
-                                                                       &allocator,
-                                                                       &graphBuffer,
-                                                                       &graphSize));
-    if (ret != ZE_RESULT_SUCCESS) {
-        log += "[NPU_DRV] Driver reports a failure from vclAllocatedExecutableCreate2, return "
-               "code: " +
-               std::to_string(ret) + '\n';
-        LOG_E("Failed to create compiler executable! Result:%#x", ret);
-        return ret;
+
+    if ((vclCompilerApiVersion.major > 7 ||
+         (vclCompilerApiVersion.major == 7 && vclCompilerApiVersion.minor >= 8)) &&
+        Vcl::sym().allocatedExecutableCreate4 && Vcl::sym().executableGetCompatibilityString) {
+        vcl_executable_handle_t hExec = nullptr;
+        TRACE_EVENT_BEGIN("NPU_COMPILER", "vclAllocatedExecutableCreate4");
+        ze_result_t ret = vclToL0Err(Vcl::sym().allocatedExecutableCreate4(compiler,
+                                                                           exeDesc,
+                                                                           &allocator,
+                                                                           &graphBuffer,
+                                                                           &graphSize,
+                                                                           &hExec));
+        TRACE_EVENT_END("NPU_COMPILER");
+        if (ret != ZE_RESULT_SUCCESS) {
+            log += "[NPU_DRV] Driver reports a failure from vclAllocatedExecutableCreate4, return "
+                   "code: " +
+                   std::to_string(ret) + '\n';
+            LOG_E("Failed to create compiler executable! Result:%#x", ret);
+            return ret;
+        }
+
+        auto vclRet = getCompatibilityString(hExec, compStr, log);
+
+        TRACE_EVENT_BEGIN("NPU_COMPILER", "vclExecutableDestroy");
+        Vcl::sym().executableDestroy(hExec);
+        TRACE_EVENT_END("NPU_COMPILER");
+
+        if (vclRet != VCL_RESULT_SUCCESS) {
+            allocator.deallocate(&allocator, graphBuffer);
+            return vclToL0Err(vclRet);
+        }
+    } else {
+        TRACE_EVENT_BEGIN("NPU_COMPILER", "vclAllocatedExecutableCreate2");
+        ze_result_t ret = vclToL0Err(Vcl::sym().allocatedExecutableCreate2(compiler,
+                                                                           exeDesc,
+                                                                           &allocator,
+                                                                           &graphBuffer,
+                                                                           &graphSize));
+        TRACE_EVENT_END("NPU_COMPILER");
+        if (ret != ZE_RESULT_SUCCESS) {
+            log += "[NPU_DRV] Driver reports a failure from vclAllocatedExecutableCreate2, return "
+                   "code: " +
+                   std::to_string(ret) + '\n';
+            LOG_E("Failed to create compiler executable! Result:%#x", ret);
+            return ret;
+        }
     }
 
-    blob = std::make_unique<BlobContainer>(std::unique_ptr<uint8_t[]>(graphBuffer), graphSize);
+    blob = std::make_unique<BlobContainer>(std::unique_ptr<uint8_t[]>(graphBuffer),
+                                           graphSize,
+                                           compStr);
     return ZE_RESULT_SUCCESS;
 }
 

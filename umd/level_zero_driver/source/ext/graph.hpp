@@ -123,6 +123,7 @@ struct Graph : _ze_graph_handle_t, IContextObject {
                                          const char *pValue);
 
     std::string getBuildFlags() { return buildFlags; }
+    std::string getCompatibilityString() { return blob->compatibilityString; }
 
   private:
     void initialize(const VPU::VPUDevice &vpuDevice, std::string &log);

@@ -125,5 +125,19 @@ TEST_F(CompilerInDriver,
     EXPECT_GT(L0::Graph::fromHandle(hGraph)->getProfilingOutputSize(), 0);
 }
 
+TEST_F(CompilerInDriver, creatingNGraphLiteProvideCorrectRuntimeRequirementsString) {
+    auto res = L0::Graph::create(context, device, &graphDesc, &hGraph);
+    ASSERT_EQ(ZE_RESULT_SUCCESS, res);
+    ASSERT_NE(nullptr, hGraph);
+
+    auto compStr = L0::Graph::fromHandle(hGraph)->getCompatibilityString();
+    EXPECT_GT(compStr.size(), 0u);
+
+    ze_validate_runtime_requirements_output_t output = {};
+    output.stype = ZE_STRUCTURE_TYPE_RUNTIME_REQUIREMENTS_OUTPUT;
+    EXPECT_EQ(device->validateRuntimeRequirements(compStr.c_str(), &output), ZE_RESULT_SUCCESS);
+    EXPECT_EQ(output.result, ZE_VALIDATE_RUNTIME_REQUIREMENTS_RESULT_REQUIREMENTS_MET);
+}
+
 } // namespace ult
 } // namespace L0
