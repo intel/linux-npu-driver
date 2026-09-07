@@ -8,9 +8,12 @@
 #include "graph_utilities.hpp"
 #include "umd_test.h"
 
+#include <chrono>
 #include <cstdlib>
+#include <cstring>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <thread>
 
 class ImportSystemMemoryNoParam : public UmdTest {
   public:
@@ -98,6 +101,58 @@ TEST_F(ImportSystemMemory, MultipleImportSystemMemory) {
 
     importPtrs.clear();
     allocPtrs.clear();
+}
+
+TEST_F(ImportSystemMemory, WriteFromDeviceToReadOnlyImportedMemoryFails) {
+    size_t size = 4 * KB;
+
+    void *mallocPtr = aligned_alloc(pageSize, size);
+    ASSERT_NE(mallocPtr, nullptr) << "Failed to allocate memory";
+    std::shared_ptr<void> scopedPtr(mallocPtr, [](void *p) { free(p); });
+    memset(mallocPtr, 0, size);
+
+    auto scopedSystemMemory = UmdTest::importSystemMemory(mallocPtr, size, true);
+    ASSERT_NE(scopedSystemMemory.get(), nullptr) << "Failed to import memory as read-only";
+    ASSERT_EQ(scopedSystemMemory.get(), mallocPtr);
+
+    memset(mallocPtr, 0xAB, size);
+
+    auto scopedHostSrc = zeScope::memAllocHost(zeContext, hostMemAllocDesc, size, 0, ret);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+    memset(scopedHostSrc.get(), 0xCD, size);
+
+    ze_command_list_desc_t cmdListDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
+                                          .pNext = nullptr,
+                                          .commandQueueGroupOrdinal = 0,
+                                          .flags = 0};
+    auto cmdListScoped = zeScope::commandListCreate(zeContext, zeDevice, cmdListDesc, ret);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+    auto hList = cmdListScoped.get();
+
+    ze_command_queue_desc_t cmdQueueDesc{.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
+                                         .pNext = nullptr,
+                                         .ordinal = 0,
+                                         .index = 0,
+                                         .flags = 0,
+                                         .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
+                                         .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
+    auto cmdQueueScoped = zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDesc, ret);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+    auto hQueue = cmdQueueScoped.get();
+
+    ASSERT_EQ(zeCommandListAppendMemoryCopy(hList,
+                                            mallocPtr, // destination: read-only buffer
+                                            scopedHostSrc.get(),
+                                            size,
+                                            nullptr,
+                                            0,
+                                            nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(hList), ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(hQueue, 1, &hList, nullptr), ZE_RESULT_SUCCESS);
+    EXPECT_EQ(zeCommandQueueSynchronize(hQueue, syncTimeout), ZE_RESULT_ERROR_DEVICE_LOST)
+        << "Writing from the NPU into a READ_ONLY imported buffer unexpectedly succeeded";
 }
 
 TEST_P(ImportSystemMemory, AllocMemoryThenExecuteCopy) {

@@ -233,3 +233,9 @@ TEST_F(Device, PerfGetStatus) {
     }
     counter.stop();
 }
+
+TEST_F(Device, RuntimeRequirementsKey) {
+    const char *key = nullptr;
+    EXPECT_EQ(zeDeviceGetRuntimeRequirementsKey(zeDevice, &key), ZE_RESULT_SUCCESS);
+    EXPECT_STREQ(key, "INTEL.NPU.UMD");
+}
