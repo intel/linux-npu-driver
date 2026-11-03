@@ -14,10 +14,12 @@
 #include "context.hpp"
 #include "driver.hpp"
 #include "driver_handle.hpp"
+#include "ext/compiler.hpp"
 #include "ext/elf_parser.hpp"
 #include "ext/graph.hpp"
 #include "level_zero_driver/include/nested_structs_handler.hpp"
 #include "metric.hpp"
+#include "npu_driver_compiler.h"
 #include "umd_common.hpp"
 #include "version.h"
 #include "vpu_driver/source/device/hw_info.hpp"
@@ -82,7 +84,8 @@ ze_result_t Device::getP2PProperties(ze_device_handle_t hPeerDevice,
     return ZE_RESULT_SUCCESS;
 }
 
-static std::optional<void *> handleExtensionProperty(void *pNext, const VPU::VPUHwInfo &hwInfo) {
+static std::optional<void *> handleExtensionProperty(void *pNext, const VPU::VPUDevice &vpuDevice) {
+    const auto &hwInfo = vpuDevice.getHwInfo();
     ze_structure_type_t stype = *reinterpret_cast<ze_structure_type_t *>(pNext);
 
     switch (stype) {
@@ -103,14 +106,41 @@ static std::optional<void *> handleExtensionProperty(void *pNext, const VPU::VPU
             ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS;
         return mutableCommandListProps->pNext;
     }
+    case ZE_STRUCTURE_TYPE_DEVICE_NPU_PROPERTIES_EXT: {
+        ze_device_npu_properties_ext_t *npuProps =
+            reinterpret_cast<ze_device_npu_properties_ext_t *>(pNext);
+
+        npuProps->tileCount = static_cast<uint32_t>(std::bitset<32>(hwInfo.tileConfig).count());
+        npuProps->tileEnableMask = hwInfo.tileConfig;
+        npuProps->totalShaveCount = hwInfo.nExecUnits;
+        npuProps->int8x8MacsPerTile = hwInfo.physicalEUSimdWidth / 2;
+        npuProps->totalDpuMacs = npuProps->tileCount * npuProps->int8x8MacsPerTile;
+        npuProps->numComputeEngines = 1;
+        npuProps->numCopyEngines = 1;
+        npuProps->dpuClockRateHz = hwInfo.coreClockRate;
+        npuProps->timestampFreqHz = hwInfo.timerResolution;
+        npuProps->nnSramSizeBytes = 0; // Not tracked by this driver.
+
+        vcl_compiler_properties_t vclProp = {};
+        if (Compiler::getCompilerProperties(vpuDevice, &vclProp) == ZE_RESULT_SUCCESS) {
+            npuProps->compilerVersion = static_cast<uint32_t>(
+                ZE_MAKE_VERSION(vclProp.version.major, vclProp.version.minor));
+            npuProps->maxOVOpsetVersionSupported = vclProp.supportedOpsets;
+        } else {
+            LOG_W("Failed to get compiler properties!");
+            npuProps->compilerVersion = 0;
+            npuProps->maxOVOpsetVersionSupported = 0;
+        }
+        return npuProps->pNext;
+    }
     default:
         LOG_E("Unsupported extension structure type: %#x", stype);
         return {};
     }
 }
 
-static bool getExtensionSpecificProperties(void *pNext, const VPU::VPUHwInfo &hwInfo) {
-    return handleNestedStructs(pNext, handleExtensionProperty, hwInfo);
+static bool getExtensionSpecificProperties(void *pNext, const VPU::VPUDevice &vpuDevice) {
+    return handleNestedStructs(pNext, handleExtensionProperty, vpuDevice);
 }
 
 ze_result_t Device::getProperties(ze_device_properties_t *pDeviceProperties) {
@@ -167,7 +197,7 @@ ze_result_t Device::getProperties(ze_device_properties_t *pDeviceProperties) {
     pDeviceProperties->flags = ZE_DEVICE_PROPERTY_FLAG_INTEGRATED;
     pDeviceProperties->uuid = ze_intel_npu_device_uuid;
 
-    if (!getExtensionSpecificProperties(pDeviceProperties->pNext, hwInfo)) {
+    if (!getExtensionSpecificProperties(pDeviceProperties->pNext, *vpuDevice)) {
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 

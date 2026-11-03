@@ -179,6 +179,110 @@ ze_result_t zeEventQueryKernelTimestamp(ze_event_handle_t hEvent,
     return ret;
 }
 
+ze_result_t zeEventCounterBasedCreate(ze_context_handle_t hContext,
+                                      ze_device_handle_t hDevice,
+                                      const ze_event_counter_based_desc_t *desc,
+                                      ze_event_handle_t *phEvent) {
+    trace_zeEventCounterBasedCreate(hContext, hDevice, desc, phEvent);
+
+    ze_result_t ret;
+
+    L0_HANDLE_EXCEPTION(ret, CounterBasedEvent::create(hContext, desc, hDevice, phEvent));
+
+    trace_zeEventCounterBasedCreate(ret, hContext, hDevice, desc, phEvent);
+    return ret;
+}
+
+ze_result_t zeEventCounterBasedGetIpcHandle(ze_event_handle_t hEvent,
+                                            ze_ipc_event_counter_based_handle_t *phIpc) {
+    trace_zeEventCounterBasedGetIpcHandle(hEvent, phIpc);
+
+    ze_result_t ret = ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+
+    trace_zeEventCounterBasedGetIpcHandle(ret, hEvent, phIpc);
+    return ret;
+}
+
+ze_result_t zeEventCounterBasedOpenIpcHandle(ze_context_handle_t hContext,
+                                             ze_ipc_event_counter_based_handle_t hIpc,
+                                             ze_event_handle_t *phEvent) {
+    trace_zeEventCounterBasedOpenIpcHandle(hContext, hIpc, phEvent);
+
+    ze_result_t ret = ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+
+    trace_zeEventCounterBasedOpenIpcHandle(ret, hContext, hIpc, phEvent);
+    return ret;
+}
+
+ze_result_t zeEventCounterBasedCloseIpcHandle(ze_event_handle_t hEvent) {
+    trace_zeEventCounterBasedCloseIpcHandle(hEvent);
+
+    ze_result_t ret = ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+
+    trace_zeEventCounterBasedCloseIpcHandle(ret, hEvent);
+    return ret;
+}
+
+ze_result_t zeEventCounterBasedGetDeviceAddress(ze_event_handle_t hEvent,
+                                                uint64_t *completionValue,
+                                                uint64_t *deviceAddress) {
+    trace_zeEventCounterBasedGetDeviceAddress(hEvent, completionValue, deviceAddress);
+    ze_result_t ret;
+
+    if (hEvent == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    if (deviceAddress == nullptr || completionValue == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
+
+    {
+        auto *counterEvent = dynamic_cast<CounterBasedEvent *>(Event::fromHandle(hEvent));
+        if (counterEvent == nullptr) {
+            ret = ZE_RESULT_ERROR_INVALID_ARGUMENT;
+            goto exit;
+        }
+        *completionValue = counterEvent->getCompletionValue();
+        *deviceAddress = counterEvent->getDeviceAddress();
+    }
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zeEventCounterBasedGetDeviceAddress(ret, hEvent, completionValue, deviceAddress);
+    return ret;
+}
+
+ze_result_t zeEventGetCounterBasedFlags(ze_event_handle_t hEvent,
+                                        ze_event_counter_based_flags_t *flags) {
+    trace_zeEventGetCounterBasedFlags(hEvent, flags);
+    ze_result_t ret;
+
+    if (hEvent == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    if (flags == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
+
+    {
+        auto *counterEvent = dynamic_cast<CounterBasedEvent *>(Event::fromHandle(hEvent));
+        if (counterEvent) {
+            *flags = counterEvent->getCreationFlags();
+        } else {
+            *flags = 0;
+        }
+    }
+    ret = ZE_RESULT_SUCCESS;
+
+exit:
+    trace_zeEventGetCounterBasedFlags(ret, hEvent, flags);
+    return ret;
+}
+
 ze_event_pool_dditable_t zeEventPoolDdiTable = {.pfnCreate = zeEventPoolCreate,
                                                 .pfnDestroy = zeEventPoolDestroy,
                                                 .pfnGetIpcHandle = zeEventPoolGetIpcHandle,
@@ -188,23 +292,24 @@ ze_event_pool_dditable_t zeEventPoolDdiTable = {.pfnCreate = zeEventPoolCreate,
                                                 .pfnGetContextHandle = nullptr,
                                                 .pfnGetFlags = nullptr};
 
-ze_event_dditable_t zeEventDdiTable = {.pfnCreate = zeEventCreate,
-                                       .pfnDestroy = zeEventDestroy,
-                                       .pfnHostSignal = zeEventHostSignal,
-                                       .pfnHostSynchronize = zeEventHostSynchronize,
-                                       .pfnQueryStatus = zeEventQueryStatus,
-                                       .pfnHostReset = zeEventHostReset,
-                                       .pfnQueryKernelTimestamp = zeEventQueryKernelTimestamp,
-                                       .pfnQueryKernelTimestampsExt = nullptr,
-                                       .pfnGetEventPool = nullptr,
-                                       .pfnGetSignalScope = nullptr,
-                                       .pfnGetWaitScope = nullptr,
-                                       .pfnCounterBasedCreate = nullptr,
-                                       .pfnCounterBasedGetIpcHandle = nullptr,
-                                       .pfnCounterBasedOpenIpcHandle = nullptr,
-                                       .pfnCounterBasedCloseIpcHandle = nullptr,
-                                       .pfnCounterBasedGetDeviceAddress = nullptr,
-                                       .pfnGetCounterBasedFlags = nullptr};
+ze_event_dditable_t zeEventDdiTable = {
+    .pfnCreate = zeEventCreate,
+    .pfnDestroy = zeEventDestroy,
+    .pfnHostSignal = zeEventHostSignal,
+    .pfnHostSynchronize = zeEventHostSynchronize,
+    .pfnQueryStatus = zeEventQueryStatus,
+    .pfnHostReset = zeEventHostReset,
+    .pfnQueryKernelTimestamp = zeEventQueryKernelTimestamp,
+    .pfnQueryKernelTimestampsExt = nullptr,
+    .pfnGetEventPool = nullptr,
+    .pfnGetSignalScope = nullptr,
+    .pfnGetWaitScope = nullptr,
+    .pfnCounterBasedCreate = zeEventCounterBasedCreate,
+    .pfnCounterBasedGetIpcHandle = zeEventCounterBasedGetIpcHandle,
+    .pfnCounterBasedOpenIpcHandle = zeEventCounterBasedOpenIpcHandle,
+    .pfnCounterBasedCloseIpcHandle = zeEventCounterBasedCloseIpcHandle,
+    .pfnCounterBasedGetDeviceAddress = zeEventCounterBasedGetDeviceAddress,
+    .pfnGetCounterBasedFlags = zeEventGetCounterBasedFlags};
 } // namespace L0
 
 extern "C" {
@@ -261,6 +366,12 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetEventProcAddrTable(ze_api_version_t ver
         pDdiTable->pfnQueryStatus = L0::zeEventQueryStatus;
         pDdiTable->pfnHostReset = L0::zeEventHostReset;
         pDdiTable->pfnQueryKernelTimestamp = L0::zeEventQueryKernelTimestamp;
+        pDdiTable->pfnCounterBasedCreate = L0::zeEventCounterBasedCreate;
+        pDdiTable->pfnCounterBasedGetIpcHandle = L0::zeEventCounterBasedGetIpcHandle;
+        pDdiTable->pfnCounterBasedOpenIpcHandle = L0::zeEventCounterBasedOpenIpcHandle;
+        pDdiTable->pfnCounterBasedCloseIpcHandle = L0::zeEventCounterBasedCloseIpcHandle;
+        pDdiTable->pfnCounterBasedGetDeviceAddress = L0::zeEventCounterBasedGetDeviceAddress;
+        pDdiTable->pfnGetCounterBasedFlags = L0::zeEventGetCounterBasedFlags;
     }
 
     ret = ZE_RESULT_SUCCESS;

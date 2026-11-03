@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #include "context.hpp"
+#include "driver.hpp"
 #include "umd_common.hpp"
 #include "vpu_driver/source/device/hw_info.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
@@ -153,8 +154,14 @@ ze_result_t Context::getMemAllocProperties(const void *ptr,
         break;
     case VPU::VPUBufferObject::Location::Host:
     case VPU::VPUBufferObject::Location::ExternalHost:
-    case VPU::VPUBufferObject::Location::UserPtr:
         pMemAllocProperties->type = ZE_MEMORY_TYPE_HOST;
+        break;
+    case VPU::VPUBufferObject::Location::UserPtr:
+        // ZE_MEMORY_TYPE_HOST_IMPORTED is only understood by apps declaring API >= 1.18.
+        pMemAllocProperties->type =
+            Driver::getInstance()->getAppApiVersionHint() >= ZE_API_VERSION_1_18
+                ? ZE_MEMORY_TYPE_HOST_IMPORTED
+                : ZE_MEMORY_TYPE_HOST;
         break;
     case VPU::VPUBufferObject::Location::Shared:
     case VPU::VPUBufferObject::Location::ExternalShared:

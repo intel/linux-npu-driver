@@ -7,6 +7,7 @@
 
 #include "vpu_driver/source/os_interface/vpu_device_factory.hpp"
 
+#include "vpu_driver/source/os_interface/os_interface.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <memory>
@@ -16,17 +17,12 @@
 #include <vector>
 
 namespace VPU {
-class OsInterface;
 
 std::vector<std::unique_ptr<VPUDevice>> DeviceFactory::createDevices(OsInterface *osi) {
     std::vector<std::unique_ptr<VPUDevice>> devices;
     std::string devPath;
 
-#ifdef ANDROID
-    constexpr std::string_view devPrefix = "/dev/accel";
-#else
-    constexpr std::string_view devPrefix = "/dev/accel/accel";
-#endif
+    constexpr std::string_view devPrefix = DEV_ACCEL_PATH_;
     int minMinor = 0;
     int maxMinor = minMinor + 63;
 

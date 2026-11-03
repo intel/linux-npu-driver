@@ -16,7 +16,6 @@
 #include "level_zero_driver/source/device.hpp"
 #include "vpu_driver/source/command/event_command.hpp"
 #include "vpu_driver/source/command/job.hpp"
-#include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <limits>
@@ -143,15 +142,18 @@ ze_result_t ImmediateCommandList::getImmediatePriority(ze_command_queue_priority
     return ZE_RESULT_SUCCESS;
 }
 
-ze_result_t ImmediateCommandList::checkCommandAppendCondition() {
-    ze_result_t result;
+ze_result_t ImmediateCommandList::appendCommandPrologue(uint32_t numWaitEvents,
+                                                        ze_event_handle_t *phWaitEvents) {
+    ze_result_t result = ZE_RESULT_SUCCESS;
 
-    result = pCommandQueue->synchronize(std::numeric_limits<uint64_t>::max());
+    if (mode != ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS) {
+        result = pCommandQueue->synchronize(std::numeric_limits<uint64_t>::max());
+    }
 
     if (!vpuJob || vpuJob->isClosed()) {
         reset();
     }
-    return result;
+    return result != ZE_RESULT_SUCCESS ? result : appendWaitOnEvents(numWaitEvents, phWaitEvents);
 }
 
 ze_result_t ImmediateCommandList::hostSynchronize(uint64_t timeout) {
@@ -175,8 +177,14 @@ ze_result_t ImmediateCommandList::appendSignalEvent(ze_event_handle_t hEvent) {
         return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
     }
 
-    ze_result_t result =
-        appendCommand<VPU::VPUEventSignalCommand>(evSyncPtr, ctx->findBufferObject(evSyncPtr));
+    ze_result_t result;
+    if (auto *counterEvent = dynamic_cast<CounterBasedEvent *>(event)) {
+        result = appendCommand<VPU::VPUCounterEventSignalCommand>(evSyncPtr,
+                                                                  counterEvent->getAssociatedBo(),
+                                                                  counterEvent->getCounterValue());
+    } else {
+        result = appendCommand<VPU::VPUEventSignalCommand>(evSyncPtr, event->getAssociatedBo());
+    }
 
     if (result != ZE_RESULT_SUCCESS)
         return result;
@@ -188,11 +196,12 @@ ze_result_t ImmediateCommandList::appendSignalEvent(ze_event_handle_t hEvent) {
 
 ze_result_t ImmediateCommandList::appendWaitOnEvents(uint32_t numEvents,
                                                      ze_event_handle_t *phEvent) {
-    if (phEvent == nullptr)
-        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    /* according spec: numEvents must be 0 if nullptr == phWaitEvents */
+    if (numEvents > 0u && phEvent == nullptr)
+        return ZE_RESULT_ERROR_INVALID_SIZE;
 
     if (numEvents == 0u)
-        return ZE_RESULT_ERROR_INVALID_SIZE;
+        return ZE_RESULT_SUCCESS;
 
     for (uint32_t i = 0; i < numEvents; ++i) {
         auto event = Event::fromHandle(phEvent[i]);
@@ -206,10 +215,15 @@ ze_result_t ImmediateCommandList::appendWaitOnEvents(uint32_t numEvents,
             LOG_E("Invalid sync pointer");
             return ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
         }
-
-        ze_result_t result =
-            appendCommand<VPU::VPUEventWaitCommand>(evSyncPtr, ctx->findBufferObject(evSyncPtr));
-
+        ze_result_t result;
+        if (auto *counterEvent = dynamic_cast<CounterBasedEvent *>(event)) {
+            result =
+                appendCommand<VPU::VPUCounterEventWaitCommand>(evSyncPtr,
+                                                               counterEvent->getAssociatedBo(),
+                                                               counterEvent->getCounterValue());
+        } else {
+            result = appendCommand<VPU::VPUEventWaitCommand>(evSyncPtr, event->getAssociatedBo());
+        }
         if (result != ZE_RESULT_SUCCESS)
             return result;
 
@@ -218,7 +232,12 @@ ze_result_t ImmediateCommandList::appendWaitOnEvents(uint32_t numEvents,
     return ZE_RESULT_SUCCESS;
 }
 
-ze_result_t ImmediateCommandList::postAppend() {
+ze_result_t ImmediateCommandList::appendCommandEpilogue(ze_event_handle_t hEvent) {
+    if (hEvent) {
+        auto result = appendSignalEvent(hEvent);
+        if (result != ZE_RESULT_SUCCESS)
+            return result;
+    }
     if (pCommandQueue) {
         ze_command_list_handle_t thisList = this;
         ze_result_t result;

@@ -17,6 +17,7 @@
 #include "level_zero_driver/source/context.hpp"
 #include "level_zero_driver/source/device.hpp"
 #include "level_zero_driver/source/driver.hpp"
+#include "level_zero_driver/source/event.hpp"
 #include "npu_driver_compiler.h"
 #include "profiling_data.hpp"
 #include "umd_common.hpp"
@@ -263,7 +264,7 @@ ze_result_t Graph::getProperties3(ze_graph_properties_3_t *pGraphProperties) {
     return ZE_RESULT_SUCCESS;
 }
 
-std::optional<void *> setArgumentProperties(void *pNext, size_t argIndex, const Graph &graph) {
+std::optional<void *> gatherArgumentProperties(void *pNext, size_t argIndex, const Graph &graph) {
     const auto stype =
         *reinterpret_cast<const std::underlying_type_t<ze_structure_type_graph_ext_t> *>(pNext);
 
@@ -295,19 +296,19 @@ ze_result_t Graph::getArgumentProperties(uint32_t argIndex,
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    ze_structure_type_graph_ext_t stype = pGraphArgProps->stype;
-    void *pNext = pGraphArgProps->pNext;
-    memcpy(pGraphArgProps,
-           &argumentProperties[argIndex].properties,
-           sizeof(ze_graph_argument_properties_t));
+    const auto &props = argumentProperties[argIndex];
+    memcpy(pGraphArgProps->name, props.name, sizeof(pGraphArgProps->name));
+    pGraphArgProps->type = props.type;
+    memcpy(pGraphArgProps->dims, props.dims, sizeof(pGraphArgProps->dims));
+    pGraphArgProps->networkPrecision = props.networkPrecision;
+    pGraphArgProps->networkLayout = props.networkLayout;
+    pGraphArgProps->devicePrecision = props.devicePrecision;
+    pGraphArgProps->deviceLayout = props.deviceLayout;
 
-    if (stype == ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES) {
-        if (!handleNestedStructs(pNext, setArgumentProperties, argIndex, *this))
+    if (pGraphArgProps->stype == ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES) {
+        if (!handleNestedStructs(pGraphArgProps->pNext, gatherArgumentProperties, argIndex, *this))
             return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
-
-    pGraphArgProps->stype = stype;
-    pGraphArgProps->pNext = pNext;
 
     return ZE_RESULT_SUCCESS;
 }
@@ -326,19 +327,22 @@ ze_result_t Graph::getArgumentProperties2(uint32_t argIndex,
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    ze_structure_type_graph_ext_t stype = pGraphArgProps->stype;
-    void *pNext = pGraphArgProps->pNext;
-    memcpy(pGraphArgProps,
-           &argumentProperties[argIndex].properties,
-           sizeof(ze_graph_argument_properties_2_t));
+    const auto &props = argumentProperties[argIndex];
+    memcpy(pGraphArgProps->name, props.name, sizeof(pGraphArgProps->name));
+    pGraphArgProps->type = props.type;
+    memcpy(pGraphArgProps->dims, props.dims, sizeof(pGraphArgProps->dims));
+    pGraphArgProps->networkPrecision = props.networkPrecision;
+    pGraphArgProps->networkLayout = props.networkLayout;
+    pGraphArgProps->devicePrecision = props.devicePrecision;
+    pGraphArgProps->deviceLayout = props.deviceLayout;
+    pGraphArgProps->quantReverseScale = props.quantReverseScale;
+    pGraphArgProps->quantZeroPoint = props.quantZeroPoint;
 
-    if (stype == ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_2) {
-        if (!handleNestedStructs(pNext, setArgumentProperties, argIndex, *this))
+    if (pGraphArgProps->stype == ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_2) {
+        if (!handleNestedStructs(pGraphArgProps->pNext, gatherArgumentProperties, argIndex, *this))
             return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    pGraphArgProps->stype = stype;
-    pGraphArgProps->pNext = pNext;
     return ZE_RESULT_SUCCESS;
 }
 
@@ -356,17 +360,108 @@ ze_result_t Graph::getArgumentProperties3(uint32_t argIndex,
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    ze_structure_type_graph_ext_t stype = pGraphArgProps->stype;
-    void *pNext = pGraphArgProps->pNext;
-    *pGraphArgProps = argumentProperties[argIndex].properties;
+    const auto &props = argumentProperties[argIndex];
+    memcpy(pGraphArgProps->name, props.name, sizeof(pGraphArgProps->name));
+    pGraphArgProps->type = props.type;
+    memcpy(pGraphArgProps->dims, props.dims, sizeof(pGraphArgProps->dims));
+    pGraphArgProps->networkPrecision = props.networkPrecision;
+    pGraphArgProps->networkLayout = props.networkLayout;
+    pGraphArgProps->devicePrecision = props.devicePrecision;
+    pGraphArgProps->deviceLayout = props.deviceLayout;
+    pGraphArgProps->quantReverseScale = props.quantReverseScale;
+    pGraphArgProps->quantZeroPoint = props.quantZeroPoint;
+    pGraphArgProps->dims_count =
+        std::min<uint32_t>(props.dims_count, ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE);
+    memcpy(pGraphArgProps->debug_friendly_name,
+           props.debug_friendly_name,
+           sizeof(pGraphArgProps->debug_friendly_name));
+    memcpy(pGraphArgProps->associated_tensor_names,
+           props.associated_tensor_names,
+           sizeof(pGraphArgProps->associated_tensor_names));
+    pGraphArgProps->associated_tensor_names_count = props.associated_tensor_names_count;
 
-    if (stype == ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_3) {
-        if (!handleNestedStructs(pNext, setArgumentProperties, argIndex, *this))
+    if (pGraphArgProps->stype == ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_3) {
+        if (!handleNestedStructs(pGraphArgProps->pNext, gatherArgumentProperties, argIndex, *this))
             return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    pGraphArgProps->stype = stype;
-    pGraphArgProps->pNext = pNext;
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t Graph::getArgumentProperties4(uint32_t argIndex,
+                                          ze_graph_argument_properties_4_t *pGraphArgProps) {
+    if (pGraphArgProps == nullptr) {
+        LOG_E("Invalid pointer for argument properties");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    if (argIndex >= (argumentProperties.size())) {
+        LOG_E("Invalid index (idx (%u) >= size (%lu))",
+              static_cast<uint32_t>(argIndex),
+              argumentProperties.size());
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    const auto &props = argumentProperties[argIndex];
+    pGraphArgProps->type = props.type;
+    pGraphArgProps->precision = props.networkPrecision;
+    pGraphArgProps->layout = props.networkLayout;
+    memcpy(pGraphArgProps->dims, props.dims, sizeof(pGraphArgProps->dims));
+
+    if (pGraphArgProps->stype == ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_4) {
+        if (!handleNestedStructs(pGraphArgProps->pNext, gatherArgumentProperties, argIndex, *this))
+            return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t Graph::getArgumentNames(uint32_t argIndex,
+                                    ze_graph_argument_name_type_t nameType,
+                                    size_t *pSize,
+                                    char *pNames) {
+    if (argIndex >= (argumentProperties.size())) {
+        LOG_E("Invalid index (idx (%u) >= size (%lu))",
+              static_cast<uint32_t>(argIndex),
+              argumentProperties.size());
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (pSize == nullptr) {
+        LOG_E("Input size pointer is NULL");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    char *name = nullptr;
+    size_t size = 0;
+    switch (nameType) {
+    case ZE_GRAPH_ARGUMENT_NAME: {
+        name = argumentProperties[argIndex].name;
+        size = strlen(name) + 1;
+        break;
+    }
+    case ZE_GRAPH_ARGUMENT_DEBUG_FRIENDLY_NAME: {
+        name = argumentProperties[argIndex].debug_friendly_name;
+        size = strlen(name) + 1;
+        break;
+    }
+    case ZE_GRAPH_ARGUMENT_ASSOCIATED_TENSOR_NAMES: {
+        name = reinterpret_cast<char *>(argumentProperties[argIndex].associated_tensor_names);
+        size = sizeof(argumentProperties[argIndex].associated_tensor_names);
+        break;
+    }
+    default: {
+        LOG_E("Invalid name type (%x)", nameType);
+        return ZE_RESULT_ERROR_INVALID_ENUMERATION;
+    }
+    }
+
+    if (pNames == nullptr) {
+        *pSize = size;
+        return ZE_RESULT_SUCCESS;
+    }
+    *pSize = std::min(*pSize, size);
+    memcpy(pNames, name, *pSize);
     return ZE_RESULT_SUCCESS;
 }
 
@@ -750,7 +845,7 @@ void Graph::initialize(const VPU::VPUDevice &vpuDevice, std::string &log) {
                   ZE_RESULT_ERROR_INVALID_ARGUMENT);
 
     for (const auto &prop : argumentProperties) {
-        if (prop.properties.type == ZE_GRAPH_ARGUMENT_TYPE_INPUT) {
+        if (prop.type == ZE_GRAPH_ARGUMENT_TYPE_INPUT) {
             inputArgs.emplace_back(nullptr);
         } else {
             outputArgs.emplace_back(nullptr);
@@ -799,34 +894,77 @@ ze_result_t Graph::getLogString(uint32_t *pSize, char *pBuildLog) {
     return ZE_RESULT_SUCCESS;
 }
 
-static const char *driverOptions = "OPTIMIZED_DYNAMIC_STRIDES";
+static std::string getDriverOptions(ze_device_handle_t hDevice) {
+    std::string driverOptions = "OPTIMIZED_DYNAMIC_STRIDES";
+    if (CounterBasedEvent::isSupported(hDevice)) {
+        driverOptions += " COUNTER_BASED_EVENTS";
+    }
+    return driverOptions;
+}
+
+ze_result_t Graph::getSupportedOptions(ze_device_handle_t hDevice,
+                                       ze_device_compiler_info_t type,
+                                       size_t *pSize,
+                                       char *pSupportedOptions) {
+    if (type < ZE_DEVICE_COMPILER_INFO_SPIRV_CAPABILITIES ||
+        type > ZE_DEVICE_COMPILER_INFO_DRIVER_OPTIONS) {
+        LOG_E("Invalid compiler info type: %#x", type);
+        return ZE_RESULT_ERROR_INVALID_ENUMERATION;
+    }
+
+    if (pSize == nullptr) {
+        LOG_E("Input size is NULL");
+        return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+    }
+
+    size_t requiredSize = 0;
+    std::string driverOptions;
+    VPU::VPUDevice *vdev = nullptr;
+
+    switch (type) {
+    case ZE_DEVICE_COMPILER_INFO_DRIVER_OPTIONS:
+        driverOptions = getDriverOptions(hDevice);
+        requiredSize = driverOptions.size() + 1;
+        break;
+    case ZE_DEVICE_COMPILER_INFO_COMPILER_OPTIONS: {
+        vdev = Device::fromHandle(hDevice)->getVPUDevice();
+        ze_result_t ret = Compiler::getSupportedOptions(vdev, &requiredSize, nullptr);
+        if (ret != ZE_RESULT_SUCCESS) {
+            return ret;
+        }
+        break;
+    }
+    default:
+        return ZE_RESULT_ERROR_UNSUPPORTED_ENUMERATION;
+    }
+
+    // Only the size is requested or the provided buffer is too small
+    if (pSupportedOptions == nullptr || *pSize < requiredSize) {
+        *pSize = requiredSize;
+        return ZE_RESULT_SUCCESS;
+    }
+
+    *pSize = requiredSize;
+    if (type == ZE_DEVICE_COMPILER_INFO_DRIVER_OPTIONS) {
+        memcpy(pSupportedOptions, driverOptions.c_str(), requiredSize);
+        return ZE_RESULT_SUCCESS;
+    }
+
+    return Compiler::getSupportedOptions(vdev, pSize, pSupportedOptions);
+}
 
 ze_result_t Graph::getSupportedOptions(ze_device_handle_t hDevice,
                                        ze_npu_options_type_t type,
                                        size_t *pSize,
                                        char *pSupportedOptions) {
-    if (type == ZE_NPU_DRIVER_OPTIONS) {
-        if (pSize == nullptr) {
-            LOG_E("Input size is NULL");
-            return ZE_RESULT_ERROR_INVALID_NULL_POINTER;
-        }
-        if (pSupportedOptions == nullptr) {
-            *pSize = strlen(driverOptions) + 1;
-            return ZE_RESULT_SUCCESS;
-        }
-        *pSize = std::min(*pSize, strlen(driverOptions) + 1);
-        memcpy(pSupportedOptions, driverOptions, *pSize);
-        return ZE_RESULT_SUCCESS;
-    }
-
+    ze_device_compiler_info_t paramName = ZE_DEVICE_COMPILER_INFO_FORCE_UINT32;
     if (type == ZE_NPU_COMPILER_OPTIONS) {
-        Device *dev = Device::fromHandle(hDevice);
-        VPU::VPUDevice *vdev = dev->getVPUDevice();
-
-        return Compiler::getSupportedOptions(vdev, pSize, pSupportedOptions);
+        paramName = ZE_DEVICE_COMPILER_INFO_COMPILER_OPTIONS;
+    } else if (type == ZE_NPU_DRIVER_OPTIONS) {
+        paramName = ZE_DEVICE_COMPILER_INFO_DRIVER_OPTIONS;
     }
 
-    return ZE_RESULT_ERROR_INVALID_ENUMERATION;
+    return getSupportedOptions(hDevice, paramName, pSize, pSupportedOptions);
 }
 
 ze_result_t Graph::isOptionSupported(ze_device_handle_t hDevice,
@@ -834,7 +972,7 @@ ze_result_t Graph::isOptionSupported(ze_device_handle_t hDevice,
                                      const char *pOption,
                                      const char *pValue) {
     if (type == ZE_NPU_DRIVER_OPTIONS) {
-        if (strstr(driverOptions, pOption)) {
+        if (getDriverOptions(hDevice).find(pOption) != std::string::npos) {
             return ZE_RESULT_SUCCESS;
         }
         return ZE_RESULT_ERROR_INVALID_ENUMERATION;

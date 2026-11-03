@@ -792,7 +792,9 @@ ze_command_list_dditable_t zeCommandListDdiTable = {
     .pfnEndGraphCaptureExt = nullptr,
     .pfnGetGraphExt = nullptr,
     .pfnAppendGraphExt = nullptr,
-    .pfnAppendHostFunction = nullptr};
+    .pfnAppendHostFunction = nullptr,
+    .pfnAppendSignalEventWithParameters = nullptr,
+    .pfnAppendWaitOnEventsWithParameters = nullptr};
 
 ze_command_list_exp_dditable_t zeCommandListExpDdiTable = {
     .pfnCreateCloneExp = nullptr,

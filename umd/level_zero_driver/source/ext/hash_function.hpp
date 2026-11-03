@@ -1,9 +1,11 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
  */
+#pragma once
+
 #include "city.h"
 #include "citycrc.h"
 

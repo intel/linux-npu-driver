@@ -25,7 +25,7 @@
 
 using namespace VPU;
 
-static size_t getExpBufferCount(const std::vector<uint32_t> &cmd_handles) {
+static size_t getExpBufferCount(const VPUCommandBuffer::BufferHandles &cmd_handles) {
     std::set<uint32_t> uniqueHandles(cmd_handles.begin(), cmd_handles.end());
     return uniqueHandles.size();
 }

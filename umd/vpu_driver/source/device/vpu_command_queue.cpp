@@ -108,9 +108,10 @@ VPUDeviceQueueLegacy::VPUDeviceQueueLegacy(VPUDriverApi *api, Priority queuePrio
     , defaultPriority(queuePriority) {}
 
 int VPUDeviceQueueLegacy::submitCommandBuffer(const std::unique_ptr<VPUCommandBuffer> &cmdBuf) {
+    const auto &bufferHandles = cmdBuf->getBufferHandles();
     drm_ivpu_submit execParam = {};
-    execParam.buffers_ptr = reinterpret_cast<uint64_t>(cmdBuf->getBufferHandles().data());
-    execParam.buffer_count = safe_cast<uint32_t>(cmdBuf->getBufferHandles().size());
+    execParam.buffers_ptr = reinterpret_cast<uint64_t>(bufferHandles.data());
+    execParam.buffer_count = safe_cast<uint32_t>(bufferHandles.size());
     execParam.engine = DRM_IVPU_ENGINE_COMPUTE;
     execParam.commands_offset = cmdBuf->getCommandBufferOffset();
     execParam.priority = static_cast<uint32_t>(priority);
@@ -146,6 +147,12 @@ bool VPUDeviceQueueLegacy::toDefaultPriority() {
     return true;
 }
 
+bool VPUDeviceQueueLegacy::setPriority(Priority newPriority) {
+    // Priority change is only supported for managed command queues.
+    LOG_E("Command queue priority change is not supported");
+    return false;
+}
+
 VPUDeviceQueueManaged::VPUDeviceQueueManaged(VPUDriverApi *api,
                                              uint32_t defaultQueue,
                                              Priority queuePriority,
@@ -165,9 +172,10 @@ VPUDeviceQueueManaged::~VPUDeviceQueueManaged() {
 }
 
 int VPUDeviceQueueManaged::submitCommandBuffer(const std::unique_ptr<VPUCommandBuffer> &cmdBuf) {
+    const auto &bufferHandles = cmdBuf->getBufferHandles();
     drm_ivpu_cmdq_submit submitArgs = {};
-    submitArgs.buffers_ptr = reinterpret_cast<uint64_t>(cmdBuf->getBufferHandles().data());
-    submitArgs.buffer_count = safe_cast<uint32_t>(cmdBuf->getBufferHandles().size());
+    submitArgs.buffers_ptr = reinterpret_cast<uint64_t>(bufferHandles.data());
+    submitArgs.buffer_count = safe_cast<uint32_t>(bufferHandles.size());
     submitArgs.commands_offset = cmdBuf->getCommandBufferOffset();
     // If preempt_buffer_index is 0, then kernel allocates preemption buffer
     submitArgs.preempt_buffer_index = cmdBuf->getPreemptionBufferIndex();
@@ -229,6 +237,19 @@ bool VPUDeviceQueueManaged::toDefaultPriority() {
     }
     // Fall back for old APIs that do not support command queue priority change.
     currentId = defaultId;
+    return true;
+}
+
+bool VPUDeviceQueueManaged::setPriority(Priority newPriority) {
+    if (!(modeFlags & ModeFlags::HAS_VARIABLE_PRIORITY)) {
+        LOG_E("Command queue priority change is not supported");
+        return false;
+    }
+    if (pDriverApi->commandQueueSetPriority(currentId, static_cast<uint32_t>(newPriority))) {
+        LOG_E("Failed to set priority for command queue id %u", currentId);
+        return false;
+    }
+    priority = newPriority;
     return true;
 }
 } // namespace VPU

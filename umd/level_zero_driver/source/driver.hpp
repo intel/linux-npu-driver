@@ -15,6 +15,7 @@
 #include <memory>
 #include <mutex>
 #include <string_view>
+#include <vector>
 #include <ze_api.h>
 
 namespace VPU {
@@ -33,19 +34,20 @@ class Driver {
         bool extensionValidation;
     };
 
-    Driver() {
-        initializeLogging();
-        pDriver = this;
-    }
+    Driver() { initializeLogging(); }
     virtual ~Driver() = default;
-    void operator=(const Driver &) = delete;
 
     static Driver *getInstance() { return pDriver; }
-    uint32_t getDriverCount() { return driverCount; }
-    virtual void driverInit(ze_init_flags_t flags);
+
+    virtual ze_result_t driverInit(ze_init_flags_t flags);
     virtual ze_result_t getInitStatus();
     virtual const L0EnvVariables &getEnvVariables() { return envVariables; }
-    virtual DriverHandle *getDriverHandle() { return pGlobalDriverHandle.get(); }
+    virtual std::vector<std::unique_ptr<DriverHandle>> &getDriverHandles() { return driverHandles; }
+
+    ze_api_version_t getAppApiVersionHint() const { return appApiVersionHint; }
+    void setAppApiVersionHint(ze_api_version_t version) {
+        std::call_once(appApiVersionHintOnce, [this, version]() { appApiVersionHint = version; });
+    }
 
     DiskCache &getDiskCache() { return *diskCache; }
 
@@ -55,15 +57,18 @@ class Driver {
     void displayComponentVersions();
     void initializeEnvVariables();
     void initializeLogging();
-    static Driver *pDriver;
+    static void setInstanceForTesting(Driver *driver) { pDriver = driver; }
+
     L0EnvVariables envVariables = {};
+    VPU::OsInterface *osInfc = nullptr;
 
   private:
-    const uint32_t driverCount = 1;
-    std::unique_ptr<DriverHandle> pGlobalDriverHandle = nullptr;
-    VPU::OsInterface *osInfc = nullptr;
+    static Driver *pDriver;
+    std::vector<std::unique_ptr<DriverHandle>> driverHandles;
     ze_result_t initStatus = ZE_RESULT_ERROR_UNINITIALIZED;
     std::once_flag initDriverOnce;
+    std::once_flag appApiVersionHintOnce;
+    ze_api_version_t appApiVersionHint = ZE_API_VERSION_1_0;
 };
 
 ze_result_t init(ze_init_flags_t);

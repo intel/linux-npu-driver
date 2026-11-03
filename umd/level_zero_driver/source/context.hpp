@@ -106,6 +106,8 @@ struct Context : _ze_context_handle_t {
 
     ze_result_t setProperties(const ze_context_properties_npu_ext_t *pContextProperties);
     ze_result_t releaseMemory();
+    ze_result_t makeMemoryResident(void *ptr, size_t size);
+    ze_result_t evictMemory(void *ptr, size_t size);
 
     inline ze_context_handle_t toHandle() { return this; }
     static Context *fromHandle(ze_context_handle_t handle) {

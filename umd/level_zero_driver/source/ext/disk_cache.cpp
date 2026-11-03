@@ -10,13 +10,14 @@
 #include <stdint.h>
 
 #include "blob_container.hpp"
-#include "hash_function.hpp"
+#include "level_zero_driver/source/ext/hash_function.hpp"
 #include "vpu_driver/source/os_interface/os_interface.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <charconv>
 #include <filesystem>
 #include <functional>
+#include <limits>
 #include <map>
 #include <memory>
 #include <stdlib.h>
@@ -28,6 +29,52 @@
 #include <ze_graph_ext.h>
 
 namespace L0 {
+
+static std::array<char, HashCity::DigestLength>
+computeFooterDigest(const DiskCacheFileFormat::Footer &footer,
+                    const uint8_t *blobPtr,
+                    size_t blobSize,
+                    const uint8_t *compatPtr,
+                    size_t compatSize) {
+    HashCity hash;
+    if (compatSize)
+        hash.updateConfigurationHash(compatPtr, compatSize);
+    /* Hash only the header fields (everything before digest), digest itself is
+       not part of its own input */
+    hash.updateConfigurationHash(reinterpret_cast<const uint8_t *>(&footer),
+                                 offsetof(DiskCacheFileFormat::Footer, digest));
+    std::string digestStr = hash.final(blobPtr, blobSize);
+
+    std::array<char, HashCity::DigestLength> digest;
+    memcpy(digest.data(), digestStr.data(), HashCity::DigestLength);
+    return digest;
+}
+
+DiskCacheFileFormat::Footer DiskCacheFileFormat::makeFooter(uint64_t blobEndOffset,
+                                                            const uint8_t *blobPtr,
+                                                            size_t blobSize,
+                                                            const uint8_t *compatPtr,
+                                                            size_t compatSize) {
+    Footer footer{.magic = expectedMagic,
+                  .version = expectedVersion,
+                  .size = static_cast<uint32_t>(sizeof(Footer)),
+                  .blobEndOffset = blobEndOffset,
+                  .digest = {}};
+    footer.digest = computeFooterDigest(footer, blobPtr, blobSize, compatPtr, compatSize);
+    return footer;
+}
+
+bool DiskCacheFileFormat::verify(const Footer &footer,
+                                 const uint8_t *blobPtr,
+                                 size_t blobSize,
+                                 const uint8_t *compatPtr,
+                                 size_t compatSize) {
+    if (!footer.isValid())
+        return false;
+
+    auto expectedDigest = computeFooterDigest(footer, blobPtr, blobSize, compatPtr, compatSize);
+    return expectedDigest == footer.digest;
+}
 
 static std::filesystem::path getCacheDir() {
 #ifdef ANDROID
@@ -143,8 +190,8 @@ std::unique_ptr<BlobContainer> DiskCache::getBlob(const Key &key) {
         return nullptr;
     }
 
-    if (file->size() <= HashCity::DigestLength) {
-        LOG_W("Cache missed using %s key: File size is less than checksum size, removing it",
+    if (file->size() <= sizeof(DiskCacheFileFormat::Footer)) {
+        LOG_W("Cache missed using %s key: File is too small to hold the footer, removing it",
               filename.c_str());
         /* Remove the file without setting exclusive lock compared to "setBlob()" function */
         osInfc.osiFileRemove(dataPath);
@@ -156,25 +203,42 @@ std::unique_ptr<BlobContainer> DiskCache::getBlob(const Key &key) {
         return nullptr;
     }
 
-    /* Validate blob checksum */
     uint8_t *filePtr = static_cast<uint8_t *>(file->mmap());
     if (filePtr == nullptr)
         return nullptr;
 
-    uint64_t offsetSum = file->size() - HashCity::DigestLength;
-    HashCity::DigestType fileSum = reinterpret_cast<HashCity::DigestType>(filePtr + offsetSum);
-    std::string computedSum = HashCity::getDigest(filePtr, offsetSum);
+    /* Payload is everything before the footer: blob + compatibility string */
+    size_t payloadSize = file->size() - sizeof(DiskCacheFileFormat::Footer);
+    const uint8_t *footerPtr = filePtr + payloadSize;
 
-    if (computedSum != std::string_view(fileSum, HashCity::DigestLength)) {
-        LOG_W("Cache missed using %s key: Incorrect checksum, removing it", filename.c_str());
+    /* Copy the footer out of the mapping, it is not guaranteed to be aligned */
+    DiskCacheFileFormat::Footer footer;
+    memcpy(&footer, footerPtr, sizeof(footer));
+
+    /* blobEndOffset must leave at least one blob byte and must not exceed the payload */
+    if (footer.blobEndOffset == 0 || footer.blobEndOffset > payloadSize) {
+        LOG_W("Cache missed using %s key: Invalid blob end offset, removing it", filename.c_str());
         /* Remove the file without setting exclusive lock compared to "setBlob()" function */
+        osInfc.osiFileRemove(dataPath);
+        return nullptr;
+    }
 
+    size_t blobSize = static_cast<size_t>(footer.blobEndOffset);
+    size_t compatSize = payloadSize - blobSize;
+    const uint8_t *compatPtr = filePtr + blobSize;
+
+    if (!DiskCacheFileFormat::verify(footer, filePtr, blobSize, compatPtr, compatSize)) {
+        LOG_W("Cache missed using %s key: Invalid footer or checksum, removing it",
+              filename.c_str());
+        /* Remove the file without setting exclusive lock compared to "setBlob()" function */
         osInfc.osiFileRemove(dataPath);
         return nullptr;
     }
 
     LOG(CACHE, "Cache hit using %s key", filename.c_str());
-    return std::make_unique<BlobContainer>(filePtr, offsetSum, std::move(file));
+    auto blob = std::make_unique<BlobContainer>(filePtr, blobSize, std::move(file));
+    blob->compatibilityString.assign(reinterpret_cast<const char *>(compatPtr), compatSize);
+    return blob;
 }
 
 static size_t
@@ -213,8 +277,15 @@ std::unique_ptr<BlobContainer> DiskCache::setBlob(const Key &key,
                                                   std::unique_ptr<BlobContainer> blob) {
     if (blob == nullptr || cachePath.empty())
         return blob;
-    // Add checksum after blob
-    size_t cachedBlobSize = blob->size + HashCity::DigestLength;
+    if (blob->size == 0)
+        return blob;
+
+    const std::string &compatStr = blob->compatibilityString;
+    // Compatibility string and footer (which includes the digest) are stored after blob
+    size_t metadataSize = compatStr.size() + sizeof(DiskCacheFileFormat::Footer);
+    if (blob->size > std::numeric_limits<size_t>::max() - metadataSize)
+        return blob;
+    size_t cachedBlobSize = blob->size + metadataSize;
     size_t cacheSize = getCacheSize();
 
     if (cachedBlobSize > maxSize) {
@@ -233,8 +304,18 @@ std::unique_ptr<BlobContainer> DiskCache::setBlob(const Key &key,
         return blob;
     }
 
-    auto blobSum = HashCity::getDigest(blob->ptr, blob->size);
-    if (blobSum.empty() || !file->write(blobSum.data(), blobSum.size())) {
+    if (!compatStr.empty() && !file->write(compatStr.data(), compatStr.size())) {
+        osInfc.osiFileRemove(dstPath);
+        return blob;
+    }
+
+    DiskCacheFileFormat::Footer footer =
+        DiskCacheFileFormat::makeFooter(blob->size,
+                                        blob->ptr,
+                                        blob->size,
+                                        reinterpret_cast<const uint8_t *>(compatStr.data()),
+                                        compatStr.size());
+    if (!file->write(&footer, sizeof(footer))) {
         osInfc.osiFileRemove(dstPath);
         return blob;
     }
@@ -253,7 +334,6 @@ std::unique_ptr<BlobContainer> DiskCache::setBlob(const Key &key,
         LOG_E("Failed to read back cached blob for key %s\n", key.c_str());
         return blob;
     }
-    newBlob->compatibilityString = std::move(blob->compatibilityString);
     return newBlob;
 }
 

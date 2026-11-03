@@ -170,8 +170,19 @@ ze_result_t zeContextMakeMemoryResident(ze_context_handle_t hContext,
                                         void *ptr,
                                         size_t size) {
     trace_zeContextMakeMemoryResident(hContext, hDevice, ptr, size);
-    ze_result_t ret = ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    ze_result_t ret;
 
+    if (hContext == nullptr || hDevice == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    if (ptr == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(ret, L0::Context::fromHandle(hContext)->makeMemoryResident(ptr, size));
+
+exit:
     trace_zeContextMakeMemoryResident(ret, hContext, hDevice, ptr, size);
     return ret;
 }
@@ -181,8 +192,19 @@ ze_result_t zeContextEvictMemory(ze_context_handle_t hContext,
                                  void *ptr,
                                  size_t size) {
     trace_zeContextEvictMemory(hContext, hDevice, ptr, size);
-    ze_result_t ret = ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+    ze_result_t ret;
 
+    if (hContext == nullptr || hDevice == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    if (ptr == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(ret, L0::Context::fromHandle(hContext)->evictMemory(ptr, size));
+
+exit:
     trace_zeContextEvictMemory(ret, hContext, hDevice, ptr, size);
     return ret;
 }

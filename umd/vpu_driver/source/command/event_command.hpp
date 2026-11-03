@@ -13,6 +13,7 @@
 #include "vpu_driver/source/command/command.hpp"
 
 #include <any>
+#include <atomic>
 #include <memory>
 #include <utility>
 
@@ -48,6 +49,11 @@ class VPUEventCommand : public VPUCommand {
                     KMDEventDataType *eventHeapPtr,
                     std::shared_ptr<VPUBufferObject> eventHeapBo,
                     const KMDEventDataType eventState);
+    VPUEventCommand(const ScheduleType schType,
+                    const vpu_cmd_type cmdType,
+                    KMDEventDataType *eventHeapPtr,
+                    std::shared_ptr<VPUBufferObject> eventHeapBo,
+                    std::atomic<uint64_t> &counterValue);
 
     const vpu_cmd_header_t *getHeader() const {
         return reinterpret_cast<const vpu_cmd_header_t *>(std::any_cast<vpu_cmd_fence_t>(&command));
@@ -94,4 +100,18 @@ class VPUEventWaitCommand : public VPUEventCommand {
     }
 };
 
+/* Counter-based event implementation */
+class VPUCounterEventSignalCommand : public VPUEventCommand {
+  public:
+    static std::shared_ptr<VPUEventCommand> create(KMDEventDataType *eventHeapPtr,
+                                                   std::shared_ptr<VPUBufferObject> eventHeapBo,
+                                                   std::atomic<uint64_t> &counterValue);
+};
+
+class VPUCounterEventWaitCommand : public VPUEventCommand {
+  public:
+    static std::shared_ptr<VPUEventCommand> create(KMDEventDataType *eventHeapPtr,
+                                                   std::shared_ptr<VPUBufferObject> eventHeapBo,
+                                                   std::atomic<uint64_t> &counterValue);
+};
 } // namespace VPU

@@ -137,9 +137,19 @@ static bool isUserPtrSupported(const std::vector<std::unique_ptr<Device>> &devic
     return true;
 }
 
+static bool isCmdQueueSetPriorityExtSupported(const std::vector<std::unique_ptr<Device>> &devices) {
+    for (const auto &device : devices) {
+        auto *vpuDevice = device->getVPUDevice();
+        if (vpuDevice == nullptr || !vpuDevice->getHwInfo().cmdQueueSetPriorityCapability) {
+            return false;
+        }
+    }
+    return true;
+}
+
 std::vector<ze_driver_extension_properties_t> DriverHandle::getSupportedExtensions() {
     std::vector<ze_driver_extension_properties_t> extensions;
-    extensions.reserve(13);
+    extensions.reserve(14);
 
     auto appendExtension = [&extensions](const char *name, uint32_t version) {
         ze_driver_extension_properties_t props = {};
@@ -160,6 +170,10 @@ std::vector<ze_driver_extension_properties_t> DriverHandle::getSupportedExtensio
         appendExtension(ZE_EXTERNAL_MEMORY_MAPPING_EXT_NAME,
                         ZE_EXTERNAL_MEMMAP_SYSMEM_EXT_VERSION_1_0);
 
+    if (isCmdQueueSetPriorityExtSupported(devices))
+        appendExtension(ZE_COMMAND_QUEUE_SET_PRIORITY_EXT_NAME,
+                        ZE_COMMAND_QUEUE_SET_PRIORITY_EXT_VERSION_1_0);
+
     appendExtension("ZE_extension_graph_1_2", ZE_GRAPH_EXT_VERSION_1_2);
     appendExtension("ZE_extension_graph_1_3", ZE_GRAPH_EXT_VERSION_1_3);
     appendExtension("ZE_extension_graph_1_4", ZE_GRAPH_EXT_VERSION_1_4);
@@ -169,24 +183,20 @@ std::vector<ze_driver_extension_properties_t> DriverHandle::getSupportedExtensio
     appendExtension("ZE_extension_graph_1_8", ZE_GRAPH_EXT_VERSION_1_8);
 
     appendExtension(ZE_DRIVER_NPU_EXT_NAME, ZE_DRIVER_NPU_EXT_VERSION_1_0);
+    appendExtension(ZE_PCI_PROPERTIES_EXT_NAME, ZE_PCI_PROPERTIES_EXT_VERSION_1_0);
+    appendExtension(ZE_DEVICE_NPU_PROPERTIES_EXT_NAME, ZE_DEVICE_NPU_PROPERTIES_EXT_VERSION_1_0);
     return extensions;
+}
+
+DriverHandle::DriverHandle(std::unique_ptr<VPU::VPUDevice> vpuDevice) {
+    devices.push_back(std::make_unique<Device>(this, std::move(vpuDevice)));
+    numDevices = safe_cast<uint32_t>(devices.size());
 }
 
 DriverHandle::DriverHandle(std::vector<std::unique_ptr<VPU::VPUDevice>> vpuDevices) {
     for (auto &vpuDevice : vpuDevices)
         devices.push_back(std::make_unique<Device>(this, std::move(vpuDevice)));
-
     numDevices = safe_cast<uint32_t>(devices.size());
-}
-
-std::unique_ptr<DriverHandle>
-DriverHandle::create(std::vector<std::unique_ptr<VPU::VPUDevice>> devices) {
-    if (devices.size() == 0) {
-        LOG_W("No VPU devices found");
-        return nullptr;
-    }
-
-    return std::make_unique<DriverHandle>(std::move(devices));
 }
 
 ze_result_t DriverHandle::getDevice(uint32_t *pCount, ze_device_handle_t *phDevices) {

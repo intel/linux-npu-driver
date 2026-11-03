@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -12,10 +12,12 @@
 
 #include "umd_common.hpp"
 #include "vpu_driver/source/command/command.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 
 #include <any>
 #include <api/vpu_jsm_job_cmd_api.h>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 namespace elf {
@@ -29,7 +31,6 @@ struct GraphProfilingQuery;
 
 namespace VPU {
 
-class VPUBufferObject;
 class VPUCommandBuffer;
 
 class VPUInferenceExecute : public VPUCommand {
@@ -70,8 +71,13 @@ class VPUInferenceExecute : public VPUCommand {
     bool setUpdates(const ArgumentUpdatesMap &updatesMap) override;
     bool update(VPUCommandBuffer *commandBuffer) override;
 
-    void updateScratchBuffer(VPUCommandBuffer *cmdBuffer, std::shared_ptr<VPUBufferObject> bo);
-    size_t getSharedScratchSize();
+    void updateScratchBuffer(
+        VPUCommandBuffer *cmdBuffer,
+        const std::unordered_map<VPUBufferObject::Type, std::shared_ptr<VPUBufferObject>>
+            &scratchBuffers);
+    const std::unordered_map<VPUBufferObject::Type, size_t> &getSharedScratchSize();
+    const char *getBlobName() const;
+    const std::vector<uint32_t> &getUserArgHandles() const { return userArgHandles; }
 
   private:
     std::shared_ptr<L0::ElfParser> parser;
@@ -87,7 +93,7 @@ class VPUInferenceExecute : public VPUCommand {
     std::vector<uint32_t> userArgHandles;
 
     /* shared scratch buffer, on command create the value is invalid */
-    uint32_t lastScratchBoHandle = UINT32_MAX;
+    std::unordered_map<VPUBufferObject::Type, uint32_t> lastScratchBoHandle;
     bool optimizeForDynamicShapes = false;
 };
 

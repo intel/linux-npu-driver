@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -12,13 +12,20 @@
 
 #include "api/vpu_jsm_job_cmd_api.h"
 #include "vpu_driver/source/command/event_command.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 
+#include <algorithm>
+#include <deque>
+#include <iosfwd>
+#include <iterator>
 #include <memory>
+#include <string>
 #include <uapi/drm/ivpu_accel.h>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace VPU {
-class VPUBufferObject;
 class VPUCommand;
 class VPUDeviceContext;
 
@@ -55,15 +62,71 @@ class VPUCommandBuffer {
 
     uint64_t getResult() const { return jobStatus; }
 
+    struct BufferHandles {
+        typedef uint32_t value_type;
+
+        void insert(uint32_t handle) {
+            if (!useCount.contains(handle)) {
+                handles.resize(useCount.size() + 1);
+                handles[useCount.size()] = handle;
+            }
+            useCount[handle]++;
+        }
+
+        void insertResidentSet(const std::unordered_set<uint32_t> &residentSet) {
+            handles.resize(useCount.size() + residentSet.size());
+            auto it = handles.begin() + static_cast<std::ptrdiff_t>(useCount.size());
+            for (auto handle : residentSet) {
+                if (useCount.contains(handle))
+                    continue;
+                *it++ = handle;
+            }
+            handles.resize(static_cast<size_t>(std::distance(handles.begin(), it)));
+        }
+
+        void erase(uint32_t handle) {
+            if (!useCount.contains(handle))
+                return;
+            if (--useCount[handle] == 0) {
+                auto end = handles.begin() + static_cast<std::ptrdiff_t>(useCount.size());
+                handles.erase(std::find(handles.begin(), end, handle));
+                useCount.erase(handle);
+            }
+        }
+
+        auto position(uint32_t handle) const {
+            if (!useCount.contains(handle)) {
+                return -1L;
+            }
+            auto end = handles.begin() + static_cast<std::ptrdiff_t>(useCount.size());
+            return std::distance(handles.begin(), std::find(handles.begin(), end, handle));
+        }
+
+        const uint32_t *data() const { return handles.data(); }
+        size_t size() const { return handles.size(); }
+        auto begin() const { return handles.begin(); }
+        auto end() const { return handles.end(); }
+
+      private:
+        std::vector<uint32_t> handles;
+        std::unordered_map<uint32_t, uint32_t> useCount;
+    };
+
     /**
      * Return the vector of stored buffer handles
      */
-    const std::vector<uint32_t> &getBufferHandles() const { return bufferHandles; }
+    const BufferHandles &getBufferHandles();
 
     /**
      * Print the content of command buffer
      */
     void printCommandBuffer(const char *description) const;
+
+    /**
+     * Build a JSON description of the command buffer content.
+     * Reused by both terminal logging (LOG(VPU_CMD, ...)) and file dumps.
+     */
+    std::string commandBufferToJson(const char *description) const;
 
     /**
      * Returns the buffer object.
@@ -77,6 +140,7 @@ class VPUCommandBuffer {
 
     bool replaceBufferHandles(const std::vector<uint32_t> &oldHandles,
                               const std::vector<uint32_t> &newHandles);
+    void removeBufferHandle(const uint32_t handle);
 
     bool updateCommands();
 
@@ -99,7 +163,7 @@ class VPUCommandBuffer {
     /**
      * Add VPUCommand details to the command list
      */
-    bool addCommand(VPUCommand *cmd, size_t &cmdOffset, size_t &descOffset);
+    bool addCommand(std::shared_ptr<VPUCommand> cmd, size_t &cmdOffset, size_t &descOffset);
 
     /**
      * Set fence address that is used for command buffer recognition
@@ -132,20 +196,16 @@ class VPUCommandBuffer {
   private:
     VPUDeviceContext *ctx;
     std::shared_ptr<VPUBufferObject> buffer;
-    /* waitBoGuard keeps memory of synchronization fence
-     * from previous command buffer when full synchronization requested
-     */
-    std::shared_ptr<VPUBufferObject> waitBoGuard;
     uint32_t jobStatus;
-    std::vector<std::shared_ptr<VPUCommand>>::iterator commandsBegin;
-    std::vector<std::shared_ptr<VPUCommand>>::iterator commandsEnd;
+    std::deque<std::shared_ptr<VPUCommand>> commands;
 
     uint64_t syncFenceVpuAddr = 0;
-    std::vector<uint32_t> bufferHandles;
+    BufferHandles bufferHandles;
 
     // The inference execute command may require a shared scratch buffer
-    size_t inferenceScratchSize = 0;
-    std::shared_ptr<VPUBufferObject> inferenceScratchBuffer;
+    std::unordered_map<VPUBufferObject::Type, size_t> inferenceScratchSize;
+    std::unordered_map<VPUBufferObject::Type, std::shared_ptr<VPUBufferObject>>
+        inferenceScratchBuffers;
 
     std::shared_ptr<VPUBufferObject> preemptionBuffer;
     bool useBusyWaitFlag = false;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -158,12 +158,13 @@ void VPUJob::printResult() const {
     for (const auto &cmdBuffer : cmdBuffers) {
         if (cmdBuffer->getResult() == DRM_IVPU_JOB_STATUS_SUCCESS) {
             LOG(VPU_JOB,
-                "Compute command buffer (%p): execution is completed with success",
+                "Command buffer (%p): execution is completed with success",
                 cmdBuffer.get());
         } else {
-            LOG_E("Compute command buffer (%p): execution failed with status %#lx",
+            LOG_E("Command buffer (%p): execution failed with status %#lx, command details:\n%s",
                   cmdBuffer.get(),
-                  cmdBuffer->getResult());
+                  cmdBuffer->getResult(),
+                  cmdBuffer->commandBufferToJson("Job failed").c_str());
         }
     }
 }

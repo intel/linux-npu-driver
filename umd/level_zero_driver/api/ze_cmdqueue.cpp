@@ -163,16 +163,33 @@ exit:
     return ret;
 }
 
-ze_command_queue_dditable_t zeCommandQueueDdiTable = {.pfnCreate = zeCommandQueueCreate,
-                                                      .pfnDestroy = zeCommandQueueDestroy,
-                                                      .pfnExecuteCommandLists =
-                                                          zeCommandQueueExecuteCommandLists,
-                                                      .pfnSynchronize = zeCommandQueueSynchronize,
-                                                      .pfnGetOrdinal = zeCommandQueueGetOrdinal,
-                                                      .pfnGetIndex = zeCommandQueueGetIndex,
-                                                      .pfnGetFlags = zeCommandQueueGetFlags,
-                                                      .pfnGetMode = zeCommandQueueGetMode,
-                                                      .pfnGetPriority = zeCommandQueueGetPriority};
+ze_result_t zeCommandQueueSetPriorityExt(ze_command_queue_handle_t hCommandQueue,
+                                         ze_command_queue_priority_t priority) {
+    trace_zeCommandQueueSetPriorityExt(hCommandQueue, priority);
+    ze_result_t ret;
+
+    if (hCommandQueue == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+    L0_HANDLE_EXCEPTION(ret, L0::CommandQueue::fromHandle(hCommandQueue)->setPriorityExt(priority));
+
+exit:
+    trace_zeCommandQueueSetPriorityExt(ret, hCommandQueue, priority);
+    return ret;
+}
+
+ze_command_queue_dditable_t zeCommandQueueDdiTable = {
+    .pfnCreate = zeCommandQueueCreate,
+    .pfnDestroy = zeCommandQueueDestroy,
+    .pfnExecuteCommandLists = zeCommandQueueExecuteCommandLists,
+    .pfnSynchronize = zeCommandQueueSynchronize,
+    .pfnGetOrdinal = zeCommandQueueGetOrdinal,
+    .pfnGetIndex = zeCommandQueueGetIndex,
+    .pfnGetFlags = zeCommandQueueGetFlags,
+    .pfnGetMode = zeCommandQueueGetMode,
+    .pfnGetPriority = zeCommandQueueGetPriority,
+    .pfnSetPriorityExt = zeCommandQueueSetPriorityExt};
 } // namespace L0
 
 extern "C" {
@@ -201,6 +218,10 @@ zeGetCommandQueueProcAddrTable(ze_api_version_t version, ze_command_queue_dditab
         pDdiTable->pfnGetFlags = L0::zeCommandQueueGetFlags;
         pDdiTable->pfnGetMode = L0::zeCommandQueueGetMode;
         pDdiTable->pfnGetPriority = L0::zeCommandQueueGetPriority;
+    }
+
+    if (version >= ZE_API_VERSION_1_18) {
+        pDdiTable->pfnSetPriorityExt = L0::zeCommandQueueSetPriorityExt;
     }
 
     ret = ZE_RESULT_SUCCESS;

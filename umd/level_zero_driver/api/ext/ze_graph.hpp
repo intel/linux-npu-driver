@@ -89,6 +89,17 @@ zeGraphGetArgumentProperties3(ze_graph_handle_t hGraph,
                               ze_graph_argument_properties_3_t *pGraphArgumentProperties);
 
 ze_result_t ZE_APICALL
+zeGraphGetArgumentProperties4(ze_graph_handle_t hGraph,
+                              uint32_t argIndex,
+                              ze_graph_argument_properties_4_t *pGraphArgumentProperties);
+
+ze_result_t ZE_APICALL zeGraphGetArgumentNames(ze_graph_handle_t hGraph,
+                                               uint32_t argIndex,
+                                               ze_graph_argument_name_type_t nameType,
+                                               size_t *pSize,
+                                               char *pNames);
+
+ze_result_t ZE_APICALL
 zeGraphQueryNetworkCreate(ze_context_handle_t hContext,
                           ze_device_handle_t hDevice,
                           const ze_graph_desc_t *desc,

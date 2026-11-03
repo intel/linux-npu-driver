@@ -213,6 +213,19 @@ ze_result_t CommandQueue::getPriority(ze_command_queue_priority_t *pPriority) co
     return ZE_RESULT_SUCCESS;
 }
 
+ze_result_t CommandQueue::setPriorityExt(ze_command_queue_priority_t newPriority) {
+    if (newPriority > ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH) {
+        LOG_E("Invalid priority value: %u", newPriority);
+        return ZE_RESULT_ERROR_INVALID_ENUMERATION;
+    }
+
+    if (!vpuQueue->setPriority(toVPUDevicePriority(newPriority)))
+        return ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+
+    priority = newPriority;
+    return ZE_RESULT_SUCCESS;
+}
+
 ze_result_t CommandQueue::createFence(const ze_fence_desc_t *desc, ze_fence_handle_t *phFence) {
     if (desc == nullptr) {
         LOG_E("Invalid desc pointer");
@@ -368,10 +381,9 @@ ze_result_t CommandQueue::synchronize(uint64_t timeout) {
     }
 
     ze_result_t result = waitForJobs(absTp, trackedJobs);
-    if (result != ZE_RESULT_SUCCESS)
-        return result;
+    if (result != ZE_RESULT_NOT_READY)
+        trackedJobs.clear();
 
-    trackedJobs.clear();
     return result;
 }
 

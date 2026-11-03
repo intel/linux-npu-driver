@@ -42,8 +42,9 @@ struct ImmediateCommandList : public CommandList {
     ze_result_t appendWaitOnEvents(uint32_t numEvents, ze_event_handle_t *phEvent) override;
 
   protected:
-    ze_result_t checkCommandAppendCondition() override;
-    ze_result_t postAppend() override;
+    virtual ze_result_t appendCommandPrologue(uint32_t numWaitEvents = 0,
+                                              ze_event_handle_t *phWaitEvents = nullptr) override;
+    ze_result_t appendCommandEpilogue(ze_event_handle_t hEvent = nullptr) override;
 
     uint32_t index = 0;
     ze_command_queue_flags_t flags = 0;

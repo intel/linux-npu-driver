@@ -280,6 +280,10 @@ ze_result_t zeDriverGetExtensionFunctionAddress(ze_driver_handle_t hDriver,
 
         // version 1.16
         .pfnEvict = L0::zeGraphEvict,
+
+        // version 1.20
+        .pfnGetArgumentProperties4 = L0::zeGraphGetArgumentProperties4,
+        .pfnGetArgumentNames = L0::zeGraphGetArgumentNames,
     };
 
     if (strstr(name, ZE_GRAPH_EXT_NAME) != nullptr) {

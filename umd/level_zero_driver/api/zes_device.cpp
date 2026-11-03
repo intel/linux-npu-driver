@@ -120,7 +120,9 @@ zes_device_dditable_t zesDeviceDdiTable = {.pfnGetProperties = zesDeviceGetPrope
                                            .pfnReadOverclockState = nullptr,
                                            .pfnEnumOverclockDomains = nullptr,
                                            .pfnResetExt = nullptr,
-                                           .pfnPciLinkSpeedUpdateExt = nullptr};
+                                           .pfnPciLinkSpeedUpdateExt = nullptr,
+                                           .pfnGetHealthStatusExt = nullptr,
+                                           .pfnSetHealthStatusExt = nullptr};
 
 } // namespace L0
 

@@ -707,7 +707,7 @@ TEST_F(CommandListEventApiTest, givenCallAppendWaitEventSuccessIsReturned) {
 }
 
 TEST_F(CommandListEventApiTest, givenCallAppendWaitEventWithInvalidParamsReturnFiailure) {
-    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER,
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_SIZE,
               L0::CommandList::fromHandle(commandList->toHandle())
                   ->CommandList::appendWaitOnEvents(1, nullptr));
 }

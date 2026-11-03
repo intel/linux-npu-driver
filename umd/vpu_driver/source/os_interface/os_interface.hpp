@@ -15,6 +15,13 @@
 
 struct stat;
 
+#if ANDROID
+#define DEV_ACCEL_PATH_ "/dev/accel"
+#else
+#define DEV_ACCEL_PATH_ "/dev/accel/accel"
+#endif
+#define DEV_ACCEL_PATH(x) DEV_ACCEL_PATH_ #x
+
 namespace VPU {
 
 class OsFile {

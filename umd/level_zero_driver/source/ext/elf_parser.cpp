@@ -22,7 +22,6 @@
 #include "vpu_driver/source/device/vpu_40xx/vpu_hw_40xx.hpp"
 #include "vpu_driver/source/device/vpu_50xx/vpu_hw_50xx.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
-#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/source/utilities/trace_perfetto.hpp" // IWYU pragma: keep
 
@@ -57,6 +56,7 @@
 namespace {
 // Finalized scratch memory slice within the shared scratch allocation.
 struct ScratchSlice {
+    VPU::VPUBufferObject::Type type;
     uint64_t offset;
     uint64_t size;
 };
@@ -104,7 +104,8 @@ class DriverBufferManager : public elf::BufferManager {
 
         // If buffer is sharable, return empty DeviceBuffer. We only keep track of the shared
         // scratch size for this inference here. The buffer will be added on submission.
-        if (buffSpecs.isSharable() && range == VPU::VPUBufferObject::Type::WriteCombineDma) {
+        if (buffSpecs.isSharable() && (range == VPU::VPUBufferObject::Type::WriteCombineDma ||
+                                       range == VPU::VPUBufferObject::Type::WriteCombineShave)) {
             if (scratchCollected) {
                 LOG(GRAPH,
                     "Scratch skip (not collecting): size=%lu align=%lu",
@@ -114,20 +115,21 @@ class DriverBufferManager : public elf::BufferManager {
                 return elf::DeviceBuffer();
             }
 
+            auto bufferType = VPU::VPUBufferObject::convertToUnmappable(range);
             uint64_t align = buffSpecs.alignment ? buffSpecs.alignment : 1;
-            sharedScratchSize = ALIGN(sharedScratchSize, align);
-            uint64_t offset = sharedScratchSize;
-            sharedScratchSize += buffSpecs.size;
-            scratchSlices.push_back({offset, buffSpecs.size});
+            sharedScratchSize[bufferType] = ALIGN(sharedScratchSize[bufferType], align);
+            uint64_t offset = sharedScratchSize[bufferType];
+            sharedScratchSize[bufferType] += buffSpecs.size;
+            scratchSlices.push_back({bufferType, offset, buffSpecs.size});
 
             LOG(GRAPH,
                 "Scratch collect: size=%lu align=%lu offset=%lu total=%lu",
                 buffSpecs.size,
                 align,
                 offset,
-                sharedScratchSize);
+                sharedScratchSize[bufferType]);
 
-            ctx->scratchCachePreload(sharedScratchSize);
+            ctx->scratchCachePreload(sharedScratchSize[bufferType], bufferType);
 
             return elf::DeviceBuffer();
         }
@@ -238,7 +240,7 @@ class DriverBufferManager : public elf::BufferManager {
     }
 
   public:
-    size_t sharedScratchSize = 0;
+    std::unordered_map<VPU::VPUBufferObject::Type, size_t> sharedScratchSize = {};
     std::vector<ScratchSlice> scratchSlices;
     bool scratchCollected = false;
 
@@ -339,7 +341,11 @@ ElfParser::ElfParser(VPU::VPUDeviceContext *ctx,
 }
 
 ElfParser::~ElfParser() {
-    ctx->scratchCachePrune(getSharedScratchSize());
+    if (bufferManager) {
+        for (auto [type, size] : getSharedScratchSize()) {
+            ctx->scratchCachePrune(size, type);
+        }
+    }
 }
 
 bool ElfParser::checkMagic(const std::unique_ptr<BlobContainer> &blob) {
@@ -573,6 +579,8 @@ static ze_graph_argument_precision_t getTensorPrecision(elf::DType type) {
         return ZE_GRAPH_ARGUMENT_PRECISION_BF16;
     case elf::DType::DType_I4X:
         return ZE_GRAPH_ARGUMENT_PRECISION_NF4;
+    case elf::DType::DType_F4E2M1:
+        return ZE_GRAPH_ARGUMENT_PRECISION_FP4_E2M1;
     default:
         return ZE_GRAPH_ARGUMENT_PRECISION_UNKNOWN;
     }
@@ -683,28 +691,27 @@ static ze_graph_argument_layout_t getDeviceLayout(const elf::TensorRef &tensor) 
 }
 
 static void fillDeviceProperties(const elf::TensorRef &devTensor, GraphArgumentProperties &prop) {
-    for (size_t j = 0; j < ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE; j++) {
+    for (size_t j = 0; j < ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE_8; j++) {
         if (j < devTensor.dimensions_size) {
-            prop.properties.dims[j] = devTensor.dimensions[j];
+            prop.dims[j] = devTensor.dimensions[j];
         } else {
-            prop.properties.dims[j] = 1;
+            prop.dims[j] = 1;
         }
     }
-    prop.properties.dims_count = devTensor.dimensions_size;
-    prop.properties.devicePrecision = getTensorPrecision(devTensor.data_type);
-    prop.properties.deviceLayout = getDeviceLayout(devTensor);
+    prop.dims_count = devTensor.dimensions_size;
+    prop.devicePrecision = getTensorPrecision(devTensor.data_type);
+    prop.deviceLayout = getDeviceLayout(devTensor);
     prop.supportsDynamicStrides =
         (devTensor.flags & elf::TENSOR_REF_FLAG_DYNAMIC_STRIDES_SUPPORT) != 0;
 }
 
-static void fillNetworkProperties(const elf::TensorRef &netTensor,
-                                  ze_graph_argument_properties_3_t &prop) {
+static void fillNetworkProperties(const elf::TensorRef &netTensor, GraphArgumentProperties &prop) {
     memcpy(prop.name, netTensor.name, sizeof(prop.name) - 1);
     prop.networkPrecision = getTensorPrecision(netTensor.data_type);
     prop.networkLayout = getNetworkLayout(netTensor);
 }
 
-static void fillOVNodeProperties(const elf::OVNode &node, ze_graph_argument_properties_3_t &prop) {
+static void fillOVNodeProperties(const elf::OVNode &node, GraphArgumentProperties &prop) {
     memcpy(prop.debug_friendly_name, node.friendly_name, sizeof(prop.debug_friendly_name) - 1);
 
     uint32_t tensorNamesCount = node.tensor_names_count;
@@ -723,52 +730,44 @@ static void fillOVNodeProperties(const elf::OVNode &node, ze_graph_argument_prop
     prop.associated_tensor_names_count = tensorNamesCount;
 }
 
-bool ElfParser::getArgumentProperties(std::vector<GraphArgumentProperties> &props) const {
-    TRACE_EVENT_BEGIN("NPU_ELF", "elf::HostParsedInference::getMetadata");
-    auto metadata = hpiManager->head()->getMetadata();
-    TRACE_EVENT_END("NPU_ELF");
-    if (!metadata) {
-        LOG_E("Failed to get metadata");
-        return false;
-    }
+static bool getArgumentProperties(const std::shared_ptr<const elf::NetworkMetadata> &metadata,
+                                  std::vector<GraphArgumentProperties> &props) {
     props.reserve(metadata->mInTensorDescriptors.size() + metadata->mOutTensorDescriptors.size());
 
     for (size_t i = 0; i < metadata->mInTensorDescriptors.size(); i++) {
         GraphArgumentProperties prop = {};
-        prop.properties.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_3;
-        prop.properties.type = ZE_GRAPH_ARGUMENT_TYPE_INPUT;
+        prop.type = ZE_GRAPH_ARGUMENT_TYPE_INPUT;
 
-        prop.properties.quantReverseScale = 1.f;
-        prop.properties.quantZeroPoint = 0;
+        prop.quantReverseScale = 1.f;
+        prop.quantZeroPoint = 0;
 
         if (metadata->mInTensorDescriptors.size() > i)
             fillDeviceProperties(metadata->mInTensorDescriptors[i], prop);
 
         if (metadata->mNetInputs.size() > i)
-            fillNetworkProperties(metadata->mNetInputs[i], prop.properties);
+            fillNetworkProperties(metadata->mNetInputs[i], prop);
 
         if (metadata->mOVParameters.size() > i)
-            fillOVNodeProperties(metadata->mOVParameters[i], prop.properties);
+            fillOVNodeProperties(metadata->mOVParameters[i], prop);
 
         props.push_back(prop);
     }
 
     for (size_t i = 0; i < metadata->mOutTensorDescriptors.size(); i++) {
         GraphArgumentProperties prop = {};
-        prop.properties.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_3;
-        prop.properties.type = ZE_GRAPH_ARGUMENT_TYPE_OUTPUT;
+        prop.type = ZE_GRAPH_ARGUMENT_TYPE_OUTPUT;
 
-        prop.properties.quantReverseScale = 0.f;
-        prop.properties.quantZeroPoint = 0;
+        prop.quantReverseScale = 0.f;
+        prop.quantZeroPoint = 0;
 
         if (metadata->mOutTensorDescriptors.size() > i)
             fillDeviceProperties(metadata->mOutTensorDescriptors[i], prop);
 
         if (metadata->mNetOutputs.size() > i)
-            fillNetworkProperties(metadata->mNetOutputs[i], prop.properties);
+            fillNetworkProperties(metadata->mNetOutputs[i], prop);
 
         if (metadata->mOVResults.size() > i)
-            fillOVNodeProperties(metadata->mOVResults[i], prop.properties);
+            fillOVNodeProperties(metadata->mOVResults[i], prop);
 
         props.push_back(prop);
     }
@@ -797,14 +796,8 @@ constexpr std::array<std::pair<elf::OVNodeType, ze_graph_metadata_type>, 18> toM
     {elf::OVNodeType_U64, ZE_GRAPH_METADATA_TYPE_U64},
 }};
 
-bool ElfParser::getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &args) const {
-    TRACE_EVENT_BEGIN("NPU_ELF", "elf::HostParsedInference::getMetadata");
-    auto metadata = hpiManager->head()->getMetadata();
-    TRACE_EVENT_END("NPU_ELF");
-    if (!metadata) {
-        LOG_E("Failed to get metadata");
-        return false;
-    }
+static bool getArgumentMetadata(const std::shared_ptr<const elf::NetworkMetadata> &metadata,
+                                std::vector<ze_graph_argument_metadata_t> &args) {
     args.reserve(metadata->mNetInputs.size() + metadata->mNetOutputs.size());
 
     auto convert = [](const elf::OVNode &node,
@@ -898,9 +891,8 @@ std::shared_ptr<VPU::VPUBufferObject> ElfParser::findBuffer(const void *ptr) {
     return dynamic_cast<DriverBufferManager &>(*bufferManager).findBuffer(ptr);
 }
 
-size_t ElfParser::getSharedScratchSize() const {
-    if (bufferManager == nullptr)
-        return 0;
+const std::unordered_map<VPU::VPUBufferObject::Type, size_t> &
+ElfParser::getSharedScratchSize() const {
     return dynamic_cast<DriverBufferManager &>(*bufferManager).sharedScratchSize;
 }
 
@@ -912,14 +904,13 @@ size_t ElfParser::getSharedScratchSize() const {
 //
 // Each scratch slice is converted into a DeviceBuffer pointing to the
 // corresponding region of the shared VPU allocation.
-void ElfParser::updateSharedScratchBuffers(std::shared_ptr<elf::HostParsedInference> &cmdHpi,
-                                           std::shared_ptr<VPU::VPUBufferObject> &bo) {
+void ElfParser::updateSharedScratchBuffers(
+    std::shared_ptr<elf::HostParsedInference> &cmdHpi,
+    const std::unordered_map<VPU::VPUBufferObject::Type, std::shared_ptr<VPU::VPUBufferObject>>
+        &scratchBuffers) {
     std::vector<elf::DeviceBuffer> buffers{};
 
-    uint64_t baseVpu = bo->getVPUAddr();
-
     auto *bm = static_cast<DriverBufferManager *>(bufferManager.get());
-
     if (bm == nullptr) {
         LOG_E("Invalid bufferManager type "
               "(expected DriverBufferManager)");
@@ -932,21 +923,22 @@ void ElfParser::updateSharedScratchBuffers(std::shared_ptr<elf::HostParsedInfere
         // Scratch buffers are not tracked by the DriverBufferManager.
         // They are VPU-only allocations (no CPU mapping), so the CPU pointer is null
         // and the size is set to 0 to exclude from tracked-buffer validation logic.
-        buffers.emplace_back(nullptr, baseVpu + s.offset, 0);
+        uint64_t baseVpuAddr = scratchBuffers.at(s.type)->getVPUAddr();
+        buffers.emplace_back(nullptr, baseVpuAddr + s.offset, 0);
 
         LOG(GRAPH,
-            "HPI %p -> scratch slice: vpu=%#lx offset=%lu",
+            "HPI %p -> scratch slice: vpu=%#lx offset=%lu, type=%x",
             cmdHpi.get(),
-            baseVpu + s.offset,
-            s.offset);
+            baseVpuAddr + s.offset,
+            s.offset,
+            static_cast<int>(s.type));
     }
 
     LOG(GRAPH,
         "HPI %p -> updateSharedScratchBuffers "
-        "buffers=%lu totalSize=%lu",
+        "buffers=%lu",
         cmdHpi.get(),
-        buffers.size(),
-        bm->sharedScratchSize);
+        buffers.size());
 
     try {
         TRACE_EVENT("NPU_ELF", "elf::HostParsedInference::updateSharedScratchBuffers");
@@ -1061,7 +1053,6 @@ ElfParser::createInferenceExecuteCommand(const std::vector<const void *> &inputP
                                          const ArgumentStridesMap &outputStrides,
                                          GraphProfilingQuery *profilingQuery,
                                          bool optimizeForDynamicShapes) {
-
     std::shared_ptr<elf::HostParsedInference> cmdHpi = hpiManager->acquire();
     if (!cmdHpi) {
         LOG_E("Failed to acquire HostParsedInference");
@@ -1112,12 +1103,20 @@ ElfParser::createInferenceExecuteCommand(const std::vector<const void *> &inputP
 ze_result_t ElfParser::parse(std::vector<GraphArgumentProperties> &argumentProperties,
                              std::vector<ze_graph_argument_metadata_t> &argumentMetadata,
                              uint32_t &profilingOutputSize) {
-    if (!getArgumentProperties(argumentProperties)) {
+    TRACE_EVENT_BEGIN("NPU_ELF", "elf::HostParsedInference::getMetadata");
+    auto metadata = hpiManager->head()->getMetadata();
+    TRACE_EVENT_END("NPU_ELF");
+    if (!metadata) {
+        LOG_E("Failed to get metadata");
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (!getArgumentProperties(metadata, argumentProperties)) {
         LOG_E("Failed to get argument properties");
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    if (!getArgumentMetadata(argumentMetadata)) {
+    if (!getArgumentMetadata(metadata, argumentMetadata)) {
         LOG_E("Failed to get argument metadata");
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
     }
@@ -1125,6 +1124,7 @@ ze_result_t ElfParser::parse(std::vector<GraphArgumentProperties> &argumentPrope
     if (!getProfilingSize(profilingOutputSize))
         return ZE_RESULT_ERROR_INVALID_ARGUMENT;
 
+    blobName = metadata->mIdentification.blob_name;
     return ZE_RESULT_SUCCESS;
 }
 

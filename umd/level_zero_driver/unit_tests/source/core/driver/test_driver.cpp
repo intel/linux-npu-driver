@@ -13,11 +13,13 @@
 #include "level_zero_driver/unit_tests/fixtures/device_fixture.hpp"
 #include "level_zero_driver/unit_tests/mocks/mock_driver.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
+#include "vpu_driver/unit_tests/mocks/mock_os_interface_imp.hpp"
 #include "vpu_driver/unit_tests/test_macros/test.hpp"
 
 #include <memory>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
 #include <ze_api.h>
 #include <ze_intel_npu_uuid.h>
 
@@ -25,17 +27,55 @@ namespace L0 {
 namespace ult {
 
 TEST(zeInit, whenCallingZeInitThenInitializeOnDriverIsCalled) {
+    VPU::MockOsInterfaceImp mockOsInfc;
     Mock<Driver> driver;
-    driver.reset();
+    driver.setOsInferface(&mockOsInfc);
 
-    auto result = L0::init(0);
-    EXPECT_EQ(ZE_RESULT_SUCCESS, result);
-    EXPECT_EQ(1u, driver.initCalledCount);
+    ze_init_driver_type_desc_t desc = {};
+    desc.stype = ZE_STRUCTURE_TYPE_INIT_DRIVER_TYPE_DESC;
+    desc.flags = 0;
+    uint32_t drvCnt = 0;
+    EXPECT_EQ(ZE_RESULT_SUCCESS, L0::initDrivers(&drvCnt, nullptr, &desc));
+    EXPECT_EQ(drvCnt, 1u);
+    ze_driver_handle_t hDriver = nullptr;
+    EXPECT_EQ(ZE_RESULT_SUCCESS, L0::initDrivers(&drvCnt, &hDriver, &desc));
+    EXPECT_NE(hDriver, nullptr);
 }
 
-TEST(zeInit, returnErrorWhenNotInitialized) {
+TEST(zeInit, givenAppVersionExtDescThenHintIsStoredOnDriver) {
+    VPU::MockOsInterfaceImp mockOsInfc;
     Mock<Driver> driver;
-    driver.reset(1, true);
+    driver.setOsInferface(&mockOsInfc);
+
+    ze_init_driver_app_version_ext_desc_t appVersionDesc = {};
+    appVersionDesc.stype = ZE_STRUCTURE_TYPE_INIT_DRIVER_APP_VERSION_EXT_DESC;
+    appVersionDesc.apiVersionHint = ZE_API_VERSION_1_10;
+
+    ze_init_driver_type_desc_t desc = {};
+    desc.stype = ZE_STRUCTURE_TYPE_INIT_DRIVER_TYPE_DESC;
+    desc.pNext = &appVersionDesc;
+
+    uint32_t drvCnt = 0;
+    EXPECT_EQ(ZE_RESULT_SUCCESS, L0::initDrivers(&drvCnt, nullptr, &desc));
+    EXPECT_EQ(driver.getAppApiVersionHint(), ZE_API_VERSION_1_10);
+}
+
+TEST(zeInit, returnErrorWhenNoAccelPresent) {
+    VPU::MockOsInterfaceImp mockOsInfc;
+    mockOsInfc.openSuccessful = false;
+    Mock<Driver> driver;
+    driver.setOsInferface(&mockOsInfc);
+
+    ze_init_driver_type_desc_t desc = {};
+    desc.stype = ZE_STRUCTURE_TYPE_INIT_DRIVER_TYPE_DESC;
+    uint32_t drvCnt = 0;
+    EXPECT_EQ(ZE_RESULT_ERROR_UNINITIALIZED, L0::initDrivers(&drvCnt, nullptr, &desc));
+}
+
+TEST(zeInit, returnErrorWhenIncorrectDriverType) {
+    VPU::MockOsInterfaceImp mockOsInfc;
+    Mock<Driver> driver;
+    driver.setOsInferface(&mockOsInfc);
 
     uint32_t drvCnt = 0;
     EXPECT_EQ(ZE_RESULT_ERROR_UNINITIALIZED, L0::init(ZE_INIT_FLAG_GPU_ONLY));
@@ -46,9 +86,10 @@ TEST(zeDriverGet, returnsCorrectNumberOfDriverInstances) {
     // Number of driver instances the system has.
     uint32_t nMockDrv = 1;
 
+    VPU::MockOsInterfaceImp mockOsInfc;
     Mock<Driver> driver;
+    driver.setOsInferface(&mockOsInfc);
     uint32_t drvCnt = 0;
-    ze_driver_handle_t hDriver = nullptr;
 
     /*
      * Spec 1.0.4 - zeDriverGet()
@@ -58,16 +99,17 @@ TEST(zeDriverGet, returnsCorrectNumberOfDriverInstances) {
      * available, then the loader will update the value with the correct
      * number of drivers available.
      */
-    driver.reset(nMockDrv);
-    L0::init(0);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, L0::init(0));
     EXPECT_EQ(ZE_RESULT_ERROR_INVALID_NULL_POINTER, L0::driverHandleGet(nullptr, nullptr));
 
     EXPECT_EQ(ZE_RESULT_SUCCESS, L0::driverHandleGet(&drvCnt, nullptr));
     EXPECT_EQ(nMockDrv, drvCnt);
 
     drvCnt = 100; // should be adjusted.
-    EXPECT_EQ(ZE_RESULT_SUCCESS, L0::driverHandleGet(&drvCnt, &hDriver));
+    std::vector<ze_driver_handle_t> hDrivers(drvCnt);
+    EXPECT_EQ(ZE_RESULT_SUCCESS, L0::driverHandleGet(&drvCnt, hDrivers.data()));
     EXPECT_EQ(nMockDrv, drvCnt);
+    EXPECT_NE(hDrivers[0], nullptr);
 }
 
 using DriverVersionTest = Test<DeviceFixture>;
