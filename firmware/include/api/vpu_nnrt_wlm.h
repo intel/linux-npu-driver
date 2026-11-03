@@ -235,6 +235,49 @@ struct VPU_ALIGNED_STRUCT(8) VpuDpuPVP {
 static_assert(sizeof(VpuDpuPVP) == 32, "VpuDpuPVP size != 32");
 
 /**
+ * @brief Opcodes identifying the ControlFlowOp branch operation to execute.
+ */
+enum class VpuControlFlowOpCode : uint32_t {
+    UNCONDITIONAL_BRANCH = 0, ///< Always branch to branch.unconditional.branch_runtime_entry[0].
+    CONDITIONAL_BRANCH = 1,   ///< Branch to branch.conditional.branch_runtime_entry[*branch_select_addr].
+};
+
+// Forward declared: VpuControlFlowOp and VpuManagedMappedInference reference each other.
+struct VpuManagedMappedInference;
+
+/**
+ * @brief Used when requested_opcode is UNCONDITIONAL_BRANCH. This is the original (already released) layout:
+ * branch_runtime_entry must reference exactly one VpuManagedMappedInference.
+ */
+struct VPU_ALIGNED_STRUCT(8) VpuControlFlowOpUnconditional {
+    uint64_t reserved[4];
+
+    /**
+     * @brief NPU task reference pointing to the single mapped inference to branch to.
+     */
+    VpuTaskReference<VpuManagedMappedInference> branch_runtime_entry;
+};
+
+/**
+ * @brief Used when requested_opcode is CONDITIONAL_BRANCH.
+ */
+struct VPU_ALIGNED_STRUCT(8) VpuControlFlowOpConditional {
+    /**
+     * @brief PIOVA address in DDR of a uint64_t branch index. The pointed-to value must be less than
+     * branch_runtime_entry.size().
+     */
+    uint64_t branch_select_addr;
+    uint64_t pad1[3];
+
+    /**
+     * @brief Array of PIOVA pointers, each independently pointing to a mapped inference this ControlFlowOp
+     * can branch to. Unlike unconditional.branch_runtime_entry, the pointed-to mapped inferences do not need
+     * to be contiguous with each other - only the pointers themselves need to be contiguous.
+     */
+    VpuTaskReference<VpuManagedMappedInference *> branch_runtime_entry;
+};
+
+/**
  *  @brief Contains the information needed for handing a "direct" inference control flow operation.
  */
 struct VPU_ALIGNED_STRUCT(32) VpuControlFlowOp {
@@ -257,26 +300,32 @@ struct VPU_ALIGNED_STRUCT(32) VpuControlFlowOp {
     uint32_t op_id;
 
     /**
-     * @brief This field defines a bitmask of control flow functions and operations implemented by this interface.
-     * It is extensible for future needs.
+     * @brief Requested ControlFlowOp branch operation, see VpuControlFlowOpCode. Validated before every sub-branch
+     * execution, an unrecognized value is treated as invalid.
      */
-    uint32_t magic;
+    VpuControlFlowOpCode requested_opcode;
 
     /**
      * @brief Unused fields for future extension. Should be set to 0 and ignored by the firmware.
      */
     uint16_t pad0[2];
-    uint64_t pad1[4];
 
     /**
-     * @brief NPU task reference pointing to the mapped inference of the next inference in the pipeline to be executed.
-     * Although a task reference can contain multiple elements, the FW will only access and execute the first entry.
+     * @brief Branch target(s), interpreted according to requested_opcode.
+     *
+     * Both members are the same size (72 bytes) and are intentionally type-punned: which one is valid to read is
+     * determined solely by requested_opcode.
      */
-    VpuTaskReference<void> branch_runtime_entry;
+    union VPU_ALIGNED_STRUCT(8) Branch {
+        struct VpuControlFlowOpUnconditional unconditional;
+        struct VpuControlFlowOpConditional conditional;
+    } branch;
 };
 
 static_assert(sizeof(VpuControlFlowOp) == 96, "VpuControlFlowOp size != 96");
-static_assert(offsetof(VpuControlFlowOp, branch_runtime_entry) % 8 == 0, "Alignment error");
+static_assert(sizeof(VpuControlFlowOp::Branch) == 72, "VpuControlFlowOp::Branch size != 72");
+static_assert(offsetof(VpuControlFlowOp, branch.unconditional.branch_runtime_entry) % 8 == 0, "Alignment error");
+static_assert(offsetof(VpuControlFlowOp, branch.conditional.branch_runtime_entry) % 8 == 0, "Alignment error");
 
 /**
  * @brief Contains the information needed to run a fully or partially managed inference.

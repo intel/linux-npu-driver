@@ -40,10 +40,6 @@ struct VPU_ALIGNED_STRUCT(8) VpuNNShaveRuntimeConfigs {
      * The stack frame pointers specify the memory locations (in DDR or CMX) for each Shave's stack.
      */
     union VPU_ALIGNED_STRUCT(8) {
-        /**
-         * @brief NPU7+ platforms: Reference to an array of stack frame pointers.
-         * The 'ref' member holds the address and count of the stack frame pointers array.
-         */
         struct VPU_ALIGNED_STRUCT(8) {
             VpuTaskReference<uint32_t> ref;
             uint8_t pad_[8];
