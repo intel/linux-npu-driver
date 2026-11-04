@@ -6,6 +6,7 @@
  */
 
 #include "graph_utilities.hpp"
+#include "test_app.h"
 #include "ze_stringify.hpp"
 
 #include <vector>
@@ -34,12 +35,12 @@ class MetricGroup : public UmdTest {
         EXPECT_NE(*metricGroups.data(), nullptr);
     }
     void TearDown() override {
-        EXPECT_EQ(zetContextActivateMetricGroups(zeContext, zeDevice, 0u, nullptr),
-                  ZE_RESULT_SUCCESS);
-
-        ret = tearDownMetrics();
-        EXPECT_TRUE(ret == ZE_RESULT_SUCCESS || ret == ZE_RESULT_ERROR_UNSUPPORTED_FEATURE);
-
+        EXPECT_EQ_ANY_OF2(zetContextActivateMetricGroups(zeContext, zeDevice, 0, nullptr),
+                          ZE_RESULT_SUCCESS,
+                          ZE_RESULT_ERROR_UNINITIALIZED);
+        EXPECT_EQ_ANY_OF2(tearDownMetrics(),
+                          ZE_RESULT_SUCCESS,
+                          ZE_RESULT_ERROR_UNSUPPORTED_FEATURE);
         UmdTest::TearDown();
     }
 

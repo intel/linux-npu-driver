@@ -21,6 +21,9 @@
 #include <ze_api.h>
 #include <ze_graph_ext.h>
 #include <ze_graph_profiling_ext.h>
+#ifdef UMD_TESTS_USE_OPENVINO
+#include <openvino/openvino.hpp>
+#endif
 
 enum MemType {
     DEVICE_MEMORY,
@@ -166,6 +169,28 @@ class GraphBuffer {
 
         return graphBuffer;
     }
+
+#ifdef UMD_TESTS_USE_OPENVINO
+    static std::shared_ptr<GraphBuffer> get(ze_device_handle_t hDevice,
+                                            graph_dditable_ext_t *graphDdi,
+                                            const std::shared_ptr<ov::Model> &model,
+                                            const std::string &buildFlags,
+                                            ze_graph_flags_t graphFlag = ZE_GRAPH_FLAG_NONE) {
+        char tmpl[] = "/tmp/modelXXXXXX";
+        int fd = mkstemp(tmpl);
+        if (fd == -1) {
+            return nullptr;
+        }
+        close(fd);
+        std::string path = std::string(tmpl) + ".xml";
+        ov::serialize(model, path);
+        auto graphBuffer = std::make_shared<GraphBuffer>();
+        bool status = graphBuffer->loadFromPath(hDevice, graphDdi, path, buildFlags, graphFlag);
+        std::filesystem::remove(path);
+        std::filesystem::remove(path.replace(strlen(tmpl) + 1, 3, "bin"));
+        return status ? graphBuffer : nullptr;
+    }
+#endif
 
     GraphBuffer() = default;
     GraphBuffer(std::vector<char> &&buf)
@@ -553,6 +578,24 @@ class Graph {
         return graph;
     }
 
+#ifdef UMD_TESTS_USE_OPENVINO
+    static std::shared_ptr<Graph> create(ze_context_handle_t hContext,
+                                         ze_device_handle_t hDevice,
+                                         graph_dditable_ext_t *graphDDI,
+                                         const std::shared_ptr<ov::Model> &model,
+                                         const std::string &buildFlags = "") {
+        auto buffer = GraphBuffer::get(hDevice, graphDDI, model, buildFlags);
+        if (buffer == nullptr)
+            return nullptr;
+
+        auto graph = std::make_shared<Graph>(hContext, hDevice, graphDDI, std::move(buffer));
+        if (!graph->createGraphHandle())
+            return nullptr;
+        graph->modelName = model->get_friendly_name();
+        return graph;
+    }
+#endif
+
     static size_t graphPrecisionToByteSize(ze_graph_argument_precision_t arg) {
         switch (arg) {
         case ZE_GRAPH_ARGUMENT_PRECISION_FP64:
@@ -580,6 +623,7 @@ class Graph {
 
         case ZE_GRAPH_ARGUMENT_PRECISION_INT4:
         case ZE_GRAPH_ARGUMENT_PRECISION_UINT4:
+        case ZE_GRAPH_ARGUMENT_PRECISION_FP4_E2M1:
         case ZE_GRAPH_ARGUMENT_PRECISION_INT2:
         case ZE_GRAPH_ARGUMENT_PRECISION_UINT2:
         case ZE_GRAPH_ARGUMENT_PRECISION_BIN:

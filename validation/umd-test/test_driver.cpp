@@ -15,7 +15,7 @@ class Driver : public UmdTest {};
 TEST_F(Driver, GetApiVersion) {
     ze_api_version_t version;
     EXPECT_EQ(zeDriverGetApiVersion(zeDriver, &version), ZE_RESULT_SUCCESS);
-    EXPECT_EQ(version, ZE_API_VERSION_CURRENT);
+    EXPECT_EQ(version, ZE_API_VERSION_1_18);
     TRACE("Driver API Version: %i.%i\n", ZE_MAJOR_VERSION(version), ZE_MINOR_VERSION(version));
 }
 
@@ -49,6 +49,7 @@ TEST_F(Driver, GetExtensionProperties) {
     bool has_mutable_cmdlist_extension = false;
     bool has_cmd_queue_extension = false;
     bool has_context_npu_extension = false;
+    bool has_device_npu_properties_extension = false;
     for (auto &v : props) {
         TRACE("Driver Extension name: %s, version: %i.%i\n",
               v.name,
@@ -66,12 +67,16 @@ TEST_F(Driver, GetExtensionProperties) {
             has_cmd_queue_extension = true;
         if (extName == ZE_CONTEXT_NPU_EXT_NAME && v.version == ZE_CONTEXT_NPU_EXT_VERSION_1_0)
             has_context_npu_extension = true;
+        if (extName == ZE_DEVICE_NPU_PROPERTIES_EXT_NAME &&
+            v.version == ZE_DEVICE_NPU_PROPERTIES_EXT_VERSION_1_0)
+            has_device_npu_properties_extension = true;
     }
 
     EXPECT_TRUE(has_graph_extension);
     EXPECT_TRUE(has_mutable_cmdlist_extension);
     EXPECT_TRUE(has_cmd_queue_extension);
     EXPECT_TRUE(has_context_npu_extension);
+    EXPECT_TRUE(has_device_npu_properties_extension);
 }
 
 TEST_F(Driver, TestDriverNpuExtension) {

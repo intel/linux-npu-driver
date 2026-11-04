@@ -10,6 +10,7 @@
 
 #include <chrono>
 #include <future>
+#include <ze_api.h>
 
 class CommandQueuePriority : public UmdTest {
   public:
@@ -138,58 +139,70 @@ TEST_F(CommandQueuePriority, executeCopyUsingDifferentPrioritySimultaneously) {
     }
 }
 
-TEST_F(CommandQueuePriority, executeManyLowPriorityJobsExpectHighPriorityJobCompletesFirst) {
+TEST_F(CommandQueuePriority, highPriorityJobTimestampPrecedesLowPriorityJobs) {
     SKIP_NO_HWS("Test can be run in HWS mode");
 
     size_t lowJobCount = 4;
-    size_t tsOffset = 16;
+    size_t tsOffset = 64 / sizeof(uint64_t);
     auto tsMem = AllocDeviceMemory((lowJobCount + 1) * tsOffset * sizeof(uint64_t));
+    ASSERT_NE(tsMem, nullptr);
     uint64_t *ts = static_cast<uint64_t *>(tsMem.get());
 
-    ze_event_handle_t hDeviceEvent = nullptr;
-    EXPECT_EQ(createEvent(&hDeviceEvent), ZE_RESULT_SUCCESS);
+    // 1st event signals about job is loaded to the NPU queue
+    ze_event_handle_t hEventHighPriorSubmit = nullptr;
+    ASSERT_EQ(createEvent(&hEventHighPriorSubmit), ZE_RESULT_SUCCESS);
 
-    ze_event_handle_t hHostEvent = nullptr;
-    EXPECT_EQ(createEvent(&hHostEvent), ZE_RESULT_SUCCESS);
+    // 2nd event signals about job is waiting in the NPU queue
+    ze_event_handle_t hEventHighPriorJobReady = nullptr;
+    ASSERT_EQ(createEvent(&hEventHighPriorJobReady), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeEventHostSignal(hEventHighPriorJobReady), ZE_RESULT_SUCCESS);
+
+    // 3rd event holds the low priority jobs until the high priority job is in the NPU queue
+    ze_event_handle_t hEventBlock = nullptr;
+    ASSERT_EQ(createEvent(&hEventBlock), ZE_RESULT_SUCCESS);
 
     std::vector<ze_command_queue_handle_t> hQueueLows(lowJobCount, nullptr);
     for (auto &hQueueLow : hQueueLows) {
-        EXPECT_EQ(createCommandQueue(ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_LOW, &hQueueLow),
+        ASSERT_EQ(createCommandQueue(ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_LOW, &hQueueLow),
                   ZE_RESULT_SUCCESS);
     }
 
     ze_command_queue_handle_t hQueueHigh = nullptr;
-    EXPECT_EQ(createCommandQueue(ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH, &hQueueHigh),
+    ASSERT_EQ(createCommandQueue(ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH, &hQueueHigh),
               ZE_RESULT_SUCCESS);
 
     std::vector<ze_command_list_handle_t> hListLows(lowJobCount, nullptr);
     for (auto &hListLow : hListLows) {
-        EXPECT_EQ(createCommandList(&hListLow), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(createCommandList(&hListLow), ZE_RESULT_SUCCESS);
     }
 
     ze_command_list_handle_t hListHigh = nullptr;
-    EXPECT_EQ(createCommandList(&hListHigh), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(createCommandList(&hListHigh), ZE_RESULT_SUCCESS);
 
     for (size_t i = 0; i < lowJobCount; i++) {
-        EXPECT_EQ(zeCommandListAppendWaitOnEvents(hListLows[i], 1, &hHostEvent), ZE_RESULT_SUCCESS);
-        EXPECT_EQ(zeCommandListAppendWriteGlobalTimestamp(hListLows[i],
+        ASSERT_EQ(zeCommandListAppendWaitOnEvents(hListLows[i], 1, &hEventBlock),
+                  ZE_RESULT_SUCCESS);
+        ASSERT_EQ(zeCommandListAppendWriteGlobalTimestamp(hListLows[i],
                                                           ts + tsOffset * i,
                                                           nullptr,
                                                           0,
                                                           nullptr),
                   ZE_RESULT_SUCCESS);
-        EXPECT_EQ(zeCommandListClose(hListLows[i]), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(zeCommandListClose(hListLows[i]), ZE_RESULT_SUCCESS);
     }
 
-    EXPECT_EQ(zeCommandListAppendSignalEvent(hListHigh, hDeviceEvent), ZE_RESULT_SUCCESS);
-    EXPECT_EQ(zeCommandListAppendWaitOnEvents(hListHigh, 1, &hHostEvent), ZE_RESULT_SUCCESS);
-    EXPECT_EQ(zeCommandListAppendWriteGlobalTimestamp(hListHigh,
+    // Linux NPU driver breaks down the command list into 2 or more jobs if signal event is used.
+    // To avoid this behavior, we can use event reset instead of signal event.
+    ASSERT_EQ(zeCommandListAppendSignalEvent(hListHigh, hEventHighPriorSubmit), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListAppendEventReset(hListHigh, hEventHighPriorJobReady), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListAppendWaitOnEvents(hListHigh, 1, &hEventBlock), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListAppendWriteGlobalTimestamp(hListHigh,
                                                       ts + tsOffset * lowJobCount,
                                                       nullptr,
                                                       0,
                                                       nullptr),
               ZE_RESULT_SUCCESS);
-    EXPECT_EQ(zeCommandListClose(hListHigh), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(hListHigh), ZE_RESULT_SUCCESS);
 
     for (size_t i = 0; i < lowJobCount; i++) {
         EXPECT_EQ(zeCommandQueueExecuteCommandLists(hQueueLows[i], 1, &hListLows[i], nullptr),
@@ -198,8 +211,14 @@ TEST_F(CommandQueuePriority, executeManyLowPriorityJobsExpectHighPriorityJobComp
     EXPECT_EQ(zeCommandQueueExecuteCommandLists(hQueueHigh, 1, &hListHigh, nullptr),
               ZE_RESULT_SUCCESS);
 
-    EXPECT_EQ(zeEventHostSynchronize(hDeviceEvent, syncTimeout), ZE_RESULT_SUCCESS);
-    EXPECT_EQ(zeEventHostSignal(hHostEvent), ZE_RESULT_SUCCESS);
+    EXPECT_EQ(zeEventHostSynchronize(hEventHighPriorSubmit, syncTimeout), ZE_RESULT_SUCCESS);
+    int retries = 10;
+    while (zeEventQueryStatus(hEventHighPriorJobReady) != ZE_RESULT_NOT_READY && retries-- > 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    EXPECT_EQ(zeEventQueryStatus(hEventHighPriorJobReady), ZE_RESULT_NOT_READY)
+        << "High priority wait job might not have reached the NPU queue yet";
+    EXPECT_EQ(zeEventHostSignal(hEventBlock), ZE_RESULT_SUCCESS);
 
     for (auto &hQueueLow : hQueueLows) {
         EXPECT_EQ(zeCommandQueueSynchronize(hQueueLow, syncTimeout), ZE_RESULT_SUCCESS);
@@ -211,5 +230,71 @@ TEST_F(CommandQueuePriority, executeManyLowPriorityJobsExpectHighPriorityJobComp
         uint64_t tsLow = *(ts + tsOffset * i);
         EXPECT_LT(tsHigh, tsLow) << "Low priority job[" << i
                                  << "] set timestamp earlier then job with high priority";
+    }
+}
+
+TEST_F(CommandQueuePriority, setPriorityExtUpdatesQueuePriority) {
+    if (!Environment::getInstance()->isDriverExtensionSupported(
+            ZE_COMMAND_QUEUE_SET_PRIORITY_EXT_NAME,
+            ZE_COMMAND_QUEUE_SET_PRIORITY_EXT_VERSION_1_0)) {
+        GTEST_SKIP() << "Kernel driver does not support changing command queue priority";
+    }
+
+    ze_command_queue_handle_t hQueue = nullptr;
+    ASSERT_EQ(createCommandQueue(ZE_COMMAND_QUEUE_PRIORITY_NORMAL, &hQueue), ZE_RESULT_SUCCESS);
+
+    ze_command_queue_priority_t priority = ZE_COMMAND_QUEUE_PRIORITY_FORCE_UINT32;
+    ASSERT_EQ(zeCommandQueueGetPriority(hQueue, &priority), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(priority, ZE_COMMAND_QUEUE_PRIORITY_NORMAL);
+
+    EXPECT_EQ(zeCommandQueueSetPriorityExt(hQueue, ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH),
+              ZE_RESULT_SUCCESS);
+    EXPECT_EQ(zeCommandQueueGetPriority(hQueue, &priority), ZE_RESULT_SUCCESS);
+    EXPECT_EQ(priority, ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH);
+
+    EXPECT_EQ(zeCommandQueueSetPriorityExt(hQueue, ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_LOW),
+              ZE_RESULT_SUCCESS);
+    EXPECT_EQ(zeCommandQueueGetPriority(hQueue, &priority), ZE_RESULT_SUCCESS);
+    EXPECT_EQ(priority, ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_LOW);
+
+    EXPECT_EQ(zeCommandQueueSetPriorityExt(hQueue, ZE_COMMAND_QUEUE_PRIORITY_FORCE_UINT32),
+              ZE_RESULT_ERROR_INVALID_ENUMERATION);
+    EXPECT_EQ(zeCommandQueueSetPriorityExt(nullptr, ZE_COMMAND_QUEUE_PRIORITY_NORMAL),
+              ZE_RESULT_ERROR_INVALID_NULL_HANDLE);
+}
+
+TEST_F(CommandQueuePriority, executeCopyAfterSetPriorityExt) {
+    if (!Environment::getInstance()->isDriverExtensionSupported(
+            ZE_COMMAND_QUEUE_SET_PRIORITY_EXT_NAME,
+            ZE_COMMAND_QUEUE_SET_PRIORITY_EXT_VERSION_1_0)) {
+        GTEST_SKIP() << "Kernel driver does not support changing command queue priority";
+    }
+
+    for (const auto &priority : priorities) {
+        ze_command_queue_handle_t hQueue = nullptr;
+        ASSERT_EQ(createCommandQueue(ZE_COMMAND_QUEUE_PRIORITY_NORMAL, &hQueue), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(zeCommandQueueSetPriorityExt(hQueue, priority), ZE_RESULT_SUCCESS);
+
+        ze_command_list_handle_t hList = nullptr;
+        ASSERT_EQ(createCommandList(&hList), ZE_RESULT_SUCCESS);
+
+        size_t memSize = 16 * KB;
+        auto srcMem = AllocDeviceMemory(memSize);
+        memset(srcMem.get(), 'c', memSize);
+        auto dstMem = AllocDeviceMemory(memSize);
+
+        ASSERT_EQ(zeCommandListAppendMemoryCopy(hList,
+                                                dstMem.get(),
+                                                srcMem.get(),
+                                                memSize,
+                                                nullptr,
+                                                0,
+                                                nullptr),
+                  ZE_RESULT_SUCCESS);
+        ASSERT_EQ(zeCommandListClose(hList), ZE_RESULT_SUCCESS);
+
+        EXPECT_EQ(zeCommandQueueExecuteCommandLists(hQueue, 1, &hList, nullptr), ZE_RESULT_SUCCESS);
+        EXPECT_EQ(zeCommandQueueSynchronize(hQueue, syncTimeout), ZE_RESULT_SUCCESS);
+        EXPECT_EQ(memcmp(dstMem.get(), srcMem.get(), memSize), ZE_RESULT_SUCCESS);
     }
 }

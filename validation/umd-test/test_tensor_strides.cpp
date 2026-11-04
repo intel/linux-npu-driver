@@ -14,10 +14,7 @@ class TensorStridesBase : public UmdTest {
   public:
     void SetUp() override {
         UmdTest::SetUp();
-
-        if (isVPU37xx()) {
-            SKIP_("Tensor strides feature is not available on NPU37xx");
-        }
+        SKIP_VPU37XX("Tensor stride support unavailable on NPU37xx");
 
         modelPath = "Internal_mul_add.xml";
 
@@ -630,6 +627,58 @@ TEST_P(StridesProperty, GetArgumentProperties3) {
         ASSERT_EQ(graphArgumentProps.quantZeroPoint, 0);
         ASSERT_EQ(graphArgumentProps.dims_count, 3);
         ASSERT_EQ(friendlyNames[index], graphArgumentProps.debug_friendly_name);
+        if (std::find(argsWithStrides.begin(), argsWithStrides.end(), index) !=
+            argsWithStrides.end()) {
+            ASSERT_TRUE(stridesProp.supportsDynamicStrides) << "argument " << index;
+        } else {
+            ASSERT_FALSE(stridesProp.supportsDynamicStrides) << "argument " << index;
+        }
+    }
+}
+
+TEST_P(StridesProperty, GetArgumentProperties4) {
+    const auto &argsWithStrides = GetParam();
+    graph = Graph::create(zeContext,
+                          zeDevice,
+                          zeGraphDDITableExt,
+                          modelPath,
+                          getBuildOptions(argsWithStrides));
+    ASSERT_NE(graph, nullptr);
+
+    ze_graph_properties_t graphProps = {};
+    graphProps.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
+    ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties(graph->handle, &graphProps), ZE_RESULT_SUCCESS)
+        << "Failed to get Graph properties";
+
+    ze_graph_argument_property_strides_t stridesProp = {};
+    stridesProp.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTY_STRIDES;
+    ze_graph_argument_properties_4_t graphArgumentProps = {};
+    graphArgumentProps.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_4;
+    graphArgumentProps.pNext = &stridesProp;
+
+    for (uint32_t index = 0; index < graphProps.numGraphArgs; index++) {
+        ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties4(graph->handle,
+                                                                index,
+                                                                &graphArgumentProps),
+                  ZE_RESULT_SUCCESS);
+        if (index < graphProps.numGraphArgs - 2) {
+            ASSERT_EQ(graphArgumentProps.type, ZE_GRAPH_ARGUMENT_TYPE_INPUT);
+        } else if (index >= graphProps.numGraphArgs - 2) {
+            ASSERT_EQ(graphArgumentProps.type, ZE_GRAPH_ARGUMENT_TYPE_OUTPUT);
+        } else if (graphArgumentProps.type != ZE_GRAPH_ARGUMENT_TYPE_INPUT &&
+                   graphArgumentProps.type != ZE_GRAPH_ARGUMENT_TYPE_OUTPUT) {
+            FAIL() << "Invalid graph argument type";
+        }
+        ASSERT_EQ(graphArgumentProps.dims[0], 2u);
+        ASSERT_EQ(graphArgumentProps.dims[1], 3u);
+        ASSERT_EQ(graphArgumentProps.dims[2], 4u);
+        ASSERT_EQ(graphArgumentProps.dims[3], 1u);
+        ASSERT_EQ(graphArgumentProps.dims[4], 1u);
+        ASSERT_EQ(graphArgumentProps.dims[5], 1u);
+        ASSERT_EQ(graphArgumentProps.dims[6], 1u);
+        ASSERT_EQ(graphArgumentProps.dims[7], 1u);
+        ASSERT_EQ(graphArgumentProps.layout, ZE_GRAPH_ARGUMENT_LAYOUT_CHW);
+        ASSERT_EQ(graphArgumentProps.precision, ZE_GRAPH_ARGUMENT_PRECISION_FP16);
         if (std::find(argsWithStrides.begin(), argsWithStrides.end(), index) !=
             argsWithStrides.end()) {
             ASSERT_TRUE(stridesProp.supportsDynamicStrides) << "argument " << index;

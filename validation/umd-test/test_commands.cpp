@@ -9,6 +9,7 @@
 #include "umd_test.h"
 
 #include <future>
+#include <numeric>
 
 class Command : public UmdTest {
   public:
@@ -231,27 +232,6 @@ TEST_F(Command, SynchronizeCommandWithTimeoutBeingMaxUint64) {
     ASSERT_EQ(zeCommandQueueSynchronize(queue, syncTimeout), ZE_RESULT_SUCCESS);
 }
 #endif
-
-TEST_F(Command, UseZeCommandQueueSynchronizeInLoop) {
-    auto mem = AllocSharedMemory(sizeof(uint64_t));
-    uint64_t *ts = static_cast<uint64_t *>(mem.get());
-    ASSERT_TRUE(ts) << "Failed to allocate shared memory";
-
-    ASSERT_EQ(zeCommandListAppendWriteGlobalTimestamp(list, ts, nullptr, 0, nullptr),
-              ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
-
-    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
-
-    auto timeout = std::chrono::steady_clock::now() + std::chrono::nanoseconds(syncTimeout);
-    while (zeCommandQueueSynchronize(queue, 0) == ZE_RESULT_NOT_READY) {
-        if (std::chrono::steady_clock::now() > timeout)
-            break;
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
-    ASSERT_EQ(zeCommandQueueSynchronize(queue, 0), ZE_RESULT_SUCCESS);
-    EXPECT_NE(*ts, 0llu) << "Timestamp should be different from 0";
-}
 
 TEST_F(Command, MultipleCommandQueueSubmissionStressTest) {
     auto mem = AllocSharedMemory(size);
@@ -1102,4 +1082,69 @@ TEST_F(CommandStress, MultipleVPUJobs) {
         EXPECT_EQ(*dst, referenceValue | listIndex);
         TRACE_BUF(hostMems[listIndex].get(), allocSize);
     }
+}
+
+TEST_F(Command, CopyCommandQueueSynchronizeWithTimeout0) {
+    const uint64_t copySize = isSilicon() ? 512 * MB : 1 * MB;
+    auto srcMem = AllocSharedMemory(copySize);
+    ASSERT_TRUE(srcMem) << "Failed to allocate source memory";
+    auto dstMem = AllocSharedMemory(copySize);
+    ASSERT_TRUE(dstMem) << "Failed to allocate dest memory";
+
+    uint64_t *src = static_cast<uint64_t *>(srcMem.get());
+    std::iota(src, src + copySize / sizeof(*src), 100);
+    uint64_t *dst = static_cast<uint64_t *>(dstMem.get());
+
+    ASSERT_EQ(zeCommandListAppendMemoryCopy(list, dst, src, copySize, nullptr, 0, nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, nullptr), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(queue, 0), ZE_RESULT_NOT_READY);
+    while (true) {
+        ze_result_t ret = zeCommandQueueSynchronize(queue, 0);
+        if (ret == ZE_RESULT_SUCCESS) {
+            break;
+        }
+        ASSERT_EQ(ret, ZE_RESULT_NOT_READY);
+    }
+
+    EXPECT_EQ(memcmp(dst, src, copySize), 0);
+    TRACE_BUF(srcMem.get(), copySize);
+    TRACE_BUF(dstMem.get(), copySize);
+}
+
+TEST_F(Command, CopyFenceHostQueueSynchronizeWithTimeout0) {
+    ze_fence_desc_t fenceDesc = {ZE_STRUCTURE_TYPE_FENCE_DESC, nullptr, 0};
+    auto scopedFence = zeScope::fenceCreate(queue, fenceDesc, ret);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+    auto fence = scopedFence.get();
+
+    const uint64_t copySize = isSilicon() ? 512 * MB : 1 * MB;
+    auto srcMem = AllocSharedMemory(copySize);
+    ASSERT_TRUE(srcMem) << "Failed to allocate source memory";
+    auto dstMem = AllocSharedMemory(copySize);
+    ASSERT_TRUE(dstMem) << "Failed to allocate dest memory";
+
+    uint64_t *src = static_cast<uint64_t *>(srcMem.get());
+    std::iota(src, src + copySize / sizeof(*src), 100);
+    uint64_t *dst = static_cast<uint64_t *>(dstMem.get());
+
+    ASSERT_EQ(zeCommandListAppendMemoryCopy(list, dst, src, copySize, nullptr, 0, nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, fence), ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeFenceHostSynchronize(fence, 0), ZE_RESULT_NOT_READY);
+    while (true) {
+        ze_result_t ret = zeFenceHostSynchronize(fence, 0);
+        if (ret == ZE_RESULT_SUCCESS) {
+            break;
+        }
+        ASSERT_EQ(ret, ZE_RESULT_NOT_READY);
+    }
+
+    EXPECT_EQ(memcmp(dst, src, copySize), 0);
+    TRACE_BUF(srcMem.get(), copySize);
+    TRACE_BUF(dstMem.get(), copySize);
 }

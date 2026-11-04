@@ -230,6 +230,21 @@ eventCreate(ze_event_pool_handle_t pool, const ze_event_desc_t &desc, ze_result_
     });
 }
 
+inline SharedPtr<ze_event_handle_t>
+counterBasedEventCreate(ze_context_handle_t ctx,
+                        ze_device_handle_t zeDevice,
+                        const ze_event_counter_based_desc_t &eventDesc,
+                        ze_result_t &ret) {
+    ze_event_handle_t handle = nullptr;
+    ret = zeEventCounterBasedCreate(ctx, zeDevice, &eventDesc, &handle);
+    if (ret != ZE_RESULT_SUCCESS)
+        return nullptr;
+
+    return SharedPtr<ze_event_handle_t>(std::move(handle), [](auto x) {
+        EXPECT_EQ(zeEventDestroy(x), ZE_RESULT_SUCCESS);
+    });
+}
+
 inline SharedPtr<ze_graph_profiling_pool_handle_t>
 profilingPoolCreate(ze_graph_profiling_dditable_ext_t *ddi,
                     ze_graph_handle_t graphHandle,

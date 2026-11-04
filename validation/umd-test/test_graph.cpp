@@ -9,6 +9,10 @@
 
 #include <climits>
 #include <ze_graph_ext.h>
+#ifdef UMD_TESTS_USE_OPENVINO
+#include <openvino/op/add.hpp>
+#include <openvino/openvino.hpp>
+#endif
 
 class GraphApiBase : public UmdTest {
   public:
@@ -104,7 +108,11 @@ TEST_F(GraphApiBase, GetDriverProperties) {
                                                                  &size,
                                                                  options.data()),
               ZE_RESULT_SUCCESS);
-    ASSERT_STREQ(options.data(), "OPTIMIZED_DYNAMIC_STRIDES");
+    if (!isCounterBasedEventSupported()) {
+        ASSERT_STREQ(options.data(), "OPTIMIZED_DYNAMIC_STRIDES");
+    } else {
+        ASSERT_STREQ(options.data(), "OPTIMIZED_DYNAMIC_STRIDES COUNTER_BASED_EVENTS");
+    }
     TRACE("Driver supported options: %s\n", options.data());
 }
 
@@ -125,6 +133,49 @@ TEST_F(GraphApiBase, GetCompilerProperties) {
                                                                  options.data()),
               ZE_RESULT_SUCCESS);
     TRACE("Compiler supported options: %s\n", options.c_str());
+}
+
+TEST_F(GraphApiBase, GetCompilerInfo) {
+    size_t size = 0;
+    EXPECT_EQ(zeDeviceGetCompilerInfo(zeDevice,
+                                      ZE_DEVICE_COMPILER_INFO_COMPILER_OPTIONS,
+                                      nullptr,
+                                      &size,
+                                      nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_GT(size, 0);
+
+    std::vector<char> compilerOptions(size);
+    EXPECT_EQ(zeDeviceGetCompilerInfo(zeDevice,
+                                      ZE_DEVICE_COMPILER_INFO_COMPILER_OPTIONS,
+                                      nullptr,
+                                      &size,
+                                      compilerOptions.data()),
+              ZE_RESULT_SUCCESS);
+    TRACE("Compiler supported options: %s\n", compilerOptions.data());
+
+    size = 0;
+    EXPECT_EQ(zeDeviceGetCompilerInfo(zeDevice,
+                                      ZE_DEVICE_COMPILER_INFO_DRIVER_OPTIONS,
+                                      nullptr,
+                                      &size,
+                                      nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_GT(size, 0);
+
+    std::vector<char> driverOptions(size);
+    EXPECT_EQ(zeDeviceGetCompilerInfo(zeDevice,
+                                      ZE_DEVICE_COMPILER_INFO_DRIVER_OPTIONS,
+                                      nullptr,
+                                      &size,
+                                      driverOptions.data()),
+              ZE_RESULT_SUCCESS);
+    if (!isCounterBasedEventSupported()) {
+        ASSERT_STREQ(driverOptions.data(), "OPTIMIZED_DYNAMIC_STRIDES");
+    } else {
+        ASSERT_STREQ(driverOptions.data(), "OPTIMIZED_DYNAMIC_STRIDES COUNTER_BASED_EVENTS");
+    }
+    TRACE("Driver supported options: %s\n", driverOptions.data());
 }
 
 TEST_F(GraphApiBase, IsCompilerOptionSupported) {
@@ -421,6 +472,114 @@ TEST_F(GraphApi, GetArgumentProperties3) {
                                                             &graphArgumentProperties),
               ZE_RESULT_ERROR_INVALID_ARGUMENT);
 }
+
+#ifdef UMD_TESTS_USE_OPENVINO
+TEST_F(GraphApi, GetArgumentProperties4AndGetArgumentNames) {
+    ov::Shape shape{2, 3, 4, 5, 6, 7};
+    auto input = std::make_shared<ov::op::v0::Parameter>(ov::element::f32, shape);
+    input->set_friendly_name("input");
+    input->get_output_tensor(0).set_names({"input_tensor"});
+    auto add = std::make_shared<ov::op::v1::Add>(input, input);
+    add->set_friendly_name("add");
+    add->get_output_tensor(0).set_names({"add_tensor"});
+    auto result = std::make_shared<ov::op::v0::Result>(add);
+    result->set_friendly_name("result");
+    result->get_output_tensor(0).set_names({"result_tensor"});
+    auto model = std::make_shared<ov::Model>(result, ov::ParameterVector{input});
+
+    auto graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, model);
+    ASSERT_NE(graph, nullptr);
+    ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties4(graph->handle, 0, nullptr),
+              ZE_RESULT_ERROR_INVALID_NULL_POINTER);
+
+    ze_graph_properties_t graphProps = {};
+    graphProps.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES;
+
+    ASSERT_EQ(zeGraphDDITableExt->pfnGetProperties(graph->handle, &graphProps), ZE_RESULT_SUCCESS)
+        << "Failed to get Graph properties";
+
+    for (uint32_t index = 0; index < graphProps.numGraphArgs; index++) {
+        ze_graph_argument_properties_4_t graphArgumentProperties = {};
+        graphArgumentProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_4;
+        ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties4(graph->handle,
+                                                                index,
+                                                                &graphArgumentProperties),
+                  ZE_RESULT_SUCCESS);
+        if (index == 0) {
+            ASSERT_EQ(graphArgumentProperties.type, ZE_GRAPH_ARGUMENT_TYPE_INPUT);
+        } else if (index == graphProps.numGraphArgs - 1) {
+            ASSERT_EQ(graphArgumentProperties.type, ZE_GRAPH_ARGUMENT_TYPE_OUTPUT);
+        } else if (graphArgumentProperties.type != ZE_GRAPH_ARGUMENT_TYPE_INPUT &&
+                   graphArgumentProperties.type != ZE_GRAPH_ARGUMENT_TYPE_OUTPUT) {
+            FAIL() << "Invalid graph argument type";
+        }
+
+        for (size_t i = 0; i < ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE_8; i++) {
+            if (i < shape.size()) {
+                EXPECT_EQ(graphArgumentProperties.dims[i], shape[i]) << " dim " << i;
+            } else {
+                EXPECT_EQ(graphArgumentProperties.dims[i], 1) << " dim " << i;
+            }
+        }
+        ASSERT_GE(graphArgumentProperties.layout, ZE_GRAPH_ARGUMENT_LAYOUT_ANY);
+        ASSERT_EQ(graphArgumentProperties.precision, ZE_GRAPH_ARGUMENT_PRECISION_FP32);
+
+        size_t size = 0;
+        ASSERT_EQ(ZE_RESULT_SUCCESS,
+                  zeGraphDDITableExt->pfnGetArgumentNames(graph->handle,
+                                                          index,
+                                                          ZE_GRAPH_ARGUMENT_NAME,
+                                                          &size,
+                                                          nullptr));
+        std::vector<char> name(size, 0);
+        ASSERT_EQ(ZE_RESULT_SUCCESS,
+                  zeGraphDDITableExt->pfnGetArgumentNames(graph->handle,
+                                                          index,
+                                                          ZE_GRAPH_ARGUMENT_NAME,
+                                                          &size,
+                                                          name.data()));
+        ASSERT_EQ(name.data(), index == 0 ? input->get_friendly_name() : add->get_friendly_name());
+        ASSERT_EQ(ZE_RESULT_SUCCESS,
+                  zeGraphDDITableExt->pfnGetArgumentNames(graph->handle,
+                                                          index,
+                                                          ZE_GRAPH_ARGUMENT_DEBUG_FRIENDLY_NAME,
+                                                          &size,
+                                                          nullptr));
+        std::vector<char> debugName(size, 0);
+        ASSERT_EQ(ZE_RESULT_SUCCESS,
+                  zeGraphDDITableExt->pfnGetArgumentNames(graph->handle,
+                                                          index,
+                                                          ZE_GRAPH_ARGUMENT_DEBUG_FRIENDLY_NAME,
+                                                          &size,
+                                                          debugName.data()));
+        ASSERT_EQ(debugName.data(),
+                  index == 0 ? input->get_friendly_name() : result->get_friendly_name());
+        ASSERT_EQ(ZE_RESULT_SUCCESS,
+                  zeGraphDDITableExt->pfnGetArgumentNames(graph->handle,
+                                                          index,
+                                                          ZE_GRAPH_ARGUMENT_ASSOCIATED_TENSOR_NAMES,
+                                                          &size,
+                                                          nullptr));
+        std::vector<char> tensorNames(size, 0);
+        ASSERT_EQ(ZE_RESULT_SUCCESS,
+                  zeGraphDDITableExt->pfnGetArgumentNames(graph->handle,
+                                                          index,
+                                                          ZE_GRAPH_ARGUMENT_ASSOCIATED_TENSOR_NAMES,
+                                                          &size,
+                                                          tensorNames.data()));
+        ASSERT_EQ(tensorNames.data(),
+                  index == 0 ? input->get_output_tensor(0).get_any_name()
+                             : add->get_output_tensor(0).get_any_name());
+    }
+
+    ze_graph_argument_properties_4_t graphArgumentProperties = {};
+    graphArgumentProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_4;
+    ASSERT_EQ(zeGraphDDITableExt->pfnGetArgumentProperties4(graph->handle,
+                                                            graphProps.numGraphArgs,
+                                                            &graphArgumentProperties),
+              ZE_RESULT_ERROR_INVALID_ARGUMENT);
+}
+#endif
 
 TEST_F(GraphApi, GetArgumentMetadata) {
     ASSERT_EQ(zeGraphDDITableExt->pfnGraphGetArgumentMetadata(graph->handle, 0, nullptr),

@@ -23,10 +23,7 @@ class IdleOptimizations : public UmdTest,
   protected:
     void SetUp() override {
         UmdTest::SetUp();
-
-        if (isVPU37xx()) {
-            SKIP_("IdleOptimizations test is not supported on NPU 37xx");
-        }
+        SKIP_VPU37XX("Idle optimization support unavailable on NPU37xx");
 
         ASSERT_EQ(zeDriverGetExtensionFunctionAddress(
                       zeDriver,

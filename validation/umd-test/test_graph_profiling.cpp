@@ -13,6 +13,7 @@ class CompilerGraphProfiling : public UmdTest, public ::testing::WithParamInterf
   protected:
     void SetUp() override {
         UmdTest::SetUp();
+
         const YAML::Node node = GetParam();
 
         if (node["graph_profiling"].IsDefined() && node["graph_profiling"].as<bool>() == false) {

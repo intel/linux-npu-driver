@@ -71,6 +71,8 @@ inline const char *zeGraphArgumentPrecisionToStr(ze_graph_argument_precision_t a
         return "ZE_GRAPH_ARGUMENT_PRECISION_BOOLEAN";
     case ZE_GRAPH_ARGUMENT_PRECISION_NF4:
         return "ZE_GRAPH_ARGUMENT_PRECISION_NF4";
+    case ZE_GRAPH_ARGUMENT_PRECISION_FP4_E2M1:
+        return "ZE_GRAPH_ARGUMENT_PRECISION_FP4_E2M1";
     case ZE_GRAPH_ARGUMENT_PRECISION_FORCE_UINT32:
         return "ZE_GRAPH_ARGUMENT_PRECISION_FORCE_UINT32";
     }

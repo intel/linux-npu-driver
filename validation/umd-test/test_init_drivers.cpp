@@ -8,7 +8,9 @@
 #include "testenv.hpp"
 #include "ze_memory.hpp"
 
+#include <cstdlib>
 #include <gtest/gtest.h>
+#include <unistd.h>
 #include <ze_intel_npu_uuid.h>
 
 static void assertNotInitialized() {
@@ -40,6 +42,23 @@ class ZeInitDriversTest : public testing::Test {
     void SetUp() override {
         if (!test_vars::forceZeInitTests)
             SKIP_("The test is skipped because --ze-init-tests flag is missing");
+    }
+
+    static ze_init_driver_app_version_ext_desc_t
+    makeAppVersionDesc(ze_api_version_t apiVersionHint) {
+        return ze_init_driver_app_version_ext_desc_t{
+            .stype = ZE_STRUCTURE_TYPE_INIT_DRIVER_APP_VERSION_EXT_DESC,
+            .pNext = nullptr,
+            .apiVersionHint = apiVersionHint,
+        };
+    }
+
+    static ze_init_driver_type_desc_t makeInitDriverDesc(const void *pNext = nullptr) {
+        return ze_init_driver_type_desc_t{
+            .stype = ZE_STRUCTURE_TYPE_INIT_DRIVER_TYPE_DESC,
+            .pNext = pNext,
+            .flags = ZE_INIT_DRIVER_TYPE_FLAG_NPU,
+        };
     }
 };
 
@@ -108,11 +127,7 @@ TEST_F(ZeInitDriversTest, InitializeAndExecuteCopyCommand) {
     RunInFork([]() {
         assertNotInitialized();
 
-        ze_init_driver_type_desc_t initDriverDesc{
-            .stype = ZE_STRUCTURE_TYPE_INIT_DRIVER_TYPE_DESC,
-            .pNext = nullptr,
-            .flags = ZE_INIT_DRIVER_TYPE_FLAG_NPU,
-        };
+        ze_init_driver_type_desc_t initDriverDesc = makeInitDriverDesc();
         uint32_t numDrivers = 0;
         ASSERT_EQ(zeInitDrivers(&numDrivers, nullptr, &initDriverDesc), ZE_RESULT_SUCCESS);
         ASSERT_GT(numDrivers, 0);
@@ -124,6 +139,98 @@ TEST_F(ZeInitDriversTest, InitializeAndExecuteCopyCommand) {
     });
 }
 
+static void checkImportedSystemMemoryType(ze_driver_handle_t driver,
+                                          ze_memory_type_t expectedType) {
+    uint32_t numDevices = 1;
+    ze_device_handle_t device;
+    ASSERT_EQ(zeDeviceGet(driver, &numDevices, &device), ZE_RESULT_SUCCESS);
+
+    ze_device_external_memory_properties_t extMemProps = {};
+    extMemProps.stype = ZE_STRUCTURE_TYPE_DEVICE_EXTERNAL_MEMORY_PROPERTIES;
+    ASSERT_EQ(zeDeviceGetExternalMemoryProperties(device, &extMemProps), ZE_RESULT_SUCCESS);
+    if (!(extMemProps.memoryAllocationImportTypes &
+          ZE_EXTERNAL_MEMORY_TYPE_FLAG_STANDARD_ALLOCATION)) // NOLINT
+        SKIP_("System memory import type is not supported, skipping the test.");
+
+    ze_context_desc_t contextDesc{.stype = ZE_STRUCTURE_TYPE_CONTEXT_DESC,
+                                  .pNext = nullptr,
+                                  .flags = 0};
+    ze_result_t ret;
+    auto sContext = zeScope::contextCreate(driver, contextDesc, ret);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS) << "Failed to create zeContext";
+    auto context = sContext.get();
+
+    size_t pageSize = getpagesize();
+    void *mallocPtr = aligned_alloc(pageSize, pageSize);
+    ASSERT_NE(mallocPtr, nullptr) << "Failed to allocate memory";
+    std::shared_ptr<void> scopedMallocPtr(mallocPtr, [](void *p) { free(p); });
+
+    ze_external_memmap_sysmem_ext_desc_t importDesc =
+        {ZE_STRUCTURE_TYPE_EXTERNAL_MEMMAP_SYSMEM_EXT_DESC, nullptr, mallocPtr, pageSize};
+    ze_host_mem_alloc_desc_t hostMemAllocDesc = {ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC,
+                                                 &importDesc,
+                                                 0};
+    auto sImportedMem = zeScope::memAllocHost(context, hostMemAllocDesc, pageSize, 0, ret);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS) << "Failed to import system memory";
+
+    ze_memory_allocation_properties_t props = {};
+    ASSERT_EQ(zeMemGetAllocProperties(context, sImportedMem.get(), &props, nullptr),
+              ZE_RESULT_SUCCESS);
+    EXPECT_EQ(props.type, expectedType);
+}
+
+TEST_F(ZeInitDriversTest, ImportedSystemMemoryReportsHostWithoutAppVersionHint) {
+    RunInFork([]() {
+        assertNotInitialized();
+
+        ze_init_driver_type_desc_t initDriverDesc = makeInitDriverDesc();
+        uint32_t numDrivers = 0;
+        ASSERT_EQ(zeInitDrivers(&numDrivers, nullptr, &initDriverDesc), ZE_RESULT_SUCCESS);
+        ASSERT_GT(numDrivers, 0);
+
+        std::vector<ze_driver_handle_t> drivers(numDrivers);
+        ASSERT_EQ(zeInitDrivers(&numDrivers, &drivers[0], &initDriverDesc), ZE_RESULT_SUCCESS);
+
+        checkImportedSystemMemoryType(drivers[0], ZE_MEMORY_TYPE_HOST);
+    });
+}
+
+TEST_F(ZeInitDriversTest, ImportedSystemMemoryReportsHostWithAppVersionHint1_17) {
+    RunInFork([]() {
+        assertNotInitialized();
+
+        ze_init_driver_app_version_ext_desc_t appVersionDesc =
+            makeAppVersionDesc(ZE_API_VERSION_1_17);
+        ze_init_driver_type_desc_t initDriverDesc = makeInitDriverDesc(&appVersionDesc);
+        uint32_t numDrivers = 0;
+        ASSERT_EQ(zeInitDrivers(&numDrivers, nullptr, &initDriverDesc), ZE_RESULT_SUCCESS);
+        ASSERT_GT(numDrivers, 0);
+
+        std::vector<ze_driver_handle_t> drivers(numDrivers);
+        ASSERT_EQ(zeInitDrivers(&numDrivers, &drivers[0], &initDriverDesc), ZE_RESULT_SUCCESS);
+
+        checkImportedSystemMemoryType(drivers[0], ZE_MEMORY_TYPE_HOST);
+    });
+}
+
+TEST_F(ZeInitDriversTest, ImportedSystemMemoryReportsHostImportedWithCurrentAppVersionHint) {
+    RunInFork([]() {
+        assertNotInitialized();
+
+        ze_init_driver_app_version_ext_desc_t appVersionDesc =
+            makeAppVersionDesc(ZE_API_VERSION_CURRENT);
+        ze_init_driver_type_desc_t initDriverDesc = makeInitDriverDesc(&appVersionDesc);
+        uint32_t numDrivers = 0;
+        ASSERT_EQ(zeInitDrivers(&numDrivers, nullptr, &initDriverDesc), ZE_RESULT_SUCCESS);
+        ASSERT_GT(numDrivers, 0);
+
+        std::vector<ze_driver_handle_t> drivers(numDrivers);
+        ASSERT_EQ(zeInitDrivers(&numDrivers, &drivers[0], &initDriverDesc), ZE_RESULT_SUCCESS);
+
+        checkImportedSystemMemoryType(drivers[0], ZE_MEMORY_TYPE_HOST_IMPORTED);
+    });
+}
+
 class ZeInitTest : public ZeInitDriversTest, public ::testing::WithParamInterface<int> {};
 
 TEST_P(ZeInitTest, CallzeInitThenzeInitDriversThenExecuteCopyCommand) {
@@ -132,11 +239,7 @@ TEST_P(ZeInitTest, CallzeInitThenzeInitDriversThenExecuteCopyCommand) {
 
         ASSERT_EQ(zeInit(GetParam()), ZE_RESULT_SUCCESS);
 
-        ze_init_driver_type_desc_t initDriverDesc{
-            .stype = ZE_STRUCTURE_TYPE_INIT_DRIVER_TYPE_DESC,
-            .pNext = nullptr,
-            .flags = ZE_INIT_DRIVER_TYPE_FLAG_NPU,
-        };
+        ze_init_driver_type_desc_t initDriverDesc = makeInitDriverDesc();
         uint32_t numDrivers = 0;
         ASSERT_EQ(zeInitDrivers(&numDrivers, nullptr, &initDriverDesc), ZE_RESULT_SUCCESS);
         ASSERT_GT(numDrivers, 0);

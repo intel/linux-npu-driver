@@ -561,21 +561,6 @@ void KmdTest::check_api_version() {
     ASSERT_EQ(context.get_major_version(), 1);
 }
 
-bool KmdTest::wait_for_resume(int timeout_ms) {
-    test_app::overwrite_timeout(timeout_ms);
-    auto timeout = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
-    std::string status;
-
-    do {
-        int err = read_sysfs_file("power/runtime_status", status);
-        if (!err && status == "active")
-            return true;
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    } while (std::chrono::steady_clock::now() < timeout);
-
-    return false;
-}
-
 bool KmdTest::wait_for_engine_reset(int timeout_ms) {
     test_app::overwrite_timeout(timeout_ms);
     auto timeout = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
@@ -615,31 +600,27 @@ bool KmdTest::resume() {
     return true;
 }
 
-bool KmdTest::wait_for_suspend(int timeout_ms, bool expect_timeout) {
-    if (test_app::max_timeout && expect_timeout) {
-        ADD_FAILURE() << "Cannot expect timeout when max_timeout is set";
-        return false;
-    }
-    if (is_autosuspend_enabled() == false) {
-        ADD_FAILURE() << "Autosuspend is not enabled, cannot wait for suspend";
-        return false;
-    }
-
-    test_app::overwrite_timeout(timeout_ms);
+bool KmdTest::wait_for_runtime_status(const char *op,
+                                      const char *expected_status,
+                                      int timeout_ms,
+                                      bool expect_timeout) {
+    if (!expect_timeout)
+        test_app::overwrite_timeout(timeout_ms);
     auto timeout = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
     std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-    std::string power_state;
+    std::string status;
 
     do {
         auto elapsed = std::chrono::steady_clock::now() - start;
-        int err = read_sysfs_file("power_state", power_state);
-        if (!err && power_state == PM_STATE_D3) {
+        int err = read_sysfs_file("power/runtime_status", status);
+        if (!err && status == expected_status) {
             TRACE("Wait for %s done after %lld ms\n",
-                  power_state.c_str(),
+                  op,
                   static_cast<long long>(
                       std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count()));
             if (expect_timeout) {
-                ADD_FAILURE() << "Expected to timeout waiting for suspend, but suspend occurred";
+                ADD_FAILURE() << "Expected " << op << " to time out, but runtime_status reached "
+                              << expected_status;
             }
             return true;
         }
@@ -648,16 +629,35 @@ bool KmdTest::wait_for_suspend(int timeout_ms, bool expect_timeout) {
     } while (std::chrono::steady_clock::now() < timeout);
 
     if (!expect_timeout) {
-        std::string usage, status;
+        std::string usage, power_state;
 
         read_sysfs_file("power/runtime_usage", usage);
-        read_sysfs_file("power/runtime_status", status);
+        read_sysfs_file("power_state", power_state);
 
-        ADD_FAILURE() << "Failed to wait for suspend: " << "power_state=" << power_state
+        ADD_FAILURE() << "Failed to wait for " << op << ": power_state=" << power_state
                       << ", runtime_usage=" << usage << ", runtime_status=" << status;
     }
 
     return false;
+}
+
+bool KmdTest::wait_for_suspend(int timeout_ms, bool expect_timeout) {
+    if (is_autosuspend_enabled() == false) {
+        ADD_FAILURE() << "Autosuspend is not enabled, cannot wait for suspend";
+        return false;
+    }
+
+    return wait_for_runtime_status("suspend", "suspended", timeout_ms, expect_timeout);
+}
+
+bool KmdTest::wait_for_resume(int timeout_ms) {
+    return wait_for_runtime_status("resume", "active", timeout_ms, false);
+}
+
+bool KmdTest::wait_for_suspend_if_enabled(int timeout_ms, bool expect_timeout) {
+    if (is_autosuspend_enabled())
+        return wait_for_suspend(timeout_ms, expect_timeout);
+    return true;
 }
 
 bool KmdTest::wait_for_recovery_event(int timeout_ms) {
@@ -667,6 +667,16 @@ bool KmdTest::wait_for_recovery_event(int timeout_ms) {
         return true;
 
     return false;
+}
+
+// Assure no recovery event occurs within the specified time.
+// Unlike wait_for_recovery_event() it does not override timeout
+// when --max_timeouts parameter
+bool KmdTest::wait_for_no_recovery(int timeout_ms) {
+    if (pm_mon.wait_for_recovery_event(timeout_ms))
+        return false;
+
+    return true;
 }
 
 int KmdTest::force_recovery() {
@@ -1386,7 +1396,7 @@ void CmdBuffer::add_barrier_cmd() {
     ASSERT_TRUE(add_cmd<vpu_cmd_barrier_t>(VPU_CMD_BARRIER));
 }
 
-void CmdBuffer::add_ts_cmd(MemoryBuffer &ts_buf, uint32_t ts_offset, enum vpu_time_type type) {
+void CmdBuffer::add_ts_cmd(MemoryBuffer &ts_buf, uint64_t ts_offset, enum vpu_time_type type) {
     auto cmd = add_cmd<vpu_cmd_timestamp_t>(VPU_CMD_TIMESTAMP);
     ASSERT_TRUE(cmd);
     cmd->timestamp_address = ts_buf.vpu_addr() + ts_offset;
@@ -1394,40 +1404,43 @@ void CmdBuffer::add_ts_cmd(MemoryBuffer &ts_buf, uint32_t ts_offset, enum vpu_ti
     add_handle(ts_buf);
 }
 
-void CmdBuffer::add_fence_cmd(uint64_t fence_address,
-                              uint64_t fence_value,
-                              enum vpu_cmd_type type) {
+void CmdBuffer::add_fence_cmd(uint64_t address,
+                              uint64_t value,
+                              enum vpu_cmd_type type,
+                              uint32_t flags) {
     auto cmd = add_cmd<vpu_cmd_fence_t>(type);
     ASSERT_TRUE(cmd);
-    cmd->offset = fence_address;
-    cmd->value = fence_value;
+    cmd->offset = address;
+    cmd->value = value;
+    cmd->flags = flags;
 }
 
 void CmdBuffer::add_fence_cmd(MemoryBuffer &fence_buf,
-                              uint32_t fence_offset,
-                              uint64_t fence_value,
-                              enum vpu_cmd_type type) {
-    add_fence_cmd(fence_buf.vpu_addr() + fence_offset, fence_value, type);
+                              uint64_t offset,
+                              uint64_t value,
+                              enum vpu_cmd_type type,
+                              uint32_t flags) {
+    add_fence_cmd(fence_buf.vpu_addr() + offset, value, type, flags);
     add_handle(fence_buf);
 }
 
-void CmdBuffer::add_fence_reset_cmd(MemoryBuffer &fence_buf,
-                                    uint32_t fence_offset,
-                                    uint64_t fence_value) {
-    add_fence_cmd(fence_buf, fence_offset, fence_value, VPU_CMD_FENCE_SIGNAL);
+void CmdBuffer::add_fence_reset_cmd(MemoryBuffer &fence_buf, uint64_t offset, uint64_t value) {
+    add_fence_cmd(fence_buf, offset, value, VPU_CMD_FENCE_SIGNAL);
     add_handle(fence_buf);
 }
 
 void CmdBuffer::add_fence_signal_cmd(MemoryBuffer &fence_buf,
-                                     uint32_t fence_offset,
-                                     uint64_t fence_value) {
-    add_fence_cmd(fence_buf, fence_offset, fence_value, VPU_CMD_FENCE_SIGNAL);
+                                     uint64_t offset,
+                                     uint64_t value,
+                                     uint32_t flags) {
+    add_fence_cmd(fence_buf, offset, value, VPU_CMD_FENCE_SIGNAL, flags);
 }
 
 void CmdBuffer::add_fence_wait_cmd(MemoryBuffer &fence_buf,
-                                   uint32_t fence_offset,
-                                   uint64_t fence_value) {
-    add_fence_cmd(fence_buf, fence_offset, fence_value, VPU_CMD_FENCE_WAIT);
+                                   uint64_t offset,
+                                   uint64_t value,
+                                   uint32_t flags) {
+    add_fence_cmd(fence_buf, offset, value, VPU_CMD_FENCE_WAIT, flags);
 }
 
 // Use arbitrary address to write at (for negative testing)
@@ -1438,16 +1451,19 @@ void CmdBuffer::add_write_cmd(uint64_t addr, uint64_t value) {
     cmd->value = value;
 }
 
+void CmdBuffer::add_memory_fill_cmd(uint64_t address, uint64_t size, uint32_t pattern) {
+    auto cmd = add_cmd<vpu_cmd_memory_fill_t>(VPU_CMD_MEMORY_FILL);
+    ASSERT_TRUE(cmd);
+    cmd->start_address = address;
+    cmd->size = size;
+    cmd->fill_pattern = pattern;
+}
+
 void CmdBuffer::add_memory_fill_cmd(MemoryBuffer &buf,
                                     uint64_t offset,
                                     uint64_t size,
-                                    uint32_t fill_pattern) {
-    auto cmd = add_cmd<vpu_cmd_memory_fill_t>(VPU_CMD_MEMORY_FILL);
-    ASSERT_TRUE(cmd);
-    cmd->start_address = buf.vpu_addr() + offset;
-    cmd->size = size;
-    cmd->fill_pattern = fill_pattern;
-
+                                    uint32_t pattern) {
+    add_memory_fill_cmd(buf.vpu_addr() + offset, size, pattern);
     add_handle(buf);
 }
 
@@ -1583,7 +1599,9 @@ int CmdBuffer::cmdq_submit(uint32_t cmdq_id, uint32_t submit_timeout_ms) {
 }
 
 int CmdBuffer::wait(uint32_t timeout_ms) {
-    test_app::overwrite_timeout(timeout_ms);
+    // Very short waits (<= 10 ms) most likely expect a timeout, so don't override them
+    if (timeout_ms > 10)
+        test_app::overwrite_timeout(timeout_ms);
     int64_t timeout_abs_ns = drm::time_ns() + MILLI_TO_NSEC(timeout_ms);
     struct drm_ivpu_bo_wait args = {.handle = _handle,
                                     .flags = 0,
@@ -1736,7 +1754,6 @@ bool PmMonitor::wait_for_recovery_event(unsigned timeout_ms) {
     constexpr int response_size = 4096;
     char response[response_size] = {};
 
-    test_app::overwrite_timeout(timeout_ms);
     std::chrono::steady_clock::time_point timeout =
         std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
 

@@ -646,6 +646,76 @@ TEST_F(DriverCache, SecureCompile) {
     EXPECT_EQ(getListOfCachedFiles().size(), 0);
 }
 
+static std::string getGraphRuntimeRequirements(ze_device_handle_t device,
+                                               ze_graph_handle_t hGraph) {
+    ze_runtime_requirements_graph_desc_t graphDesc = {};
+    graphDesc.stype = ZE_STRUCTURE_TYPE_RUNTIME_REQUIREMENTS_GRAPH_DESC;
+    graphDesc.requirementsSrc = hGraph;
+
+    size_t size = 0;
+    EXPECT_EQ(zeDeviceGetRuntimeRequirements(device, &graphDesc, &size, nullptr),
+              ZE_RESULT_SUCCESS);
+    if (size == 0)
+        return {};
+
+    std::string requirements(size, '\0');
+    EXPECT_EQ(zeDeviceGetRuntimeRequirements(device, &graphDesc, &size, requirements.data()),
+              ZE_RESULT_SUCCESS);
+    /* Drop the null terminator reported in size */
+    requirements.resize(size > 0 ? size - 1 : 0);
+    return requirements;
+}
+
+TEST_F(DriverCache, CheckIfCompatibilityStringIsPreservedInCache) {
+    for (auto &modelNode : modelDataNodes) {
+        clearCacheDirectory();
+        ASSERT_EQ(getUsedCacheSpace(), 0);
+
+        /* compile the model, expect a cache miss and the blob to be stored */
+        graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, modelNode);
+        ASSERT_NE(graph, nullptr);
+
+        ze_graph_properties_3_t graphProperties = {};
+        graphProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES_3;
+        ASSERT_EQ(graph->getGraphProperties(&graphProperties), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
+                  ZE_GRAPH_PROPERTIES_FLAG_COMPILED);
+
+        std::string compiledRequirements = getGraphRuntimeRequirements(zeDevice, graph->handle);
+        TRACE("Compatibility string from compilation: %s\n", compiledRequirements.c_str());
+
+        ASSERT_EQ(getListOfCachedFiles().size(), 1);
+
+        /* load the model from cache */
+        graph = Graph::create(zeContext, zeDevice, zeGraphDDITableExt, globalConfig, modelNode);
+        ASSERT_NE(graph, nullptr);
+
+        graphProperties = {};
+        graphProperties.stype = ZE_STRUCTURE_TYPE_GRAPH_PROPERTIES_3;
+        ASSERT_EQ(graph->getGraphProperties(&graphProperties), ZE_RESULT_SUCCESS);
+        ASSERT_EQ(graphProperties.flags & graphPropsFlagCompileMask,
+                  ZE_GRAPH_PROPERTIES_FLAG_LOADED_FROM_CACHE);
+
+        std::string cachedRequirements = getGraphRuntimeRequirements(zeDevice, graph->handle);
+        TRACE("Compatibility string from cache: %s\n", cachedRequirements.c_str());
+
+        /* the compatibility string must survive the cache round trip */
+        ASSERT_EQ(compiledRequirements, cachedRequirements);
+
+        if (cachedRequirements.empty()) {
+            TRACE("Compiler does not report a compatibility string, skipping validation\n");
+            continue;
+        }
+
+        ze_validate_runtime_requirements_output_t output = {};
+        output.stype = ZE_STRUCTURE_TYPE_RUNTIME_REQUIREMENTS_OUTPUT;
+        EXPECT_EQ(
+            zeDeviceValidateRuntimeRequirements(zeDevice, cachedRequirements.c_str(), &output),
+            ZE_RESULT_SUCCESS);
+        EXPECT_EQ(output.result, ZE_VALIDATE_RUNTIME_REQUIREMENTS_RESULT_REQUIREMENTS_MET);
+    }
+}
+
 class CompilationLog : public DriverCache {
   public:
     void SetUp() override { DriverCache::SetUp(); }

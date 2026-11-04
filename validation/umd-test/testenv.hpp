@@ -16,6 +16,7 @@
 #include <filesystem>
 #include <gtest/gtest.h>
 #include <yaml-cpp/yaml.h>
+#include <ze_api.h>
 #include <zes_api.h>
 
 #ifdef VALIDATION_LAYER_ENABLE
@@ -96,10 +97,15 @@ class Environment : public ::testing::Environment {
         EXPECT_EQ(setenv("ZE_ENABLE_PARAMETER_VALIDATION", L0_VALIDATION_ENABLE, 0), 0);
 
         uint32_t drvCount = 0u;
+        ze_init_driver_app_version_ext_desc_t appVersionDesc{
+            .stype = ZE_STRUCTURE_TYPE_INIT_DRIVER_APP_VERSION_EXT_DESC,
+            .pNext = nullptr,
+            .apiVersionHint = ZE_API_VERSION_CURRENT,
+        };
         ze_init_driver_type_desc_t initDriverDesc{
             .stype = ZE_STRUCTURE_TYPE_INIT_DRIVER_TYPE_DESC,
-            .pNext = nullptr,
-            .flags = UINT32_MAX, // UINT32_MAX - all driver types requested
+            .pNext = &appVersionDesc,
+            .flags = ZE_INIT_DRIVER_TYPE_FLAG_GPU | ZE_INIT_DRIVER_TYPE_FLAG_NPU,
         };
         ASSERT_EQ(zeInitDrivers(&drvCount, nullptr, &initDriverDesc), ZE_RESULT_SUCCESS);
         ASSERT_GT(drvCount, 0);
@@ -107,49 +113,67 @@ class Environment : public ::testing::Environment {
         std::vector<ze_driver_handle_t> drivers(drvCount);
         ASSERT_EQ(zeInitDrivers(&drvCount, &drivers[0], &initDriverDesc), ZE_RESULT_SUCCESS);
 
+        auto vpuDeviceCount = 0;
         for (const auto &driver : drivers) {
             uint32_t devCount = 0u;
             ASSERT_EQ(zeDeviceGet(driver, &devCount, nullptr), ZE_RESULT_SUCCESS);
-            if (devCount != 1)
-                continue;
 
-            ze_device_handle_t device;
-            ASSERT_EQ(zeDeviceGet(driver, &devCount, &device), ZE_RESULT_SUCCESS);
+            std::vector<ze_device_handle_t> devs(devCount, nullptr);
+            ASSERT_EQ(zeDeviceGet(driver, &devCount, devs.data()), ZE_RESULT_SUCCESS);
 
-            // The ze_device_ip_version_ext_t structure used only to query the driver
-            // for the platform type. The 'platfromType' value will be stored in ipVersion.
-            ze_device_ip_version_ext_t devDetails = {};
-            devDetails.stype = ZE_STRUCTURE_TYPE_DEVICE_IP_VERSION_EXT;
-            devDetails.pNext = nullptr;
+            for (auto i = 0u; i < devs.size(); i++) {
+                const auto &device = devs[i];
+                // The ze_device_ip_version_ext_t structure used only to query the driver
+                // for the platform type. The 'platfromType' value will be stored in ipVersion.
+                ze_device_ip_version_ext_t devDetails = {};
+                devDetails.stype = ZE_STRUCTURE_TYPE_DEVICE_IP_VERSION_EXT;
+                devDetails.pNext = nullptr;
 
-            ze_device_properties_t devProp = {};
-            devProp.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
-            devProp.pNext = &devDetails;
+                ze_device_properties_t devProp = {};
+                devProp.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
+                devProp.pNext = &devDetails;
 
-            ASSERT_EQ(zeDeviceGetProperties(device, &devProp), ZE_RESULT_SUCCESS);
+                ASSERT_EQ(zeDeviceGetProperties(device, &devProp), ZE_RESULT_SUCCESS);
 
-            TRACE("Driver: %p - Device %s: %p\n", driver, zeDevTypeStr(devProp.type), device);
-            if (devProp.type == ZE_DEVICE_TYPE_VPU) {
-                zeDriver = driver;
-                zeDevice = device;
-                maxMemAllocSize = devProp.maxMemAllocSize;
-                pciDevId = devProp.deviceId;
-                ASSERT_NE(pciDevId, 0u);
+                ze_pci_ext_properties_t pciProp = {};
+                pciProp.stype = ZE_STRUCTURE_TYPE_PCI_EXT_PROPERTIES;
+                auto res = zeDevicePciGetPropertiesExt(device, &pciProp);
 
-                platformType = devDetails.ipVersion;
-            } else if (devProp.type == ZE_DEVICE_TYPE_GPU) {
-                zeDriverGpu = driver;
-                zeDeviceGpu = device;
-            };
+                TRACE("Driver[%p] -> device[%u] type: %s, handle: %p, BDF: %04x:%02x:%02x.%1x, "
+                      "res: %#x\n",
+                      driver,
+                      i,
+                      zeDevTypeStr(devProp.type),
+                      device,
+                      pciProp.address.domain,
+                      pciProp.address.bus,
+                      pciProp.address.device,
+                      pciProp.address.function,
+                      res);
+
+                if (devProp.type == ZE_DEVICE_TYPE_VPU && zeDriver == nullptr &&
+                    (test_app::device_index == -1 || test_app::device_index == vpuDeviceCount++)) {
+                    zeDriver = driver;
+                    zeDevice = device;
+                    maxMemAllocSize = devProp.maxMemAllocSize;
+                    pciDevId = devProp.deviceId;
+                    ASSERT_NE(pciDevId, 0u);
+
+                    platformType = devDetails.ipVersion;
+                } else if (devProp.type == ZE_DEVICE_TYPE_GPU && zeDriverGpu == nullptr) {
+                    zeDriverGpu = driver;
+                    zeDeviceGpu = device;
+                }
+            }
         }
 
-        ASSERT_NE(zeDriver, nullptr) << "Failed to initialize Driver";
-        ASSERT_NE(zeDevice, nullptr) << "Failed to initialize Device";
+        ASSERT_NE(zeDriver, nullptr) << "Failed to find L0 NPU Driver";
+        ASSERT_NE(zeDevice, nullptr) << "Failed to find L0 NPU Device";
         ASSERT_GT(maxMemAllocSize, 0);
 
         if (test_vars::forceGpu) {
-            ASSERT_NE(zeDriverGpu, nullptr) << "Failed to initialize Driver GPU L0";
-            ASSERT_NE(zeDeviceGpu, nullptr) << "Failed to initialize Device GPU L0";
+            ASSERT_NE(zeDriverGpu, nullptr) << "Failed to find L0 GPU Driver";
+            ASSERT_NE(zeDeviceGpu, nullptr) << "Failed to find L0 GPU Device";
         }
         uint32_t count = 0;
         ASSERT_EQ(zeDriverGetExtensionProperties(zeDriver, &count, nullptr), ZE_RESULT_SUCCESS);
