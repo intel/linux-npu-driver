@@ -31,8 +31,7 @@ set(OPENVINO_CMAKE_ARGS
     -DENABLE_CLANG_TIDY=OFF
     -DENABLE_CPPLINT=OFF
     -DENABLE_INTEL_NPU_PROTOPIPE=ON
-    # TODO: Temporarily disable NPU compiler in plugin (EISW-214028)
-    -DENABLE_INTEL_NPU_COMPILER=OFF
+    -DENABLE_INTEL_NPU_COMPILER=ON
     -DTHREADING=${THREADING})
 set(OPENVINO_BUILD_DEPS openvino_source)
 set(BUILD_GENAI OFF)
@@ -93,7 +92,7 @@ if (ENABLE_ONNXRUNTIME_PACKAGE)
     set(ONNXRUNTIME_SOURCE_DIR "${CMAKE_BINARY_DIR}/third_party/onnxruntime")
     ExternalProject_Add(
         onnxruntime_build
-        GIT_REPOSITORY https://github.com/microsoft/onnxruntime.git
+        GIT_REPOSITORY https://github.com/intel/onnxruntime.git
         GIT_TAG ${ONNXRUNTIME_REVISION}
         DEPENDS openvino_build
         SOURCE_DIR ${ONNXRUNTIME_SOURCE_DIR}
@@ -296,7 +295,7 @@ install(DIRECTORY ${OPENVINO_BINARY_RELEASE_DIR}/
         PATTERN "libopenvino.so*"
         PATTERN "libopenvino_intel_cpu_plugin.so"
         PATTERN "libopenvino_intel_gpu_plugin.so"
-        PATTERN "libopenvino_intel_npu_plugin.so"
+        PATTERN "libopenvino_intel_npu_*.so"
         PATTERN "libopenvino_*_frontend.so*"
         PATTERN "plugins.xml")
 

@@ -126,7 +126,6 @@ ExternalProject_Add(
   BYPRODUCTS
     ${NPU_COMPILER_PACKAGE_DIR}/lib/libopenvino_intel_npu_compiler_loader.so
     ${NPU_COMPILER_PACKAGE_DIR}/lib/libopenvino_intel_npu_compiler.so
-    ${NPU_COMPILER_PACKAGE_DIR}/vpux_elf/lib/Release/libnpu_elf.a
 )
 
 add_dependencies(npu_compiler npu_compiler_build)
