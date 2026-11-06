@@ -35,6 +35,13 @@
  * ==========================================================================================
  *  Version  | Changes
  * ----------+-------------------------------------------------------------------------------
+ *  11.15.2  | - Renamed VpuControlFlowOp::magic to requested_opcode and repurposed one of the
+ *           |   reserved pad1 entries as branch_select_addr, to support a new CONDITIONAL_BRANCH
+ *           |   ControlFlowOp opcode (see VpuControlFlowOpCode). Struct layout is unchanged.
+ * ----------+-------------------------------------------------------------------------------
+ *  11.15.1  | - Add VpuTaskReference::operator[](idx). Elements inside of VpuTaskReference
+ *           |   can be indexed like an array without unncessary data()[idx] syntax.
+ * ----------+-------------------------------------------------------------------------------
  *  11.15.0  | - Added dma_from_shave_used to VpuManagedMappedInference
  * ----------+-------------------------------------------------------------------------------
  *  11.14.2  | - Restored VpuNNShaveRuntimeConfigs::use_schedule_embedded_rt field as it is
@@ -51,7 +58,7 @@
  * ----------+-------------------------------------------------------------------------------
  *  11.13.3  | - Added struct to contain floating-point operations in vpu_nnrt_wlm.h
  *           |   to support dynamic PVP.
- *           |   Note: For NPU4/5 these fields are not accessed at all.
+ *           |   Note: These fields are not accessed for NPU4/5.
  * ----------+-------------------------------------------------------------------------------
  *  11.13.2  | - Removed VpuTaskInfo, BarrierReferenceMap, VpuManagedMappedInferenceInfo
  *           |   debug structs.
@@ -109,7 +116,7 @@
 /* NPU4-5 (40XX) */
 #define VPU_NNRT_40XX_API_VER_MAJOR 11
 #define VPU_NNRT_40XX_API_VER_MINOR 15
-#define VPU_NNRT_40XX_API_VER_PATCH 0
+#define VPU_NNRT_40XX_API_VER_PATCH 2
 #define VPU_NNRT_40XX_API_VER ((VPU_NNRT_40XX_API_VER_MAJOR << 16) | VPU_NNRT_40XX_API_VER_MINOR)
 
 /* Index in the API version table, same for all HW generations */
@@ -127,7 +134,14 @@
  *
  * Act Runtime changelog:
  * ----------------------
- * 1.20
+ * 1.22 (NPU5 only):
+ *  - Modify PTL mgmt kernel to be able to deal with preemption messages from both
+ *    legacy (non-slim) and slim fw.
+ *
+ * 1.21:
+ *  - Fixed SHAVEs not self clock gating while waiting on 4K barriers.
+ *
+ * 1.20:
  *  - Add virtual tile ID & number of virtual tiles to Shave runtime start parameters.
  *
  * 1.19:
@@ -177,7 +191,7 @@
 #define VPU_ACT_RT_VER_PATCH 3
 #else
 #define VPU_ACT_RT_VER_MAJOR 1
-#define VPU_ACT_RT_VER_MINOR 20
+#define VPU_ACT_RT_VER_MINOR 22
 #define VPU_ACT_RT_VER_PATCH 0
 #endif
 #define VPU_ACT_RT_VER ((VPU_ACT_RT_VER_MAJOR << 16) | VPU_ACT_RT_VER_MINOR)

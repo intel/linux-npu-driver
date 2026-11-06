@@ -7,6 +7,7 @@
 
 #include "umd_test.h"
 
+#include <bitset>
 #include <future>
 #include <ze_api.h>
 
@@ -163,6 +164,30 @@ TEST_F(Device, GetPropertiesMutableCmdListDeviceIpVersion) {
                   ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENT_DEPRECATED) |
                   static_cast<ze_mutable_command_exp_flag_t>(
                       ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS));
+}
+
+TEST_F(Device, GetPropertiesNpuExt) {
+    ze_device_npu_properties_ext_t npuProps = {};
+    npuProps.stype = ZE_STRUCTURE_TYPE_DEVICE_NPU_PROPERTIES_EXT;
+    npuProps.pNext = nullptr;
+    ze_device_properties_t devProp = {};
+    devProp.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
+    devProp.pNext = &npuProps;
+
+    EXPECT_EQ(zeDeviceGetProperties(zeDevice, &devProp), ZE_RESULT_SUCCESS);
+
+    EXPECT_GT(npuProps.tileCount, 0u);
+    EXPECT_EQ(static_cast<uint32_t>(std::bitset<32>(npuProps.tileEnableMask).count()),
+              npuProps.tileCount);
+    EXPECT_GT(npuProps.totalShaveCount, 0u);
+    EXPECT_GT(npuProps.int8x8MacsPerTile, 0u);
+    EXPECT_EQ(npuProps.totalDpuMacs, npuProps.tileCount * npuProps.int8x8MacsPerTile);
+    EXPECT_GT(npuProps.numComputeEngines, 0u);
+    EXPECT_GT(npuProps.numCopyEngines, 0u);
+    EXPECT_GT(npuProps.dpuClockRateHz, 0u);
+    EXPECT_GT(npuProps.timestampFreqHz, 0u);
+    EXPECT_GT(npuProps.compilerVersion, 0u);
+    EXPECT_GT(npuProps.maxOVOpsetVersionSupported, 0u);
 }
 
 TEST_F(Device, GetGlobalTimestamps) {

@@ -154,9 +154,9 @@ struct CommandList : _ze_command_list_handle_t, IContextObject {
                                           ze_event_handle_t hEvent,
                                           uint32_t numWaitEvents,
                                           ze_event_handle_t *phWaitEvents);
-
-    virtual ze_result_t checkCommandAppendCondition();
-    virtual ze_result_t postAppend() { return ZE_RESULT_SUCCESS; }
+    virtual ze_result_t appendCommandPrologue(uint32_t numWaitEvents = 0,
+                                              ze_event_handle_t *phWaitEvents = nullptr);
+    virtual ze_result_t appendCommandEpilogue(ze_event_handle_t hEvent = nullptr);
     VPU::VPUEventCommand::KMDEventDataType *getEventSyncPointerFromHandle(ze_event_handle_t hEvent);
 
     template <typename Cmd, typename... Args>
@@ -184,38 +184,17 @@ struct CommandList : _ze_command_list_handle_t, IContextObject {
                                         uint32_t numWaitEvents,
                                         ze_event_handle_t *phWaitEvents,
                                         Args &&...args) {
-        ze_result_t result = checkCommandAppendCondition();
+        ze_result_t result = appendCommandPrologue(numWaitEvents, phWaitEvents);
         if (result != ZE_RESULT_SUCCESS)
             return result;
-
-        if (numWaitEvents > 0) {
-            if (phWaitEvents == nullptr) {
-                LOG_E("Invalid wait event input. phWaitEvents: %p, numWaitEvents: %u",
-                      phWaitEvents,
-                      numWaitEvents);
-                return ZE_RESULT_ERROR_INVALID_SIZE;
-            }
-
-            result = appendWaitOnEvents(numWaitEvents, phWaitEvents);
-            if (result != ZE_RESULT_SUCCESS) {
-                LOG_E("Failed to add %u wait on events.", numWaitEvents);
-                return result;
-            }
-        }
 
         result = appendCommand<Cmd>(std::forward<Args>(args)...);
         if (result != ZE_RESULT_SUCCESS)
             return result;
 
-        if (hSignalEvent != nullptr) {
-            result = appendSignalEvent(hSignalEvent);
-            if (result != ZE_RESULT_SUCCESS) {
-                LOG_E("Failed to append signal event command (handle: %p, error: %#x).",
-                      hSignalEvent,
-                      result);
-                return result;
-            }
-        }
+        result = appendCommandEpilogue(hSignalEvent);
+        if (result != ZE_RESULT_SUCCESS)
+            return result;
 
         LOG(CMDLIST,
             "Successfully appended the command with hSignal(%p), %u wait events(%p).",
@@ -223,7 +202,7 @@ struct CommandList : _ze_command_list_handle_t, IContextObject {
             numWaitEvents,
             phWaitEvents);
 
-        return postAppend();
+        return ZE_RESULT_SUCCESS;
     }
 
     Context *pContext = nullptr;

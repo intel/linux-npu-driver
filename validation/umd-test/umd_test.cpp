@@ -203,6 +203,13 @@ bool UmdTest::isSilicon() {
     return (platformType == 0u);
 }
 
+bool UmdTest::isCounterBasedEventSupported() {
+    return zeGraphDDITableExt->pfnCompilerIsOptionSupported(zeDevice,
+                                                            ZE_NPU_DRIVER_OPTIONS,
+                                                            "COUNTER_BASED_EVENTS",
+                                                            nullptr) == ZE_RESULT_SUCCESS;
+}
+
 bool UmdTest::isImportSystemMemorySupported() {
     if (Environment::getInstance()->isDriverExtensionSupported(
             ZE_EXTERNAL_MEMORY_MAPPING_EXT_NAME,

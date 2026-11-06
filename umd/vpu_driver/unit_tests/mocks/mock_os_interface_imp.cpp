@@ -27,9 +27,17 @@ MockOsInterfaceImp::MockOsInterfaceImp(uint32_t pciDevId)
     : pciDevId(pciDevId) {}
 
 int MockOsInterfaceImp::osiOpen(const char *pathname, int flags, mode_t mode) {
+    std::string path(pathname);
+
     if (openSuccessful) {
-        int vpuFd = fd;
-        fd++;
+        if (path.starts_with(DEV_ACCEL_PATH_)) {
+            if (path != DEV_ACCEL_PATH(0)) {
+                LOG(UTEST, "Invalid device node %s", pathname);
+                return -ENOENT;
+            }
+        }
+
+        int vpuFd = fd++;
         LOG(UTEST, "Returning file descriptor %d", vpuFd);
         return vpuFd;
     }

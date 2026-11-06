@@ -325,7 +325,10 @@ class KmdTest : public ::testing::Test {
     bool resume();
     bool wait_for_resume(int timeout_ms = PM_STATE_TIMEOUT_MS);
     bool wait_for_suspend(int timeout_ms = PM_STATE_TIMEOUT_MS, bool expect_timeout = false);
+    bool wait_for_suspend_if_enabled(int timeout_ms = PM_STATE_TIMEOUT_MS,
+                                     bool expect_timeout = false);
     bool wait_for_recovery_event(int timeout_ms = PM_STATE_TIMEOUT_MS);
+    bool wait_for_no_recovery(int timeout_ms = PM_STATE_TIMEOUT_MS);
     bool wait_for_engine_reset(int timeout_ms = PM_STATE_TIMEOUT_MS);
     int force_recovery();
     bool is_autosuspend_enabled();
@@ -435,6 +438,10 @@ class KmdTest : public ::testing::Test {
     bool has_debugfs = false;
 
   private:
+    bool wait_for_runtime_status(const char *op,
+                                 const char *expected_status,
+                                 int timeout_ms,
+                                 bool expect_timeout);
     int initial_delay = INVALID_AUTOSUSPEND_DELAY;
 };
 
@@ -525,6 +532,7 @@ struct MemoryBuffer {
     void write(int offset, uint64_t val) { *ptr64(offset) = val; }
     size_t size() { return _size; }
     void set_size(size_t size) { _size = size; }
+    int32_t madvise(int advice);
 
     // Userptr specific methods
     int create_from_userptr(void *userptr);
@@ -557,21 +565,30 @@ struct CmdBuffer : MemoryBuffer {
     void add_nop_cmd(int size = 8);
     void add_barrier_cmd();
     void
-    add_ts_cmd(MemoryBuffer &ts_buf, uint32_t ts_offset, enum vpu_time_type type = VPU_TIME_RAW);
-    void add_fence_reset_cmd(MemoryBuffer &fence_buf,
-                             uint32_t fence_offset,
-                             uint64_t fence_val = FENCE_RESET_VAL);
+    add_ts_cmd(MemoryBuffer &ts_buf, uint64_t ts_offset, enum vpu_time_type type = VPU_TIME_RAW);
+
+    void
+    add_fence_cmd(uint64_t address, uint64_t value, enum vpu_cmd_type type, uint32_t flags = 0);
+    void add_fence_cmd(MemoryBuffer &fence_buf,
+                       uint64_t offset,
+                       uint64_t value,
+                       enum vpu_cmd_type type,
+                       uint32_t flags = 0);
+    void
+    add_fence_reset_cmd(MemoryBuffer &fence_buf, uint64_t offset, uint64_t value = FENCE_RESET_VAL);
     void add_fence_signal_cmd(MemoryBuffer &fence_buf,
-                              uint32_t fence_offset,
-                              uint64_t fence_val = FENCE_SIGNAL_VAL);
+                              uint64_t offset,
+                              uint64_t value = FENCE_SIGNAL_VAL,
+                              uint32_t flags = 0);
     void add_fence_wait_cmd(MemoryBuffer &fence_buf,
-                            uint32_t fence_offset,
-                            uint64_t fence_val = FENCE_WAIT_VAL);
+                            uint64_t offset,
+                            uint64_t value = FENCE_WAIT_VAL,
+                            uint32_t flags = 0);
     void add_write_cmd(uint64_t addr, uint64_t value);
-    void add_memory_fill_cmd(MemoryBuffer &buf,
-                             uint64_t start_address,
-                             uint64_t size,
-                             uint32_t fill_pattern);
+
+    void add_memory_fill_cmd(uint64_t address, uint64_t size, uint32_t pattern);
+    void add_memory_fill_cmd(MemoryBuffer &buf, uint64_t offset, uint64_t size, uint32_t pattern);
+
     void copy_desc_fill(copy_descriptor_t *copy_descriptor,
                         uint64_t src_vpu_address,
                         uint64_t drc_vpu_address,
@@ -593,11 +610,6 @@ struct CmdBuffer : MemoryBuffer {
     int wait(uint32_t timeout_ms = JOB_SYNC_TIMEOUT_MS);
 
     std::vector<uint32_t> referenced_handles;
-    void add_fence_cmd(uint64_t fence_address, uint64_t fence_value, enum vpu_cmd_type type);
-    void add_fence_cmd(MemoryBuffer &fence_buffer,
-                       uint32_t fence_offset,
-                       uint64_t fence_value,
-                       enum vpu_cmd_type type);
     int submit_retry(void *params,
                      uint32_t timeout_ms = 0,
                      unsigned long ioctl = DRM_IOCTL_IVPU_SUBMIT);

@@ -13,12 +13,14 @@
 #include "interface_parser.hpp"
 #include "umd_common.hpp"
 #include "vpu_driver/source/command/command.hpp"
+#include "vpu_driver/source/memory/vpu_buffer_object.hpp"
 #include "vpux_elf/utils/version.hpp"
 
 #include <memory>
 #include <mutex>
 #include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 #include <vpux_hpi.hpp>
@@ -31,7 +33,6 @@ class BufferManager;
 } // namespace elf
 
 namespace VPU {
-class VPUBufferObject;
 class VPUDeviceContext;
 class VPUInferenceExecute;
 struct VPUHwInfo;
@@ -84,10 +85,7 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
                                                    std::string &logBuffer);
     static elf::VersionsProvider getElfVer(uint32_t deviceId);
 
-    bool getArgumentProperties(std::vector<GraphArgumentProperties> &props) const;
-    bool getArgumentMetadata(std::vector<ze_graph_argument_metadata_t> &args) const;
-    bool getProfilingSize(uint32_t &size) const;
-    size_t getSharedScratchSize() const;
+    const std::unordered_map<VPU::VPUBufferObject::Type, size_t> &getSharedScratchSize() const;
 
     std::shared_ptr<VPU::VPUInferenceExecute>
     createInferenceExecuteCommand(const std::vector<const void *> &inputPtrs,
@@ -113,8 +111,10 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
                            GraphProfilingQuery *profilingQuery,
                            bool optimizeForDynamicShapes) override;
 
-    void updateSharedScratchBuffers(std::shared_ptr<elf::HostParsedInference> &hpi,
-                                    std::shared_ptr<VPU::VPUBufferObject> &bo);
+    void updateSharedScratchBuffers(
+        std::shared_ptr<elf::HostParsedInference> &hpi,
+        const std::unordered_map<VPU::VPUBufferObject::Type, std::shared_ptr<VPU::VPUBufferObject>>
+            &scratchBuffers);
     bool applyInputOutputs(std::shared_ptr<elf::HostParsedInference> &hpi,
                            const std::vector<const void *> &inputs,
                            const std::vector<const void *> &outputs,
@@ -122,10 +122,14 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
                            const ArgumentStridesMap &outputStrides,
                            GraphProfilingQuery *profilingQuery,
                            std::vector<std::shared_ptr<VPU::VPUBufferObject>> &bos);
-    std::shared_ptr<VPU::VPUBufferObject> findBuffer(const void *ptr);
 
     static bool validateCompatibilityString(const std::string &compatibilityString,
                                             const VPU::VPUHwInfo &hwInfo);
+    const char *getBlobName() const { return blobName.c_str(); }
+
+  private:
+    bool getProfilingSize(uint32_t &size) const;
+    std::shared_ptr<VPU::VPUBufferObject> findBuffer(const void *ptr);
 
   private:
     VPU::VPUDeviceContext *ctx;
@@ -133,6 +137,7 @@ class ElfParser : public IParser, public std::enable_shared_from_this<ElfParser>
     std::unique_ptr<elf::AccessManager> accessManager;
     std::unique_ptr<HostParsedInferenceManager> hpiManager;
     uint64_t inferenceId = 0;
+    std::string blobName;
 };
 
 template <class T>

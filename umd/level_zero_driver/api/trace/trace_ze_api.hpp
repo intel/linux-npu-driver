@@ -1550,6 +1550,31 @@ inline void trace_zeCommandQueueGetPriority(ze_result_t ret,
                          trace_ze_result_t(ret);
 }
 
+inline std::string _trace_zeCommandQueueSetPriorityExt(ze_command_queue_handle_t hCommandQueue,
+                                                       ze_command_queue_priority_t priority) {
+    std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeCommandQueueSetPriorityExt(";
+    ss << std::hex << std::showbase;
+    ss << "hCommandQueue: " << hCommandQueue;
+    ss << ", priority: " << priority;
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeCommandQueueSetPriorityExt(ze_command_queue_handle_t hCommandQueue,
+                                               ze_command_queue_priority_t priority) {
+    TRACE_EVENT_BEGIN("API", "zeCommandQueueSetPriorityExt");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeCommandQueueSetPriorityExt(hCommandQueue, priority) + "..\n";
+}
+inline void trace_zeCommandQueueSetPriorityExt(ze_result_t ret,
+                                               ze_command_queue_handle_t hCommandQueue,
+                                               ze_command_queue_priority_t priority) {
+    TRACE_EVENT_END("API");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeCommandQueueSetPriorityExt(hCommandQueue, priority) +
+                         trace_ze_result_t(ret);
+}
+
 inline std::string _trace_zeCommandListCreate(ze_context_handle_t hContext,
                                               ze_device_handle_t hDevice,
                                               const ze_command_list_desc_t *desc,
@@ -3316,6 +3341,210 @@ inline void trace_zeEventQueryKernelTimestamp(ze_result_t ret,
     TRACE_EVENT_END("API");
     if (IS_API_TRACE())
         std::cerr << _trace_zeEventQueryKernelTimestamp(hEvent, dstptr) + trace_ze_result_t(ret);
+}
+
+inline std::string _trace_zeEventCounterBasedCreate(ze_context_handle_t hContext,
+                                                    ze_device_handle_t hDevice,
+                                                    const ze_event_counter_based_desc_t *desc,
+                                                    ze_event_handle_t *phEvent) {
+    std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventCounterBasedCreate(";
+    ss << std::hex << std::showbase;
+    ss << "hContext: " << hContext;
+    ss << ", hDevice: " << hDevice;
+    if (desc == nullptr) {
+        ss << ", desc: nullptr";
+    } else {
+        ss << ", desc {";
+        ss << "stype: " << desc->stype;
+        ss << ", pNext: " << desc->pNext;
+        ss << ", flags: " << desc->flags;
+        ss << ", signal: " << desc->signal;
+        ss << ", wait: " << desc->wait;
+        ss << "}";
+    }
+    if (phEvent == nullptr) {
+        ss << ", phEvent: nullptr";
+    } else {
+        ss << ", phEvent: " << *phEvent;
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeEventCounterBasedCreate(ze_context_handle_t hContext,
+                                            ze_device_handle_t hDevice,
+                                            const ze_event_counter_based_desc_t *desc,
+                                            ze_event_handle_t *phEvent) {
+    TRACE_EVENT_BEGIN("API", "zeEventCounterBasedCreate");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeEventCounterBasedCreate(hContext, hDevice, desc, phEvent) + "..\n";
+}
+inline void trace_zeEventCounterBasedCreate(ze_result_t ret,
+                                            ze_context_handle_t hContext,
+                                            ze_device_handle_t hDevice,
+                                            const ze_event_counter_based_desc_t *desc,
+                                            ze_event_handle_t *phEvent) {
+    TRACE_EVENT_END("API");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeEventCounterBasedCreate(hContext, hDevice, desc, phEvent) +
+                         trace_ze_result_t(ret);
+}
+
+inline std::string
+_trace_zeEventCounterBasedGetIpcHandle(ze_event_handle_t hEvent,
+                                       ze_ipc_event_counter_based_handle_t *phIpc) {
+    std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventCounterBasedGetIpcHandle(";
+    ss << std::hex << std::showbase;
+    ss << "hEvent: " << hEvent;
+    if (phIpc == nullptr) {
+        ss << ", phIpc: nullptr";
+    } else {
+        ss << ", phIpc {";
+        ss << "data: ";
+        ss << trace_char_array_hex(phIpc->data, sizeof(phIpc->data)).str();
+        ss << "}";
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeEventCounterBasedGetIpcHandle(ze_event_handle_t hEvent,
+                                                  ze_ipc_event_counter_based_handle_t *phIpc) {
+    TRACE_EVENT_BEGIN("API", "zeEventCounterBasedGetIpcHandle");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeEventCounterBasedGetIpcHandle(hEvent, phIpc) + "..\n";
+}
+inline void trace_zeEventCounterBasedGetIpcHandle(ze_result_t ret,
+                                                  ze_event_handle_t hEvent,
+                                                  ze_ipc_event_counter_based_handle_t *phIpc) {
+    TRACE_EVENT_END("API");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeEventCounterBasedGetIpcHandle(hEvent, phIpc) + trace_ze_result_t(ret);
+}
+
+inline std::string _trace_zeEventCounterBasedOpenIpcHandle(ze_context_handle_t hContext,
+                                                           ze_ipc_event_counter_based_handle_t hIpc,
+                                                           ze_event_handle_t *phEvent) {
+    std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventCounterBasedOpenIpcHandle(";
+    ss << std::hex << std::showbase;
+    ss << "hContext: " << hContext;
+    ss << ", hIpc {";
+    ss << "data: ";
+    ss << trace_char_array_hex(hIpc.data, sizeof(hIpc.data)).str();
+    ss << "}";
+    if (phEvent == nullptr) {
+        ss << ", phEvent: nullptr";
+    } else {
+        ss << ", phEvent: " << *phEvent;
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeEventCounterBasedOpenIpcHandle(ze_context_handle_t hContext,
+                                                   ze_ipc_event_counter_based_handle_t hIpc,
+                                                   ze_event_handle_t *phEvent) {
+    TRACE_EVENT_BEGIN("API", "zeEventCounterBasedOpenIpcHandle");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeEventCounterBasedOpenIpcHandle(hContext, hIpc, phEvent) + "..\n";
+}
+inline void trace_zeEventCounterBasedOpenIpcHandle(ze_result_t ret,
+                                                   ze_context_handle_t hContext,
+                                                   ze_ipc_event_counter_based_handle_t hIpc,
+                                                   ze_event_handle_t *phEvent) {
+    TRACE_EVENT_END("API");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeEventCounterBasedOpenIpcHandle(hContext, hIpc, phEvent) +
+                         trace_ze_result_t(ret);
+}
+
+inline std::string _trace_zeEventCounterBasedCloseIpcHandle(ze_event_handle_t hEvent) {
+    std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventCounterBasedCloseIpcHandle(";
+    ss << std::hex << std::showbase;
+    ss << "hEvent: " << hEvent;
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeEventCounterBasedCloseIpcHandle(ze_event_handle_t hEvent) {
+    TRACE_EVENT_BEGIN("API", "zeEventCounterBasedCloseIpcHandle");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeEventCounterBasedCloseIpcHandle(hEvent) + "..\n";
+}
+inline void trace_zeEventCounterBasedCloseIpcHandle(ze_result_t ret, ze_event_handle_t hEvent) {
+    TRACE_EVENT_END("API");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeEventCounterBasedCloseIpcHandle(hEvent) + trace_ze_result_t(ret);
+}
+
+inline std::string _trace_zeEventCounterBasedGetDeviceAddress(ze_event_handle_t hEvent,
+                                                              uint64_t *completionValue,
+                                                              uint64_t *deviceAddress) {
+    std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventCounterBasedGetDeviceAddress(";
+    ss << std::hex << std::showbase;
+    ss << "hEvent: " << hEvent;
+    if (completionValue == nullptr) {
+        ss << ", completionValue: nullptr";
+    } else {
+        ss << ", completionValue: " << *completionValue;
+    }
+    if (deviceAddress == nullptr) {
+        ss << ", deviceAddress: nullptr";
+    } else {
+        ss << ", deviceAddress: " << *deviceAddress;
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeEventCounterBasedGetDeviceAddress(ze_event_handle_t hEvent,
+                                                      uint64_t *completionValue,
+                                                      uint64_t *deviceAddress) {
+    TRACE_EVENT_BEGIN("API", "zeEventCounterBasedGetDeviceAddress");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeEventCounterBasedGetDeviceAddress(hEvent,
+                                                                completionValue,
+                                                                deviceAddress) +
+                         "..\n";
+}
+inline void trace_zeEventCounterBasedGetDeviceAddress(ze_result_t ret,
+                                                      ze_event_handle_t hEvent,
+                                                      uint64_t *completionValue,
+                                                      uint64_t *deviceAddress) {
+    TRACE_EVENT_END("API");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeEventCounterBasedGetDeviceAddress(hEvent,
+                                                                completionValue,
+                                                                deviceAddress) +
+                         trace_ze_result_t(ret);
+}
+
+inline std::string _trace_zeEventGetCounterBasedFlags(ze_event_handle_t hEvent,
+                                                      ze_event_counter_based_flags_t *flags) {
+    std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeEventGetCounterBasedFlags(";
+    ss << std::hex << std::showbase;
+    ss << "hEvent: " << hEvent;
+    if (flags == nullptr) {
+        ss << ", flags: nullptr";
+    } else {
+        ss << ", flags: " << *flags;
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeEventGetCounterBasedFlags(ze_event_handle_t hEvent,
+                                              ze_event_counter_based_flags_t *flags) {
+    TRACE_EVENT_BEGIN("API", "zeEventGetCounterBasedFlags");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeEventGetCounterBasedFlags(hEvent, flags) + "..\n";
+}
+inline void trace_zeEventGetCounterBasedFlags(ze_result_t ret,
+                                              ze_event_handle_t hEvent,
+                                              ze_event_counter_based_flags_t *flags) {
+    TRACE_EVENT_END("API");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeEventGetCounterBasedFlags(hEvent, flags) + trace_ze_result_t(ret);
 }
 
 inline std::string
@@ -6437,6 +6666,48 @@ trace_zeDeviceValidateRuntimeRequirements(ze_result_t ret,
     TRACE_EVENT_END("API");
     if (IS_API_TRACE())
         std::cerr << _trace_zeDeviceValidateRuntimeRequirements(hDevice, pRequirements, pOut) +
+                         trace_ze_result_t(ret);
+}
+
+inline std::string _trace_zeDeviceGetCompilerInfo(ze_device_handle_t hDevice,
+                                                  ze_device_compiler_info_t paramName,
+                                                  const void *pNext,
+                                                  size_t *pSize,
+                                                  void *pData) {
+    std::stringstream ss;
+    ss << "NPU_LOG: [API][tid:" << gettid() << "] zeDeviceGetCompilerInfo(";
+    ss << std::hex << std::showbase;
+    ss << "hDevice: " << hDevice;
+    ss << ", paramName: " << paramName;
+    ss << ", pNext: " << pNext;
+    if (pSize == nullptr) {
+        ss << ", pSize: nullptr";
+    } else {
+        ss << ", pSize: " << *pSize;
+    }
+    ss << ", pData: " << pData;
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeDeviceGetCompilerInfo(ze_device_handle_t hDevice,
+                                          ze_device_compiler_info_t paramName,
+                                          const void *pNext,
+                                          size_t *pSize,
+                                          void *pData) {
+    TRACE_EVENT_BEGIN("API", "zeDeviceGetCompilerInfo");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeDeviceGetCompilerInfo(hDevice, paramName, pNext, pSize, pData) +
+                         "..\n";
+}
+inline void trace_zeDeviceGetCompilerInfo(ze_result_t ret,
+                                          ze_device_handle_t hDevice,
+                                          ze_device_compiler_info_t paramName,
+                                          const void *pNext,
+                                          size_t *pSize,
+                                          void *pData) {
+    TRACE_EVENT_END("API");
+    if (IS_API_TRACE())
+        std::cerr << _trace_zeDeviceGetCompilerInfo(hDevice, paramName, pNext, pSize, pData) +
                          trace_ze_result_t(ret);
 }
 

@@ -19,11 +19,19 @@ class ImmediateCmdList : public UmdTest {
         list = scopedList.get();
         ASSERT_NE(list, nullptr);
 
+        cmdQueueDesc.mode = ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS;
         syncScopedList =
-            zeScope::immediateCommandListCreate(zeContext, zeDevice, syncCmdQueueDesc, ret);
+            zeScope::immediateCommandListCreate(zeContext, zeDevice, cmdQueueDesc, ret);
         ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
         syncList = syncScopedList.get();
         ASSERT_NE(syncList, nullptr);
+
+        cmdQueueDesc.mode = ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS;
+        asyncScopedList =
+            zeScope::immediateCommandListCreate(zeContext, zeDevice, cmdQueueDesc, ret);
+        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+        asyncList = asyncScopedList.get();
+        ASSERT_NE(asyncList, nullptr);
     }
 
     void TearDown() override {
@@ -40,21 +48,15 @@ class ImmediateCmdList : public UmdTest {
                                          .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
                                          .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
 
-    ze_command_queue_desc_t syncCmdQueueDesc{.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
-                                             .pNext = nullptr,
-                                             .ordinal = 0,
-                                             .index = 0,
-                                             .flags = 0,
-                                             .mode = ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS,
-                                             .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
-
     ze_command_list_handle_t list = nullptr;
     ze_command_list_handle_t syncList = nullptr;
+    ze_command_list_handle_t asyncList = nullptr;
 
   protected:
     const size_t size = sizeof(uint64_t);
     zeScope::SharedPtr<ze_command_list_handle_t> scopedList;
     zeScope::SharedPtr<ze_command_list_handle_t> syncScopedList;
+    zeScope::SharedPtr<ze_command_list_handle_t> asyncScopedList;
     ze_result_t ret;
 };
 
@@ -150,6 +152,55 @@ TEST_F(ImmediateCmdList, GetTimestampAndCopy) {
 
     EXPECT_NE(*ts1, 0llu);
     EXPECT_EQ(*ts1, *ts2);
+}
+
+TEST_F(ImmediateCmdList, GetTimestampAndCopyUsingCounterBasedEvents) {
+    SKIP_NO_COUNTER_BASED_EVENTS();
+
+    ze_event_counter_based_desc_t eventDesc = {ZE_STRUCTURE_TYPE_EVENT_COUNTER_BASED_DESC,
+                                               nullptr,
+                                               ZE_EVENT_COUNTER_BASED_FLAG_IMMEDIATE,
+                                               ZE_EVENT_SCOPE_FLAG_HOST,
+                                               ZE_EVENT_SCOPE_FLAG_HOST};
+
+    ze_event_handle_t hEvent = nullptr;
+    auto scopedEvent = zeScope::counterBasedEventCreate(zeContext, zeDevice, eventDesc, ret);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+    hEvent = scopedEvent.get();
+    ASSERT_NE(hEvent, nullptr);
+
+    auto mem = AllocSharedMemory(size);
+    ASSERT_TRUE(mem.get()) << "Failed to allocate shared memory";
+
+    auto mem2 = AllocSharedMemory(size);
+    ASSERT_TRUE(mem2.get()) << "Failed to allocate shared memory";
+
+    auto mem3 = AllocSharedMemory(size);
+    ASSERT_TRUE(mem3.get()) << "Failed to allocate shared memory";
+
+    uint64_t *ts = static_cast<uint64_t *>(mem.get());
+    uint64_t *result1 = static_cast<uint64_t *>(mem2.get());
+    uint64_t *result2 = static_cast<uint64_t *>(mem3.get());
+
+    *ts = 0ULL;
+    *result1 = 0ULL;
+    *result2 = 0ULL;
+
+    /* Counter based event is initially in signalled state, we expect first copy executed
+     * immediately and copy 0*/
+    ASSERT_EQ(zeCommandListAppendMemoryCopy(asyncList, result1, ts, size, hEvent, 1, &hEvent),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListAppendWriteGlobalTimestamp(asyncList, ts, hEvent, 1, &hEvent),
+              ZE_RESULT_SUCCESS);
+    /* The second copy should wait for the event to be signaled and copy timestamp*/
+    ASSERT_EQ(zeCommandListAppendMemoryCopy(asyncList, result2, ts, size, nullptr, 1, &hEvent),
+              ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandListHostSynchronize(asyncList, syncTimeout), ZE_RESULT_SUCCESS);
+
+    EXPECT_EQ(*result1, 0llu);
+    EXPECT_NE(*ts, 0llu);
+    EXPECT_EQ(*ts, *result2);
 }
 
 TEST_F(ImmediateCmdList, FillCopyUsingBarriers) {

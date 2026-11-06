@@ -13,6 +13,7 @@
 #include "level_zero_driver/include/l0_exception.hpp"
 #include "level_zero_driver/source/device.hpp"
 #include "level_zero_driver/source/driver_handle.hpp"
+#include "level_zero_driver/source/ext/graph.hpp"
 
 #include <ze_api.h>
 #include <ze_ddi.h>
@@ -337,6 +338,43 @@ exit:
     return ret;
 }
 
+ze_result_t zeDeviceGetCompilerInfo(ze_device_handle_t hDevice,
+                                    ze_device_compiler_info_t paramName,
+                                    const void *pNext,
+                                    size_t *pSize,
+                                    void *pData) {
+    trace_zeDeviceGetCompilerInfo(hDevice, paramName, pNext, pSize, pData);
+    ze_result_t ret;
+
+    if (hDevice == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+
+    if (paramName > ZE_DEVICE_COMPILER_INFO_DRIVER_OPTIONS) {
+        ret = ZE_RESULT_ERROR_INVALID_ENUMERATION;
+        goto exit;
+    }
+
+    if (pSize == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_POINTER;
+        goto exit;
+    }
+
+    if (pNext != nullptr) {
+        ret = ZE_RESULT_ERROR_UNSUPPORTED_FEATURE;
+        goto exit;
+    }
+
+    L0_HANDLE_EXCEPTION(
+        ret,
+        L0::Graph::getSupportedOptions(hDevice, paramName, pSize, static_cast<char *>(pData)));
+
+exit:
+    trace_zeDeviceGetCompilerInfo(ret, hDevice, paramName, pNext, pSize, pData);
+    return ret;
+}
+
 ze_device_dditable_t zeDeviceDdiTable = {
     .pfnGet = zeDeviceGet,
     .pfnGetSubDevices = zeDeviceGetSubDevices,
@@ -365,7 +403,8 @@ ze_device_dditable_t zeDeviceDdiTable = {
     .pfnGetRuntimeRequirements = zeDeviceGetRuntimeRequirements,
     .pfnGetRuntimeRequirementsKey = zeDeviceGetRuntimeRequirementsKey,
     .pfnValidateRuntimeRequirements = zeDeviceValidateRuntimeRequirements,
-    .pfnGetCounterBasedEventMaxValue = nullptr};
+    .pfnGetCounterBasedEventMaxValue = nullptr,
+    .pfnGetCompilerInfo = zeDeviceGetCompilerInfo};
 
 } // namespace L0
 
@@ -414,6 +453,10 @@ ZE_APIEXPORT ze_result_t ZE_APICALL zeGetDeviceProcAddrTable(ze_api_version_t ve
         pDdiTable->pfnGetRuntimeRequirements = L0::zeDeviceGetRuntimeRequirements;
         pDdiTable->pfnGetRuntimeRequirementsKey = L0::zeDeviceGetRuntimeRequirementsKey;
         pDdiTable->pfnValidateRuntimeRequirements = L0::zeDeviceValidateRuntimeRequirements;
+    }
+
+    if (version >= ZE_API_VERSION_1_18) {
+        pDdiTable->pfnGetCompilerInfo = L0::zeDeviceGetCompilerInfo;
     }
 
     ret = ZE_RESULT_SUCCESS;

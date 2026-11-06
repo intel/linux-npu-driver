@@ -53,6 +53,8 @@ const char *getGraphExtStructureName() {
         return "ze_graph_argument_properties_2_t";
     if constexpr (std::is_same_v<::ze_graph_argument_properties_3_t, T>)
         return "ze_graph_argument_properties_3_t";
+    if constexpr (std::is_same_v<::ze_graph_argument_properties_4_t, T>)
+        return "ze_graph_argument_properties_4_t";
     if constexpr (std::is_same_v<::ze_graph_argument_metadata_t, T>)
         return "ze_graph_argument_metadata_t";
     if constexpr (std::is_same_v<::ze_graph_input_hash_t, T>)
@@ -88,6 +90,8 @@ ze_structure_type_graph_ext_t getGraphExtStructureType() {
         return ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_2;
     if constexpr (std::is_same_v<::ze_graph_argument_properties_3_t, T>)
         return ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_3;
+    if constexpr (std::is_same_v<::ze_graph_argument_properties_4_t, T>)
+        return ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTIES_4;
     if constexpr (std::is_same_v<::ze_graph_argument_metadata_t, T>)
         return ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_METADATA;
     if constexpr (std::is_same_v<::ze_graph_input_hash_t, T>)
@@ -631,6 +635,55 @@ zeGraphGetArgumentProperties3(ze_graph_handle_t hGraph,
 
 exit:
     trace_zeGraphGetArgumentProperties3(ret, hGraph, argIndex, pGraphArgumentProperties);
+    return ret;
+}
+
+ze_result_t ZE_APICALL
+zeGraphGetArgumentProperties4(ze_graph_handle_t hGraph,
+                              uint32_t argIndex,
+                              ze_graph_argument_properties_4_t *pGraphArgumentProperties) {
+    trace_zeGraphGetArgumentProperties4(hGraph, argIndex, pGraphArgumentProperties);
+    ze_result_t ret;
+
+    if (hGraph == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+
+    ret = validateGraphStructure(pGraphArgumentProperties,
+                                 {ZE_STRUCTURE_TYPE_GRAPH_ARGUMENT_PROPERTY_STRIDES});
+    if (ret != ZE_RESULT_SUCCESS) {
+        goto exit;
+    }
+
+    L0_HANDLE_EXCEPTION(
+        ret,
+        L0::Graph::fromHandle(hGraph)->getArgumentProperties4(argIndex, pGraphArgumentProperties));
+
+exit:
+    trace_zeGraphGetArgumentProperties4(ret, hGraph, argIndex, pGraphArgumentProperties);
+    return ret;
+}
+
+ze_result_t ZE_APICALL zeGraphGetArgumentNames(ze_graph_handle_t hGraph,
+                                               uint32_t argIndex,
+                                               ze_graph_argument_name_type_t nameType,
+                                               size_t *pSize,
+                                               char *pNames) {
+    trace_zeGraphGetArgumentNames(hGraph, argIndex, nameType, pSize, pNames);
+    ze_result_t ret;
+
+    if (hGraph == nullptr) {
+        ret = ZE_RESULT_ERROR_INVALID_NULL_HANDLE;
+        goto exit;
+    }
+
+    L0_HANDLE_EXCEPTION(
+        ret,
+        L0::Graph::fromHandle(hGraph)->getArgumentNames(argIndex, nameType, pSize, pNames));
+
+exit:
+    trace_zeGraphGetArgumentNames(ret, hGraph, argIndex, nameType, pSize, pNames);
     return ret;
 }
 

@@ -67,6 +67,15 @@ struct VPU_ALIGNED_STRUCT(8) VpuTaskReference {
      */
     uint64_t count;
 
+    /**
+     * @brief Allow to use VpuTaskReference as an array of T objects.
+     *
+     * @param index Index of the element to access.
+     * @return Reference to the i-th element of the array.
+     */
+    T &operator[](int32_t index) { return data()[index]; }
+    const T &operator[](int32_t index) const { return data()[index]; }
+
     T *data() { return reinterpret_cast<T *>(address); }
     const T *data() const { return reinterpret_cast<T *>(address); }
 

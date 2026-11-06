@@ -47,9 +47,15 @@ MetricStreamer::MetricStreamer(Context *pContext,
 
     if (notifyHandle && desc->notifyEveryNReports) {
         auto notifyEvent = L0::Event::fromHandle(notifyHandle);
-
-        notifyEvent->setMetricTrackData(0x1ULL << metricGroup->getGroupIndex(),
-                                        sampleSize * desc->notifyEveryNReports);
+        try {
+            notifyEvent->setMetricTrackData(0x1ULL << metricGroup->getGroupIndex(),
+                                            sampleSize * desc->notifyEveryNReports);
+        } catch (DriverError &e) {
+            drm_ivpu_metric_streamer_stop stopData = {.metric_group_mask =
+                                                          startData.metric_group_mask};
+            ctx->getDriverApi().metricStreamerStop(&stopData);
+            throw;
+        }
     }
 }
 

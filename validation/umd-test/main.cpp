@@ -23,7 +23,6 @@ std::string dumpOnFailDir;
 
 static void disableMetrics(const char *) {
     test_vars::disable_metrics = true;
-    test_app::append_negative_filter("Metric*:ImmediateCmdList.MetricQuerryTest");
 }
 
 static void forceDmaHeap(const char *) {

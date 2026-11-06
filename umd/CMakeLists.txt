@@ -57,6 +57,7 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
 
 # Project-wide include paths
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/vpu_driver/include")
+include_directories($<TARGET_PROPERTY:npu_elf,INTERFACE_INCLUDE_DIRECTORIES>)
 include_directories(${VPU_SOURCE_DIR})
 include_directories(SYSTEM ${VPU_KMD_INCLUDE_DIR})
 

@@ -505,13 +505,13 @@ TEST_F(DeviceContextTest, scratchBufferCacheShouldWorkAsExpected) {
 
     // Expect only single buffer in scratch buffer
     for (auto &size : scratches) {
-        ctx->scratchCachePreload(size);
+        ctx->scratchCachePreload(size, VPUBufferObject::Type::WriteCombineDmaUnmappable);
         EXPECT_EQ(ctx->getAllocatedSize(), size);
     }
 
     // Expect to get the cached scratch buffer with largest size
     for (auto &size : scratches) {
-        auto bo = ctx->scratchCacheAcquire(size);
+        auto bo = ctx->scratchCacheAcquire(size, VPUBufferObject::Type::WriteCombineDmaUnmappable);
         EXPECT_EQ(bo->getAllocSize(), greatestSize);
     }
 
@@ -522,7 +522,7 @@ TEST_F(DeviceContextTest, scratchBufferCacheShouldWorkAsExpected) {
     // Fill the cache with multiple buffers
     std::vector<std::shared_ptr<VPUBufferObject>> scratchBuffers;
     for (auto &size : scratches) {
-        auto bo = ctx->scratchCacheAcquire(size);
+        auto bo = ctx->scratchCacheAcquire(size, VPUBufferObject::Type::WriteCombineDmaUnmappable);
         EXPECT_EQ(bo->getAllocSize(), size);
         scratchBuffers.push_back(std::move(bo));
     }
@@ -531,7 +531,7 @@ TEST_F(DeviceContextTest, scratchBufferCacheShouldWorkAsExpected) {
 
     // Acquire all possible cache
     for (auto &size : scratches) {
-        auto bo = ctx->scratchCacheAcquire(size);
+        auto bo = ctx->scratchCacheAcquire(size, VPUBufferObject::Type::WriteCombineDmaUnmappable);
         EXPECT_EQ(bo->getAllocSize(), size);
         scratchBuffers.push_back(std::move(bo));
     }
@@ -543,7 +543,7 @@ TEST_F(DeviceContextTest, scratchBufferCacheShouldWorkAsExpected) {
 
     // Double the cache size
     for (auto size : scratches) {
-        auto bo = ctx->scratchCacheAcquire(size);
+        auto bo = ctx->scratchCacheAcquire(size, VPUBufferObject::Type::WriteCombineDmaUnmappable);
         EXPECT_EQ(bo->getAllocSize(), size);
         scratchBuffers.push_back(std::move(bo));
     }

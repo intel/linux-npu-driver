@@ -138,16 +138,22 @@ bool VPUDeviceContext::freeMemAlloc(std::shared_ptr<VPUBufferObject> bo) {
         return false;
     }
 
+    evictBufferLocked(bo);
+
     return true;
 }
 
 std::shared_ptr<VPUBufferObject> VPUDeviceContext::findBufferObject(const void *ptr) const {
+    const std::lock_guard<std::mutex> lock(mtx);
+    return findBufferObjectLocked(ptr);
+}
+
+std::shared_ptr<VPUBufferObject> VPUDeviceContext::findBufferObjectLocked(const void *ptr) const {
     if (ptr == nullptr) {
         LOG_E("ptr passed is nullptr!");
         return nullptr;
     }
 
-    const std::lock_guard<std::mutex> lock(mtx);
     auto it = trackedBuffers.lower_bound(ptr);
     if (it == trackedBuffers.end()) {
         LOG(DEVICE, "Could not find a pointer %p in VPUDeviceContext %p", ptr, this);
@@ -306,14 +312,15 @@ bool VPUDeviceContext::getUniqueInferenceId(uint64_t &inferenceId) {
     return true;
 }
 
-std::shared_ptr<VPUBufferObject> ScratchCacheFactory::acquire(VPUDeviceContext *ctx, size_t size) {
+std::shared_ptr<VPUBufferObject>
+ScratchCacheFactory::acquire(VPUDeviceContext *ctx, size_t size, VPUBufferObject::Type type) {
     if (size == 0) {
         return nullptr;
     }
 
     const std::lock_guard<std::mutex> lock(scratchMutex);
     std::shared_ptr<VPUBufferObject> hit = nullptr;
-    for (auto &bo : scratchBuffers) {
+    for (auto &bo : scratchBuffers[type]) {
         if (bo.use_count() != 1) {
             continue;
         }
@@ -342,14 +349,13 @@ std::shared_ptr<VPUBufferObject> ScratchCacheFactory::acquire(VPUDeviceContext *
         return hit;
     }
 
-    auto bo =
-        ctx->createUntrackedBufferObject(size, VPUBufferObject::Type::WriteCombineDmaUnmappable);
+    auto bo = ctx->createUntrackedBufferObject(size, type);
     if (bo == nullptr) {
         LOG_E("Failed to allocate scratch buffer of size %lu", size);
         return nullptr;
     }
 
-    scratchBuffers.emplace_back(bo);
+    scratchBuffers[type].emplace_back(bo);
 
     scratchCacheBufferCounter.add(1);
     scratchCacheByteCounter.add(bo->getAllocSize());
@@ -369,8 +375,35 @@ void ScratchCacheFactory::prune(size_t size) {
 
     const std::lock_guard<std::mutex> lock(scratchMutex);
 
-    auto it = std::remove_if(scratchBuffers.begin(),
-                             scratchBuffers.end(),
+    for (auto &[_, buffers] : scratchBuffers) {
+        auto it = std::remove_if(buffers.begin(),
+                                 buffers.end(),
+                                 [size](const std::shared_ptr<VPUBufferObject> &bo) {
+                                     const bool remove =
+                                         bo.use_count() == 1 && bo->getAllocSize() <= size;
+
+                                     if (!remove)
+                                         return false;
+
+                                     scratchCacheBufferCounter.sub(1);
+                                     scratchCacheByteCounter.sub(bo->getAllocSize());
+
+                                     return true;
+                                 });
+
+        buffers.erase(it, buffers.end());
+    }
+}
+
+void ScratchCacheFactory::prune(size_t size, VPUBufferObject::Type type) {
+    if (size == 0)
+        return;
+
+    const std::lock_guard<std::mutex> lock(scratchMutex);
+
+    auto &buffers = scratchBuffers[type];
+    auto it = std::remove_if(buffers.begin(),
+                             buffers.end(),
                              [size](const std::shared_ptr<VPUBufferObject> &bo) {
                                  const bool remove =
                                      bo.use_count() == 1 && bo->getAllocSize() <= size;
@@ -384,7 +417,7 @@ void ScratchCacheFactory::prune(size_t size) {
                                  return true;
                              });
 
-    scratchBuffers.erase(it, scratchBuffers.end());
+    buffers.erase(it, buffers.end());
 }
 
 std::shared_ptr<VPUBufferObject> PreemptionCacheFactory::acquire(VPUDeviceContext *ctx) {

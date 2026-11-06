@@ -65,6 +65,7 @@ struct CommandQueue : _ze_command_queue_handle_t, IContextObject {
     ze_result_t getFlags(ze_command_queue_flags_t *pFlags) const;
     ze_result_t getMode(ze_command_queue_mode_t *pMode) const;
     ze_result_t getPriority(ze_command_queue_priority_t *pPriority) const;
+    ze_result_t setPriorityExt(ze_command_queue_priority_t newPriority);
 
     void destroyFence(Fence *pFence);
     ze_result_t waitForJobs(std::chrono::steady_clock::time_point timeout,

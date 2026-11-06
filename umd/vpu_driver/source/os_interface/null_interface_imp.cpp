@@ -159,11 +159,7 @@ bool NullOsInterfaceImp::configureNullDevice() {
 int NullOsInterfaceImp::osiOpen(const char *pathname, int flags, mode_t mode) {
     int fd;
 
-#if ANDROID
-    if (strcmp("/dev/accel0", pathname) != 0)
-#else
-    if (strcmp("/dev/accel/accel0", pathname) != 0)
-#endif
+    if (strcmp(DEV_ACCEL_PATH(0), pathname) != 0)
         return -1;
 
     if ((fd = open("/dev/null", O_RDWR)) == -1) {

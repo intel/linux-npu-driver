@@ -30,10 +30,7 @@ void Device::ResetEngine() {
         ASSERT_EQ(write_debugfs_file("resume_engine", ENGINE_COMPUTE), 0);
     }
 
-    if (is_autosuspend_enabled()) {
-        ASSERT_TRUE(wait_for_suspend());
-    }
-
+    ASSERT_TRUE(wait_for_suspend_if_enabled());
     ASSERT_TRUE(wait_for_engine_reset());
 }
 

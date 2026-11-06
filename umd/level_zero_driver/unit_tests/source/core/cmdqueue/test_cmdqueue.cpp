@@ -201,6 +201,36 @@ TEST_F(CommandQueueCreate, whenCallingGetPriorityThenValueSetAtCreationIsReturne
     EXPECT_EQ(ZE_RESULT_SUCCESS, commandQueue->destroy());
 }
 
+TEST_F(CommandQueueCreate, whenCallingSetPriorityExtOnLegacyQueueThenUnsupportedFeatureIsReturned) {
+    ze_command_queue_handle_t hCommandQueue = nullptr;
+    ze_command_queue_desc_t cmdQueueDesc = {.stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
+                                            .pNext = nullptr,
+                                            .ordinal = 0,
+                                            .index = 0,
+                                            .flags = 0,
+                                            .mode = ZE_COMMAND_QUEUE_MODE_DEFAULT,
+                                            .priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
+    ASSERT_EQ(ZE_RESULT_SUCCESS,
+              L0::CommandQueue::create(context, device, &cmdQueueDesc, &hCommandQueue));
+    ASSERT_NE(hCommandQueue, nullptr);
+
+    L0::CommandQueue *commandQueue = L0::CommandQueue::fromHandle(hCommandQueue);
+
+    // Mock device does not report DRM_IVPU_CAP_MANAGE_CMDQ, so the queue falls back to legacy,
+    // which does not support changing priority after creation.
+    EXPECT_EQ(ZE_RESULT_ERROR_UNSUPPORTED_FEATURE,
+              commandQueue->setPriorityExt(ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH));
+
+    ze_command_queue_priority_t priority = ZE_COMMAND_QUEUE_PRIORITY_FORCE_UINT32;
+    EXPECT_EQ(ZE_RESULT_SUCCESS, commandQueue->getPriority(&priority));
+    EXPECT_EQ(ZE_COMMAND_QUEUE_PRIORITY_NORMAL, priority);
+
+    EXPECT_EQ(ZE_RESULT_ERROR_INVALID_ENUMERATION,
+              commandQueue->setPriorityExt(ZE_COMMAND_QUEUE_PRIORITY_FORCE_UINT32));
+
+    EXPECT_EQ(ZE_RESULT_SUCCESS, commandQueue->destroy());
+}
+
 struct CommandQueueExecTest : Test<CommandQueueFixture> {
     void SetUp() override {
         CommandQueueFixture::SetUp();

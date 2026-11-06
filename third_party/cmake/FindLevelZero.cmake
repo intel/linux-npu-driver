@@ -24,7 +24,4 @@ message(STATUS "LevelZero_INCLUDE_DIRS: ${LevelZero_INCLUDE_DIRS}")
 message(STATUS "LevelZero_LIBRARIES:    ${LevelZero_LIBRARIES}")
 message(STATUS "LevelZero_VERSION:      ${LevelZero_VERSION}")
 
-add_library(ze_api_headers INTERFACE)
-target_include_directories(ze_api_headers INTERFACE ${LevelZero_INCLUDE_DIRS})
-
 add_library(ze_loader ALIAS PkgConfig::LevelZero)

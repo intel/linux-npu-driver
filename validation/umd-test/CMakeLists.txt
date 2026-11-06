@@ -46,6 +46,7 @@ add_executable(${PROJECT_NAME}
     test_init_drivers.cpp
     test_inorder_exec.cpp
     test_memory.cpp
+    test_memory_residency.cpp
     test_metric.cpp
     test_metric_streamer.cpp
     test_mutable_cmdlist.cpp
@@ -62,6 +63,7 @@ if (TARGET openvino::runtime)
     target_link_libraries(${PROJECT_NAME} openvino::runtime)
     target_compile_definitions(${PROJECT_NAME} PUBLIC VALIDATION_LAYER_ENABLE)
     set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/${OPENVINO_INSTALL_DIR})
+    target_compile_definitions(${PROJECT_NAME} PRIVATE UMD_TESTS_USE_OPENVINO)
 endif()
 
 if (TARGET opencv_core AND TARGET opencv_imgcodecs)

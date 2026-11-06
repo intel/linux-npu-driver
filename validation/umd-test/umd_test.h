@@ -10,6 +10,7 @@
 #include "drm_helpers.h"
 #include "perf_counter.h"
 #include "test_app.h"
+#include "test_assertions.h"
 #include "testenv.hpp"
 #include "umd_extensions.h"
 #include "ze_memory.hpp"
@@ -69,6 +70,11 @@
 #define SKIP_HARDENING(msg)                \
     if (test_app::is_hardening_kernel()) { \
         SKIP_(msg);                        \
+    }
+
+#define SKIP_NO_COUNTER_BASED_EVENTS()                   \
+    if (!isCounterBasedEventSupported()) {               \
+        SKIP_("Counter based events are not supported"); \
     }
 
 #define KB (1024llu)
@@ -237,6 +243,7 @@ class UmdTest : public ::testing::Test {
 
     bool isSilicon();
     bool isHwsModeEnabled();
+    bool isCounterBasedEventSupported();
     bool isVPU37xx() { return test_app::is_vpu37xx(pciDevId); }
     bool isVPU40xx() { return test_app::is_vpu40xx(pciDevId); }
     bool isVPU50xx() { return test_app::is_vpu50xx(pciDevId); }

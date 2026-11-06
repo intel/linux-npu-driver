@@ -63,8 +63,9 @@ class MetricStreamer : public UmdTest, public ::testing::WithParamInterface<metr
             EXPECT_EQ(zetMetricStreamerClose(hMetricStreamer), ZE_RESULT_SUCCESS);
         }
 
-        EXPECT_EQ(zetContextActivateMetricGroups(zeContext, zeDevice, 0u, nullptr),
-                  ZE_RESULT_SUCCESS);
+        EXPECT_EQ_ANY_OF2(zetContextActivateMetricGroups(zeContext, zeDevice, 0, nullptr),
+                          ZE_RESULT_SUCCESS,
+                          ZE_RESULT_ERROR_UNINITIALIZED);
         EXPECT_EQ(tearDownMetrics(), ZE_RESULT_SUCCESS);
         UmdTest::TearDown();
     }

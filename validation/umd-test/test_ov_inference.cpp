@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023-2025 Intel Corporation
+ * Copyright (C) 2023-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  *
@@ -8,14 +8,18 @@
 #include "openvino/op/ops.hpp"
 #include "openvino/openvino.hpp"
 #include "openvino/runtime/intel_npu/level_zero/level_zero.hpp"
+#include "openvino/runtime/intel_npu/properties.hpp"
 #include "umd_dma_heap_system.hpp"
 #include "umd_test.h"
 
+#include <dlfcn.h>
 #include <fcntl.h>
+#include <filesystem>
 #include <memory>
+#include <sstream>
 #include <sys/mman.h>
 
-class OpenVinoBasic : public UmdTest, public ::testing::WithParamInterface<YAML::Node> {
+class OpenVinoTest : public UmdTest {
   protected:
     void SetUp() override {
         UmdTest::SetUp();
@@ -58,6 +62,20 @@ class OpenVinoBasic : public UmdTest, public ::testing::WithParamInterface<YAML:
         GTEST_FAIL() << "NPU device not available" << std::endl;
     }
 
+    bool isPluginCompilerInstalled() {
+        Dl_info info = {};
+        int ret = dladdr(reinterpret_cast<void *>(ov::get_openvino_version), &info);
+        if (ret == 0) {
+            std::cerr << "Failed to get OpenVINO library path" << std::endl;
+            return false;
+        }
+        auto ovLibDir = std::filesystem::path(info.dli_fname).parent_path();
+        return std::find(std::filesystem::directory_iterator(ovLibDir),
+                         std::filesystem::directory_iterator(),
+                         ovLibDir / "libopenvino_intel_npu_compiler_loader.so") !=
+               std::filesystem::directory_iterator();
+    }
+
     auto createBaseModel() {
         // Model:
         //  Parameter(1,3) --> Add --> Relu
@@ -80,8 +98,7 @@ class OpenVinoBasic : public UmdTest, public ::testing::WithParamInterface<YAML:
         return res > 0.0f ? res : 0.0f;
     }
 
-    void inferBaseModel(const std::shared_ptr<ov::Model> &model, const ov::Tensor &inTensor) {
-        auto compiledModel = core.compile_model(model, "NPU");
+    void inferCompiledBaseModel(ov::CompiledModel &compiledModel, const ov::Tensor &inTensor) {
         auto inferReq = compiledModel.create_infer_request();
         inferReq.set_input_tensor(inTensor);
         inferReq.infer();
@@ -91,6 +108,14 @@ class OpenVinoBasic : public UmdTest, public ::testing::WithParamInterface<YAML:
         for (size_t i = 0; i < outTensor.get_size(); i++) {
             EXPECT_FLOAT_EQ(result[i], refResult(refInData[i], refConst[i]));
         }
+    }
+
+    void inferBaseModel(const std::shared_ptr<ov::Model> &model,
+                        const ov::Tensor &inTensor,
+                        ov::intel_npu::CompilerType compilerType) {
+        auto compiledModel =
+            core.compile_model(model, "NPU", ov::intel_npu::compiler_type(compilerType));
+        inferCompiledBaseModel(compiledModel, inTensor);
     }
 
     template <auto elementType>
@@ -159,17 +184,59 @@ class OpenVinoBasic : public UmdTest, public ::testing::WithParamInterface<YAML:
     const std::vector<float> refConst = {0.5f, 1.0f, -1.f};
 };
 
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(OpenVinoBasic);
+class OpenVinoBasic : public OpenVinoTest,
+                      public ::testing::WithParamInterface<ov::intel_npu::CompilerType> {
+  public:
+    void SetUp() override {
+        OpenVinoTest::SetUp();
+
+        if (getCompilerType() == ov::intel_npu::CompilerType::PLUGIN) {
+            if (!isPluginCompilerInstalled()) {
+                GTEST_SKIP() << "NPU plugin compiler is not installed";
+            }
+        }
+    }
+    ov::intel_npu::CompilerType getCompilerType() { return GetParam(); }
+};
 
 INSTANTIATE_TEST_SUITE_P(,
                          OpenVinoBasic,
-                         ::testing::ValuesIn(Environment::getConfiguration("openvino")),
-                         [](const testing::TestParamInfo<YAML::Node> &p) {
-                             return generateTestNameFromNode(p.param);
-                         });
+                         ::testing::Values(ov::intel_npu::CompilerType::DRIVER,
+                                           ov::intel_npu::CompilerType::PLUGIN),
+                         testing::PrintToStringParamName());
 
-TEST_P(OpenVinoBasic, CompileModelWithGraphInitAndExecute) {
-    const YAML::Node node = GetParam();
+class OpenVinoImageNet
+    : public OpenVinoTest,
+      public ::testing::WithParamInterface<std::tuple<ov::intel_npu::CompilerType, YAML::Node>> {
+  public:
+    void SetUp() override {
+        OpenVinoTest::SetUp();
+
+        if (getCompilerType() == ov::intel_npu::CompilerType::PLUGIN) {
+            if (!isPluginCompilerInstalled()) {
+                GTEST_SKIP() << "NPU plugin compiler is not installed";
+            }
+        }
+    }
+    ov::intel_npu::CompilerType getCompilerType() { return std::get<0>(GetParam()); }
+};
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(OpenVinoImageNet);
+
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    OpenVinoImageNet,
+    ::testing::Combine(::testing::Values(ov::intel_npu::CompilerType::DRIVER,
+                                         ov::intel_npu::CompilerType::PLUGIN),
+                       ::testing::ValuesIn(Environment::getConfiguration("openvino"))),
+    [](const ::testing::TestParamInfo<std::tuple<ov::intel_npu::CompilerType, YAML::Node>> &p) {
+        std::ostringstream name;
+        name << generateTestNameFromNode(std::get<1>(p.param)) << "_" << std::get<0>(p.param);
+        return name.str();
+    });
+
+TEST_P(OpenVinoImageNet, CompileModelWithGraphInitAndExecute) {
+    const YAML::Node node = std::get<1>(GetParam());
 
     std::string modelPath(globalConfig.modelDir + node["path"].as<std::string>());
     auto mainModel = core.read_model(modelPath);
@@ -244,7 +311,7 @@ TEST_P(OpenVinoBasic, CompileModelWithGraphInitAndExecute) {
     }
 }
 
-TEST_F(OpenVinoBasic, RemoteHostTensorAsNpuModelInput) {
+TEST_P(OpenVinoBasic, RemoteHostTensorAsNpuModelInput) {
     auto model = createBaseModel();
 
     auto zeroContext = ov::intel_npu::level_zero::ZeroContext(core);
@@ -253,12 +320,18 @@ TEST_F(OpenVinoBasic, RemoteHostTensorAsNpuModelInput) {
     // Only NPU Remote Tensor allows to use `get()` method to access underlying buffer
     memcpy(inTensor.get(), refInData.data(), refInData.size() * sizeof(float));
 
-    inferBaseModel(model, inTensor);
+    EXPECT_NO_THROW(inferBaseModel(model, inTensor, getCompilerType()));
 }
 
 using OpenVinoDmaHeap = OpenVinoBasic;
 
-TEST_F(OpenVinoDmaHeap, RemoteTensorFromDmaBufAsNpuModelInput) {
+INSTANTIATE_TEST_SUITE_P(,
+                         OpenVinoDmaHeap,
+                         ::testing::Values(ov::intel_npu::CompilerType::DRIVER,
+                                           ov::intel_npu::CompilerType::PLUGIN),
+                         testing::PrintToStringParamName());
+
+TEST_P(OpenVinoDmaHeap, RemoteTensorFromDmaBufAsNpuModelInput) {
     DmaHeapSystem dmaHeapSystem;
     CHECK_DMA_HEAP_SUPPORT(dmaHeapSystem);
 
@@ -276,10 +349,10 @@ TEST_F(OpenVinoDmaHeap, RemoteTensorFromDmaBufAsNpuModelInput) {
     // Only NPU Remote Tensor allows to use `get()` method to access underlying buffer
     memcpy(inTensor.get(), refInData.data(), refInData.size() * sizeof(float));
 
-    inferBaseModel(model, inTensor);
+    EXPECT_NO_THROW(inferBaseModel(model, inTensor, getCompilerType()));
 }
 
-TEST_F(OpenVinoBasic, RemoteTensorFromFileAsNpuModelInput) {
+TEST_P(OpenVinoBasic, RemoteTensorFromFileAsNpuModelInput) {
     auto model = createBaseModel();
 
     auto fd = open("input_tensor.bin", O_CREAT | O_RDWR | O_TRUNC, S_IRUSR | S_IWUSR);
@@ -298,6 +371,133 @@ TEST_F(OpenVinoBasic, RemoteTensorFromFileAsNpuModelInput) {
                                               model->input().get_shape(),
                                               fileDescriptor);
 
-    inferBaseModel(model, inTensor);
+    EXPECT_NO_THROW(inferBaseModel(model, inTensor, getCompilerType()));
     unlink("input_tensor.bin");
+}
+
+class OpenVinoCache : public OpenVinoBasic {
+  public:
+    void SetUp() override {
+        OpenVinoTest::SetUp();
+
+        if (getCompilerType() == ov::intel_npu::CompilerType::PLUGIN) {
+            if (!isPluginCompilerInstalled()) {
+                GTEST_SKIP() << "NPU plugin compiler is not installed";
+            }
+        }
+
+        std::filesystem::remove_all(ovCacheDirectory);
+        std::filesystem::create_directories(ovCacheDirectory);
+        std::filesystem::create_directories(driverCacheDirectory);
+        clearDirectory(driverCacheDirectory);
+    }
+
+    void TearDown() override {
+        std::filesystem::remove_all(ovCacheDirectory);
+        OpenVinoTest::TearDown();
+    }
+
+    static void clearDirectory(const std::filesystem::path &dir) {
+        if (!std::filesystem::is_directory(dir))
+            return;
+        for (auto const &file : std::filesystem::directory_iterator{dir})
+            std::filesystem::remove(file);
+    }
+
+    static size_t countFiles(const std::filesystem::path &dir) {
+        if (!std::filesystem::is_directory(dir))
+            return 0;
+        return static_cast<size_t>(std::distance(std::filesystem::directory_iterator{dir},
+                                                 std::filesystem::directory_iterator{}));
+    }
+
+    const std::filesystem::path driverCacheDirectory = []() {
+        const char *env = getenv("HOME");
+        if (env)
+            return std::filesystem::path(env) / ".cache/ze_intel_npu_cache";
+        return std::filesystem::current_path() / ".cache/ze_intel_npu_cache";
+    }();
+    const std::filesystem::path ovCacheDirectory =
+        std::filesystem::temp_directory_path() / "ov_cache_test";
+};
+
+INSTANTIATE_TEST_SUITE_P(,
+                         OpenVinoCache,
+                         ::testing::Values(ov::intel_npu::CompilerType::DRIVER,
+                                           ov::intel_npu::CompilerType::PLUGIN),
+                         testing::PrintToStringParamName());
+
+TEST_P(OpenVinoCache, DriverCacheIsUsed) {
+    const auto compilerType = GetParam();
+    auto model = createBaseModel();
+
+    auto inTensor = ov::Tensor(model->input().get_element_type(), model->input().get_shape());
+    memcpy(inTensor.data<float>(), refInData.data(), refInData.size() * sizeof(float));
+
+    auto expectOvCacheFiles = 0u;
+    auto expectDriverCacheFiles = compilerType == ov::intel_npu::CompilerType::DRIVER ? 1u : 0u;
+    ov::CompiledModel compiledModel;
+
+    ASSERT_NO_THROW(
+        compiledModel =
+            core.compile_model(model, "NPU", ov::intel_npu::compiler_type(compilerType)));
+    EXPECT_NO_THROW(inferCompiledBaseModel(compiledModel, inTensor));
+    EXPECT_EQ(compiledModel.get_property(ov::loaded_from_cache), false);
+    EXPECT_EQ(countFiles(ovCacheDirectory), expectOvCacheFiles);
+    EXPECT_EQ(countFiles(driverCacheDirectory), expectDriverCacheFiles);
+
+    auto driverCacheWriteTime = std::filesystem::file_time_type::min();
+    if (compilerType == ov::intel_npu::CompilerType::DRIVER) {
+        driverCacheWriteTime = std::filesystem::last_write_time(
+            *std::filesystem::directory_iterator{driverCacheDirectory});
+    }
+
+    ASSERT_NO_THROW(
+        compiledModel =
+            core.compile_model(model, "NPU", ov::intel_npu::compiler_type(compilerType)));
+    EXPECT_NO_THROW(inferCompiledBaseModel(compiledModel, inTensor));
+    EXPECT_EQ(compiledModel.get_property(ov::loaded_from_cache), false);
+    EXPECT_EQ(countFiles(ovCacheDirectory), expectOvCacheFiles);
+    EXPECT_EQ(countFiles(driverCacheDirectory), expectDriverCacheFiles);
+
+    if (compilerType == ov::intel_npu::CompilerType::DRIVER) {
+        EXPECT_EQ(std::filesystem::last_write_time(
+                      *std::filesystem::directory_iterator{driverCacheDirectory}),
+                  driverCacheWriteTime);
+    }
+}
+
+TEST_P(OpenVinoCache, OvCacheIsUsed) {
+    const auto compilerType = GetParam();
+    auto model = createBaseModel();
+    core.set_property(ov::cache_dir(ovCacheDirectory.string()));
+
+    auto inTensor = ov::Tensor(model->input().get_element_type(), model->input().get_shape());
+    memcpy(inTensor.data<float>(), refInData.data(), refInData.size() * sizeof(float));
+
+    auto expectOvCacheFiles = 1u;
+    auto expectDriverCacheFiles = 0;
+    ov::CompiledModel compiledModel;
+
+    ASSERT_NO_THROW(
+        compiledModel =
+            core.compile_model(model, "NPU", ov::intel_npu::compiler_type(compilerType)));
+    EXPECT_NO_THROW(inferCompiledBaseModel(compiledModel, inTensor));
+    EXPECT_EQ(compiledModel.get_property(ov::loaded_from_cache), false);
+    ASSERT_EQ(countFiles(ovCacheDirectory), expectOvCacheFiles);
+    EXPECT_EQ(countFiles(driverCacheDirectory), expectDriverCacheFiles);
+
+    auto ovCacheWriteTime =
+        std::filesystem::last_write_time(*std::filesystem::directory_iterator{ovCacheDirectory});
+
+    ASSERT_NO_THROW(
+        compiledModel =
+            core.compile_model(model, "NPU", ov::intel_npu::compiler_type(compilerType)));
+    EXPECT_NO_THROW(inferCompiledBaseModel(compiledModel, inTensor));
+    EXPECT_EQ(compiledModel.get_property(ov::loaded_from_cache), true);
+    ASSERT_EQ(countFiles(ovCacheDirectory), expectOvCacheFiles);
+    EXPECT_EQ(countFiles(driverCacheDirectory), expectDriverCacheFiles);
+    EXPECT_EQ(
+        std::filesystem::last_write_time(*std::filesystem::directory_iterator{ovCacheDirectory}),
+        ovCacheWriteTime);
 }

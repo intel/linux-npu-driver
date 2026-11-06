@@ -23,7 +23,7 @@
 /*
  * Minor version changes when API backward compatibility is preserved.
  */
-#define VPU_JSM_API_VER_MINOR 41
+#define VPU_JSM_API_VER_MINOR 43
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
@@ -244,6 +244,18 @@ enum vpu_job_scheduling_priority_band {
 };
 
 /**
+ * QOS properties
+ */
+enum vpu_job_qos_level {
+    VPU_JOB_QOS_DEFAULT = 0,
+    VPU_JOB_QOS_HIGH = 1,
+    VPU_JOB_QOS_MEDIUM = 2,
+    VPU_JOB_QOS_LOW = 3,
+    VPU_JOB_QOS_ECO = 6,
+    VPU_JOB_QOS_UTILITY = 7,
+};
+
+/**
  * Job format.
  * Jobs defines the actual workloads to be executed by a given engine.
  */
@@ -254,12 +266,7 @@ struct vpu_job {
     volatile uint32_t job_id;
     /** Flags bit field, see VPU_JOB_FLAGS_* above */
     volatile uint32_t flags;
-    /**
-     * Doorbell ring timestamp taken by KMD from SoC's global system clock, in
-     * microseconds. NPU can convert this value to its own fixed clock's timebase,
-     * to match other profiling timestamps.
-     */
-    volatile uint64_t doorbell_timestamp;
+    uint64_t reserved_0;
     /** Extra id for job tracking, used only in the firmware perf traces */
     volatile uint64_t host_tracking_id;
     /** Address of the primary preemption buffer to use for this job */
@@ -270,7 +277,7 @@ struct vpu_job {
     volatile uint32_t secondary_preempt_buf_size;
     /** Address of secondary preemption buffer to use for this job */
     volatile uint64_t secondary_preempt_buf_addr;
-    uint64_t reserved_0;
+    uint64_t reserved_1;
 };
 typedef struct vpu_job vpu_job_t;
 
@@ -1278,8 +1285,7 @@ struct vpu_ipc_msg_payload_hws_set_context_sched_properties {
     uint32_t realtime_priority_level;
     /** Priority relative to other contexts in the same process */
     int32_t in_process_priority;
-    /** Zero padding / Reserved */
-    uint32_t reserved_1;
+    uint32_t qos;
     /**
      * Context quantum relative to other contexts of same priority in the same process
      * Minimum value supported by NPU is 1ms (10000 in 100ns units).

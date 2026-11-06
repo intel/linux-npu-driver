@@ -94,7 +94,7 @@ static void print_help(const char *extraMessage, const char *appName) {
            "  -p/--pause_after_test_ms [PAUSE_MS]\n"
            "       Add delay in ms after test completion\n"
            "  -d/--device [NUM]\n"
-           "       Select device /dev/accel/accelN (n=0 for PF (default), n>0 for VFn)\n"
+           "       Select device /dev/accel/accelN\n"
            "  -u/--disable_unbind\n"
            "       Disable unbinding the device from the driver\n"
            "  -k/--kernel_log\n"

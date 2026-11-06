@@ -14,7 +14,6 @@
 #include "level_zero_driver/source/cmdqueue.hpp"
 #include "level_zero_driver/source/context.hpp"
 #include "level_zero_driver/source/device.hpp"
-#include "level_zero_driver/source/driver.hpp"
 #include "level_zero_driver/source/driver_handle.hpp"
 #include "level_zero_driver/source/ext/disk_cache.hpp"
 #include "level_zero_driver/unit_tests/mocks/mock_driver.hpp"
@@ -63,16 +62,12 @@ struct DeviceFixture {
             setenv("NPU_ALT_DEPENDENCY_PATH", binaryDir.c_str(), 0);
         }
 
-        ASSERT_EQ(ZE_RESULT_SUCCESS, L0::init(0));
         driver.initializeEnvVariables();
         driver.diskCache = std::make_unique<DiskCache>(osInfc);
 
         auto vpuDevice = VPU::MockVPUDevice::createWithDefaultHardwareInfo(osInfc);
         mockVpuDevice = vpuDevice.get();
-        std::vector<std::unique_ptr<VPU::VPUDevice>> devices;
-        devices.push_back(std::move(vpuDevice));
-
-        driverHandle = std::make_unique<L0::DriverHandle>(std::move(devices));
+        driverHandle = std::make_unique<L0::DriverHandle>(std::move(vpuDevice));
         device = driverHandle->devices[0].get();
     }
 

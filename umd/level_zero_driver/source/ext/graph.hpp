@@ -55,7 +55,19 @@ struct GraphBuildLog : _ze_graph_build_log_handle_t, IContextObject {
 };
 
 struct GraphArgumentProperties {
-    ze_graph_argument_properties_3_t properties;
+    char name[ZE_MAX_GRAPH_ARGUMENT_NAME];
+    ze_graph_argument_type_t type;
+    uint32_t dims[ZE_MAX_GRAPH_ARGUMENT_DIMENSIONS_SIZE_8];
+    ze_graph_argument_precision_t networkPrecision;
+    ze_graph_argument_layout_t networkLayout;
+    ze_graph_argument_precision_t devicePrecision;
+    ze_graph_argument_layout_t deviceLayout;
+    float quantReverseScale;
+    uint8_t quantZeroPoint;
+    uint32_t dims_count;
+    char debug_friendly_name[ZE_MAX_GRAPH_ARGUMENT_NAME];
+    char associated_tensor_names[ZE_MAX_GRAPH_TENSOR_NAMES_SIZE][ZE_MAX_GRAPH_ARGUMENT_NAME];
+    uint32_t associated_tensor_names_count;
     bool supportsDynamicStrides;
 };
 
@@ -86,6 +98,12 @@ struct Graph : _ze_graph_handle_t, IContextObject {
                                        ze_graph_argument_properties_2_t *pGraphArgProps);
     ze_result_t getArgumentProperties3(uint32_t argIndex,
                                        ze_graph_argument_properties_3_t *pGraphArgProps);
+    ze_result_t getArgumentProperties4(uint32_t argIndex,
+                                       ze_graph_argument_properties_4_t *pGraphArgProps);
+    ze_result_t getArgumentNames(uint32_t argIndex,
+                                 ze_graph_argument_name_type_t nameType,
+                                 size_t *pSize,
+                                 char *pNames);
     ze_result_t getArgumentMetadata(uint32_t argIndex,
                                     ze_graph_argument_metadata_t *pGraphArgMetadata);
 
@@ -114,6 +132,10 @@ struct Graph : _ze_graph_handle_t, IContextObject {
     static ze_result_t getLogString(uint32_t *pSize, char *pBuildLog);
 
     static ze_result_t getSupportedOptions(ze_device_handle_t hDevice,
+                                           ze_device_compiler_info_t type,
+                                           size_t *pSize,
+                                           char *pSupportedOptions);
+    static ze_result_t getSupportedOptions(ze_device_handle_t hDevice,
                                            ze_npu_options_type_t type,
                                            size_t *pSize,
                                            char *pSupportedOptions);
@@ -133,7 +155,7 @@ struct Graph : _ze_graph_handle_t, IContextObject {
     friend std::optional<const void *>
     gatherArgumentValues(const void *pNext, size_t argIndex, Graph &graph);
     friend std::optional<void *>
-    setArgumentProperties(void *pNext, size_t argIndex, const Graph &graph);
+    gatherArgumentProperties(void *pNext, size_t argIndex, const Graph &graph);
 
     Context *pContext;
     VPU::VPUDeviceContext *ctx;

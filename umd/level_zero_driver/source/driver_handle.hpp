@@ -25,6 +25,7 @@ class VPUDevice;
 namespace L0 {
 
 struct DriverHandle : _ze_driver_handle_t {
+    DriverHandle(std::unique_ptr<VPU::VPUDevice> vpuDevice);
     DriverHandle(std::vector<std::unique_ptr<VPU::VPUDevice>> vpuDevices);
 
     ze_result_t createContext(const ze_context_desc_t *desc, ze_context_handle_t *phContext);
@@ -43,9 +44,6 @@ struct DriverHandle : _ze_driver_handle_t {
     }
 
     inline ze_driver_handle_t toHandle() { return this; }
-
-    static std::unique_ptr<DriverHandle>
-    create(std::vector<std::unique_ptr<VPU::VPUDevice>> devices);
 
     ze_result_t initialize(std::vector<std::unique_ptr<VPU::VPUDevice>> vpuDevices);
 

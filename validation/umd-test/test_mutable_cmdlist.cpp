@@ -12,7 +12,6 @@ class MutableCmdList : public UmdTest {
   public:
     void SetUp() override {
         UmdTest::SetUp();
-
         ze_mutable_command_list_exp_properties_t mutableCmdListProps{
             .stype = ZE_STRUCTURE_TYPE_MUTABLE_COMMAND_LIST_EXP_PROPERTIES,
             .pNext = nullptr,
@@ -817,9 +816,7 @@ verifyOutputs(const std::vector<float16 *> &inputs,
 // ZE_MUTABLE_COMMAND_EXP_FLAG_GRAPH_ARGUMENTS returns next
 // GraphExecute command id instead of id of next appended command.
 TEST_F(MutableCmdList, GetNextInferenceId) {
-    if (isVPU37xx()) {
-        SKIP_("Tensor strides feature is not available on NPU37xx");
-    }
+    SKIP_VPU37XX("Tensor stride support is unavailable on NPU37xx");
 
     std::vector<uint32_t> shape = {8, 12, 20};
     std::vector<uint32_t> slice = {2, 3, 4};

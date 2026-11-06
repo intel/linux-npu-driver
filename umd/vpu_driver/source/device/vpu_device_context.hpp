@@ -21,6 +21,8 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -32,11 +34,14 @@ class ScratchCacheFactory {
   public:
     ScratchCacheFactory() = default;
 
-    std::shared_ptr<VPUBufferObject> acquire(VPUDeviceContext *ctx, size_t size);
+    std::shared_ptr<VPUBufferObject>
+    acquire(VPUDeviceContext *ctx, size_t size, VPUBufferObject::Type type);
     void prune(size_t size);
+    void prune(size_t size, VPUBufferObject::Type type);
 
   private:
-    std::vector<std::shared_ptr<VPUBufferObject>> scratchBuffers;
+    std::unordered_map<VPUBufferObject::Type, std::vector<std::shared_ptr<VPUBufferObject>>>
+        scratchBuffers;
     std::mutex scratchMutex;
 };
 
@@ -86,6 +91,7 @@ class VPUDeviceContext {
     bool freeMemAlloc(void *ptr);
 
     std::shared_ptr<VPUBufferObject> findBufferObject(const void *ptr) const;
+    std::shared_ptr<VPUBufferObject> findBufferObjectLocked(const void *ptr) const;
 
     /**
      * Returns page aligned size.
@@ -171,16 +177,19 @@ class VPUDeviceContext {
     void printCopyDescriptor(void *desc, vpu_cmd_header_t *cmd);
 
     // Scratch cache management
-    std::shared_ptr<VPUBufferObject> scratchCacheAcquire(size_t size) {
-        return scratchCache.acquire(this, size);
+    std::shared_ptr<VPUBufferObject> scratchCacheAcquire(size_t size, VPUBufferObject::Type type) {
+        return scratchCache.acquire(this, size, type);
     }
-    void scratchCachePrune(size_t size) { return scratchCache.prune(size); }
-    void scratchCachePreload(size_t size) {
+    void scratchCachePrune(size_t size) { scratchCache.prune(size); }
+    void scratchCachePrune(size_t size, VPUBufferObject::Type type) {
+        scratchCache.prune(size, type);
+    }
+    void scratchCachePreload(size_t size, VPUBufferObject::Type type) {
         if (size == 0) {
             return;
         }
-        scratchCache.prune(size - 1);
-        scratchCache.acquire(this, size);
+        scratchCachePrune(size - 1, type);
+        scratchCacheAcquire(size, type);
     }
 
     std::shared_ptr<VPUBufferObject> preemptionCacheAcquire() {
@@ -199,6 +208,35 @@ class VPUDeviceContext {
 
     std::shared_ptr<VPUBufferObject>
     createUntrackedBufferObjectFromUserPtr(void *userPtr, size_t size, bool readOnly);
+
+    bool makeBufferResident(void *ptr, size_t size) {
+        const std::lock_guard<std::mutex> lock(mtx);
+        auto bo = findBufferObjectLocked(ptr);
+        if (!bo || bo->getAllocSize() < size) {
+            return false;
+        }
+        residentSet.insert(bo->getHandle());
+        return true;
+    }
+
+    bool evictBuffer(void *ptr, size_t size) {
+        const std::lock_guard<std::mutex> lock(mtx);
+        auto bo = findBufferObjectLocked(ptr);
+        if (!bo || bo->getAllocSize() < size) {
+            return false;
+        }
+        evictBufferLocked(bo);
+        return true;
+    }
+
+    void evictBufferLocked(const std::shared_ptr<VPUBufferObject> &bo) {
+        residentSet.erase(bo->getHandle());
+    }
+
+    std::unordered_set<uint32_t> getResidentSet() {
+        const std::lock_guard<std::mutex> lock(mtx);
+        return residentSet;
+    }
 
   private:
     /**
@@ -224,6 +262,7 @@ class VPUDeviceContext {
 
     ScratchCacheFactory scratchCache;
     PreemptionCacheFactory preemptionCache;
+    std::unordered_set<uint32_t> residentSet;
 };
 
 } // namespace VPU

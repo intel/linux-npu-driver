@@ -238,6 +238,20 @@ ze_result_t Context::releaseMemory() {
     return ZE_RESULT_SUCCESS;
 }
 
+ze_result_t Context::makeMemoryResident(void *ptr, size_t size) {
+    if (size == 0 || !ctx->makeBufferResident(ptr, size)) {
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+    return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t Context::evictMemory(void *ptr, size_t size) {
+    if (size == 0 || !ctx->evictBuffer(ptr, size)) {
+        return ZE_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+    return ZE_RESULT_SUCCESS;
+}
+
 void Context::setIdle() {
     std::unique_lock<std::mutex> lock(cleanerMutex);
     if (resourceCleaner) {

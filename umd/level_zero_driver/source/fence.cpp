@@ -57,13 +57,13 @@ ze_result_t Fence::waitForJobs(std::chrono::steady_clock::time_point absTimePoin
         return ZE_RESULT_SUCCESS;
 
     ze_result_t result = pCmdQueue->waitForJobs(absTimePoint, trackedJobs);
-    if (result != ZE_RESULT_SUCCESS)
+    if (result == ZE_RESULT_NOT_READY)
         return result;
 
     trackedJobs.clear();
     signaled = true;
 
-    return ZE_RESULT_SUCCESS;
+    return result;
 }
 
 } // namespace L0

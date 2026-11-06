@@ -169,16 +169,28 @@ bool VPUInferenceExecute::update(VPUCommandBuffer *commandBuffer) {
     return true;
 }
 
-size_t VPUInferenceExecute::getSharedScratchSize() {
+const std::unordered_map<VPUBufferObject::Type, size_t> &
+VPUInferenceExecute::getSharedScratchSize() {
     return parser->getSharedScratchSize();
 }
 
-void VPUInferenceExecute::updateScratchBuffer(VPUCommandBuffer *cmdBuffer,
-                                              std::shared_ptr<VPUBufferObject> scratchBuffer) {
-    if (getSharedScratchSize() == 0)
-        return;
+void VPUInferenceExecute::updateScratchBuffer(
+    VPUCommandBuffer *cmdBuffer,
+    const std::unordered_map<VPUBufferObject::Type, std::shared_ptr<VPUBufferObject>>
+        &scratchBuffers) {
+    parser->updateSharedScratchBuffers(hpi, scratchBuffers);
+    for (const auto &[type, scratchBuffer] : scratchBuffers) {
+        uint32_t handle =
+            lastScratchBoHandle.contains(type) ? lastScratchBoHandle[type] : UINT32_MAX;
+        cmdBuffer->replaceBufferHandles({handle}, {scratchBuffer->getHandle()});
+        lastScratchBoHandle[type] = scratchBuffer->getHandle();
+    }
+}
 
-    parser->updateSharedScratchBuffers(hpi, scratchBuffer);
-    cmdBuffer->replaceBufferHandles({lastScratchBoHandle}, {scratchBuffer->getHandle()});
-    lastScratchBoHandle = scratchBuffer->getHandle();
+const char *VPUInferenceExecute::getBlobName() const {
+    if (parser == nullptr) {
+        LOG_E("ElfParser is nullptr");
+        return "UNKNOWN";
+    }
+    return parser->getBlobName();
 }

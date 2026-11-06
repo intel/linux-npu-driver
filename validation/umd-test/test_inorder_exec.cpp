@@ -7,7 +7,9 @@
 
 #include "graph_utilities.hpp"
 
+#include <chrono>
 #include <future>
+#include <thread>
 
 class InOrderExecution : public UmdTest {
   public:
@@ -421,6 +423,52 @@ TEST_F(InOrderExecution, ResendInOrderCmdLists) {
     ASSERT_EQ(memcmp(mem1.get(), mem2.get(), allocSize), 0);
 }
 
+TEST_F(InOrderExecution, ResubmitHalfCmdLists) {
+    const size_t iterations = 64;
+    const size_t allocSize = iterations * sizeof(uint64_t);
+
+    auto mem = AllocSharedMemory(allocSize);
+
+    for (size_t i = 0; i < iterations; i++) {
+        auto scopedCmdList = zeScope::commandListCreate(zeContext, zeDevice, cmdListDesc, ret);
+        ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+        ASSERT_EQ(zeCommandListAppendWriteGlobalTimestamp(scopedCmdList.get(),
+                                                          static_cast<uint64_t *>(mem.get()) + i,
+                                                          nullptr,
+                                                          0,
+                                                          nullptr),
+                  ZE_RESULT_SUCCESS);
+        ASSERT_EQ(zeCommandListClose(scopedCmdList.get()), ZE_RESULT_SUCCESS);
+        scopedCmdLists.push_back(scopedCmdList);
+        cmdListHandlers.push_back(scopedCmdList.get());
+    }
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(inOrderQueue,
+                                                cmdListHandlers.size(),
+                                                cmdListHandlers.data(),
+                                                nullptr),
+              ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandQueueSynchronize(inOrderQueue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+
+    int index = 0;
+    scopedCmdLists.erase(std::remove_if(scopedCmdLists.begin(),
+                                        scopedCmdLists.end(),
+                                        [&index](auto) { return index++ % 2 == 0; }),
+                         scopedCmdLists.end());
+    index = 0;
+    cmdListHandlers.erase(std::remove_if(cmdListHandlers.begin(),
+                                         cmdListHandlers.end(),
+                                         [&index](auto) { return index++ % 2 == 0; }),
+                          cmdListHandlers.end());
+
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(inOrderQueue,
+                                                cmdListHandlers.size(),
+                                                cmdListHandlers.data(),
+                                                nullptr),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandQueueSynchronize(inOrderQueue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+}
+
 class InOrderInference : public InOrderExecution, public ::testing::WithParamInterface<YAML::Node> {
   public:
     void SetUp() override {
@@ -525,4 +573,119 @@ TEST_P(InOrderInference, RunGraphInOrderModeWithWorkloadType) {
     ASSERT_EQ(zeCommandQueueSynchronize(inOrderQueue, graphSyncTimeout), ZE_RESULT_SUCCESS);
     ASSERT_TRUE(graph->checkResults());
     ASSERT_GT(*ts, 0ULL);
+}
+
+/* Test uses two command queues together with CounterBasedEvents to verify in order execution.
+ * First command queue (default mode, does not guarantee ordering by itself) executes three
+ * separate command lists: timestamp, inference execution and timestamp again. Ordering between
+ * all of these commands (including the hand-off from the second queue) is enforced purely by
+ * CounterBasedEvents.
+ * Second command queue (in order mode) executes a two command lists containing only a
+ * timestamp commands. It is only synchronized to last command of first command queue,
+ * no internal synchronization between command lists.
+ * It is expected that inference produces correct results and that ts1 < ts2 < ts3 < ts4.
+ */
+TEST_P(InOrderInference, RunGraphInOrderModeWithCounterBasedEvent) {
+    SKIP_NO_COUNTER_BASED_EVENTS();
+
+    ze_event_counter_based_desc_t eventDesc = {ZE_STRUCTURE_TYPE_EVENT_COUNTER_BASED_DESC,
+                                               nullptr,
+                                               ZE_EVENT_COUNTER_BASED_FLAG_NON_IMMEDIATE,
+                                               ZE_EVENT_SCOPE_FLAG_HOST,
+                                               ZE_EVENT_SCOPE_FLAG_HOST};
+
+    ze_event_handle_t hEvent1 = nullptr;
+    auto scopedEvent1 = zeScope::counterBasedEventCreate(zeContext, zeDevice, eventDesc, ret);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+    hEvent1 = scopedEvent1.get();
+    ASSERT_NE(hEvent1, nullptr);
+
+    auto tsMem = AllocSharedMemory(sizeof(uint64_t) * 4);
+    ASSERT_NE(tsMem.get(), nullptr);
+    memset(tsMem.get(), 0, sizeof(uint64_t) * 4);
+    auto *ts1 = static_cast<uint64_t *>(tsMem.get());
+    auto *ts2 = ts1 + 1;
+    auto *ts3 = ts1 + 2;
+    auto *ts4 = ts1 + 3;
+
+    /* CommandQueue in default mode: three command lists chained via CounterBasedEvents so that
+     * they execute in order: timestamp1 -> inference -> timestamp2.
+     */
+    auto scopedDefaultQueue = zeScope::commandQueueCreate(zeContext, zeDevice, cmdQueueDesc, ret);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+
+    auto scopedTsCmdList1 = zeScope::commandListCreate(zeContext, zeDevice, cmdListDesc, ret);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+    ASSERT_EQ(
+        zeCommandListAppendWriteGlobalTimestamp(scopedTsCmdList1.get(), ts1, hEvent1, 0, nullptr),
+        ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(scopedTsCmdList1.get()), ZE_RESULT_SUCCESS);
+
+    auto scopedInferenceCmdList = zeScope::commandListCreate(zeContext, zeDevice, cmdListDesc, ret);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeGraphDDITableExt->pfnAppendGraphExecute(scopedInferenceCmdList.get(),
+                                                        graph->handle,
+                                                        nullptr,
+                                                        hEvent1,
+                                                        1,
+                                                        &hEvent1),
+              ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(scopedInferenceCmdList.get()), ZE_RESULT_SUCCESS);
+
+    auto scopedTsCmdList2 = zeScope::commandListCreate(zeContext, zeDevice, cmdListDesc, ret);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+    ASSERT_EQ(
+        zeCommandListAppendWriteGlobalTimestamp(scopedTsCmdList2.get(), ts2, hEvent1, 1, &hEvent1),
+        ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(scopedTsCmdList2.get()), ZE_RESULT_SUCCESS);
+
+    std::vector<ze_command_list_handle_t> firstQueueCmdLists = {scopedTsCmdList1.get(),
+                                                                scopedInferenceCmdList.get(),
+                                                                scopedTsCmdList2.get()};
+
+    /* Second queue (in order mode): timestamp3, timestamp4. This command queue is not chained
+     * internally but first command waits for hEvent1
+     */
+    auto scopedTsCmdList3 = scopedList;
+    ASSERT_EQ(
+        zeCommandListAppendWriteGlobalTimestamp(scopedTsCmdList3.get(), ts3, nullptr, 1, &hEvent1),
+        ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(scopedTsCmdList3.get()), ZE_RESULT_SUCCESS);
+
+    auto scopedTsCmdList4 = zeScope::commandListCreate(zeContext, zeDevice, cmdListDesc, ret);
+    ASSERT_EQ(ret, ZE_RESULT_SUCCESS);
+    ASSERT_EQ(
+        zeCommandListAppendWriteGlobalTimestamp(scopedTsCmdList4.get(), ts4, nullptr, 0, nullptr),
+        ZE_RESULT_SUCCESS);
+    ASSERT_EQ(zeCommandListClose(scopedTsCmdList4.get()), ZE_RESULT_SUCCESS);
+
+    std::vector<ze_command_list_handle_t> inorderQueueCmdLists = {scopedTsCmdList3.get(),
+                                                                  scopedTsCmdList4.get()};
+
+    /* Execute both command queues */
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(inOrderQueue,
+                                                inorderQueueCmdLists.size(),
+                                                &inorderQueueCmdLists[0],
+                                                nullptr),
+              ZE_RESULT_SUCCESS);
+    /* The queue should wait, the timestamps not set */
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    EXPECT_EQ(*ts3, 0ULL);
+    EXPECT_EQ(*ts4, 0ULL);
+    ASSERT_EQ(zeCommandQueueExecuteCommandLists(scopedDefaultQueue.get(),
+                                                firstQueueCmdLists.size(),
+                                                firstQueueCmdLists.data(),
+                                                nullptr),
+              ZE_RESULT_SUCCESS);
+
+    ASSERT_EQ(zeCommandQueueSynchronize(inOrderQueue, graphSyncTimeout), ZE_RESULT_SUCCESS);
+
+    ASSERT_TRUE(graph->checkResults());
+    ASSERT_GT(*ts1, 0ULL);
+    ASSERT_LT(*ts1, *ts2);
+    ASSERT_LT(*ts2, *ts3);
+    ASSERT_LT(*ts3, *ts4);
+    /* Check also status of scopedFirstQueue */
+    EXPECT_EQ(zeCommandQueueSynchronize(scopedDefaultQueue.get(), graphSyncTimeout),
+              ZE_RESULT_SUCCESS);
 }

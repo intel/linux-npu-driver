@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (c) 2021-2025, Intel Corporation.
+ * Copyright (c) 2021-2026, Intel Corporation.
  */
 
 #ifndef VPU_JSM_JOB_CMD_API_H
@@ -27,7 +27,7 @@
  * Minor version changes when API backward compatibility is preserved.
  * Resets to 0 if Major version is incremented.
  */
-#define VPU_JSM_JOB_CMD_API_VER_MINOR 15
+#define VPU_JSM_JOB_CMD_API_VER_MINOR 17
 
 /*
  * API header changed (field names, documentation, formatting) but API itself has not been changed
@@ -483,6 +483,15 @@ typedef struct vpu_cmd_timestamp {
     uint64_t timestamp_address;
 } vpu_cmd_timestamp_t;
 
+/*
+ * Fence flags bit masks.
+ */
+enum {
+    /* Fence signal only: increment the current fence value by vpu_cmd_fence.value
+     * instead of overwriting it. Not valid for fence wait. */
+    VPU_CMD_FENCE_SIGNAL_INCREMENT_BY_N_MASK = (1u << 0),
+};
+
 /**
  * @brief Fence Wait and Fence Signal command format
  *
@@ -492,8 +501,8 @@ typedef struct vpu_cmd_timestamp {
 typedef struct vpu_cmd_fence {
     /** Common command header */
     vpu_cmd_header_t header;
-    /** Reserved */
-    uint32_t reserved_0;
+    /** Fence flags bitmask, see VPU_CMD_FENCE_*_MASK. 0 means default wait/signal behavior. */
+    uint32_t flags;
     /**
      * Offset from the base of the fence heap for the current fence value
      *
@@ -509,9 +518,9 @@ typedef struct vpu_cmd_fence {
     /**
      * @brief Fence value to wait for or signal.
      *
-     * - For @ref VPU_CMD_FENCE_WAIT, this is the value to wait for.
-     * - For @ref VPU_CMD_FENCE_SIGNAL, this is the value to write to the fence
-     *   address.
+     * For @ref VPU_CMD_FENCE_WAIT, this is the value to wait for. For @ref
+     * VPU_CMD_FENCE_SIGNAL, this is the value to write to the fence address.
+     * See @ref vpu_cmd_fence_t.flags for alternative behaviour.
      */
     uint64_t value;
 } vpu_cmd_fence_t;

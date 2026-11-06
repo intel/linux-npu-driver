@@ -9,6 +9,7 @@ target_sources(${TARGET_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/command.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/command_buffer.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/command_buffer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/command_buffer_trace.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/job.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/job.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/event_command.hpp

@@ -637,6 +637,105 @@ trace_zeGraphGetArgumentProperties3(ze_result_t ret,
 }
 
 inline std::string
+_trace_zeGraphGetArgumentProperties4(ze_graph_handle_t hGraph,
+                                     uint32_t argIndex,
+                                     ze_graph_argument_properties_4_t *pGraphArgumentProperties) {
+    std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphGetArgumentProperties4(";
+    ss << std::hex << std::showbase;
+    ss << "hGraph: " << hGraph;
+    ss << ", argIndex: " << argIndex;
+    if (pGraphArgumentProperties == nullptr) {
+        ss << ", pGraphArgumentProperties: nullptr";
+    } else {
+        ss << ", pGraphArgumentProperties {";
+        ss << "stype: " << pGraphArgumentProperties->stype;
+        ss << ", pNext: " << pGraphArgumentProperties->pNext;
+        ss << ", type: " << pGraphArgumentProperties->type;
+        ss << ", precision: " << pGraphArgumentProperties->precision;
+        ss << ", layout: " << pGraphArgumentProperties->layout;
+        ss << ", dims: " << pGraphArgumentProperties->dims[0] << " "
+           << pGraphArgumentProperties->dims[1] << " " << pGraphArgumentProperties->dims[2] << " "
+           << pGraphArgumentProperties->dims[3] << " " << pGraphArgumentProperties->dims[4] << " "
+           << pGraphArgumentProperties->dims[5] << " " << pGraphArgumentProperties->dims[6] << " "
+           << pGraphArgumentProperties->dims[7];
+        ss << "}";
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void
+trace_zeGraphGetArgumentProperties4(ze_graph_handle_t hGraph,
+                                    uint32_t argIndex,
+                                    ze_graph_argument_properties_4_t *pGraphArgumentProperties) {
+    TRACE_EVENT_BEGIN("API", "zeGraphGetArgumentProperties4");
+    if (IS_API_EXT_TRACE())
+        std::cerr << _trace_zeGraphGetArgumentProperties4(hGraph,
+                                                          argIndex,
+                                                          pGraphArgumentProperties) +
+                         "..\n";
+}
+inline void
+trace_zeGraphGetArgumentProperties4(ze_result_t ret,
+                                    ze_graph_handle_t hGraph,
+                                    uint32_t argIndex,
+                                    ze_graph_argument_properties_4_t *pGraphArgumentProperties) {
+    TRACE_EVENT_END("API");
+    if (IS_API_EXT_TRACE())
+        std::cerr << _trace_zeGraphGetArgumentProperties4(hGraph,
+                                                          argIndex,
+                                                          pGraphArgumentProperties) +
+                         trace_ze_result_t(ret);
+}
+
+inline std::string _trace_zeGraphGetArgumentNames(ze_graph_handle_t hGraph,
+                                                  uint32_t argIndex,
+                                                  ze_graph_argument_name_type_t nameType,
+                                                  size_t *pSize,
+                                                  char *pNames) {
+    std::stringstream ss;
+    ss << "NPU_LOG: [API_EXT][tid:" << gettid() << "] zeGraphGetArgumentNames(";
+    ss << std::hex << std::showbase;
+    ss << "hGraph: " << hGraph;
+    ss << ", argIndex: " << argIndex;
+    ss << ", nameType: " << nameType;
+    if (pSize == nullptr) {
+        ss << ", pSize: nullptr";
+    } else {
+        ss << ", pSize: " << *pSize;
+    }
+    if (pNames == nullptr) {
+        ss << ", pNames: nullptr";
+    } else {
+        const size_t size = (pSize != nullptr) ? *pSize : 0;
+        ss << ", pNames: " << trace_ascii_array(pNames, std::min(size, size_t{256})).str();
+    }
+    ss << ")";
+    return ss.str();
+}
+inline void trace_zeGraphGetArgumentNames(ze_graph_handle_t hGraph,
+                                          uint32_t argIndex,
+                                          ze_graph_argument_name_type_t nameType,
+                                          size_t *pSize,
+                                          char *pNames) {
+    TRACE_EVENT_BEGIN("API", "zeGraphGetArgumentNames");
+    if (IS_API_EXT_TRACE())
+        std::cerr << _trace_zeGraphGetArgumentNames(hGraph, argIndex, nameType, pSize, pNames) +
+                         "..\n";
+}
+inline void trace_zeGraphGetArgumentNames(ze_result_t ret,
+                                          ze_graph_handle_t hGraph,
+                                          uint32_t argIndex,
+                                          ze_graph_argument_name_type_t nameType,
+                                          size_t *pSize,
+                                          char *pNames) {
+    TRACE_EVENT_END("API");
+    if (IS_API_EXT_TRACE())
+        std::cerr << _trace_zeGraphGetArgumentNames(hGraph, argIndex, nameType, pSize, pNames) +
+                         trace_ze_result_t(ret);
+}
+
+inline std::string
 _trace_zeGraphQueryNetworkCreate(ze_context_handle_t hContext,
                                  ze_device_handle_t hDevice,
                                  const ze_graph_desc_t *desc,

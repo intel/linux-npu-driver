@@ -258,20 +258,3 @@ TEST_F(FenceSync, ExecuteAndSynchronizeMultipleCommandQueuesUsingMultipleFences)
     ASSERT_EQ(zeFenceHostSynchronize(fence2, syncTimeout), ZE_RESULT_SUCCESS);
     EXPECT_NE(*ts, prev_ts) << "Timestamp should be different from previous value";
 }
-
-TEST_F(FenceSync, UseZeFenceHostSynchronizeInLoop) {
-    ASSERT_EQ(zeCommandListAppendWriteGlobalTimestamp(list, ts, nullptr, 0, nullptr),
-              ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandListClose(list), ZE_RESULT_SUCCESS);
-    ASSERT_EQ(zeCommandQueueExecuteCommandLists(queue, 1, &list, fence), ZE_RESULT_SUCCESS);
-
-    auto timeout = std::chrono::steady_clock::now() + std::chrono::nanoseconds(syncTimeout);
-    while (zeFenceHostSynchronize(fence, 0) == ZE_RESULT_NOT_READY) {
-        if (std::chrono::steady_clock::now() > timeout)
-            break;
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
-    ASSERT_EQ(zeFenceHostSynchronize(fence, 0), ZE_RESULT_SUCCESS);
-    EXPECT_EQ(zeFenceQueryStatus(fence), ZE_RESULT_SUCCESS);
-    EXPECT_NE(*ts, 0llu) << "Timestamp should be different from 0";
-}

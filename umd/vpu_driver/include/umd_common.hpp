@@ -16,6 +16,7 @@
 #include <type_traits>
 #include <typeinfo>
 #include <unordered_map>
+#include <vpux_headers/device_buffer.hpp>
 
 template <typename T>
 bool checkPtrAlignment(const void *p) noexcept {
@@ -71,5 +72,5 @@ inline size_t getFwDataCacheAlign(size_t a) {
     return ALIGN(a, 64);
 }
 
-using ArgumentStrides = std::array<uint32_t, 5>;
+using ArgumentStrides = std::array<uint32_t, elf::DeviceBufferMaxStrides>;
 using ArgumentStridesMap = std::unordered_map<uint32_t, ArgumentStrides>;
