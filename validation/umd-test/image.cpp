@@ -49,6 +49,7 @@ struct Image::Impl {
 #else
 #include "utilities/data_handle.h"
 
+#include <cstdlib>
 #include <vector>
 
 struct __attribute__((packed)) BmpFileHeader {
