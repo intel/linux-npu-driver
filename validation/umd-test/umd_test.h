@@ -247,6 +247,7 @@ class UmdTest : public ::testing::Test {
     bool isVPU37xx() { return test_app::is_vpu37xx(pciDevId); }
     bool isVPU40xx() { return test_app::is_vpu40xx(pciDevId); }
     bool isVPU50xx() { return test_app::is_vpu50xx(pciDevId); }
+    bool isVPU60xx() { return test_app::is_vpu60xx(pciDevId); }
 
     ze_driver_handle_t zeDriver = nullptr;
     ze_device_handle_t zeDevice = nullptr;
