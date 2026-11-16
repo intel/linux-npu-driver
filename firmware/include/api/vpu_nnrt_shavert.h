@@ -46,7 +46,7 @@ struct VPU_ALIGNED_STRUCT(8) VpuNNShaveRuntimeConfigs {
         } stack_frames_ref;
 
         /**
-         * @brief NPU4-5 platforms: Direct array of stack frame pointers.
+         * @brief NPU4-6 platforms: Direct array of stack frame pointers.
          * The stack frame pointers are stored directly in the struct, not as a reference.
          */
         uint32_t stack_frames[12];

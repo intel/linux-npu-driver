@@ -1285,6 +1285,11 @@ struct vpu_ipc_msg_payload_hws_set_context_sched_properties {
     uint32_t realtime_priority_level;
     /** Priority relative to other contexts in the same process */
     int32_t in_process_priority;
+    /**
+     * QOS level to assign to work of this context.
+     * Available QOS values: @see enum vpu_job_qos_level
+     * QOS is only supported on NPU 60XX onwards
+     */
     uint32_t qos;
     /**
      * Context quantum relative to other contexts of same priority in the same process

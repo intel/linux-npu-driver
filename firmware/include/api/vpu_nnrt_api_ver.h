@@ -30,7 +30,7 @@
  * NNRT API Changelog
  * ==========================================================================================
  *
- *                                     NPU4-5 (40XX)
+ *                                     NPU4-6 (40XX)
  *
  * ==========================================================================================
  *  Version  | Changes
@@ -58,7 +58,7 @@
  * ----------+-------------------------------------------------------------------------------
  *  11.13.3  | - Added struct to contain floating-point operations in vpu_nnrt_wlm.h
  *           |   to support dynamic PVP.
- *           |   Note: These fields are not accessed for NPU4/5.
+ *           |   Note: These values are only used for NPU6.
  * ----------+-------------------------------------------------------------------------------
  *  11.13.2  | - Removed VpuTaskInfo, BarrierReferenceMap, VpuManagedMappedInferenceInfo
  *           |   debug structs.
@@ -71,7 +71,7 @@
  *           |   with C style comments.
  * ----------+-------------------------------------------------------------------------------
  *  11.13.1  | - Replaced stack frame storage in VpuNNShaveRuntimeConfigs
- *           |   with a union, providing a fixed-size array for NPU4-5.
+ *           |   with a union, providing a fixed-size array for NPU4-6.
  * ----------+-------------------------------------------------------------------------------
  *  11.13    | - Accept CMX Shave stack frames from the blob.
  * ----------+-------------------------------------------------------------------------------
@@ -113,7 +113,7 @@
  * ----------+-------------------------------------------------------------------------------
  */
 
-/* NPU4-5 (40XX) */
+/* NPU4-6 (40XX) */
 #define VPU_NNRT_40XX_API_VER_MAJOR 11
 #define VPU_NNRT_40XX_API_VER_MINOR 15
 #define VPU_NNRT_40XX_API_VER_PATCH 2
@@ -141,7 +141,7 @@
  * 1.21:
  *  - Fixed SHAVEs not self clock gating while waiting on 4K barriers.
  *
- * 1.20:
+ * 1.20 (NPU6 only):
  *  - Add virtual tile ID & number of virtual tiles to Shave runtime start parameters.
  *
  * 1.19:
@@ -179,7 +179,7 @@
  *  - Window 1F reset to the beginning of CMX tile
  *
  * 1.9:
- *   - Add clock gating support
+ *   - Add NVL clock gating support
  *
  * 1.8:
  *   - Support Shave Shutdown control message
@@ -189,9 +189,13 @@
 #define VPU_ACT_RT_VER_MAJOR 1
 #define VPU_ACT_RT_VER_MINOR 9
 #define VPU_ACT_RT_VER_PATCH 3
-#else
+#elif !defined(CONFIG_TARGET_SOC_6000)
 #define VPU_ACT_RT_VER_MAJOR 1
 #define VPU_ACT_RT_VER_MINOR 22
+#define VPU_ACT_RT_VER_PATCH 0
+#else
+#define VPU_ACT_RT_VER_MAJOR 1
+#define VPU_ACT_RT_VER_MINOR 21
 #define VPU_ACT_RT_VER_PATCH 0
 #endif
 #define VPU_ACT_RT_VER ((VPU_ACT_RT_VER_MAJOR << 16) | VPU_ACT_RT_VER_MINOR)
