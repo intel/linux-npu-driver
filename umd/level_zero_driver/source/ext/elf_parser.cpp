@@ -21,6 +21,7 @@
 #include "vpu_driver/source/device/vpu_37xx/vpu_hw_37xx.hpp"
 #include "vpu_driver/source/device/vpu_40xx/vpu_hw_40xx.hpp"
 #include "vpu_driver/source/device/vpu_50xx/vpu_hw_50xx.hpp"
+#include "vpu_driver/source/device/vpu_60xx/vpu_hw_60xx.hpp"
 #include "vpu_driver/source/device/vpu_device_context.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 #include "vpu_driver/source/utilities/trace_perfetto.hpp" // IWYU pragma: keep
@@ -370,6 +371,8 @@ static inline elf::platform::ArchKind toArchKind(uint32_t deviceId) {
         return elf::platform::ArchKind::NPU5010;
     case PCI_DEVICE_ID_WCL:
         return elf::platform::ArchKind::NPU5020;
+    case PCI_DEVICE_ID_NVL:
+        return elf::platform::ArchKind::NPU6010;
     default:
         return elf::platform::ArchKind::UNKNOWN;
     }
