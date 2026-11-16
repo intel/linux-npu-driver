@@ -15,7 +15,7 @@ option(ENABLE_LEVEL_ZERO_FROM_SUBMODULE "Force building Level Zero from submodul
 include(FetchContent)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-set(LEVEL_ZERO_VERSION "1.33.1")
+set(LEVEL_ZERO_VERSION "1.34.0")
 
 if(NOT ENABLE_LEVEL_ZERO_FROM_SUBMODULE)
   find_package(LevelZero ${LEVEL_ZERO_VERSION})
@@ -26,30 +26,37 @@ if(NOT ENABLE_LEVEL_ZERO_FROM_SUBMODULE
    AND (LINUX_SYSTEM_VERSION_ID STREQUAL "24.04"
         OR LINUX_SYSTEM_VERSION_ID STREQUAL "26.04"))
 
-  # Official libze1/libze-dev .deb packages published upstream:
-  # https://github.com/oneapi-src/level-zero/releases/tag/v${LEVEL_ZERO_VERSION}
-  # Upstream does not publish a u26.04 build yet, so 26.04 reuses the u24.04 package.
+  # libze package source:
+  # https://launchpad.net/~kobuk-team/+archive/ubuntu/intel-graphics/+files/libze1*
+  # https://launchpad.net/~kobuk-team/+archive/ubuntu/intel-graphics/+files/libze-dev*
   set(PKG_NAMES libze1;libze-dev)
-  set(PKG_URL_BASE https://github.com/oneapi-src/level-zero/releases/download/v${LEVEL_ZERO_VERSION})
-  set(LEVEL_ZERO_PKG_SUFFIX "u24.04")
-  set(PKG_SHA256S 298d6d3656a13f112497f557be2cb557efb67374bc7d069aa77a9115db909e1d;63eac32aecaaaa5010dbce01e3c309c8edac9bdd80c2fe54c6cbcd77fded714b)
+  set(PPA_URL https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20261110T100000Z/pool/main/l/level-zero-loader)
 
-  foreach(PKG_NAME PKG_SHA256 IN ZIP_LISTS PKG_NAMES PKG_SHA256S)
-    set(PKG_FILE_NAME ${PKG_NAME}_${LEVEL_ZERO_VERSION}+${LEVEL_ZERO_PKG_SUFFIX}_amd64.deb)
-    set(PKG_URL ${PKG_URL_BASE}/${PKG_FILE_NAME})
+  if(LINUX_SYSTEM_VERSION_ID STREQUAL "24.04")
+    set(UBUNTU_PPA_SUFFIX "24.04")
+    set(PKG_MD5S c2b5f30fe2f9527d6fcfbdf4bf0cdc62;e50b98278fcb79fd21b4d8264b90aa7e)
+  elseif(LINUX_SYSTEM_VERSION_ID STREQUAL "26.04")
+    set(UBUNTU_PPA_SUFFIX "26.04")
+    set(PKG_MD5S 2dd901447c21629294da5f66d91fcdca;dbfdf80f0042813e7b3d29cfe32160af)
+  endif()
+
+  foreach(PKG_NAME PKG_MD5 IN ZIP_LISTS PKG_NAMES PKG_MD5S)
+    set(PKG_URL
+          ${PPA_URL}/${PKG_NAME}_${LEVEL_ZERO_VERSION}-1~${UBUNTU_PPA_SUFFIX}~ppa1_amd64.deb
+    )
 
     message(STATUS "Downloading LevelZero package: ${PKG_NAME} from ${PKG_URL}")
     FetchContent_Declare(
       ${PKG_NAME}
       URL ${PKG_URL}
-      URL_HASH SHA256=${PKG_SHA256}
+      URL_HASH MD5=${PKG_MD5}
       SOURCE_DIR ${CMAKE_BINARY_DIR}
       DOWNLOAD_NO_EXTRACT TRUE)
     FetchContent_MakeAvailable(${PKG_NAME})
     execute_process(
       COMMAND
         dpkg -x
-        ${${PKG_NAME}_SOURCE_DIR}/${PKG_FILE_NAME}
+        ${${PKG_NAME}_SOURCE_DIR}/${PKG_NAME}_${LEVEL_ZERO_VERSION}-1~${UBUNTU_PPA_SUFFIX}~ppa1_amd64.deb
         ${CMAKE_CURRENT_BINARY_DIR}/level-zero/ COMMAND_ERROR_IS_FATAL ANY)
   endforeach()
 
