@@ -61,6 +61,10 @@
     if (is_vpu50xx())     \
     SKIP_(msg)
 
+#define SKIP_VPU60XX(msg) \
+    if (is_vpu60xx())     \
+    SKIP_(msg)
+
 #define SKIP_ANDROID(msg) \
     if (is_android())     \
     SKIP_(msg)
@@ -298,6 +302,7 @@ class KmdTest : public ::testing::Test {
     bool is_vpu37xx() { return test_app::is_vpu37xx(pci_id); }
     bool is_vpu40xx() { return test_app::is_vpu40xx(pci_id); }
     bool is_vpu50xx() { return test_app::is_vpu50xx(pci_id); }
+    bool is_vpu60xx() { return test_app::is_vpu60xx(pci_id); }
     bool is_silicon();
     bool is_simics();
     bool is_fpga();

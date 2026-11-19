@@ -100,7 +100,7 @@ if (ENABLE_ONNXRUNTIME_PACKAGE)
         PATCH_COMMAND ""
         CONFIGURE_COMMAND ""
         INSTALL_COMMAND ""
-        BUILD_COMMAND env OpenVINO_DIR=${OPENVINO_BINARY_DIR} ${ONNXRUNTIME_SOURCE_DIR}/build.sh --use_openvino --skip_tests --parallel --config ${CMAKE_BUILD_TYPE} --cmake_extra_defines "CMAKE_CXX_FLAGS='-Wno-error=redundant-move -Wno-error=free-nonheap-object'"
+        BUILD_COMMAND env OpenVINO_DIR=${OPENVINO_BINARY_DIR} ${ONNXRUNTIME_SOURCE_DIR}/build.sh --use_openvino --no_telemetry --skip_tests --parallel --config ${CMAKE_BUILD_TYPE} --cmake_extra_defines "CMAKE_CXX_FLAGS='-Wno-error=redundant-move -Wno-error=free-nonheap-object'"
         BUILD_IN_SOURCE ON)
 
     set(ONNXRUNTIME_PACKAGE_DIR "${CMAKE_BINARY_DIR}/third_party/onnxruntime-package")

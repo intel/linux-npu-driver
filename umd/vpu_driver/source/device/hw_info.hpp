@@ -13,6 +13,7 @@
 #include "vpu_driver/source/device/vpu_37xx/vpu_hw_37xx.hpp"
 #include "vpu_driver/source/device/vpu_40xx/vpu_hw_40xx.hpp"
 #include "vpu_driver/source/device/vpu_50xx/vpu_hw_50xx.hpp"
+#include "vpu_driver/source/device/vpu_60xx/vpu_hw_60xx.hpp"
 
 #include <array>
 #include <functional>
@@ -25,7 +26,7 @@ constexpr uint64_t PERF_FREQUENCY_DEFAULT_HZ = 38'400'000;
 
 namespace VPU {
 
-enum NPUArch { NPUUNKNOWN = 0, NPU37XX, NPU40XX, NPU50XX };
+enum NPUArch { NPUUNKNOWN = 0, NPU37XX, NPU40XX, NPU50XX, NPU60XX };
 
 using GetCopyCommand = bool(uint64_t, uint64_t, size_t, VPUDescriptor &);
 using PrintCopyDescriptor = void(void *, vpu_cmd_header_t *);
@@ -81,6 +82,8 @@ inline VPUHwInfo getHwInfoByDeviceId(uint32_t deviceId) {
     case PCI_DEVICE_ID_PTL_P:
     case PCI_DEVICE_ID_WCL:
         return getHwInfo50xx(deviceId);
+    case PCI_DEVICE_ID_NVL:
+        return getHwInfo60xx();
     }
     throw std::runtime_error("Unrecognized PCI device ID");
 }

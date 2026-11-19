@@ -11,6 +11,7 @@
 #include "vpu_driver/source/device/vpu_37xx/vpu_hw_37xx.hpp"
 #include "vpu_driver/source/device/vpu_40xx/vpu_hw_40xx.hpp"
 #include "vpu_driver/source/device/vpu_50xx/vpu_hw_50xx.hpp"
+#include "vpu_driver/source/device/vpu_60xx/vpu_hw_60xx.hpp"
 #include "vpu_driver/source/utilities/log.hpp"
 
 #include <bitset>
@@ -56,6 +57,10 @@ bool NullOsInterfaceImp::configureNullDevice() {
         nullHwInfo = getHwInfoByDeviceId(PCI_DEVICE_ID_WCL);
         nullHwInfo.deviceId = PCI_DEVICE_ID_WCL;
         LOG_W("WCL(%#x) null device is set.", nullHwInfo.deviceId);
+    } else if (std::string("INPU_NVL") == env || std::string("NOVALAKE") == env) {
+        nullHwInfo = getHwInfoByDeviceId(PCI_DEVICE_ID_NVL);
+        nullHwInfo.deviceId = PCI_DEVICE_ID_NVL;
+        LOG_W("NVL(%#x) null device is set.", nullHwInfo.deviceId);
     } else if (std::string("ARROWLAKE") == env) {
         nullHwInfo = getHwInfoByDeviceId(PCI_DEVICE_ID_ARL);
         nullHwInfo.deviceId = PCI_DEVICE_ID_ARL;
